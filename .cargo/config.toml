@@ -1,0 +1,5 @@
+# Local Windows builds use the gnullvm toolchain (llvm-mingw). Link its unwinder
+# statically so the client extension and the server do not need libunwind.dll
+# next to them. CI and release builds on Windows use MSVC, which needs nothing.
+[target.x86_64-pc-windows-gnullvm]
+rustflags = ["-C", "target-feature=+crt-static"]

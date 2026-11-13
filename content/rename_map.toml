@@ -1,0 +1,115 @@
+# Old game id -> realm id. The Phase 1 content converter passes every id it
+# copies from the old game through this map, so no franchise-derived name
+# reaches the new code, data, database or protocol. Player-visible names were
+# already replaced on 2026-11-08 (Kaf name bible); this map finishes the job
+# for the internal ids that were left as they were then.
+#
+# New ids are the snake_case form of the approved English display name.
+# `token` is applied to derived ids (encounters, keys, prefixes) longest
+# match first; the other kinds are exact.
+
+[house]
+Gryffindor = "velkar"
+Slytherin = "nisera"
+Ravenclaw = "ilvane"
+Hufflepuff = "torvan"
+
+[spell]
+stupefy = "stun_bolt"
+incendio = "flame_wave"
+bombarda = "shockwave"
+expelliarmus = "disarm"
+protego = "ward_shield"
+glacius = "frost_grip"
+avada_arcana = "stella_ruina"
+
+[element]
+patronus = "ithrel_light"
+
+[mob]
+inferi = "drowned_one"
+inferi_warden = "drowned_warden"
+acromantula = "black_weaver"
+acromantula_venomfang = "venomfang_weaver"
+acromantula_broodguard = "broodguard"
+darksnatcher = "dark_bandit"
+dementor = "pallid"
+fluffy = "threehead"
+fluffy_head = "threehead_head"
+
+[mob_family]
+dementor = "pallid"
+
+[item]
+robe_auror = "robe_wardens_battle_cloak"
+broom_nimbus2000 = "broom_windcutter_2000"
+broom_firebolt = "broom_skysplitter"
+mat_thestral_hair = "mat_night_steed_hair"
+mat_acromantula_venom = "mat_weaver_venom"
+floo_powder = "hearth_dust"
+portkey_boot = "waylink_boot"
+
+[currency]
+galleons = "oril"
+
+[dungeon]
+forbidden_corridor = "sealed_wing"
+
+[travel]
+floo = "hearthway"
+portkey = "waylink"
+floo_courtyard = "hearth_pavilion"
+floo_hogsmeade = "hearth_orvell_square"
+floo_hagrid = "hearth_borins_hut"
+floo_great_hall = "hearth_great_hall"
+floo_caverns_camp = "hearth_blackweb_camp"
+passage_hogsmeade = "passage_orvell"
+
+[zone]
+hogsmeade = "orvell"
+hogsmeade_road = "orvell_road"
+hogsmeade_heights = "orvell_heights"
+hogsmeade_square = "orvell_square"
+quidditch_pitch = "skyring_pitch"
+hogwarts = "kaf_castle"
+
+[npc]
+hagrid = "borin"
+ollivander = "kestrin"
+
+[rule]
+galleon_bonus = "oril_bonus"
+galleons_per_level = "oril_per_level"
+mana_per_second_slytherin = "mana_per_second_nisera"
+dementor_kiss = "pallid_drain"
+
+[token]
+acromantula_venomfang = "venomfang_weaver"
+acromantula_broodguard = "broodguard"
+acromantula = "black_weaver"
+inferi_warden = "drowned_warden"
+inferi = "drowned_one"
+fluffy_head = "threehead_head"
+fluffy = "threehead"
+darksnatcher = "dark_bandit"
+snatcher = "bandit"
+dementor = "pallid"
+forbidden_corridor = "sealed_wing"
+hogsmeade = "orvell"
+hogwarts = "kaf_castle"
+quidditch = "skyring"
+floo_powder = "hearth_dust"
+floo = "hearth"
+portkey = "waylink"
+galleon = "oril"
+thestral = "night_steed"
+auror = "warden"
+hagrid = "borin"
+ollivander = "kestrin"
+metin = "dark_shard"
+nimbus = "windcutter"
+firebolt = "skysplitter"
+gryffindor = "velkar"
+slytherin = "nisera"
+ravenclaw = "ilvane"
+hufflepuff = "torvan"

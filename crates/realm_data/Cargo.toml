@@ -1,0 +1,15 @@
+[package]
+name = "realm_data"
+description = "Compiled content tables (items, skills, creatures, quests, maps) read by every side."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true

@@ -1,0 +1,46 @@
+# Client budgets on the reference machine, low preset, 1920x1080 at 75 % render
+# scale, VSync off, the game's 60 fps cap on. Phase 6 exit criteria; the gate
+# blocks releases from Phase 4 on. Probe phases: idle, turn (camera sweep),
+# run, combat (crowd of walking bots around the probe).
+
+[reference]
+name = "reference PC (Intel iGPU)"
+
+[[rule]]
+metric = "p95_ms"
+max = 16.7
+phases = ["idle", "turn", "run", "combat"]
+why = "60 fps on the reference iGPU in the busiest scene"
+
+[[rule]]
+metric = "over33"
+max = 0
+phases = ["idle", "run", "combat"]
+why = "no frame under 30 fps while playing (loading screens excluded)"
+
+[[rule]]
+metric = "pipelines"
+max = 0
+phases = ["idle", "turn", "run", "combat"]
+why = "every shader pipeline compiled behind the loading screen"
+
+[[rule]]
+metric = "draws"
+max = 800
+why = "draw calls; atlases, MultiMesh and HLOD keep it down"
+
+[[rule]]
+metric = "primitives"
+max = 600000
+why = "triangles on screen; LOD, impostors and occlusion keep it down"
+
+[[rule]]
+metric = "in_kBps"
+max = 8
+phases = ["combat"]
+why = "server-to-client bandwidth per player in a crowd"
+
+[[rule]]
+metric = "memory.total_mb"
+max = 2560
+why = "private + shared GPU memory, so 8 GB laptops keep room for the OS"

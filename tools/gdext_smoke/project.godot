@@ -1,0 +1,6 @@
+; Smallest Godot project that loads the realm_client extension.
+config_version=5
+
+[application]
+config/name="realm gdext smoke"
+config/features=PackedStringArray("4.7")

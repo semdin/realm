@@ -1,0 +1,73 @@
+name: ci
+
+# Every push to main and every pull request: format, lint, build on the three
+# client platforms, then prove the two pieces that are hardest to get right on
+# a new platform: the QUIC transport (server selfcheck) and the GDExtension
+# loading in the pinned Godot (client smoke). GitHub-hosted runners only; the
+# game box's self-hosted runner stays reserved for the live game's releases.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  GODOT_VERSION: '4.7.2'
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-26.04
+            godot_zip: linux.x86_64.zip
+            godot_bin: Godot_v4.7.2-stable_linux.x86_64
+            ext: librealm_client.so
+          - os: windows-2025-vs2026
+            godot_zip: win64.exe.zip
+            godot_bin: Godot_v4.7.2-stable_win64_console.exe
+            ext: realm_client.dll
+          - os: macos-26
+            godot_zip: macos.universal.zip
+            godot_bin: Godot.app/Contents/MacOS/Godot
+            ext: librealm_client.dylib
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Install the pinned toolchain
+        run: rustup show active-toolchain || rustup toolchain install
+
+      - uses: Swatinem/rust-cache@v2.9.3
+
+      - name: Format
+        if: matrix.os == 'ubuntu-26.04'
+        run: cargo fmt --all --check
+
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --release -- -D warnings
+
+      - name: Build
+        run: cargo build --workspace --release
+
+      - name: QUIC transport selfcheck
+        run: cargo run --release -p realm_server -- selfcheck
+
+      - name: Godot extension smoke
+        run: |
+          curl -sSfL -o godot.zip "https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_${{ matrix.godot_zip }}"
+          unzip -q godot.zip -d godot
+          mkdir -p tools/gdext_smoke/bin
+          cp "target/release/${{ matrix.ext }}" tools/gdext_smoke/bin/
+          godot="godot/${{ matrix.godot_bin }}"
+          chmod +x "$godot" || true
+          "$godot" --headless --path tools/gdext_smoke --import > /dev/null 2>&1 || true
+          proto=$(grep -oE 'PROTOCOL_VERSION: u16 = [0-9]+' crates/realm_proto/src/lib.rs | grep -oE '[0-9]+$')
+          hz=$(grep -oE 'SIM_HZ: u32 = [0-9]+' crates/realm_sim/src/lib.rs | grep -oE '[0-9]+$')
+          "$godot" --headless --path tools/gdext_smoke -s res://smoke.gd -- "$proto" "$hz"
