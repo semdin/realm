@@ -4477,8 +4477,8 @@ msgstr "Karaağ Kampı"
 msgid "the Wishing Room"
 msgstr "Dilek Odası"
 
-msgid "Step into the Vanishing Cabinet"
-msgstr "Kaybolma Dolabına gir"
+msgid "Step into the Twinned Cabinet"
+msgstr "İkiz Dolaba gir"
 
 msgid "the Egg Caverns"
 msgstr "Yumurta Mağaraları"

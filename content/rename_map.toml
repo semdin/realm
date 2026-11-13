@@ -67,6 +67,8 @@ floo_hagrid = "hearth_borins_hut"
 floo_great_hall = "hearth_feast_hall"
 floo_caverns_camp = "hearth_blackweb_camp"
 passage_hogsmeade = "passage_orvell"
+cabinet_requirement = "cabinet_wishing_room"
+witch_statue = "stone_raven"
 
 [zone]
 hogsmeade = "orvell"
@@ -122,7 +124,11 @@ slytherin = "nisera"
 ravenclaw = "ilvane"
 hufflepuff = "torvan"
 
-# Player-visible phrases. Great Hall -> Feast Hall approved 2026-11-13.
+# Player-visible phrases. Great Hall -> Feast Hall, Vanishing Cabinet ->
+# Twinned Cabinet and One-Eyed Witch -> Stone Raven approved 2026-11-13.
 [text]
 "The Great Hall" = "The Feast Hall"
 "Great Hall" = "Feast Hall"
+"Vanishing Cabinet" = "Twinned Cabinet"
+"One-Eyed Witch" = "Stone Raven"
+"Room of Requirement" = "Wishing Room"

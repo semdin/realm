@@ -68,7 +68,7 @@
       "yaw": -10.5,
       "level_min": 24
     },
-    "cabinet_requirement": {
+    "cabinet_wishing_room": {
       "kind": "cabinet",
       "map": "castle_interior",
       "label": "the Wishing Room",
@@ -79,7 +79,7 @@
       ],
       "yaw": 0.0,
       "pair": "cabinet_caverns",
-      "prompt": "Step into the Vanishing Cabinet"
+      "prompt": "Step into the Twinned Cabinet"
     },
     "cabinet_caverns": {
       "kind": "cabinet",
@@ -91,11 +91,11 @@
         24.0
       ],
       "yaw": 69.0,
-      "pair": "cabinet_requirement",
+      "pair": "cabinet_wishing_room",
       "level_min": 28,
-      "prompt": "Step into the Vanishing Cabinet"
+      "prompt": "Step into the Twinned Cabinet"
     },
-    "witch_statue": {
+    "stone_raven": {
       "kind": "passage",
       "map": "castle_interior",
       "label": "the Stone Raven",
@@ -119,7 +119,7 @@
         -128.0
       ],
       "yaw": 135.0,
-      "pair": "witch_statue",
+      "pair": "stone_raven",
       "model": "hatch",
       "prompt": "Climb down the cellar hatch"
     }
@@ -145,13 +145,13 @@
     ]
   },
   "cabinet": {
-    "_comment": "Vanishing Cabinets: twin cabinets, free, one person; stepping into one sets you down in front of its `pair`.",
+    "_comment": "Twinned Cabinets: twin cabinets, free, one person; stepping into one sets you down in front of its `pair`.",
     "radius": 2.9,
     "arrive": 2.4,
     "combat_lock_s": 5.0
   },
   "passage": {
-    "_comment": "Secret passages (the One-Eyed Witch): free, one person, to the node named `pair`.",
+    "_comment": "Secret passages (the Stone Raven): free, one person, to the node named `pair`.",
     "radius": 2.2,
     "arrive": 1.7,
     "combat_lock_s": 5.0

@@ -303,6 +303,7 @@ func _on_answer(answer: Dictionary) -> void:
 		return
 	_pending_request = 0
 	if bool(answer.get("ok", false)):
+		AudioManager.play_potion()
 		return
 	# i18n-begin
 	var words := {"resource_full": "Already full", "item_missing": "None left", "casting": "Finish casting first",

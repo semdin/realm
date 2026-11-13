@@ -57,6 +57,18 @@ var _estimated_velocity := Vector3.ZERO
 ## A standing caster turns to face what it casts at (radians; NAN = keep).
 var _turn_to := NAN
 
+const DEFAULT_WAND := "wand_ashwood"
+var _wand_key := ""
+
+## Puts `entry` (an item: id, tier, uid) in the hero's hand; an empty entry
+## leaves the hand empty. A no-op when it already holds that piece.
+func show_wand(entry: Dictionary) -> void:
+	var key := "%s:%d:%d" % [entry.get("id", ""), int(entry.get("tier", 0)), int(entry.get("uid", 0))]
+	if body == null or key == _wand_key:
+		return
+	_wand_key = key
+	HeroAppearance.show_equipped_wand(body, entry)
+
 func setup(house_color: Color, look: Dictionary = {}) -> void:
 	body = HeroAppearance.spawn(self, house_color)
 	if body == null:
@@ -64,7 +76,9 @@ func setup(house_color: Color, look: Dictionary = {}) -> void:
 	if not look.is_empty():
 		HeroAppearance.apply_look(body, look)
 	HeroAppearance.show_cloak(body, {"id": DEFAULT_CLOAK})
-	HeroAppearance.show_equipped_wand(body, {})
+	# Every hero holds the starter wand until its own gear says otherwise
+	# (other players' gear is not replicated yet).
+	show_wand({"id": DEFAULT_WAND})
 	var player := HeroAppearance.find_anim_player(body)
 	var skeleton := HeroAppearance._skeleton(body)
 	if player != null and skeleton != null:

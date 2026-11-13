@@ -10,6 +10,7 @@ config/features=PackedStringArray("4.7", "Mobile")
 [autoload]
 
 I18n="*res://scripts/autoload/i18n.gd"
+AudioManager="*res://scripts/systems/audio_manager.gd"
 
 [display]
 window/size/viewport_width=1600

@@ -46,6 +46,8 @@ var _mana_stat: StatBar
 var _exp_stat: StatBar
 var _target_stat: StatBar
 var _hit_hold_until := 0.0
+## The level last shown; a rise plays the level-up sound.
+var _shown_level := 0
 
 func _init() -> void:
 	name = "HUD"
@@ -252,6 +254,9 @@ func _process(_delta: float) -> void:
 	if data.is_empty():
 		return
 	var level := int(data["level"])
+	if _shown_level > 0 and level > _shown_level:
+		AudioManager.play_levelup()
+	_shown_level = level
 	var earned := int(data["exp"])
 	var needed := Levels.exp_threshold(level)
 	_exp_stat.set_value(earned, needed)

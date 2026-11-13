@@ -1,96 +1,91 @@
 extends Node3D
 class_name CombatView
 
-## Combat as the session reports it, drawn: the caster's cast clip when a cast
-## starts, a glowing bolt from the wand when a projectile is released (homing
-## on the creature the cast named), a short expanding sphere where a spell
-## bursts, and a damage number over whoever is hit. It decides nothing; every
-## event comes from the server through RealmSession.take_combat_events, which
-## main.gd drains once per frame and hands here (`show_event`).
+## Combat as the session reports it, drawn: when a cast starts the caster's
+## hero plays the spell's clip and a bolt spell's charge gathers at its wand;
+## on the release a bolt leaves the wand (homing on the creature the cast
+## named), a cone sweeps out of it or a ward rises round the caster; where a
+## bolt lands its impact plays on the body or, for an area spell, a burst on
+## the spot; a damage number rises over whoever is hit. The looks are
+## SpellEffect stages (VFXLibrary) and WardShield, their sounds AudioManager's.
+## It decides nothing; every event comes from the server through
+## RealmSession.take_combat_events, which main.gd drains once per frame and
+## hands here (`show_event`).
 
 ## Where a cast aims on a creature, above its feet (the server's chest height).
 const CHEST := 1.15
 ## Damage numbers start this far above the body's feet.
 const NUMBER_HEIGHT := 2.0
-const BOLT_RADIUS := 0.12
-## The soft glow around a bolt, edge to edge (m).
-const GLOW_SIZE := 0.9
-const BURST_SECONDS := 0.35
-## A burst grows to this radius when the spell names none.
-const BURST_RADIUS := 1.5
+## Where a hero without a wand prop casts from (the server's wand height).
+const WAND_HEIGHT := 1.2
+## A body's girth where a spell meets it.
+const BODY_RADIUS := 0.45
 ## Hit flags (realm_proto CombatEvent::Hit).
 const FLAG_CRIT := 1
+## Longest a landing bolt takes to reach where it struck.
+const LAND_SECONDS := 0.25
 
-## The local player's entity id and hero, and the other players' heroes by
-## entity id (main.gd's table).
+## The local player's entity id and hero, the other players' heroes and the
+## modelled creatures by entity id (main.gd's tables).
 var own_id := 0
 var player: HeroView
 var heroes: Dictionary = {}
+var beasts: Dictionary = {}
 ## Every body's drawn position this frame by entity id, own included (main.gd
 ## fills it before the events are shown).
 var drawn: Dictionary = {}
-## Bolts in flight: {node, caster, spell, target, velocity, left}.
+## The RealmSession: the ground under a burst, the player's house and skills.
+var session: Node
+## Bolts in flight: {node, effect, caster, spell, target, velocity, left, path,
+## travelled, length, amp, side}.
 var _bolts: Array = []
-## Longest a landing bolt takes to reach where it struck.
-const LAND_SECONDS := 0.25
-## Bursts growing: {node, material, radius, age}.
-var _bursts: Array = []
-## Per caster: the target its last cast named, and its basic chain step.
+## Per caster: what its last cast named (spell, target, aim), and its basic
+## chain step.
 var _cast_targets := {}
 var _chain := {}
-var _looks := {}
-var _sphere: SphereMesh
-var _glow: QuadMesh
-## A radial falloff, white at the centre to clear at the rim: the glow's
-## shape, tinted per spell.
-var _falloff: GradientTexture2D
+## Raised wards by caster entity id.
+var _wards := {}
 
 static func spell(id: String) -> Dictionary:
 	return HudActionBar.spells().get(id, {})
 
+static func _delivery(id: String) -> String:
+	return String(spell(id).get("delivery", ""))
+
 func _init() -> void:
 	name = "CombatView"
-	_sphere = SphereMesh.new()
-	_sphere.radius = 1.0
-	_sphere.height = 2.0
-	_sphere.radial_segments = 16
-	_sphere.rings = 8
-	_glow = QuadMesh.new()
-	_glow.size = Vector2.ONE * GLOW_SIZE
-	var ramp := Gradient.new()
-	ramp.set_color(0, Color(1, 1, 1, 1))
-	ramp.set_color(1, Color(1, 1, 1, 0))
-	ramp.add_point(0.35, Color(1, 1, 1, 0.45))
-	_falloff = GradientTexture2D.new()
-	_falloff.gradient = ramp
-	_falloff.fill = GradientTexture2D.FILL_RADIAL
-	_falloff.fill_from = Vector2(0.5, 0.5)
-	_falloff.fill_to = Vector2(1.0, 0.5)
-	_falloff.width = 64
-	_falloff.height = 64
+
+func _ready() -> void:
+	# Every spell's sheets and sounds, before the first cast needs them.
+	for id: String in VFXLibrary.SPELLS:
+		SkillFX.warm_spell(id)
 
 func show_event(event: Dictionary) -> void:
 	match String(event.get("kind", "")):
 		"cast_started":
 			_cast_started(event)
 		"cast_released":
-			_launch(event)
+			_released(event)
 		"burst":
+			var caster := int(event["caster"])
 			var spell_id := String(event["spell"])
 			var at: Vector3 = event["at"]
-			if not _land(int(event["caster"]), spell_id, at, 0, func(): _burst(spell_id, at)):
-				_burst(spell_id, at)
+			if not _land(caster, spell_id, at, 0, func(dir: Vector3): _burst(caster, spell_id, at, dir)):
+				_burst(caster, spell_id, at, at - (drawn.get(caster, at) as Vector3))
 		"hit":
-			if not _land(int(event["attacker"]), String(event["spell"]), Vector3.ZERO, int(event["target"]), func(): _number(event)):
-				_number(event)
+			if not _land(int(event["attacker"]), String(event["spell"]), Vector3.ZERO, int(event["target"]),
+					func(dir: Vector3): _hit(event, dir)):
+				_hit(event, _incoming(event))
 
 ## The caster's hero plays the spell's clip, its release on the server's
-## windup (half the spell's cast lock, in whole ticks).
+## windup (half the spell's cast lock, in whole ticks); a bolt spell's charge
+## gathers at the wand meanwhile (the basic flick's sparks wait for the
+## release).
 func _cast_started(event: Dictionary) -> void:
 	var caster := int(event["caster"])
 	var spell_id := String(event["spell"])
-	var target := int(event.get("target", 0))
-	_cast_targets[caster] = {"spell": spell_id, "target": target}
+	var aim: Vector3 = event.get("aim", Vector3.ZERO)
+	_cast_targets[caster] = {"spell": spell_id, "target": int(event.get("target", 0)), "aim": aim}
 	var data := spell(spell_id)
 	var now := Time.get_ticks_msec() / 1000.0
 	var step := 0
@@ -101,48 +96,80 @@ func _cast_started(event: Dictionary) -> void:
 		_chain[caster] = {"next": (step + 1) % steps, "until": now + float(data.get("combo_window", 1.2))}
 	else:
 		_chain.erase(caster)
-	var hero: HeroView = player if caster == own_id else heroes.get(caster)
+	var hero := _hero(caster)
 	if hero == null:
 		return
 	var hz := float(RealmInfo.sim_hz())
 	var windup := maxf(1.0, round(float(data.get("cast_lock", 0.28)) * 0.5 * hz)) / hz
-	hero.play_cast(spell_id, event.get("aim", hero.position), windup, step)
+	hero.play_cast(spell_id, aim, windup, step)
+	if spell_id != "basic_cast" and _delivery(spell_id).begins_with("projectile"):
+		var wand := hero.position + Vector3.UP * WAND_HEIGHT
+		SkillFX.play_cast(self, hero, spell_id, wand, aim - wand, _house(caster))
 
-## A projectile leaves the wand: a small bright sphere in a soft glow of the
-## spell's colour that flies at the spell's speed for its range, bending toward
-## the cast's creature.
-func _launch(event: Dictionary) -> void:
+## The release: a cone sweeps out of the wand, a ward rises round the caster,
+## anything else flies as a bolt.
+func _released(event: Dictionary) -> void:
+	var caster := int(event["caster"])
 	var spell_id := String(event["spell"])
+	var from: Vector3 = event["from"]
+	var dir: Vector3 = event["dir"]
+	var hero := _hero(caster)
+	match _delivery(spell_id):
+		"cone":
+			SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
+		"self":
+			SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
+			_raise_ward(caster, hero)
+		_:
+			if spell_id == "basic_cast":
+				SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
+			_launch(caster, spell_id, SkillFX.emission_origin(hero, from), dir)
+
+## A bolt leaves the wand: the spell's travel stage riding a point that flies
+## at the spell's speed for its range, bending toward the cast's creature. A
+## spell with a `curve` bows off the straight line, sideways by a fraction of
+## its flight at a new angle every cast (rarely below it, so it does not dive
+## into the floor).
+func _launch(caster: int, spell_id: String, from: Vector3, dir: Vector3) -> void:
 	var data := spell(spell_id)
 	var speed := float(data.get("projectile_speed", 0.0))
 	if speed <= 0.0:
 		return
-	var caster := int(event["caster"])
 	var named: Dictionary = _cast_targets.get(caster, {})
-	var bolt := Node3D.new()
-	var core := MeshInstance3D.new()
-	core.mesh = _sphere
-	core.scale = Vector3.ONE * BOLT_RADIUS
-	core.material_override = _look(spell_id, "core")
-	core.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	bolt.add_child(core)
-	var glow := MeshInstance3D.new()
-	glow.mesh = _glow
-	glow.material_override = _look(spell_id, "glow")
-	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	bolt.add_child(glow)
-	add_child(bolt)
-	bolt.global_position = event["from"]
-	_bolts.append({"node": bolt, "caster": caster, "spell": spell_id,
-		"target": int(named.get("target", 0)) if String(named.get("spell", "")) == spell_id else 0,
-		"velocity": (event["dir"] as Vector3).normalized() * speed,
-		"left": float(data.get("range", 30.0)) / speed})
+	var mine := String(named.get("spell", "")) == spell_id
+	var target := int(named.get("target", 0)) if mine else 0
+	var aim := SkillFX.safe_direction(dir)
+	var node := Node3D.new()
+	node.name = "Bolt"
+	add_child(node)
+	node.global_position = from
+	var bolt := {"node": node, "caster": caster, "spell": spell_id, "target": target,
+		"velocity": aim * speed, "left": float(data.get("range", 30.0)) / speed,
+		"path": from, "travelled": 0.0, "length": 1.0, "amp": 0.0, "side": Vector3.ZERO,
+		"effect": SkillFX.spawn_stage(self, spell_id, "travel", from, aim, _hero(caster),
+			{"follow_target": node, "house": _house(caster)})}
+	var bend := float((VFXLibrary.SPELLS.get(spell_id, {}) as Dictionary).get("curve", 0.0))
+	if bend > 0.0:
+		var end: Vector3 = from + aim * 15.0
+		if drawn.has(target):
+			end = (drawn[target] as Vector3) + Vector3.UP * CHEST
+		elif mine:
+			end = named.get("aim", end)
+		bolt["length"] = maxf(1.0, from.distance_to(end))
+		bolt["amp"] = clampf(bend * float(bolt["length"]), 0.25, 1.5)
+		var right := aim.cross(Vector3.UP)
+		right = right.normalized() if right.length_squared() > 0.0001 else Vector3.RIGHT
+		var up := right.cross(aim).normalized()
+		var angle := randf_range(-0.15 * PI, 1.15 * PI)
+		bolt["side"] = (right * cos(angle) + up * sin(angle)).normalized()
+	_bolts.append(bolt)
 
 ## The server says the caster's oldest bolt of that spell landed (on `target`,
 ## else at `at`). The server resolves a hit within a tick or two of the
 ## release, before the drawn bolt has crossed the gap, so the bolt finishes
-## its flight there and `then` (the number, the burst) plays when it arrives.
-## False when no such bolt is in the air (a cone, or one already gone).
+## its flight there and `then` (the impact, the number) plays when it arrives,
+## given the bolt's last direction. False when no such bolt is in the air (a
+## cone, or one already gone).
 func _land(caster: int, spell_id: String, at: Vector3, target: int, then: Callable) -> bool:
 	for bolt: Dictionary in _bolts:
 		if int(bolt["caster"]) == caster and String(bolt["spell"]) == spell_id and not bolt.has("then"):
@@ -154,20 +181,54 @@ func _land(caster: int, spell_id: String, at: Vector3, target: int, then: Callab
 			return true
 	return false
 
-## An area spell bursts: a soft flash of the spell's colour, fading from the
-## centre outward as it grows to the spell's radius (no hard shell).
-func _burst(spell_id: String, at: Vector3) -> void:
-	var node := MeshInstance3D.new()
-	node.mesh = _glow
-	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# Each burst fades on its own, so it gets its own copy of the look.
-	var material := _look(spell_id, "burst").duplicate() as StandardMaterial3D
-	node.material_override = material
-	add_child(node)
-	node.global_position = at
-	node.scale = Vector3.ONE * 0.3
-	_bursts.append({"node": node, "material": material,
-		"radius": float(spell(spell_id).get("radius", BURST_RADIUS)), "age": 0.0})
+## The bolt at `index` ends: its wake fades where it is, and what was waiting
+## on its arrival plays.
+func _end_bolt(index: int) -> void:
+	var bolt: Dictionary = _bolts[index]
+	_bolts.remove_at(index)
+	var effect: Variant = bolt["effect"]
+	if is_instance_valid(effect):
+		(effect as SpellEffect).retire_travel()
+	if bolt.has("then"):
+		(bolt["then"] as Callable).call((bolt["velocity"] as Vector3).normalized())
+	(bolt["node"] as Node).queue_free()
+
+## An area spell bursts on the spot, its ground ring on the floor under it,
+## laid along the slope measured near its rim (where the ring is brightest).
+func _burst(caster: int, spell_id: String, at: Vector3, dir: Vector3) -> void:
+	var ground := _floor_under(at)
+	var normal := Vector3.UP
+	var reach := maxf(1.0, float(spell(spell_id).get("radius", 2.0)) * 0.8)
+	var east := _floor_under(at + Vector3(reach, 0, 0), reach) - _floor_under(at - Vector3(reach, 0, 0), reach)
+	var south := _floor_under(at + Vector3(0, 0, reach), reach) - _floor_under(at - Vector3(0, 0, reach), reach)
+	if ground > SpellEffect.NO_FLOOR and absf(east) < reach * 2.0 and absf(south) < reach * 2.0:
+		normal = Vector3(-east / (2.0 * reach), 1.0, -south / (2.0 * reach)).normalized()
+	SkillFX.play_impact(self, at, spell_id, dir, ground, normal, _house(caster))
+
+## A hit: the damage number, the blow's sound for the player's own hurt and
+## own critical hits, a ripple on a raised ward, and the spell's impact on the
+## side of the body it came from (an area spell's burst already covers its
+## victims).
+func _hit(event: Dictionary, dir: Vector3) -> void:
+	var target := int(event["target"])
+	var attacker := int(event["attacker"])
+	var spell_id := String(event["spell"])
+	_number(event)
+	if target == own_id or (attacker == own_id and (int(event.get("flags", 0)) & FLAG_CRIT) != 0):
+		AudioManager.play_hit()
+	if not drawn.has(target):
+		return
+	var feet: Vector3 = drawn[target]
+	var contact := SkillFX.body_contact(feet, CHEST, BODY_RADIUS, dir)
+	if is_instance_valid(_wards.get(target)):
+		(_wards[target] as WardShield).on_hit(contact)
+	if VFXLibrary.has_spell(spell_id) and _delivery(spell_id) != "projectile_aoe":
+		SkillFX.play_hit_on(self, _body(target), contact, feet.y, spell_id, dir, _house(attacker))
+
+## Which way a blow without a bolt came: from the attacker to the target.
+func _incoming(event: Dictionary) -> Vector3:
+	var at: Vector3 = drawn.get(int(event["target"]), Vector3.ZERO)
+	return at - (drawn.get(int(event["attacker"]), at - Vector3.FORWARD) as Vector3)
 
 ## A damage number over the body that was hit: white, a bigger yellow-orange
 ## with "!" for a critical hit, red when the local player is the one hit.
@@ -188,32 +249,49 @@ func _number(event: Dictionary) -> void:
 		size = 1.5
 	FloatingText.spawn(self, (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0), text, colour, size)
 
-## One unshaded material per spell and layer: the bright core, the soft
-## additive glow facing the camera, the translucent burst shell.
-func _look(spell_id: String, layer: String) -> StandardMaterial3D:
-	var key := spell_id + ":" + layer
-	if _looks.has(key):
-		return _looks[key]
-	var colour := Color.html(String(spell(spell_id).get("color", "#ffffff")))
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	match layer:
-		"core":
-			material.albedo_color = colour.lerp(Color.WHITE, 0.45)
-		"glow":
-			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-			material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-			material.albedo_texture = _falloff
-			material.albedo_color = Color(colour, 0.8)
-		"burst":
-			material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-			material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-			material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-			material.albedo_texture = _falloff
-			material.albedo_color = Color(colour, 0.5)
-	_looks[key] = material
-	return material
+## A ward round `hero` for as long as the server holds it: the spell's
+## duration, scaled by the caster's skill level when it is the player's own.
+func _raise_ward(caster: int, hero: HeroView) -> void:
+	if hero == null:
+		return
+	if is_instance_valid(_wards.get(caster)):
+		(_wards[caster] as Node).queue_free()
+	var seconds := float(spell("ward_shield").get("duration_ms", 3500)) / 1000.0
+	var combat: Variant = RealmContent.table("combat")
+	if caster == own_id and session != null and combat is Dictionary:
+		var skills: Dictionary = (combat as Dictionary).get("skills", {})
+		var level := clampi(int(session.skill_level("ward_shield")), 1, int(skills.get("max_level", 10)))
+		seconds *= 1.0 + float(skills.get("effect_per_level", 0.0)) * (level - 1)
+	_wards[caster] = WardShield.raise(self, hero, seconds)
+
+func _hero(id: int) -> HeroView:
+	return player if id == own_id else heroes.get(id)
+
+## The drawn body of an entity (a hero or a modelled creature), or null.
+func _body(id: int) -> Node3D:
+	var hero := _hero(id)
+	return hero if hero != null else beasts.get(id)
+
+## The caster's house, for a spell drawn in house colours (only the player's
+## own is known).
+func _house(caster: int) -> String:
+	if caster != own_id or session == null:
+		return ""
+	return String((session.sheet() as Dictionary).get("house", ""))
+
+## The ground under `at`, looking from `above` metres over it (a body
+## standing there counts with its feet), or SpellEffect.NO_FLOOR.
+func _floor_under(at: Vector3, above := 0.5) -> float:
+	if session == null:
+		return SpellEffect.NO_FLOOR
+	var hit: Dictionary = session.pick(at + Vector3.UP * above, Vector3.DOWN, 30.0 + above)
+	if hit.is_empty():
+		return SpellEffect.NO_FLOOR
+	var entity := int(hit["entity"])
+	if entity != 0 and drawn.has(entity):
+		return (drawn[entity] as Vector3).y
+	var point: Vector3 = hit["point"]
+	return point.y if point.y > at.y - 29.9 else SpellEffect.NO_FLOOR
 
 func _process(delta: float) -> void:
 	for i in range(_bolts.size() - 1, -1, -1):
@@ -221,10 +299,7 @@ func _process(delta: float) -> void:
 		var node: Node3D = bolt["node"]
 		bolt["left"] = float(bolt["left"]) - delta
 		if float(bolt["left"]) <= 0.0:
-			if bolt.has("then"):
-				(bolt["then"] as Callable).call()
-			node.queue_free()
-			_bolts.remove_at(i)
+			_end_bolt(i)
 			continue
 		var velocity: Vector3 = bolt["velocity"]
 		if bolt.has("then"):
@@ -236,33 +311,26 @@ func _process(delta: float) -> void:
 			var rest := end - node.global_position
 			var speed := maxf(velocity.length(), rest.length() / LAND_SECONDS)
 			if rest.length() <= speed * delta:
-				(bolt["then"] as Callable).call()
-				node.queue_free()
-				_bolts.remove_at(i)
+				node.global_position = end
+				_end_bolt(i)
 				continue
-			bolt["velocity"] = rest.normalized() * speed
-			node.global_position += rest.normalized() * speed * delta
-			continue
-		var target := int(bolt["target"])
-		if target != 0 and drawn.has(target):
-			# Homing: it waits on the creature's chest for the hit to arrive.
-			var to := (drawn[target] as Vector3) + Vector3(0, CHEST, 0) - node.global_position
-			if to.length() <= velocity.length() * delta:
-				node.global_position += to
-				continue
-			velocity = to.normalized() * velocity.length()
+			velocity = rest.normalized() * speed
 			bolt["velocity"] = velocity
-		node.global_position += velocity * delta
-	for i in range(_bursts.size() - 1, -1, -1):
-		var burst: Dictionary = _bursts[i]
-		burst["age"] = float(burst["age"]) + delta
-		var t := float(burst["age"]) / BURST_SECONDS
-		if t >= 1.0:
-			(burst["node"] as Node).queue_free()
-			_bursts.remove_at(i)
-			continue
-		# The flash quad is GLOW_SIZE wide; it grows to the spell's diameter.
-		var full := float(burst["radius"]) * 2.0 / GLOW_SIZE
-		(burst["node"] as Node3D).scale = Vector3.ONE * lerpf(0.3, full, 1.0 - (1.0 - t) * (1.0 - t))
-		var material: StandardMaterial3D = burst["material"]
-		material.albedo_color.a = 0.5 * (1.0 - t)
+			node.global_position += velocity * delta
+		else:
+			var path: Vector3 = bolt["path"]
+			var target := int(bolt["target"])
+			var step := velocity * delta
+			if target != 0 and drawn.has(target):
+				# Homing: it waits on the creature's chest for the hit to arrive.
+				var to := (drawn[target] as Vector3) + Vector3(0, CHEST, 0) - path
+				velocity = to.normalized() * velocity.length() if to.length_squared() > 0.0001 else velocity
+				bolt["velocity"] = velocity
+				step = to if to.length() <= velocity.length() * delta else velocity * delta
+			bolt["path"] = path + step
+			bolt["travelled"] = float(bolt["travelled"]) + step.length()
+			var bow := sin(PI * clampf(float(bolt["travelled"]) / float(bolt["length"]), 0.0, 1.0))
+			node.global_position = path + step + (bolt["side"] as Vector3) * float(bolt["amp"]) * bow
+		var effect: Variant = bolt["effect"]
+		if is_instance_valid(effect):
+			(effect as SpellEffect).direction = velocity.normalized()

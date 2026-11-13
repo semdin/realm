@@ -156,6 +156,20 @@ fn copy_one(
                 return;
             }
         }
+    } else if ext == "json" {
+        // Data next to art (a sound library, effect metadata): keys and
+        // values are names, renamed like paths; references are followed.
+        let Ok(mut json) = serde_json::from_slice::<Value>(&bytes) else {
+            run.problems.push(format!("{rel}: not JSON"));
+            return;
+        };
+        let text = serde_json::to_string(&json).unwrap_or_default();
+        follow_text(renamer, rel, &text, "json", queue);
+        json = rename_keys(renamer, json);
+        rename_strings(renamer, &mut json);
+        let out = serde_json::to_string_pretty(&json).unwrap_or_default();
+        check_words(renamer, &new_rel, &out, run);
+        out.into_bytes()
     } else if ext == "glb" {
         match rename_glb(renamer, &bytes) {
             Ok(Some(renamed)) => {
@@ -212,6 +226,9 @@ fn follow_text(
         rest = &tail[end..];
     }
     out.push_str(rest);
+    // Names in the text itself (shader comments, node names, effect ids) are
+    // renamed the same way, so references between files stay consistent.
+    let out = renamer.rename_path(&out);
     if ext == "gltf" {
         let dir = rel.rsplit_once('/').map_or("", |(d, _)| d);
         if let Ok(mut json) = serde_json::from_str::<Value>(&out) {
@@ -255,6 +272,21 @@ fn check_words(renamer: &Renamer, new_rel: &str, text: &str, run: &mut Run) {
 }
 
 /// Renames every string value (names, uris) in a glTF document.
+/// The same document with every object key renamed.
+fn rename_keys(renamer: &Renamer, value: Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.into_iter()
+                .map(|(k, v)| (renamer.rename_path(&k), rename_keys(renamer, v)))
+                .collect(),
+        ),
+        Value::Array(items) => {
+            Value::Array(items.into_iter().map(|v| rename_keys(renamer, v)).collect())
+        }
+        other => other,
+    }
+}
+
 fn rename_strings(renamer: &Renamer, value: &mut Value) -> bool {
     match value {
         Value::String(s) => {

@@ -268,10 +268,10 @@ impl Renamer {
     }
 
     /// Renames a file path or an asset name (a node, clip or material in a
-    /// model): every run of `_` segments between `/ . - : space` that spells
-    /// a token or an exact id is replaced. A capitalised run stays
-    /// capitalised (`Cast_Old_Spell` -> `Cast_New_Name`) and an upper-case one
-    /// upper-case.
+    /// model, a word in a text): every run of `_` segments between characters
+    /// that cannot be part of a name, when it spells a token or an exact id,
+    /// is replaced. A capitalised run stays capitalised (`Cast_Old_Spell` ->
+    /// `Cast_New_Name`) and an upper-case one upper-case.
     #[must_use]
     pub fn rename_path(&self, s: &str) -> String {
         let mut out = String::with_capacity(s.len());
@@ -429,12 +429,13 @@ impl Renamer {
     }
 }
 
-/// Splits at `/ . - : space`, keeping each separator with the part before it.
+/// Splits at every character that cannot be part of a name (anything but
+/// letters, digits and `_`), keeping each separator with the part before it.
 fn path_parts(s: &str) -> Vec<(&str, Option<char>)> {
     let mut parts = Vec::new();
     let mut start = 0;
     for (i, c) in s.char_indices() {
-        if matches!(c, '/' | '.' | '-' | ':' | ' ') {
+        if !(c.is_alphanumeric() || c == '_') {
             parts.push((&s[start..i], Some(c)));
             start = i + c.len_utf8();
         }

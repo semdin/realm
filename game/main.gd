@@ -48,7 +48,7 @@ var heroes := {}
 var sheet_view: PlayerSheet
 var hud: Control
 var inventory: Control
-## Casts, bolts, bursts and damage numbers.
+## Casts, bolts, impacts, bursts, wards and damage numbers.
 var combat: CombatView
 ## The selected creature (entity id, 0 = none).
 var target := 0
@@ -145,6 +145,8 @@ func _build_view() -> void:
 	combat = CombatView.new()
 	combat.player = player
 	combat.heroes = heroes
+	combat.beasts = beasts
+	combat.session = session
 	add_child(combat)
 	readout = Label.new()
 	readout.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
@@ -193,6 +195,8 @@ func toggle_inventory() -> void:
 var _shown_look := {}
 
 func _apply_sheet_look(sheet: Dictionary) -> void:
+	# The hand shows the worn wand (none when the slot is empty).
+	player.show_wand((sheet["equipment"] as Dictionary).get("main_hand", {}))
 	var look: Dictionary = sheet["look"]
 	if look == _shown_look or player.body == null:
 		return
@@ -384,6 +388,7 @@ func _say_refusal(spell: String, reason: String) -> void:
 			text = tr("Learn %s first - click its slot to spend a skill point") % I18n.t(String(data.get("name", spell)))
 	if text != "":
 		hud.show_notice(text, "warn")
+		AudioManager.play_deny()
 
 ## The check fights the nearest creature: a new target when it has none, a
 ## basic cast every CHECK_CAST_SECONDS.
