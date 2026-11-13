@@ -9,6 +9,9 @@ publish.workspace = true
 
 [dependencies]
 realm_sim.workspace = true
+realm_rules.workspace = true
+serde.workspace = true
+postcard.workspace = true
 ed25519-dalek.workspace = true
 getrandom.workspace = true
 

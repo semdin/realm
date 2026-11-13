@@ -1,5 +1,6 @@
-//! QUIC side of the map server. Each connection: a join stream (Hello with a
-//! signed ticket -> JoinReply), then inputs in and snapshots out as
+//! QUIC side of the map server. Each connection: a join stream (a Hello frame
+//! with a signed ticket -> a JoinReply frame) that then stays open as the
+//! control channel (framed messages both ways), inputs in and snapshots out as
 //! datagrams. Nothing here touches game state; it forwards to the simulation
 //! thread and writes what it gets back.
 
@@ -11,12 +12,13 @@ use bytes::Bytes;
 use crossbeam_channel::Sender;
 use quinn::crypto::rustls::QuicServerConfig;
 use quinn::{Endpoint, ServerConfig, TransportConfig, VarInt};
+use realm_proto::control::{self, FrameReader};
 use realm_proto::ticket::Ticket;
 use realm_proto::{JoinReply, PROTOCOL_VERSION, VerifyingKey};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 
 use crate::selfcheck::AnyResult;
-use crate::sim::{ConnId, NetEvent};
+use crate::sim::{CONTROL_QUEUE, ConnId, NetEvent};
 
 /// Malformed datagrams a connection may send before it is closed.
 const MALFORMED_LIMIT: u32 = 50;
@@ -71,6 +73,23 @@ pub async fn accept_loop(endpoint: Endpoint, sim: Sender<NetEvent>, key: Verifyi
     }
 }
 
+/// Reads from `recv` until `reader` holds a whole frame.
+async fn next_frame(
+    recv: &mut quinn::RecvStream,
+    reader: &mut FrameReader,
+) -> AnyResult<Option<Vec<u8>>> {
+    let mut chunk = [0_u8; 4096];
+    loop {
+        if let Some(frame) = reader.next_frame()? {
+            return Ok(Some(frame));
+        }
+        match recv.read(&mut chunk).await? {
+            Some(n) => reader.push(&chunk[..n]),
+            None => return Ok(None),
+        }
+    }
+}
+
 async fn connection(
     incoming: quinn::Incoming,
     conn: ConnId,
@@ -81,8 +100,11 @@ async fn connection(
     let connection = incoming.await?;
     let (mut send, mut recv) =
         tokio::time::timeout(Duration::from_secs(5), connection.accept_bi()).await??;
+    let mut reader = FrameReader::default();
     let hello_bytes =
-        tokio::time::timeout(Duration::from_secs(5), recv.read_to_end(1024)).await??;
+        tokio::time::timeout(Duration::from_secs(5), next_frame(&mut recv, &mut reader))
+            .await??
+            .ok_or("join stream closed before the hello")?;
 
     let refuse = |reason: &str| JoinReply::Refused(reason.to_owned());
     let verdict = match realm_proto::decode_hello(&hello_bytes) {
@@ -107,7 +129,7 @@ async fn connection(
     let ticket = match verdict {
         Ok(ticket) => ticket,
         Err(reply) => {
-            send.write_all(&realm_proto::encode_join_reply(&reply))
+            send.write_all(&control::frame(&realm_proto::encode_join_reply(&reply)))
                 .await?;
             send.finish()?;
             let _ = send.stopped().await;
@@ -117,19 +139,39 @@ async fn connection(
     };
 
     let (out_tx, mut out_rx) = tokio::sync::mpsc::channel::<Bytes>(OUTBOX);
+    let (control_tx, mut control_rx) = tokio::sync::mpsc::channel::<Bytes>(CONTROL_QUEUE);
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     sim.send(NetEvent::Join {
         conn,
         ticket,
         outbox: out_tx,
+        control: control_tx,
         reply: reply_tx,
     })?;
     let reply = reply_rx.await?;
-    send.write_all(&realm_proto::encode_join_reply(&reply))
+    let accepted = matches!(reply, JoinReply::Accepted { .. });
+    send.write_all(&control::frame(&realm_proto::encode_join_reply(&reply)))
         .await?;
-    send.finish()?;
+    if !accepted {
+        send.finish()?;
+        let _ = send.stopped().await;
+        connection.close(VarInt::from_u32(1), b"refused");
+        return Ok(());
+    }
+
+    // Reliable messages are written by their own task: a client that stops
+    // reading its control stream stalls only that, never its snapshots. Its
+    // queue then fills and the simulation drops the client.
+    let mut writer = tokio::spawn(async move {
+        while let Some(bytes) = control_rx.recv().await {
+            if send.write_all(&bytes).await.is_err() {
+                break;
+            }
+        }
+    });
 
     let mut malformed = 0_u32;
+    let mut chunk = [0_u8; 4096];
     loop {
         tokio::select! {
             datagram = connection.read_datagram() => {
@@ -149,8 +191,35 @@ async fn connection(
                 let Some(bytes) = out else { break };
                 let _ = connection.send_datagram(bytes);
             }
+            // The writer ends when the simulation drops this connection (a
+            // newer login took over, or it fell behind on reliable messages).
+            _ = &mut writer => break,
+            read = recv.read(&mut chunk) => {
+                let Ok(Some(n)) = read else { break };
+                reader.push(&chunk[..n]);
+                let mut bad = false;
+                loop {
+                    match reader.next_frame() {
+                        Ok(Some(frame)) => match control::decode_client(&frame) {
+                            Ok(msg) => sim.send(NetEvent::Control { conn, msg })?,
+                            Err(_) => bad = true,
+                        },
+                        Ok(None) => break,
+                        Err(_) => {
+                            bad = true;
+                            break;
+                        }
+                    }
+                }
+                if bad {
+                    connection.close(VarInt::from_u32(3), b"malformed control message");
+                    break;
+                }
+            }
         }
     }
+    writer.abort();
+    connection.close(VarInt::from_u32(0), b"bye");
     sim.send(NetEvent::Leave { conn })?;
     Ok(())
 }

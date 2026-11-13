@@ -104,6 +104,17 @@ fn main() -> AnyResult<()> {
     let mut report = Instant::now() + Duration::from_secs(5);
     let mut last = (0_u64, 0_u64);
     let mut deaths = 0;
+    let mut sheets = 0_u32;
+    // The control channel both ways: after the first sheet the check asks for
+    // a look with an unknown key, an out-of-range pick and an unrounded
+    // slider; the server must answer with the cleaned look.
+    let asked_look: Vec<(String, f32)> = vec![
+        ("hair".to_owned(), 2.0),
+        ("hair_color".to_owned(), 99.0),
+        ("jaw".to_owned(), 0.555),
+        ("not_a_look_key".to_owned(), 1.0),
+    ];
+    let mut look_answered = false;
     while started.elapsed() < deadline {
         while let Some(event) = net.poll() {
             match event {
@@ -134,6 +145,39 @@ fn main() -> AnyResult<()> {
                             deaths += 1;
                         }
                     }
+                }
+                NetEvent::Control(realm_proto::control::ServerMsg::Sheet(sheet)) => {
+                    if sheets == 0 {
+                        println!(
+                            "[netcheck] character {} '{}' level {}, {} oril, {} items in the bag, saved at {:?}",
+                            sheet.id,
+                            sheet.name,
+                            sheet.level,
+                            sheet.oril,
+                            sheet.bag.iter().flatten().count(),
+                            sheet.place.as_ref().map(|p| (p.map.as_str(), p.pos))
+                        );
+                    }
+                    if sheets == 0 {
+                        net.send_control(&realm_proto::control::ClientMsg::Look(
+                            asked_look.clone(),
+                        ));
+                    } else if !sheet.look.is_empty() {
+                        let get =
+                            |k: &str| sheet.look.iter().find(|(key, _)| key == k).map(|(_, v)| *v);
+                        println!("[netcheck] look came back cleaned: {:?}", sheet.look);
+                        if get("hair") != Some(2.0)
+                            || get("hair_color").is_none_or(|v| v >= 99.0)
+                            || get("jaw") != Some(0.56)
+                            || get("not_a_look_key").is_some()
+                        {
+                            return Err(
+                                format!("look not cleaned as expected: {:?}", sheet.look).into()
+                            );
+                        }
+                        look_answered = true;
+                    }
+                    sheets += 1;
                 }
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }
@@ -174,6 +218,12 @@ fn main() -> AnyResult<()> {
     );
     if s.corrections > 0 || s.decode_errors > 0 || s.snapshots < seconds * 10 {
         return Err("the player was corrected, or snapshots went missing".into());
+    }
+    if sheets == 0 {
+        return Err("no character sheet arrived on the control channel".into());
+    }
+    if !look_answered {
+        return Err("the look request was never answered".into());
     }
     Ok(())
 }

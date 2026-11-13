@@ -14,6 +14,7 @@ realm_sim = { path = "crates/realm_sim" }
 realm_proto = { path = "crates/realm_proto" }
 realm_data = { path = "crates/realm_data" }
 realm_netclient = { path = "crates/realm_netclient" }
+realm_rules = { path = "crates/realm_rules" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 toml = "1"
@@ -30,7 +31,7 @@ godot = { version = "0.5.5", features = ["api-4-7"] }
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring", "log"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }
 rcgen = "0.14"
-tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "time"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "macros", "net", "time", "signal", "io-util"] }
 
 [workspace.lints.rust]
 unsafe_code = "deny"

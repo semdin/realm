@@ -189,13 +189,26 @@ async fn bot(
     let connection = endpoint.connect(server, "localhost")?.await?;
     let (mut send, mut recv) = connection.open_bi().await?;
     let ticket = Ticket::new(u64::from(id) + 1, u64::from(id) + 1, unix_now() + 60)?.sign(key);
-    send.write_all(&realm_proto::encode_hello(&Hello {
-        protocol: PROTOCOL_VERSION,
-        ticket,
-    }))
+    send.write_all(&realm_proto::control::frame(&realm_proto::encode_hello(
+        &Hello {
+            protocol: PROTOCOL_VERSION,
+            ticket,
+        },
+    )))
     .await?;
-    send.finish()?;
-    let reply = realm_proto::decode_join_reply(&recv.read_to_end(1024).await?)?;
+    // The join stream stays open as the control channel: the first frame is
+    // the join reply, later ones (the character sheet) are counted and
+    // dropped, and must keep being read or the server's writes stall.
+    let mut reader = realm_proto::control::FrameReader::default();
+    let mut chunk = [0_u8; 4096];
+    let reply_bytes = loop {
+        if let Some(frame) = reader.next_frame()? {
+            break frame;
+        }
+        let n = recv.read(&mut chunk).await?.ok_or("join stream closed")?;
+        reader.push(&chunk[..n]);
+    };
+    let reply = realm_proto::decode_join_reply(&reply_bytes)?;
     let me = match reply {
         JoinReply::Accepted { entity, .. } => entity,
         JoinReply::Refused(reason) => {
@@ -204,6 +217,11 @@ async fn bot(
         }
     };
     totals.connected.fetch_add(1, Ordering::Relaxed);
+    let _drain = tokio::spawn(async move {
+        let _keep_open = send;
+        let mut chunk = [0_u8; 4096];
+        while let Ok(Some(_)) = recv.read(&mut chunk).await {}
+    });
 
     let mut history: VecDeque<(u32, EntitySet)> = VecDeque::new();
     let mut acked = 0_u32;

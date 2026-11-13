@@ -34,10 +34,15 @@ pub struct BasicAttack {
 }
 
 pub struct Game {
+    /// The map this server runs.
+    pub map: String,
+    /// The typed rules (character sheets, items, looks).
+    pub rules: realm_rules::Rules,
+    /// House ids, for characters made by the development store.
+    pub houses: Vec<String>,
     pub species: Vec<Species>,
     pub packs: Vec<Pack>,
     pub basic: BasicAttack,
-    pub player_max_hp: f32,
     pub spawn_point: Vec3,
     /// Bottom of the map's height band: a body below it fell out of the map.
     pub y_min: f32,
@@ -131,6 +136,13 @@ impl Game {
         };
         let respawn = &loot["respawn_ms"];
         Ok(Self {
+            map: map.to_owned(),
+            rules: realm_rules::Rules::from_content(content)?,
+            houses: content
+                .file("houses.json")
+                .and_then(|h| h.as_object())
+                .map(|h| h.keys().filter(|k| !k.starts_with('_')).cloned().collect())
+                .unwrap_or_default(),
             species,
             packs,
             basic: BasicAttack {
@@ -139,7 +151,6 @@ impl Game {
                 speed: num(&basic["projectile_speed"], "basic_cast projectile_speed")?,
                 cooldown_ticks: ticks(num(&basic["cooldown"], "basic_cast cooldown")?),
             },
-            player_max_hp: num(&combat["base_stats"]["max_hp"], "base_stats.max_hp")?,
             y_min: maps["maps"][map]["y_min"].as_f64().unwrap_or(-1.0e6) as f32,
             spawn_point: Vec3::new(
                 num(&spawn[0], "spawn")?,

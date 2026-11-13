@@ -8,7 +8,8 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | Path | What it is |
 | --- | --- |
 | `crates/realm_sim` | Game rules (fixed 30 Hz step): movement (walk, jump, stairs, slopes, swimming, broom) over a collision world, navigation queries, the castle's moving staircases (a pure function of the tick). Bit-identical on every platform. No Godot types. |
-| `crates/realm_proto` | Wire format: bit packing, input batches, snapshots (owner's body lossless, other entities delta-coded). |
+| `crates/realm_proto` | Wire format: bit packing, input batches, snapshots (owner's body lossless, other entities delta-coded), and the control channel (`control`: the join stream kept open for framed, reliable messages both ways). |
+| `crates/realm_rules` | Game rules beyond movement: the character sheet (what is saved, sent to its owner and changed by the server), items, looks, and the typed content they read. Grows with each Phase 5 slice. |
 | `crates/realm_data` | Content loading, rename map, typed ids and cross-reference checks, content hash. |
 | `crates/realm_content` | `import` (old game data -> `content/data` through the rename map), `check`, and `art` (copies art from the old client into `game/` with everything it references, renaming paths and the names inside models; fails on any franchise-derived word left). |
 | `crates/realm_simcheck` | Scripted movement on a fixed test world + wire round trips + crowd bandwidth; CI compares its output across platforms. |
@@ -37,6 +38,7 @@ cargo run -p realm_perfgate -- perf/budgets.toml report.json [--report-only]
 cargo run --release -p realm_simcheck [-- --trace stairs | --bench]   # movement fingerprint / cost
 cargo run --release -p realm_server -- keygen keys            # dev ticket key + TLS cert (keys/ is gitignored)
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data
@@ -50,6 +52,7 @@ WASD, Space, Ctrl, right mouse drag, wheel):
 ```bash
 godot --path game -- --server 127.0.0.1:7777 --map grounds
 godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
+godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```
 

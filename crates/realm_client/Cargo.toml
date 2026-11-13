@@ -14,8 +14,9 @@ crate-type = ["cdylib"]
 godot.workspace = true
 realm_data.workspace = true
 serde_json.workspace = true
-realm_netclient.workspace = true
 realm_proto.workspace = true
+realm_rules.workspace = true
+realm_netclient.workspace = true
 realm_sim.workspace = true
 
 [lints]

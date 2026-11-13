@@ -16,8 +16,10 @@ use std::time::Instant;
 
 use bevy_ecs::prelude::*;
 use bytes::Bytes;
+use realm_proto::control::{self, ClientMsg, ServerMsg};
 use realm_proto::ticket::Ticket;
 use realm_proto::{EntitySet, EntityState, InputBatch, InputFrame, JoinReply, Snapshot};
+use realm_rules::{CharacterSheet, Place};
 use realm_sim::movement::{self, Body, MoveParams};
 use realm_sim::nav::{NavQuery, NavScratch};
 use realm_sim::staircase::Staircases;
@@ -25,6 +27,7 @@ use realm_sim::world::World as Terrain;
 use realm_sim::{SIM_DT, Vec3};
 
 use crate::game::Game;
+use crate::store::StoreJob;
 
 pub type ConnId = u64;
 
@@ -34,7 +37,23 @@ pub enum NetEvent {
         conn: ConnId,
         ticket: Ticket,
         outbox: tokio::sync::mpsc::Sender<Bytes>,
+        control: tokio::sync::mpsc::Sender<Bytes>,
         reply: tokio::sync::oneshot::Sender<JoinReply>,
+    },
+    /// A message on the control channel.
+    Control {
+        conn: ConnId,
+        msg: ClientMsg,
+    },
+    /// The store thread answered a load.
+    Loaded {
+        conn: ConnId,
+        result: Result<Option<CharacterSheet>, String>,
+    },
+    /// The store thread finished a save.
+    Saved {
+        character: u64,
+        revision: u64,
     },
     Input {
         conn: ConnId,
@@ -44,6 +63,13 @@ pub enum NetEvent {
         conn: ConnId,
     },
 }
+
+/// Every player is saved once in this many ticks (30 s), spread over them.
+const AUTOSAVE_TICKS: u32 = 30 * 30;
+/// A changed sheet is saved this long after its last change (5 s).
+const SAVE_DEBOUNCE_TICKS: u32 = 5 * 30;
+/// Reliable messages a client may have waiting; past that it is closed.
+pub const CONTROL_QUEUE: usize = 256;
 
 const CELL: f32 = 32.0;
 const GRID_HALF: f32 = 1120.0;
@@ -128,6 +154,11 @@ struct Player {
     allowance: u32,
     /// Ticks the next input has been missing while later ones wait.
     gap_ticks: u32,
+    /// The character record. Position and hp live in `body` / `hp` while
+    /// playing and are written back by `Sim::sheet_of`.
+    sheet: CharacterSheet,
+    /// Tick of the first unsaved change, if any.
+    dirty_since: Option<u32>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -182,7 +213,9 @@ struct View {
 struct Client {
     entity: Entity,
     net_id: u32,
+    character: u64,
     outbox: tokio::sync::mpsc::Sender<Bytes>,
+    control: tokio::sync::mpsc::Sender<Bytes>,
     view: View,
     phase: u32,
     bytes: u64,
@@ -222,6 +255,13 @@ pub struct Stats {
     pub player_deaths: u64,
 }
 
+struct PendingJoin {
+    ticket: Ticket,
+    outbox: tokio::sync::mpsc::Sender<Bytes>,
+    control: tokio::sync::mpsc::Sender<Bytes>,
+    reply: tokio::sync::oneshot::Sender<JoinReply>,
+}
+
 pub const SECTION_NAMES: [&str; 5] = ["players", "creatures", "projectiles", "grid", "snapshots"];
 
 pub struct Sim {
@@ -247,6 +287,12 @@ pub struct Sim {
     stairs: Staircases,
     /// Development: players spawn next to one of these packs (indices).
     dev_spawn_packs: Vec<usize>,
+    /// Joins waiting for their character to load.
+    pending: HashMap<ConnId, PendingJoin>,
+    /// The newest sheet of each character whose save has not finished: a
+    /// join reads it instead of the store's older copy.
+    unsaved: HashMap<u64, CharacterSheet>,
+    store: crossbeam_channel::Sender<StoreJob>,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -330,6 +376,7 @@ impl Sim {
         stairs: Staircases,
         content_hash: [u8; 32],
         dev_spawn_near: Option<&str>,
+        store: crossbeam_channel::Sender<StoreJob>,
     ) -> Result<Self, String> {
         let dev_spawn_packs: Vec<usize> = match dev_spawn_near {
             None => Vec::new(),
@@ -364,6 +411,9 @@ impl Sim {
             nav_scratch: NavScratch::default(),
             stairs,
             dev_spawn_packs,
+            pending: HashMap::new(),
+            unsaved: HashMap::new(),
+            store,
             stats: Stats::default(),
             params: MoveParams::default(),
         };
@@ -449,6 +499,7 @@ impl Sim {
         lap(3, &mut self.stats);
         self.snapshots();
         lap(4, &mut self.stats);
+        self.autosave();
         self.stats
             .ticks
             .push(started.elapsed().as_secs_f32() * 1000.0);
@@ -461,49 +512,61 @@ impl Sim {
                 conn,
                 ticket,
                 outbox,
+                control,
                 reply,
             } => {
-                let home = self.spawn_point_for(ticket.character);
-                let player = Player {
-                    body: Body::at(home),
-                    pending: BTreeMap::new(),
-                    last_seq: 0,
-                    last_frame: InputFrame::default(),
-                    cooldown: 0,
-                    hp: self.game.player_max_hp,
-                    max_hp: self.game.player_max_hp,
-                    dead_until: 0,
-                    home,
-                    last_ground: home,
-                    allowance: 0,
-                    gap_ticks: 0,
+                let character = ticket.character;
+                let join = PendingJoin {
+                    ticket,
+                    outbox,
+                    control,
+                    reply,
                 };
-                let entity = self.world.spawn(player).id();
-                let id = self.new_id(entity);
-                self.world.entity_mut(entity).insert(NetId(id));
-                let phase = (conn as u32) % SNAPSHOT_EVERY;
-                let view = View {
-                    history: VecDeque::new(),
-                    acked: 0,
-                    priority: IdMap::default(),
-                };
-                self.clients.insert(
-                    conn,
-                    Client {
-                        entity,
-                        net_id: id,
-                        outbox,
-                        view,
-                        phase,
-                        bytes: 0,
-                    },
-                );
-                let _ = reply.send(JoinReply::Accepted {
-                    entity: id,
-                    tick: self.tick,
-                    content_hash: self.content_hash,
-                });
+                // The same character already playing: the newest login takes
+                // over with the sheet as it is in the world right now (the
+                // old connection closes when its channels are dropped).
+                let playing = self
+                    .clients
+                    .iter()
+                    .find(|(_, c)| c.character == character)
+                    .map(|(&old, _)| old);
+                if let Some(old) = playing {
+                    let sheet = self.remove_player(old);
+                    self.admit(conn, join, sheet);
+                } else if let Some(sheet) = self.unsaved.get(&character).cloned() {
+                    self.admit(conn, join, Some(sheet));
+                } else {
+                    self.pending.insert(conn, join);
+                    let _ = self.store.send(StoreJob::Load { conn, character });
+                }
             }
+            NetEvent::Loaded { conn, result } => {
+                let Some(join) = self.pending.remove(&conn) else {
+                    return;
+                };
+                match result {
+                    Ok(sheet) => self.admit(conn, join, sheet),
+                    Err(e) => {
+                        eprintln!("[store] load for connection {conn} failed: {e}");
+                        let _ = join.reply.send(JoinReply::Refused(
+                            "character could not be loaded".to_owned(),
+                        ));
+                    }
+                }
+            }
+            NetEvent::Saved {
+                character,
+                revision,
+            } => {
+                if self
+                    .unsaved
+                    .get(&character)
+                    .is_some_and(|s| s.revision <= revision)
+                {
+                    self.unsaved.remove(&character);
+                }
+            }
+            NetEvent::Control { conn, msg } => self.control(conn, msg),
             NetEvent::Input { conn, batch } => {
                 let Some(client) = self.clients.get_mut(&conn) else {
                     return;
@@ -530,10 +593,209 @@ impl Sim {
                 }
             }
             NetEvent::Leave { conn } => {
-                if let Some(client) = self.clients.remove(&conn) {
-                    self.ids.remove(&client.net_id);
-                    self.world.despawn(client.entity);
+                self.pending.remove(&conn);
+                self.remove_player(conn);
+            }
+        }
+    }
+
+    /// Puts a joining player in the world with its sheet (a new character
+    /// when it has none yet) and sends it the join reply and its sheet.
+    fn admit(&mut self, conn: ConnId, join: PendingJoin, sheet: Option<CharacterSheet>) {
+        let character = join.ticket.character;
+        let mut sheet = sheet.unwrap_or_else(|| {
+            let house = self
+                .game
+                .houses
+                .get(character as usize % self.game.houses.len().max(1))
+                .cloned()
+                .unwrap_or_default();
+            self.game.rules.new_character(
+                character,
+                &format!("Wanderer {}", character % 10_000),
+                &house,
+            )
+        });
+        sheet.normalize();
+        let home = self.spawn_point_for(character);
+        let saved_here = sheet
+            .place
+            .as_ref()
+            .filter(|p| p.map == self.game.map)
+            .map(|p| Vec3::new(p.pos[0], p.pos[1], p.pos[2]));
+        let max_hp = sheet.base_max_hp.max(1) as f32;
+        // A character saved dead comes back whole at the map's spawn.
+        let (start, hp) = if sheet.hp == 0 {
+            (home, max_hp)
+        } else {
+            (saved_here.unwrap_or(home), (sheet.hp as f32).min(max_hp))
+        };
+        let player = Player {
+            body: Body::at(start),
+            pending: BTreeMap::new(),
+            last_seq: 0,
+            last_frame: InputFrame::default(),
+            cooldown: 0,
+            hp,
+            max_hp,
+            dead_until: 0,
+            home,
+            last_ground: start,
+            allowance: 0,
+            gap_ticks: 0,
+            sheet,
+            dirty_since: None,
+        };
+        let entity = self.world.spawn(player).id();
+        let id = self.new_id(entity);
+        self.world.entity_mut(entity).insert(NetId(id));
+        let phase = (conn as u32) % SNAPSHOT_EVERY;
+        let view = View {
+            history: VecDeque::new(),
+            acked: 0,
+            priority: IdMap::default(),
+        };
+        self.clients.insert(
+            conn,
+            Client {
+                entity,
+                net_id: id,
+                character,
+                outbox: join.outbox,
+                control: join.control,
+                view,
+                phase,
+                bytes: 0,
+            },
+        );
+        let _ = join.reply.send(JoinReply::Accepted {
+            entity: id,
+            tick: self.tick,
+            content_hash: self.content_hash,
+        });
+        self.send_sheet(conn);
+    }
+
+    /// Takes a player out of the world and saves its sheet; returns the
+    /// sheet. Dropping the client's channels closes its connection if it is
+    /// still open (a newer login took over).
+    fn remove_player(&mut self, conn: ConnId) -> Option<CharacterSheet> {
+        let client = self.clients.remove(&conn)?;
+        let sheet = self.sheet_of(client.entity);
+        self.ids.remove(&client.net_id);
+        self.world.despawn(client.entity);
+        if let Some(sheet) = &sheet {
+            self.save(sheet.clone());
+        }
+        sheet
+    }
+
+    /// The player's sheet with its live position and hp written back.
+    fn sheet_of(&self, entity: Entity) -> Option<CharacterSheet> {
+        let player = self.world.get::<Player>(entity)?;
+        let mut sheet = player.sheet.clone();
+        let pos = if player.dead_until != 0 {
+            player.home
+        } else {
+            player.body.pos
+        };
+        sheet.place = Some(Place {
+            map: self.game.map.clone(),
+            pos: [pos.x, pos.y, pos.z],
+            yaw: player.last_frame.movement.yaw_radians(),
+        });
+        sheet.hp = libm::ceilf(player.hp.max(0.0)) as u32;
+        Some(sheet)
+    }
+
+    fn save(&mut self, sheet: CharacterSheet) {
+        self.unsaved.insert(sheet.id, sheet.clone());
+        let _ = self.store.send(StoreJob::Save(Box::new(sheet)));
+    }
+
+    fn send_control(&mut self, conn: ConnId, msg: &ServerMsg) {
+        let Some(client) = self.clients.get(&conn) else {
+            return;
+        };
+        // A client that lets this many reliable messages pile up is gone or
+        // hostile; it is dropped rather than buffered without end.
+        if client
+            .control
+            .try_send(Bytes::from(control::encode_server(msg)))
+            .is_err()
+        {
+            eprintln!("[net] connection {conn}: control queue full, closing");
+            self.remove_player(conn);
+        }
+    }
+
+    fn send_sheet(&mut self, conn: ConnId) {
+        let Some(entity) = self.clients.get(&conn).map(|c| c.entity) else {
+            return;
+        };
+        if let Some(sheet) = self.sheet_of(entity) {
+            self.send_control(conn, &ServerMsg::Sheet(sheet));
+        }
+    }
+
+    fn control(&mut self, conn: ConnId, msg: ClientMsg) {
+        let Some(entity) = self.clients.get(&conn).map(|c| c.entity) else {
+            return;
+        };
+        match msg {
+            ClientMsg::Look(raw) => {
+                let look = self.game.rules.looks.clean(&raw);
+                let tick = self.tick;
+                let Some(mut player) = self.world.get_mut::<Player>(entity) else {
+                    return;
+                };
+                if player.sheet.look == look {
+                    return;
                 }
+                player.sheet.look = look;
+                player.sheet.revision += 1;
+                player.dirty_since.get_or_insert(tick);
+                self.send_sheet(conn);
+            }
+        }
+    }
+
+    /// Saves a changed sheet once it has been quiet for a while, and every
+    /// player every 30 s, spread so only a few save on any one tick.
+    fn autosave(&mut self) {
+        let tick = self.tick;
+        let due: Vec<Entity> = self
+            .clients
+            .values()
+            .filter(|c| {
+                let regular = (c.character as u32)
+                    .wrapping_add(tick)
+                    .is_multiple_of(AUTOSAVE_TICKS);
+                let changed = self
+                    .world
+                    .get::<Player>(c.entity)
+                    .and_then(|p| p.dirty_since)
+                    .is_some_and(|since| tick >= since + SAVE_DEBOUNCE_TICKS);
+                regular || changed
+            })
+            .map(|c| c.entity)
+            .collect();
+        for entity in due {
+            if let Some(mut player) = self.world.get_mut::<Player>(entity) {
+                player.dirty_since = None;
+            }
+            if let Some(sheet) = self.sheet_of(entity) {
+                self.save(sheet);
+            }
+        }
+    }
+
+    /// Saves every player now (the server is stopping).
+    pub fn save_all(&mut self) {
+        let entities: Vec<Entity> = self.clients.values().map(|c| c.entity).collect();
+        for entity in entities {
+            if let Some(sheet) = self.sheet_of(entity) {
+                self.save(sheet);
             }
         }
     }

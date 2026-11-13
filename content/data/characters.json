@@ -1,0 +1,13 @@
+{
+  "_about": "A new character: the base numbers are combat.json base_stats; this file holds what it starts with (the basic wand equipped, a few potions in the bag; the cloak, accessories and the broom are quest rewards) and the account limits.",
+  "starter": {
+    "equipment": {
+      "main_hand": "wand_ashwood"
+    },
+    "bag": [
+      { "item": "potion_health", "amount": 5 },
+      { "item": "potion_mana", "amount": 5 }
+    ]
+  },
+  "max_characters_per_account": 2
+}

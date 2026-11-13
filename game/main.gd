@@ -9,6 +9,8 @@ extends Node3D
 ##   godot --path game -- [--server 127.0.0.1:7777] [--map grounds]
 ##   godot --headless --path game -- --check 20     joins, walks, prints, quits
 ##   [--cam-distance 4] [--cam-side 90]              camera framing (captures)
+##   [--character 7]                                  play this dev character (saved when the
+##                                                    server runs with --characters)
 ##
 ## Paths to keys/, content/data and world/maps default to the realm checkout
 ## the project sits in.
@@ -68,7 +70,7 @@ func _ready() -> void:
 	add_child(session)
 	var ok: bool = session.start_dev(_arg("--server", "127.0.0.1:7777"), _arg("--keys", root.path_join("keys")),
 		_arg("--content", root.path_join("content/data")), _arg("--maps", root.path_join("world/maps")),
-		_arg("--map", "grounds"))
+		_arg("--map", "grounds"), int(_arg("--character", "0")))
 	if not ok:
 		printerr("realm: ", session.status())
 		get_tree().quit(1)
@@ -103,6 +105,17 @@ func _build_view() -> void:
 	var layer := CanvasLayer.new()
 	layer.add_child(hud)
 	add_child(layer)
+
+## The player's hero wears the look the sheet carries (applied when it
+## changes).
+var _shown_look := {}
+
+func _apply_sheet_look(sheet: Dictionary) -> void:
+	var look: Dictionary = sheet["look"]
+	if look == _shown_look or player.body == null:
+		return
+	_shown_look = look.duplicate()
+	HeroAppearance.apply_look(player.body, Looks.clean_look(look))
 
 func _new_hero() -> Node3D:
 	var hero: Node3D = load(HeroViewScript).new()
@@ -233,6 +246,16 @@ func _process(delta: float) -> void:
 		positions.size()]
 	if player.anim != null:
 		hud.text += "  pose %s" % player.anim.current_clip
+	var sheet: Dictionary = session.sheet()
+	if not sheet.is_empty():
+		var bag: Array = sheet["bag"]
+		var items := bag.filter(func(c): return c != null).map(
+			func(c): return "%s x%d" % [c["id"], c["amount"]])
+		hud.text += "\n%s (%s)  level %d  hp %d/%d  mana %d/%d  %d oril  wields %s\nbag: %s" % [
+			sheet["name"], sheet["house"], sheet["level"], sheet["hp"], sheet["max_hp"], sheet["mana"],
+			sheet["max_mana"], sheet["oril"], (sheet["equipment"] as Dictionary).get("main_hand", {}).get("id", "-"),
+			", ".join(items)]
+		_apply_sheet_look(sheet)
 
 	if check_seconds > 0.0 and Time.get_ticks_msec() / 1000.0 - check_started > check_seconds:
 		print("realm check: ", hud.text.replace("\n", " | "))

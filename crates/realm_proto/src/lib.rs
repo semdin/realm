@@ -4,13 +4,16 @@
 //!
 //! Joining goes over one reliable QUIC stream: the client sends [`Hello`]
 //! (protocol version and a signed login ticket), the server answers with
-//! [`JoinReply`]. After that, inputs travel as unreliable datagrams with the
+//! [`JoinReply`]. The stream then stays open as the control channel: framed
+//! [`control`] messages both ways (the character sheet, requests and their
+//! results), reliable and in order. Inputs travel as unreliable datagrams with the
 //! last few repeated, so one lost packet loses nothing, and snapshots travel as
 //! unreliable datagrams too: the owner's body whole and lossless (the client
 //! rewinds to it exactly), every other entity as a delta against a snapshot
 //! the client has acknowledged.
 
 pub mod bits;
+pub mod control;
 pub mod ticket;
 
 use realm_sim::input::MoveInput;
@@ -22,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 3;
+pub const PROTOCOL_VERSION: u16 = 4;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/3";
+pub const ALPN: &[u8] = b"realm/4";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;

@@ -1,5 +1,15 @@
 {
   "_about": "A character's appearance: palette entries are picked by index (a saved look keeps its index, so new entries go at the end), sliders are floats in their range. The client draws them on the hero model (HeroAppearance.apply_look).",
+  "picks": {
+    "hair": "hair_styles",
+    "hair_color": "hair_colors",
+    "eyes": "eye_colors",
+    "skin": "skin_tones",
+    "outfit": "outfits",
+    "beard": "beards",
+    "brows": "brows",
+    "face": "faces"
+  },
   "hair_styles": [
     "SimpleParted",
     "Buzzed",

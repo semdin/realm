@@ -18,7 +18,9 @@ use godot::prelude::*;
 use realm_data::Content;
 use realm_netclient::{ClientCore, NetEvent, NetHandle};
 use realm_proto::SigningKey;
+use realm_proto::control::{ClientMsg, ServerMsg};
 use realm_proto::ticket::Ticket;
+use realm_rules::{CharacterSheet, Item, Slot};
 use realm_sim::FixedStep;
 use realm_sim::input::MoveInput;
 use realm_sim::pack::{HOLE, MapPack};
@@ -99,6 +101,20 @@ impl RealmContent {
     }
 }
 
+fn item_dict(item: &Item) -> VarDictionary {
+    let mut out = VarDictionary::new();
+    out.set("id", &GString::from(item.id.as_str()).to_variant());
+    out.set("amount", &i64::from(item.amount).to_variant());
+    out.set("tier", &i64::from(item.tier).to_variant());
+    out.set("uid", &(item.uid as i64).to_variant());
+    let mut bonuses = VarDictionary::new();
+    for bonus in &item.bonuses {
+        bonuses.set(bonus.stat.as_str(), &bonus.value.to_variant());
+    }
+    out.set("bonuses", &bonuses.to_variant());
+    out
+}
+
 fn json_to_variant(value: &serde_json::Value) -> Variant {
     use serde_json::Value;
     match value {
@@ -140,6 +156,8 @@ struct RealmSession {
     intent: MoveInput,
     action: (u8, u32),
     status: String,
+    /// The player's character sheet as the server last sent it.
+    sheet: Option<CharacterSheet>,
 }
 
 #[godot_api]
@@ -156,6 +174,7 @@ impl INode for RealmSession {
             intent: MoveInput::default(),
             action: (0, 0),
             status: "idle".to_owned(),
+            sheet: None,
         }
     }
 
@@ -217,6 +236,7 @@ impl RealmSession {
                         core.on_datagram(&bytes, now);
                     }
                 }
+                NetEvent::Control(ServerMsg::Sheet(sheet)) => self.sheet = Some(sheet),
                 NetEvent::Closed(reason) => {
                     self.status = format!("closed: {reason}");
                     self.core = None;
@@ -249,6 +269,7 @@ impl RealmSession {
         content_dir: GString,
         maps_dir: GString,
         map: GString,
+        character: i64,
     ) -> bool {
         let result = (|| -> Result<(), String> {
             self.load(
@@ -266,7 +287,12 @@ impl RealmSession {
                 .duration_since(UNIX_EPOCH)
                 .map_err(|e| e.to_string())?
                 .as_secs();
-            let character = u64::from(getrandom_u32());
+            // 0: a fresh character for this run (two windows on one PC).
+            let character = if character > 0 {
+                character as u64
+            } else {
+                u64::from(getrandom_u32())
+            };
             let ticket = Ticket::new(character, character, now + 60)
                 .map_err(|e| e.to_string())?
                 .sign(&key);
@@ -385,6 +411,67 @@ impl RealmSession {
         out.set("states", &states.to_variant());
         out.set("hp", &hp.to_variant());
         out
+    }
+
+    /// The player's character sheet: `id`, `name`, `house`, `level`, `exp`,
+    /// `hp`, `mana`, `max_hp`, `max_mana`, `oril`, `bag` (40 cells: an item
+    /// dictionary or null), `equipment` (slot name -> item dictionary) and
+    /// `look`. An item is `id`, `amount`, `tier`, `uid` and `bonuses`
+    /// (stat -> value). Empty before the server has sent it.
+    #[func]
+    fn sheet(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(sheet) = self.sheet.as_ref() else {
+            return out;
+        };
+        out.set("id", &(sheet.id as i64).to_variant());
+        out.set("name", &GString::from(sheet.name.as_str()).to_variant());
+        out.set("house", &GString::from(sheet.house.as_str()).to_variant());
+        out.set("level", &i64::from(sheet.level).to_variant());
+        out.set("exp", &(sheet.exp as i64).to_variant());
+        out.set("hp", &i64::from(sheet.hp).to_variant());
+        out.set("mana", &i64::from(sheet.mana).to_variant());
+        out.set("max_hp", &i64::from(sheet.base_max_hp).to_variant());
+        out.set("max_mana", &i64::from(sheet.base_max_mana).to_variant());
+        out.set("oril", &(sheet.oril as i64).to_variant());
+        let mut bag = VarArray::new();
+        for cell in &sheet.bag {
+            bag.push(
+                &cell
+                    .as_ref()
+                    .map_or_else(Variant::nil, |i| item_dict(i).to_variant()),
+            );
+        }
+        out.set("bag", &bag.to_variant());
+        let mut equipment = VarDictionary::new();
+        for slot in Slot::ALL {
+            if let Some(item) = sheet.equipped(slot) {
+                equipment.set(slot.name(), &item_dict(item).to_variant());
+            }
+        }
+        out.set("equipment", &equipment.to_variant());
+        let mut look = VarDictionary::new();
+        for (key, value) in &sheet.look {
+            look.set(key.as_str(), &value.to_variant());
+        }
+        out.set("look", &look.to_variant());
+        out
+    }
+
+    /// Asks the server to change the player's look (looks.json keys ->
+    /// value); the new sheet comes back when it is accepted.
+    #[func]
+    fn set_look(&mut self, look: VarDictionary) {
+        let Some(net) = self.net.as_ref() else {
+            return;
+        };
+        let mut raw = Vec::new();
+        for (key, value) in look.iter_shared() {
+            if let Ok(v) = value.try_to::<f64>() {
+                raw.push((key.to_string(), v as f32));
+            }
+        }
+        net.send_control(&ClientMsg::Look(raw));
     }
 
     /// Connection and prediction counters for an on-screen readout.

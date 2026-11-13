@@ -24,12 +24,12 @@ static func sliders() -> Dictionary:
 	return table().get("sliders", {})
 
 ## The palette keys of a look and the list each one indexes.
-const PICKS := {"hair": "hair_styles", "hair_color": "hair_colors", "eyes": "eye_colors",
-	"skin": "skin_tones", "outfit": "outfits", "beard": "beards", "brows": "brows", "face": "faces"}
+static func picks() -> Dictionary:
+	return table().get("picks", {})
 
 static func default_look() -> Dictionary:
 	var look := {}
-	for key: String in PICKS:
+	for key: String in picks():
 		look[key] = 0
 	for key: String in sliders():
 		look[key] = 0.0
@@ -43,8 +43,9 @@ static func clean_look(raw: Variant) -> Dictionary:
 	if not (raw is Dictionary):
 		return out
 	var src := raw as Dictionary
-	for key: String in PICKS:
-		var size := list(String(PICKS[key])).size()
+	var palette := picks()
+	for key: String in palette:
+		var size := list(String(palette[key])).size()
 		if size > 0 and src.has(key) and (src[key] is int or src[key] is float):
 			out[key] = clampi(int(src[key]), 0, size - 1)
 	var spans := sliders()

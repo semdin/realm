@@ -7,9 +7,13 @@
 //!       ticket.pub.
 //!   realm_server serve [--map grounds] [--bind 0.0.0.0:7777] [--keys keys]
 //!                      [--content content/data] [--maps world/maps]
+//!                      [--characters <dir>]
 //!                      [--dev-spawn-near-packs | --dev-spawn-near <species>]
 //!       Runs one map at 30 Hz and prints a status line every 5 seconds. The
 //!       dev options spawn players next to a creature pack (of one species).
+//!       `--characters` keeps character records as JSON files there; without
+//!       it nothing persists (every join is a new character). Ctrl+C,
+//!       SIGTERM or Ctrl+Break saves everyone and stops.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -17,6 +21,7 @@ mod game;
 mod net;
 mod selfcheck;
 mod sim;
+mod store;
 
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -74,6 +79,7 @@ struct Options {
     /// Spawn players next to packs: `Some("")` any pack, `Some(id)` packs
     /// of that species.
     dev_spawn_near: Option<String>,
+    characters: Option<PathBuf>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -84,6 +90,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         keys: PathBuf::from("keys"),
         content: PathBuf::from("content/data"),
         dev_spawn_near: None,
+        characters: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -100,6 +107,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--content" => o.content = PathBuf::from(value()?),
             "--dev-spawn-near-packs" => o.dev_spawn_near = Some(String::new()),
             "--dev-spawn-near" => o.dev_spawn_near = Some(value()?),
+            "--characters" => o.characters = Some(PathBuf::from(value()?)),
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -127,6 +135,11 @@ fn serve(args: &[String]) -> AnyResult<()> {
     let tls_key = std::fs::read(o.keys.join("tls.key.der"))?;
 
     let (tx, rx) = crossbeam_channel::unbounded();
+    let character_store: Box<dyn store::CharacterStore> = match &o.characters {
+        Some(dir) => Box::new(store::FileStore::new(dir.clone())?),
+        None => Box::new(store::NoStore),
+    };
+    let store_jobs = store::start(character_store, tx.clone())?;
     let staircase_count = stairs.flights.len();
     let mut sim = Sim::new(
         game,
@@ -135,6 +148,7 @@ fn serve(args: &[String]) -> AnyResult<()> {
         stairs,
         content_hash,
         o.dev_spawn_near.as_deref(),
+        store_jobs.clone(),
     )?;
     println!(
         "[server] map {} ({} colliders, {} nav polygons, {} staircases), content {}..., {} creatures, listening on {}{}",
@@ -161,6 +175,14 @@ fn serve(args: &[String]) -> AnyResult<()> {
         net::endpoint(&o.bind, cert, tls_key)?
     };
     runtime.spawn(net::accept_loop(endpoint, tx, key));
+    let stopping = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    {
+        let stopping = stopping.clone();
+        runtime.spawn(async move {
+            stop_signal().await;
+            stopping.store(true, std::sync::atomic::Ordering::Relaxed);
+        });
+    }
 
     // The simulation thread: fixed 30 Hz, never waits on the network.
     let period = Duration::from_secs_f64(1.0 / f64::from(realm_sim::SIM_HZ));
@@ -169,6 +191,17 @@ fn serve(args: &[String]) -> AnyResult<()> {
     let mut window_start = Instant::now();
     let mut late = 0_u32;
     loop {
+        if stopping.load(std::sync::atomic::Ordering::Relaxed) {
+            sim.save_all();
+            // The store thread finishes the queued saves before the jobs
+            // channel closes; wait for it to drain.
+            while !store_jobs.is_empty() {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            std::thread::sleep(Duration::from_millis(100));
+            println!("[server] stopped, every character saved");
+            return Ok(());
+        }
         sim.step(rx.try_iter());
         let now = Instant::now();
         if now >= report_at {
@@ -186,6 +219,33 @@ fn serve(args: &[String]) -> AnyResult<()> {
             deadline = now + period;
         }
     }
+}
+
+/// Resolves when the server is asked to stop: Ctrl+C anywhere, SIGTERM on
+/// Linux (systemd), Ctrl+Break on Windows.
+async fn stop_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        if let Ok(mut term) = signal(SignalKind::terminate()) {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = term.recv() => {}
+            }
+            return;
+        }
+    }
+    #[cfg(windows)]
+    {
+        if let Ok(mut brk) = tokio::signal::windows::ctrl_break() {
+            tokio::select! {
+                _ = tokio::signal::ctrl_c() => {}
+                _ = brk.recv() => {}
+            }
+            return;
+        }
+    }
+    let _ = tokio::signal::ctrl_c().await;
 }
 
 fn report(sim: &mut Sim, window: Duration, late: u32) {
