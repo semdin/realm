@@ -6,6 +6,7 @@
 //! saved, what the owner sees, and the only input the server's systems
 //! change.
 
+pub mod combat;
 pub mod items;
 pub mod sheet;
 
@@ -15,6 +16,7 @@ use realm_data::{Content, without_notes};
 use serde::Deserialize;
 use serde_json::Value;
 
+pub use combat::{BASIC_SPELL, CastPower, CombatRules, Delivery, SpellDef};
 pub use items::{Cell, Derived, Dice, Done, ItemContext, ItemOp, ItemRules, ItemStats};
 pub use sheet::{BAG_SLOTS, Bonus, CharacterSheet, Item, MAX_STACK, Place, Slot};
 
@@ -70,6 +72,18 @@ pub struct LookRules {
     pub sliders: BTreeMap<String, (f32, f32)>,
 }
 
+/// A protected volume (safe_zones.json): no attack lands inside it, and no
+/// attack is made from inside it.
+#[derive(Clone, Debug)]
+pub struct SafeZone {
+    pub id: String,
+    pub x: f32,
+    pub z: f32,
+    pub radius: f32,
+    pub y_min: f32,
+    pub y_max: f32,
+}
+
 /// The typed content the rules read.
 #[derive(Clone, Debug)]
 pub struct Rules {
@@ -78,6 +92,10 @@ pub struct Rules {
     pub items: BTreeMap<String, ItemDef>,
     pub looks: LookRules,
     pub item_rules: ItemRules,
+    pub combat: CombatRules,
+    pub safe_zones: Vec<SafeZone>,
+    /// Map -> the ids of its safe zones (maps.json `safe_zones`).
+    pub map_zones: BTreeMap<String, Vec<String>>,
 }
 
 fn file<'a>(content: &'a Content, name: &str) -> Result<&'a Value, String> {
@@ -154,7 +172,41 @@ impl Rules {
             items,
             looks,
             item_rules: ItemRules::from_content(content)?,
+            combat: CombatRules::from_content(content)?,
+            safe_zones: Vec::new(),
+            map_zones: BTreeMap::new(),
         };
+        let mut rules = rules;
+        for z in without_notes(file(content, "safe_zones.json")?)["zones"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
+            let num = |v: &Value, d: f64| v.as_f64().unwrap_or(d) as f32;
+            rules.safe_zones.push(SafeZone {
+                id: z["id"].as_str().unwrap_or("").to_owned(),
+                x: num(&z["center"][0], 0.0),
+                z: num(&z["center"][2], 0.0),
+                radius: num(&z["radius"], 0.0),
+                y_min: num(&z["y_min"], -1.0e6),
+                y_max: num(&z["y_max"], 1.0e6),
+            });
+        }
+        for (map, def) in without_notes(file(content, "maps.json")?)["maps"]
+            .as_object()
+            .into_iter()
+            .flatten()
+        {
+            let ids = def["safe_zones"]
+                .as_array()
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_str().map(str::to_owned))
+                        .collect()
+                })
+                .unwrap_or_default();
+            rules.map_zones.insert(map.clone(), ids);
+        }
         rules.check()?;
         Ok(rules)
     }
@@ -210,21 +262,26 @@ impl Rules {
     /// placed in the world.
     #[must_use]
     pub fn new_character(&self, id: u64, name: &str, house: &str) -> CharacterSheet {
+        // The house shapes the body: more health or more mana.
+        let (max_hp, max_mana) =
+            self.combat
+                .base_vitals(house, self.base.max_hp, self.base.max_mana);
         let mut sheet = CharacterSheet {
             id,
             name: name.to_owned(),
             house: house.to_owned(),
             level: 1,
             exp: 0,
-            hp: self.base.max_hp,
-            mana: self.base.max_mana,
-            base_max_hp: self.base.max_hp,
-            base_max_mana: self.base.max_mana,
+            hp: max_hp,
+            mana: max_mana,
+            base_max_hp: max_hp,
+            base_max_mana: max_mana,
             oril: self.base.oril,
             bag: vec![None; BAG_SLOTS],
             equipment: vec![None; Slot::ALL.len()],
             look: Vec::new(),
             place: None,
+            skills: Vec::new(),
             revision: 1,
         };
         for (slot, item) in &self.starter.equipment {
@@ -239,6 +296,22 @@ impl Rules {
             }
         }
         sheet
+    }
+}
+
+impl Rules {
+    /// Whether the point on `map` is inside one of the map's safe zones.
+    #[must_use]
+    pub fn protected(&self, map: &str, x: f32, y: f32, z: f32) -> bool {
+        let Some(ids) = self.map_zones.get(map) else {
+            return false;
+        };
+        self.safe_zones.iter().any(|zone| {
+            ids.contains(&zone.id)
+                && y >= zone.y_min
+                && y <= zone.y_max
+                && (x - zone.x).powi(2) + (z - zone.z).powi(2) <= zone.radius * zone.radius
+        })
     }
 }
 

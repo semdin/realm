@@ -25,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 5;
+pub const PROTOCOL_VERSION: u16 = 6;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/5";
+pub const ALPN: &[u8] = b"realm/6";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -72,10 +72,34 @@ pub struct InputFrame {
     /// time never changes the result.
     pub tick: u32,
     pub movement: MoveInput,
-    /// 0 = none, otherwise the action slot (1 = basic attack, 2.. skills).
+    /// 0 = none, otherwise a cast: the spell's index + 1 (4 bits).
     pub action: u8,
     /// Entity the action is aimed at (0 = none).
     pub target: u32,
+    /// Where the action is aimed, in 1/16 m (only sent with an action).
+    pub aim: [i32; 3],
+}
+
+/// Aim points travel in steps of 1/16 m.
+pub const AIM_GRID: f32 = 16.0;
+
+impl InputFrame {
+    /// `point` as the frame's aim.
+    #[must_use]
+    pub fn aimed_at(mut self, point: Vec3) -> Self {
+        let q = |v: f32| (v * AIM_GRID).round() as i32;
+        self.aim = [q(point.x), q(point.y), q(point.z)];
+        self
+    }
+
+    #[must_use]
+    pub fn aim_point(&self) -> Vec3 {
+        Vec3::new(
+            self.aim[0] as f32 / AIM_GRID,
+            self.aim[1] as f32 / AIM_GRID,
+            self.aim[2] as f32 / AIM_GRID,
+        )
+    }
 }
 
 /// Client -> server, every tick.
@@ -116,6 +140,8 @@ pub struct Snapshot {
     pub own: Body,
     /// The owner's health, 0..=255.
     pub own_hp: u8,
+    /// The owner's health, maximum health, mana, maximum mana (the bars).
+    pub own_vitals: [u32; 4],
     /// Every entity in the client's interest set, sorted by id.
     pub entities: EntitySet,
 }
@@ -222,9 +248,12 @@ pub fn encode_inputs(batch: &InputBatch) -> Vec<u8> {
         w.u8(m.forward as u8);
         w.u16(m.yaw);
         w.bits(u32::from(m.buttons), 2);
-        w.bits(u32::from(frame.action), 3);
+        w.bits(u32::from(frame.action), 4);
         if frame.action != 0 {
             w.unsigned(frame.target);
+            for v in frame.aim {
+                w.signed(v);
+            }
         }
     }
     w.finish()
@@ -251,13 +280,18 @@ pub fn decode_inputs(bytes: &[u8]) -> Result<InputBatch, DecodeError> {
             yaw: r.u16()?,
             buttons: r.bits(2)? as u8,
         };
-        let action = r.bits(3)? as u8;
-        let target = if action != 0 { r.unsigned()? } else { 0 };
+        let action = r.bits(4)? as u8;
+        let (target, aim) = if action != 0 {
+            (r.unsigned()?, [r.signed()?, r.signed()?, r.signed()?])
+        } else {
+            (0, [0; 3])
+        };
         inputs.push(InputFrame {
             tick,
             movement,
             action,
             target,
+            aim,
         });
     }
     r.end()?;
@@ -290,6 +324,9 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
     w.u32(snapshot.last_input_seq);
     write_body(&mut w, &snapshot.own);
     w.u8(snapshot.own_hp);
+    for v in snapshot.own_vitals {
+        w.unsigned(v);
+    }
 
     let base = baseline.unwrap_or(&[]);
     let next = &snapshot.entities;
@@ -396,6 +433,7 @@ pub fn decode_snapshot<'a>(
     let last_input_seq = r.u32()?;
     let own = read_body(&mut r)?;
     let own_hp = r.u8()?;
+    let own_vitals = [r.unsigned()?, r.unsigned()?, r.unsigned()?, r.unsigned()?];
     let base: &[(u32, EntityState)] = if baseline_tick == 0 {
         &[]
     } else {
@@ -512,6 +550,7 @@ pub fn decode_snapshot<'a>(
         last_input_seq,
         own,
         own_hp,
+        own_vitals,
         entities,
     })
 }

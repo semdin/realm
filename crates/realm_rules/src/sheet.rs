@@ -109,6 +109,10 @@ pub struct CharacterSheet {
     pub look: Vec<(String, f32)>,
     /// None until the character first enters a map.
     pub place: Option<Place>,
+    /// Learned skill levels (combat.json skills.upgradeable); a skill missing
+    /// here is not learned.
+    #[serde(default)]
+    pub skills: Vec<(String, u8)>,
     /// Bumped by every change; a save older than the stored one is refused.
     pub revision: u64,
 }

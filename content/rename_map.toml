@@ -23,6 +23,7 @@ expelliarmus = "disarm"
 protego = "ward_shield"
 glacius = "frost_grip"
 avada_arcana = "stella_ruina"
+patronum = "light_of_ithrel"
 
 [element]
 patronus = "ithrel_light"

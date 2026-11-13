@@ -326,6 +326,39 @@ impl World {
         best
     }
 
+    /// The first obstacle on the segment `from` -> `to`, colliders or
+    /// terrain, as the fraction of the segment travelled before it; None when
+    /// the segment is clear (line of sight, a bolt's flight).
+    #[must_use]
+    pub fn line_hit(&self, from: Vec3, to: Vec3) -> Option<f32> {
+        let motion = to - from;
+        let length = motion.length();
+        if length < 1.0e-4 {
+            return None;
+        }
+        // A thin vertical capsule (a bead) stands in for the line.
+        let mut best = self.sweep(&bead(), from, motion).map(|hit| hit.fraction);
+        // The terrain is a height grid, not a collider: walk the segment.
+        let steps = (length / TERRAIN_LINE_STEP).ceil().max(1.0) as usize;
+        let mut previous = 0.0_f32;
+        for i in 1..=steps {
+            let t = i as f32 / steps as f32;
+            if best.is_some_and(|b| b <= t) {
+                break;
+            }
+            let p = from + motion * t;
+            if self
+                .terrain_at(p.x, p.z)
+                .is_some_and(|(height, _)| p.y < height)
+            {
+                best = Some(previous);
+                break;
+            }
+            previous = t;
+        }
+        best
+    }
+
     /// How far a capsule at `center` sinks into the world, as the push that
     /// gets it out (zero when it is clear). Resolves the deepest contact only;
     /// callers repeat it a few times for corners.
@@ -491,6 +524,18 @@ impl Terrain {
         Some((height, normal))
     }
 }
+
+/// The thin capsule `line_hit` sweeps along a line (also for callers that
+/// test only colliders).
+#[must_use]
+pub fn bead() -> Capsule {
+    Capsule::new_y(0.0, LINE_RADIUS)
+}
+
+/// Radius of the bead `line_hit` sweeps.
+const LINE_RADIUS: f32 = 0.04;
+/// Spacing of the terrain samples along a line.
+const TERRAIN_LINE_STEP: f32 = 1.0;
 
 fn capsule_aabb(capsule: &Capsule, center: Vec3) -> Aabb {
     let r = capsule.radius;

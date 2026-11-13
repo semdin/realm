@@ -448,6 +448,7 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
         last_input_seq: tick,
         own: *body,
         own_hp: 200,
+        own_vitals: [431, 500, 77, 300],
         entities: Vec::new(),
     };
     let decoded =
@@ -459,7 +460,9 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
         movement: input,
         action: (tick % 3) as u8,
         target: tick * 7,
-    };
+        aim: [0; 3],
+    }
+    .aimed_at(realm_sim::Vec3::new(tick as f32 * 0.25, -3.5, 12.0));
     let batch = InputBatch {
         newest_seq: tick,
         ack_snapshot: tick,
@@ -473,6 +476,7 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
             .iter()
             .map(|f| InputFrame {
                 target: if f.action == 0 { 0 } else { f.target },
+                aim: if f.action == 0 { [0; 3] } else { f.aim },
                 ..*f
             })
             .collect(),
@@ -528,6 +532,7 @@ fn crowd_bandwidth() -> String {
             last_input_seq: tick,
             own: Body::default(),
             own_hp: 255,
+            own_vitals: [500, 500, 300, 300],
             entities: entities.clone(),
         };
         let bytes = realm_proto::encode_snapshot(&snapshot, baseline.map(Vec::as_slice));

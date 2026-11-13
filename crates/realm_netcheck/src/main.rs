@@ -238,6 +238,20 @@ fn main() -> AnyResult<()> {
     let mut awaiting_sheet = false;
     let mut items_done = false;
     let mut stale_checked = false;
+    // Then combat: a spell not learned is refused, learning it is answered,
+    // the learned spell starts (and costs its mana), an immediate second cast
+    // is refused for its cooldown.
+    let rules = realm_rules::Rules::from_content(&content)?;
+    let stun = rules
+        .combat
+        .spell("stun_bolt")
+        .ok_or("content has no stun_bolt")?
+        .clone();
+    let mut combat_phase = 0_u8;
+    let mut cast_now = false;
+    let mut mana_before = 0_u32;
+    let mut combat_done = false;
+    let mut me = 0_u32;
     while started.elapsed() < deadline {
         while let Some(event) = net.poll() {
             match event {
@@ -257,6 +271,7 @@ fn main() -> AnyResult<()> {
                     let world = pack.world()?;
                     let stairs = realm_data::staircases(&content, &pack)?;
                     println!("[netcheck] joined as {entity} at server tick {tick} on {map}");
+                    me = entity;
                     core = Some(ClientCore::new(world, stairs, entity, tick));
                 }
                 NetEvent::Refused(reason) => return Err(format!("refused: {reason}").into()),
@@ -368,11 +383,90 @@ fn main() -> AnyResult<()> {
                         });
                     }
                 }
+                NetEvent::Control(realm_proto::control::ServerMsg::SkillResult {
+                    spell,
+                    ok,
+                    reason,
+                }) => {
+                    println!("[netcheck] skill {spell}: {reason}");
+                    if combat_phase == 2 {
+                        if !ok {
+                            return Err(format!("learning {spell} was refused: {reason}").into());
+                        }
+                        combat_phase = 3;
+                        cast_now = true;
+                    }
+                }
+                NetEvent::Control(realm_proto::control::ServerMsg::Combat(events)) => {
+                    use realm_proto::control::CombatEvent;
+                    for event in events {
+                        match event {
+                            CombatEvent::CastRefused { spell, reason } if spell == stun.index => {
+                                println!("[netcheck] cast refused: {reason}");
+                                match (combat_phase, reason.as_str()) {
+                                    (1, "skill_locked") => {
+                                        combat_phase = 2;
+                                        net.send_control(
+                                            &realm_proto::control::ClientMsg::LearnSkill(
+                                                stun.id.clone(),
+                                            ),
+                                        );
+                                    }
+                                    (4, "cooldown") => {
+                                        combat_phase = 5;
+                                        combat_done = true;
+                                        let mana = core.as_ref().map_or(0, |c| c.own_vitals()[2]);
+                                        println!(
+                                            "[netcheck] mana now {mana} (stun bolt costs {})",
+                                            stun.mana_cost
+                                        );
+                                    }
+                                    _ => {
+                                        return Err(format!("unexpected refusal in combat step {combat_phase}: {reason}").into());
+                                    }
+                                }
+                            }
+                            CombatEvent::CastStarted { caster, spell, .. }
+                                if caster == me && spell == stun.index =>
+                            {
+                                if combat_phase != 3 {
+                                    return Err(format!(
+                                        "a cast started in combat step {combat_phase}"
+                                    )
+                                    .into());
+                                }
+                                // the spell left; its mana shows in the next snapshots
+                                println!(
+                                    "[netcheck] stun bolt started (mana {mana_before} before)"
+                                );
+                                combat_phase = 4;
+                                cast_now = true;
+                            }
+                            _ => {}
+                        }
+                    }
+                }
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }
         }
         if let Some(core) = core.as_mut() {
-            let bytes = core.step(intent(core.tick()), 0, 0);
+            if items_done && stale_checked && combat_phase == 0 {
+                combat_phase = 1;
+                cast_now = true;
+            }
+            let action = if cast_now {
+                cast_now = false;
+                if combat_phase == 3 {
+                    mana_before = core.own_vitals()[2];
+                }
+                stun.index + 1
+            } else {
+                0
+            };
+            let ahead = core.body().map_or(realm_sim::Vec3::ZERO, |b| {
+                b.pos + realm_sim::Vec3::new(0.0, 1.0, -8.0)
+            });
+            let bytes = core.step(intent(core.tick()), action, 0, ahead);
             net.send(bytes);
             if Instant::now() >= report {
                 let s = core.stats;
@@ -413,6 +507,9 @@ fn main() -> AnyResult<()> {
     }
     if !look_answered {
         return Err("the look request was never answered".into());
+    }
+    if !combat_done {
+        return Err(format!("the combat check stopped at step {combat_phase} of 5").into());
     }
     if !items_done || !stale_checked {
         return Err(format!("item requests stopped at step {step} of {}", script.len()).into());

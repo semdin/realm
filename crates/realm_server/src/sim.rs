@@ -27,7 +27,11 @@ use realm_sim::world::World as Terrain;
 use realm_sim::{SIM_DT, Vec3};
 
 use crate::game::Game;
+
+mod combat;
 use crate::store::StoreJob;
+use combat::{Bolt, Caster};
+use realm_proto::control::CombatEvent;
 
 pub type ConnId = u64;
 
@@ -94,7 +98,6 @@ const STATE_ATTACKING: u8 = 2;
 const STATE_DEAD: u8 = 3;
 /// A dead creature stays visible this long, then leaves until it respawns.
 const CORPSE_TICKS: u32 = 60;
-const PROJECTILE_HIT_RADIUS: f32 = 0.7;
 const CHEST: f32 = 1.15;
 /// Most steps a player may run in one tick (catching up after a stall).
 const MAX_BURST: u32 = 4;
@@ -145,7 +148,6 @@ struct Player {
     pending: BTreeMap<u32, InputFrame>,
     last_seq: u32,
     last_frame: InputFrame,
-    cooldown: u16,
     hp: f32,
     max_hp: f32,
     dead_until: u32,
@@ -161,6 +163,8 @@ struct Player {
     sheet: CharacterSheet,
     /// Tick of the first unsaved change, if any.
     dirty_since: Option<u32>,
+    /// Mana, casting, cooldowns, the ward, derived gear stats.
+    caster: Caster,
     /// Last tick this player attacked or was hit (gear changes wait for
     /// peace).
     last_combat: u32,
@@ -198,15 +202,6 @@ struct Mob {
     replan_at: u32,
 }
 
-struct Projectile {
-    owner: Entity,
-    target: Entity,
-    pos: Vec3,
-    damage: f32,
-    left: f32,
-    speed: f32,
-}
-
 /// What one client has been sent.
 struct View {
     /// Entity sets of recent snapshots, by tick: the delta baselines.
@@ -224,6 +219,8 @@ struct Client {
     view: View,
     phase: u32,
     bytes: u64,
+    /// Combat events waiting for this client's next snapshot.
+    events: Vec<CombatEvent>,
 }
 
 /// One replicated entity this tick.
@@ -278,7 +275,11 @@ pub struct Sim {
     clients: HashMap<ConnId, Client>,
     ids: HashMap<u32, Entity>,
     next_id: u32,
-    projectiles: Vec<Projectile>,
+    bolts: Vec<Bolt>,
+    /// This tick's combat events, where they happened.
+    events: Vec<(Vec3, CombatEvent)>,
+    /// Events only their player hears (a refused cast).
+    private_events: Vec<(Entity, CombatEvent)>,
     rows: Vec<Row>,
     /// Row indices per cell.
     cells: Vec<Vec<u32>>,
@@ -417,7 +418,9 @@ impl Sim {
             clients: HashMap::new(),
             ids: HashMap::new(),
             next_id: 1,
-            projectiles: Vec::new(),
+            bolts: Vec::new(),
+            events: Vec::new(),
+            private_events: Vec::new(),
             rows: Vec::new(),
             cells: vec![Vec::new(); GRID_DIM * GRID_DIM],
             player_cells: vec![Vec::new(); GRID_DIM * GRID_DIM],
@@ -507,13 +510,16 @@ impl Sim {
             mark = now;
         };
         self.players();
+        self.advance_casts();
         lap(0, &mut self.stats);
         self.creatures();
         lap(1, &mut self.stats);
-        self.projectiles();
+        self.advance_bolts();
+        self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
         lap(3, &mut self.stats);
+        self.dispatch_events();
         self.snapshots();
         lap(4, &mut self.stats);
         self.autosave();
@@ -640,7 +646,9 @@ impl Sim {
             .as_ref()
             .filter(|p| p.map == self.game.map)
             .map(|p| Vec3::new(p.pos[0], p.pos[1], p.pos[2]));
-        let max_hp = self.game.rules.derived(&sheet).max_hp.max(1) as f32;
+        let derived = self.game.rules.derived(&sheet);
+        let max_hp = derived.max_hp.max(1) as f32;
+        let caster = Caster::new(sheet.mana as f32, derived);
         // A character saved dead comes back whole at the map's spawn.
         let (start, hp) = if sheet.hp == 0 {
             (home, max_hp)
@@ -652,7 +660,6 @@ impl Sim {
             pending: BTreeMap::new(),
             last_seq: 0,
             last_frame: InputFrame::default(),
-            cooldown: 0,
             hp,
             max_hp,
             dead_until: 0,
@@ -662,6 +669,7 @@ impl Sim {
             gap_ticks: 0,
             sheet,
             dirty_since: None,
+            caster,
             last_combat: 0,
         };
         let entity = self.world.spawn(player).id();
@@ -684,6 +692,7 @@ impl Sim {
                 view,
                 phase,
                 bytes: 0,
+                events: Vec::new(),
             },
         );
         let _ = join.reply.send(JoinReply::Accepted {
@@ -723,6 +732,7 @@ impl Sim {
             yaw: player.last_frame.movement.yaw_radians(),
         });
         sheet.hp = libm::ceilf(player.hp.max(0.0)) as u32;
+        sheet.mana = libm::ceilf(player.caster.mana.max(0.0)) as u32;
         Some(sheet)
     }
 
@@ -752,7 +762,7 @@ impl Sim {
             return;
         };
         if let Some(sheet) = self.sheet_of(entity) {
-            self.send_control(conn, &ServerMsg::Sheet(sheet));
+            self.send_control(conn, &ServerMsg::Sheet(Box::new(sheet)));
         }
     }
 
@@ -780,6 +790,49 @@ impl Sim {
                 revision,
                 op,
             } => self.item_op(conn, entity, op_id, revision, &op),
+            ClientMsg::LearnSkill(spell) => self.learn_skill(conn, entity, spell),
+        }
+    }
+
+    /// Spends a skill point: learns `spell` or raises it one level.
+    fn learn_skill(&mut self, conn: ConnId, entity: Entity, spell: String) {
+        let tick = self.tick;
+        let combat = &self.game.rules.combat;
+        let Some(player) = self.world.get::<Player>(entity) else {
+            return;
+        };
+        let level = combat.skill_level(&player.sheet, &spell);
+        let reason = if !combat.skill_upgradeable(&spell) {
+            "not_a_skill"
+        } else if level >= combat.skills.max_level {
+            "max_level"
+        } else if combat.skill_points(&player.sheet) == 0 {
+            "no_points"
+        } else if player.dead_until != 0 {
+            "dead"
+        } else {
+            "learned"
+        };
+        let ok = reason == "learned";
+        if ok && let Some(mut player) = self.world.get_mut::<Player>(entity) {
+            let skills = &mut player.sheet.skills;
+            match skills.iter_mut().find(|(s, _)| *s == spell) {
+                Some(entry) => entry.1 += 1,
+                None => skills.push((spell.clone(), 1)),
+            }
+            player.sheet.revision += 1;
+            player.dirty_since.get_or_insert(tick);
+        }
+        self.send_control(
+            conn,
+            &ServerMsg::SkillResult {
+                spell,
+                ok,
+                reason: reason.to_owned(),
+            },
+        );
+        if ok {
+            self.send_sheet(conn);
         }
     }
 
@@ -824,11 +877,16 @@ impl Sim {
             Err(reason) => (false, reason, 0),
         };
         if ok {
-            let max_hp = self.game.rules.derived(&sheet).max_hp.max(1) as f32;
+            let derived = self.game.rules.derived(&sheet);
+            let max_hp = derived.max_hp.max(1) as f32;
             if let Some(mut player) = self.world.get_mut::<Player>(entity) {
-                // A potion changed hp; gear may have changed the maximum.
+                // A potion changed hp or mana; gear may have changed the
+                // maximums and every stat the casts and hits read.
                 player.max_hp = max_hp;
                 player.hp = (sheet.hp as f32).min(max_hp);
+                player.caster.max_mana = derived.max_mana as f32;
+                player.caster.mana = (sheet.mana as f32).min(player.caster.max_mana);
+                player.caster.derived = derived;
                 sheet.place = None;
                 player.sheet = sheet;
                 player.dirty_since.get_or_insert(tick);
@@ -914,7 +972,7 @@ impl Sim {
         self.stairs.apply(&mut self.terrain, tick);
         let has_stairs = !self.stairs.flights.is_empty();
         let mut stairs_at = tick;
-        let mut casts: Vec<(Entity, u32)> = Vec::new();
+        let mut casts: Vec<(Entity, InputFrame)> = Vec::new();
         let mut query = self.world.query::<(Entity, &mut Player)>();
         for (entity, mut player) in query.iter_mut(&mut self.world) {
             if player.dead_until != 0 {
@@ -984,99 +1042,16 @@ impl Sim {
                     .stats
                     .roamed
                     .max(planar_distance(body.pos, player.home));
-                player.cooldown = player.cooldown.saturating_sub(1);
-                if frame.action == 1 && player.cooldown == 0 {
-                    player.last_combat = tick;
-                    casts.push((entity, frame.target));
+                if frame.action != 0 {
+                    casts.push((entity, frame));
                 }
             }
         }
         if stairs_at != tick {
             self.stairs.apply(&mut self.terrain, tick);
         }
-        for (caster, target_id) in casts {
-            self.start_basic_attack(caster, target_id);
-        }
-    }
-
-    fn start_basic_attack(&mut self, caster: Entity, target_id: u32) {
-        let Some(&target) = self.ids.get(&target_id) else {
-            self.stats.refused[0] += 1;
-            return;
-        };
-        let Some(origin) = self.world.get::<Player>(caster).map(|p| p.body.pos) else {
-            return;
-        };
-        let Some(target_pos) = self
-            .world
-            .get::<Mob>(target)
-            .filter(|m| m.mode != MobMode::Dead)
-            .map(|m| m.pos)
-        else {
-            self.stats.refused[1] += 1;
-            return;
-        };
-        if planar_distance(origin, target_pos) > self.game.basic.range {
-            self.stats.refused[2] += 1;
-            return;
-        }
-        if let Some(mut player) = self.world.get_mut::<Player>(caster) {
-            player.cooldown = self.game.basic.cooldown_ticks;
-        }
-        self.stats.casts += 1;
-        self.projectiles.push(Projectile {
-            owner: caster,
-            target,
-            pos: origin + Vec3::new(0.0, 1.25, 0.0),
-            damage: self.game.basic.damage,
-            left: self.game.basic.range * 1.5,
-            speed: self.game.basic.speed,
-        });
-    }
-
-    /// Homing bolts: fly toward the target's chest, hit within a radius.
-    fn projectiles(&mut self) {
-        let mut hits: Vec<(Entity, Entity, f32)> = Vec::new();
-        let world = &self.world;
-        self.projectiles.retain_mut(|p| {
-            let Some(mob) = world
-                .get::<Mob>(p.target)
-                .filter(|m| m.mode != MobMode::Dead)
-            else {
-                return false;
-            };
-            let aim = mob.pos + Vec3::new(0.0, CHEST, 0.0);
-            let to = aim - p.pos;
-            let dist = to.length();
-            let step = p.speed * SIM_DT;
-            if dist <= step + PROJECTILE_HIT_RADIUS {
-                hits.push((p.owner, p.target, p.damage));
-                return false;
-            }
-            p.pos += to * (step / dist);
-            p.left -= step;
-            p.left > 0.0
-        });
-        self.stats.hits += hits.len() as u64;
-        for (owner, target, damage) in hits {
-            let tick = self.tick;
-            let Some(mut mob) = self.world.get_mut::<Mob>(target) else {
-                continue;
-            };
-            mob.hp -= damage;
-            if mob.hp <= 0.0 {
-                mob.hp = 0.0;
-                mob.mode = MobMode::Dead;
-                mob.state = STATE_DEAD;
-                mob.died_at = tick;
-                self.stats.kills += 1;
-                let (lo, hi) = self.game.mob_respawn_ticks;
-                let span = hi.saturating_sub(lo).max(1);
-                mob.respawn_at = tick + lo + xorshift(&mut mob.rng) % span;
-            } else if !matches!(mob.mode, MobMode::Chase(_)) {
-                mob.mode = MobMode::Chase(owner);
-                mob.next_think = tick;
-            }
+        for (caster, frame) in casts {
+            self.request_cast(caster, frame);
         }
     }
 
@@ -1104,7 +1079,7 @@ impl Sim {
             }
         }
 
-        let mut strikes: Vec<(Entity, f32)> = Vec::new();
+        let mut strikes: Vec<(Entity, f32, Entity, u32)> = Vec::new();
         let mut awake = 0;
         let mut thinking = 0;
         let mut paths = 0_u64;
@@ -1117,8 +1092,8 @@ impl Sim {
         let player_cells = &self.player_cells;
         let player_pos = &self.player_pos;
         let awake_cells = &self.awake;
-        let mut query = self.world.query::<&mut Mob>();
-        for mut mob in query.iter_mut(&mut self.world) {
+        let mut query = self.world.query::<(Entity, &mut Mob)>();
+        for (mob_entity, mut mob) in query.iter_mut(&mut self.world) {
             if mob.mode == MobMode::Dead {
                 if tick >= mob.respawn_at {
                     let home = mob.home;
@@ -1301,7 +1276,7 @@ impl Sim {
                     mob.yaw = yaw_of(to / dist.max(0.001));
                     if mob.attack_cd == 0 {
                         mob.attack_cd = species.attack_cooldown_ticks;
-                        strikes.push((target, game.mob_attack(pack)));
+                        strikes.push((target, game.mob_attack(pack), mob_entity, pack.level));
                     }
                     mob.state = STATE_ATTACKING;
                 }
@@ -1314,19 +1289,8 @@ impl Sim {
         self.stats.ground_ms += ground_ms;
         self.nav_scratch = scratch;
 
-        let respawn = self.game.respawn_ticks;
-        for (target, damage) in strikes {
-            if let Some(mut player) = self.world.get_mut::<Player>(target)
-                && player.dead_until == 0
-            {
-                player.hp -= damage;
-                player.last_combat = tick;
-                if player.hp <= 0.0 {
-                    player.hp = 0.0;
-                    player.dead_until = tick + u32::from(respawn);
-                    self.stats.player_deaths += 1;
-                }
-            }
+        for (target, damage, attacker, level) in strikes {
+            self.hit_player(target, attacker, damage, "melee", level);
         }
     }
 
@@ -1394,6 +1358,15 @@ impl Sim {
         for client in self.clients.values_mut() {
             if tick % SNAPSHOT_EVERY != client.phase {
                 continue;
+            }
+            // Combat events since the last snapshot go first, on the
+            // reliable channel (a full queue drops the client like any other
+            // reliable message would).
+            if !client.events.is_empty() {
+                let batch = std::mem::take(&mut client.events);
+                let _ = client.control.try_send(Bytes::from(control::encode_server(
+                    &ServerMsg::Combat(batch),
+                )));
             }
             let Some(player) = self.world.get::<Player>(client.entity) else {
                 continue;
@@ -1479,6 +1452,12 @@ impl Sim {
                 last_input_seq: player.last_seq,
                 own: player.body,
                 own_hp: hp_byte(player.hp, player.max_hp),
+                own_vitals: [
+                    libm::ceilf(player.hp.max(0.0)) as u32,
+                    player.max_hp as u32,
+                    libm::ceilf(player.caster.mana.max(0.0)) as u32,
+                    player.caster.max_mana as u32,
+                ],
                 entities: next,
             };
             let bytes = realm_proto::encode_snapshot(&snapshot, baseline.map(|(_, s)| s));

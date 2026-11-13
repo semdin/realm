@@ -147,8 +147,8 @@
     "color": "#00ff77",
     "hotkey": "E"
   },
-  "patronum": {
-    "id": "patronum",
+  "light_of_ithrel": {
+    "id": "light_of_ithrel",
     "element": "ithrel_light",
     "name": "Light of Ithrel",
     "desc": "Calls down a star-hawk of silver light that dives through a wide cone. Pallids take triple damage and the star-hawk breaks a Pallid's attack, soul-drain included; everything it passes through is slowed by 40% for 3 seconds. Requires level 40.",

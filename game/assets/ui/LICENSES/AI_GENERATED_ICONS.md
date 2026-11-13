@@ -74,7 +74,7 @@ kept in `art/wands/concepts/`); no third-party image was used.
 
 Tool: fal.ai `fal-ai/nano-banana-2.1` (1K, 1:1), text prompt only (no input image).
 
-* `icon_patronum.png` - Expecto Patronum spell icon, same full-bleed spell-icon template
+* `icon_light_of_ithrel.png` - Light of Ithrel spell icon, same full-bleed spell-icon template
   (silver spectral stag), resized to 512 px.
 * `icon_status_despair.png` - "Despair" debuff (pallid kiss / aura), generated on flat
   white and cut out by `tools/ui/cutout_icons.py` (item_ mode, 512 px).

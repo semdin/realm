@@ -1,6 +1,6 @@
-//! What the map server reads from the content: creature species, spawn
-//! packs, the basic attack, player base stats. Phase 5 ports the full rule
-//! set; this is the part the load test needs.
+//! What the map server reads from the content for its creatures: species,
+//! spawn packs, respawn and tuning numbers. Character, item and combat rules
+//! are realm_rules (`Game::rules`).
 
 use realm_data::Content;
 use realm_sim::Vec3;
@@ -26,23 +26,16 @@ pub struct Pack {
     pub leash: f32,
 }
 
-pub struct BasicAttack {
-    pub damage: f32,
-    pub range: f32,
-    pub speed: f32,
-    pub cooldown_ticks: u16,
-}
-
 pub struct Game {
     /// The map this server runs.
     pub map: String,
-    /// The typed rules (character sheets, items, looks).
-    pub rules: realm_rules::Rules,
+    /// The typed rules (character sheets, items, looks, combat). Shared, so
+    /// a system can hold a rule while it changes the world.
+    pub rules: std::sync::Arc<realm_rules::Rules>,
     /// House ids, for characters made by the development store.
     pub houses: Vec<String>,
     pub species: Vec<Species>,
     pub packs: Vec<Pack>,
-    pub basic: BasicAttack,
     pub spawn_point: Vec3,
     /// Bottom of the map's height band: a body below it fell out of the map.
     pub y_min: f32,
@@ -74,7 +67,6 @@ impl Game {
         };
         let mobs = get("mobs.json")?;
         let spawns = get("spawn_tables.json")?;
-        let spells = get("spells.json")?;
         let combat = get("combat.json")?;
         let maps = get("maps.json")?;
         let loot = get("loot_tables.json")?;
@@ -123,7 +115,6 @@ impl Game {
             });
         }
 
-        let basic = &spells["basic_cast"];
         let tuning = &spawns["pack_tuning"];
         let points = &maps["maps"][map]["spawn_points"];
         let spawn = if points["default"].is_array() {
@@ -137,7 +128,7 @@ impl Game {
         let respawn = &loot["respawn_ms"];
         Ok(Self {
             map: map.to_owned(),
-            rules: realm_rules::Rules::from_content(content)?,
+            rules: std::sync::Arc::new(realm_rules::Rules::from_content(content)?),
             houses: content
                 .file("houses.json")
                 .and_then(|h| h.as_object())
@@ -145,12 +136,6 @@ impl Game {
                 .unwrap_or_default(),
             species,
             packs,
-            basic: BasicAttack {
-                damage: num(&basic["damage"], "basic_cast damage")?,
-                range: num(&basic["range"], "basic_cast range")?,
-                speed: num(&basic["projectile_speed"], "basic_cast projectile_speed")?,
-                cooldown_ticks: ticks(num(&basic["cooldown"], "basic_cast cooldown")?),
-            },
             y_min: maps["maps"][map]["y_min"].as_f64().unwrap_or(-1.0e6) as f32,
             spawn_point: Vec3::new(
                 num(&spawn[0], "spawn")?,

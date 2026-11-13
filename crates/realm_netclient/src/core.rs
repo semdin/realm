@@ -77,6 +77,8 @@ pub struct ClientCore {
     /// Server tick estimate as `local_ticks + offset` (see `server_tick_at`).
     clock_offset: Option<f64>,
     own_hp: u8,
+    /// Health, maximum health, mana, maximum mana from the newest snapshot.
+    own_vitals: [u32; 4],
     /// The newest snapshot said the player is dead: like the server, the
     /// body then ignores its inputs until the respawn.
     dead: bool,
@@ -104,6 +106,7 @@ impl ClientCore {
             confirmed: 0,
             clock_offset: None,
             own_hp: 255,
+            own_vitals: [0; 4],
             dead: false,
             stats: ClientStats::default(),
         }
@@ -127,6 +130,11 @@ impl ClientCore {
     #[must_use]
     pub fn body(&self) -> Option<&Body> {
         self.body.as_ref()
+    }
+
+    #[must_use]
+    pub fn own_vitals(&self) -> [u32; 4] {
+        self.own_vitals
     }
 
     #[must_use]
@@ -162,16 +170,21 @@ impl ClientCore {
     }
 
     /// Runs one client tick with this intent and returns the input packet to
-    /// send.
-    pub fn step(&mut self, movement: MoveInput, action: u8, target: u32) -> Vec<u8> {
+    /// send. `action` is a cast (spell index + 1, 0 = none) at `target`
+    /// (entity, 0 = none) and `aim` (a world point).
+    pub fn step(&mut self, movement: MoveInput, action: u8, target: u32, aim: Vec3) -> Vec<u8> {
         self.tick += 1;
         self.seq += 1;
-        let frame = InputFrame {
+        let mut frame = InputFrame {
             tick: self.tick,
             movement,
             action,
             target: if action == 0 { 0 } else { target },
+            aim: [0; 3],
         };
+        if action != 0 {
+            frame = frame.aimed_at(aim);
+        }
         let after = match self.body.as_mut() {
             Some(body) => {
                 self.prev_pos = body.pos;
@@ -236,6 +249,13 @@ impl ClientCore {
             self.acked = snapshot.tick;
         }
         self.own_hp = snapshot.own_hp;
+        if !self
+            .snapshots
+            .back()
+            .is_some_and(|(t, _)| *t > snapshot.tick)
+        {
+            self.own_vitals = snapshot.own_vitals;
+        }
         let was_dead = self.dead;
         if !self
             .snapshots

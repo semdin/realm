@@ -228,6 +228,10 @@ async fn bot(
     let mut own = Vec3::ZERO;
     let mut own_hp = 255_u8;
     let mut seq = 0_u32;
+    // Like a real client, a bot casts only when its basic attack is ready
+    // again (0.55 s cooldown, 17 ticks): a request every tick would only be
+    // refused.
+    let mut ready_at = 0_u32;
     let mut sent: VecDeque<InputFrame> = VecDeque::new();
     let mut rng = getrandom::u32()? | 1;
     let mut wander_yaw = (rng & 0xFFFF) as u16;
@@ -253,10 +257,15 @@ async fn bot(
                     let yaw = yaw_toward(own, pos);
                     let circle = if (seq / 90).is_multiple_of(2) { 90 } else { -90 };
                     let (strafe, forward) = if dist > 14.0 { (0, 127) } else { (circle, 0) };
-                    totals.attacks.fetch_add(1, Ordering::Relaxed);
+                    let fire = seq >= ready_at;
+                    if fire {
+                        ready_at = seq + 17;
+                        totals.attacks.fetch_add(1, Ordering::Relaxed);
+                    }
                     InputFrame {
                         tick: acked + 3,
-                        movement: MoveInput { strafe, forward, yaw, buttons: 0 }, action: 1, target: target_id }
+                        movement: MoveInput { strafe, forward, yaw, buttons: 0 }, action: u8::from(fire), target: target_id, aim: [0; 3] }
+                        .aimed_at(pos + Vec3::new(0.0, 1.15, 0.0))
                 } else {
                     if seq.is_multiple_of(60) {
                         rng ^= rng << 13;
@@ -266,7 +275,7 @@ async fn bot(
                     }
                     InputFrame {
                         tick: acked + 3,
-                        movement: MoveInput { strafe: 0, forward: 127, yaw: wander_yaw, buttons: 0 }, action: 0, target: 0 }
+                        movement: MoveInput { strafe: 0, forward: 127, yaw: wander_yaw, buttons: 0 }, action: 0, target: 0, aim: [0; 3] }
                 };
                 sent.push_back(frame);
                 while sent.len() > 4 {

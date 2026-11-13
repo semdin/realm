@@ -8,6 +8,51 @@
 //! takes whatever arrived and hands back whole frames.
 
 use realm_rules::{CharacterSheet, ItemOp};
+
+/// Something that happened in combat, for the clients that can see it.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum CombatEvent {
+    /// A cast began: the caster turns to `aim` and the spell leaves the wand
+    /// on `release_tick`.
+    CastStarted {
+        caster: u32,
+        spell: u8,
+        target: u32,
+        aim: [f32; 3],
+        release_tick: u32,
+    },
+    /// The spell left the wand (a bolt starts flying from `from`).
+    CastReleased {
+        caster: u32,
+        spell: u8,
+        from: [f32; 3],
+        dir: [f32; 3],
+    },
+    /// An area spell burst at `at`.
+    Burst {
+        caster: u32,
+        spell: u8,
+        at: [f32; 3],
+    },
+    /// A hit landed: `amount` damage (0 for a blocked or reflected one),
+    /// `flags` (HIT_* bits), the victim's health after it (0..255).
+    Hit {
+        target: u32,
+        attacker: u32,
+        spell: u8,
+        amount: u32,
+        flags: u8,
+        hp: u8,
+    },
+    /// The player's own request was refused (cooldown, no mana, ...).
+    CastRefused { spell: u8, reason: String },
+}
+
+/// Hit flags.
+pub const HIT_CRIT: u8 = 1;
+pub const HIT_FINISHER: u8 = 2;
+pub const HIT_PIERCE: u8 = 4;
+pub const HIT_REFLECTED: u8 = 8;
 use serde::{Deserialize, Serialize};
 
 /// Largest frame either side accepts; a peer sending more is closed.
@@ -18,7 +63,7 @@ pub const MAX_FRAME: usize = 256 * 1024;
 pub enum ServerMsg {
     /// The player's whole character sheet: sent after joining and whenever
     /// it changes.
-    Sheet(CharacterSheet),
+    Sheet(Box<CharacterSheet>),
     /// The answer to an item request. `reason` is a word the client turns
     /// into a message ("equipped", "no_gold", "stale", ...); `amount` is the
     /// oril earned or spent, the points restored or the new tier.
@@ -27,6 +72,14 @@ pub enum ServerMsg {
         ok: bool,
         reason: String,
         amount: i64,
+    },
+    /// What happened in combat near the player since the last batch.
+    Combat(Vec<CombatEvent>),
+    /// The answer to a skill request ("learned", "no_points", ...).
+    SkillResult {
+        spell: String,
+        ok: bool,
+        reason: String,
     },
 }
 
@@ -43,6 +96,8 @@ pub enum ClientMsg {
         revision: u64,
         op: ItemOp,
     },
+    /// Spend a skill point on `spell` (learn it, or raise it one level).
+    LearnSkill(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]

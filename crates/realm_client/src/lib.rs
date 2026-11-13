@@ -259,7 +259,11 @@ struct RealmSession {
     clock: FixedStep,
     started: Instant,
     intent: MoveInput,
-    action: (u8, u32),
+    /// The next tick's cast: spell index + 1 (0 = none), target, aim.
+    action: (u8, u32, realm_sim::Vec3),
+    /// Combat events and skill answers not yet taken by the view.
+    combat_events: Vec<realm_proto::control::CombatEvent>,
+    skill_results: Vec<(String, bool, String)>,
     status: String,
     /// The player's character sheet as the server last sent it.
     sheet: Option<CharacterSheet>,
@@ -281,7 +285,9 @@ impl INode for RealmSession {
             clock: FixedStep::default(),
             started: Instant::now(),
             intent: MoveInput::default(),
-            action: (0, 0),
+            action: (0, 0, realm_sim::Vec3::ZERO),
+            combat_events: Vec::new(),
+            skill_results: Vec::new(),
             status: "idle".to_owned(),
             sheet: None,
             item_results: Vec::new(),
@@ -296,9 +302,9 @@ impl INode for RealmSession {
             let (Some(core), Some(net)) = (self.core.as_mut(), self.net.as_ref()) else {
                 break;
             };
-            let (action, target) = self.action;
-            net.send(core.step(self.intent, action, target));
-            self.action = (0, 0);
+            let (action, target, aim) = self.action;
+            net.send(core.step(self.intent, action, target, aim));
+            self.action = (0, 0, realm_sim::Vec3::ZERO);
         }
     }
 }
@@ -347,7 +353,11 @@ impl RealmSession {
                         core.on_datagram(&bytes, now);
                     }
                 }
-                NetEvent::Control(ServerMsg::Sheet(sheet)) => self.sheet = Some(sheet),
+                NetEvent::Control(ServerMsg::Sheet(sheet)) => self.sheet = Some(*sheet),
+                NetEvent::Control(ServerMsg::Combat(events)) => self.combat_events.extend(events),
+                NetEvent::Control(ServerMsg::SkillResult { spell, ok, reason }) => {
+                    self.skill_results.push((spell, ok, reason));
+                }
                 NetEvent::Control(ServerMsg::ItemResult {
                     op_id,
                     ok,
@@ -451,7 +461,138 @@ impl RealmSession {
     /// An action for the next tick (1 = basic attack) aimed at `target`.
     #[func]
     fn set_action(&mut self, slot: i64, target: i64) {
-        self.action = (slot.clamp(0, 7) as u8, target.max(0) as u32);
+        self.action = (
+            slot.clamp(0, 15) as u8,
+            target.max(0) as u32,
+            realm_sim::Vec3::ZERO,
+        );
+    }
+
+    /// Casts `spell` on the next tick at `target` (entity id, 0 = none) and
+    /// `aim` (a world point). False for a spell the content does not have.
+    #[func]
+    fn cast(&mut self, spell: GString, target: i64, aim: Vector3) -> bool {
+        let Some(index) = self
+            .rules
+            .as_ref()
+            .and_then(|r| r.combat.spell(&spell.to_string()))
+            .map(|s| s.index)
+        else {
+            return false;
+        };
+        self.action = (
+            index + 1,
+            target.max(0) as u32,
+            realm_sim::Vec3::new(aim.x, aim.y, aim.z),
+        );
+        true
+    }
+
+    /// Spends a skill point on `spell`; the answer comes through
+    /// `take_skill_results`, the new sheet after it.
+    #[func]
+    fn learn_skill(&mut self, spell: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::LearnSkill(spell.to_string()));
+        }
+    }
+
+    /// Answers to skill requests: `spell`, `ok`, `reason`.
+    #[func]
+    fn take_skill_results(&mut self) -> VarArray {
+        let mut out = VarArray::new();
+        for (spell, ok, reason) in self.skill_results.drain(..) {
+            let mut d = VarDictionary::new();
+            d.set("spell", &GString::from(spell.as_str()).to_variant());
+            d.set("ok", &ok.to_variant());
+            d.set("reason", &GString::from(reason.as_str()).to_variant());
+            out.push(&d.to_variant());
+        }
+        out
+    }
+
+    /// Combat events since the last call, each a dictionary with `kind`
+    /// ("cast_started", "cast_released", "burst", "hit", "cast_refused") and
+    /// its fields; spells are named by id.
+    #[func]
+    fn take_combat_events(&mut self) -> VarArray {
+        use realm_proto::control::CombatEvent;
+        let mut out = VarArray::new();
+        let name = |index: u8| -> GString {
+            self.rules
+                .as_ref()
+                .and_then(|r| r.combat.spell_by_index(index))
+                .map_or_else(GString::new, |s| GString::from(s.id.as_str()))
+        };
+        let v3 = |a: [f32; 3]| Vector3::new(a[0], a[1], a[2]);
+        for event in self.combat_events.drain(..) {
+            let mut d = VarDictionary::new();
+            match event {
+                CombatEvent::CastStarted {
+                    caster,
+                    spell,
+                    target,
+                    aim,
+                    release_tick,
+                } => {
+                    d.set("kind", "cast_started");
+                    d.set("caster", &i64::from(caster).to_variant());
+                    d.set("spell", &name(spell).to_variant());
+                    d.set("target", &i64::from(target).to_variant());
+                    d.set("aim", &v3(aim).to_variant());
+                    d.set("release_tick", &i64::from(release_tick).to_variant());
+                }
+                CombatEvent::CastReleased {
+                    caster,
+                    spell,
+                    from,
+                    dir,
+                } => {
+                    d.set("kind", "cast_released");
+                    d.set("caster", &i64::from(caster).to_variant());
+                    d.set("spell", &name(spell).to_variant());
+                    d.set("from", &v3(from).to_variant());
+                    d.set("dir", &v3(dir).to_variant());
+                }
+                CombatEvent::Burst { caster, spell, at } => {
+                    d.set("kind", "burst");
+                    d.set("caster", &i64::from(caster).to_variant());
+                    d.set("spell", &name(spell).to_variant());
+                    d.set("at", &v3(at).to_variant());
+                }
+                CombatEvent::Hit {
+                    target,
+                    attacker,
+                    spell,
+                    amount,
+                    flags,
+                    hp,
+                } => {
+                    d.set("kind", "hit");
+                    d.set("target", &i64::from(target).to_variant());
+                    d.set("attacker", &i64::from(attacker).to_variant());
+                    d.set("spell", &name(spell).to_variant());
+                    d.set("amount", &i64::from(amount).to_variant());
+                    d.set("flags", &i64::from(flags).to_variant());
+                    d.set("hp", &i64::from(hp).to_variant());
+                }
+                CombatEvent::CastRefused { spell, reason } => {
+                    d.set("kind", "cast_refused");
+                    d.set("spell", &name(spell).to_variant());
+                    d.set("reason", &GString::from(reason.as_str()).to_variant());
+                }
+            }
+            out.push(&d.to_variant());
+        }
+        out
+    }
+
+    /// The player's health, maximum health, mana and maximum mana as the
+    /// newest snapshot says.
+    #[func]
+    fn vitals(&self) -> PackedInt32Array {
+        let v = self.core.as_ref().map_or([0; 4], |c| c.own_vitals());
+        v.iter().map(|x| *x as i32).collect()
     }
 
     /// The player's body, drawn between the last two ticks.
