@@ -2,3 +2,4 @@
 .godot/
 *.import.tmp
 /tools/gdext_smoke/bin/
+/keys/

@@ -17,6 +17,10 @@ serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 toml = "1"
 sha2 = "0.11.1"
+ed25519-dalek = { version = "3.0.0", default-features = false, features = ["fast", "zeroize"] }
+getrandom = { version = "0.4.3", features = ["std"] }
+bevy_ecs = { version = "0.20.1", default-features = false, features = ["std"] }
+crossbeam-channel = "0.5.17"
 godot = { version = "0.5.5", features = ["api-4-7"] }
 quinn = { version = "0.11.12", default-features = false, features = ["runtime-tokio", "rustls-ring", "log"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std"] }

@@ -348,6 +348,7 @@ fn step_up(body: &mut Body, world: &World, cap: &Capsule) {
 /// Sweeps the capsule along its velocity, sliding along whatever it hits, then
 /// keeps a walking body on the ground going down slopes and steps.
 fn move_and_slide(body: &mut Body, world: &World, cap: &Capsule) {
+    let before = body.pos;
     let was_on_floor = body.on_floor;
     body.on_floor = false;
     let mut remaining = body.vel * SIM_DT;
@@ -396,6 +397,7 @@ fn move_and_slide(body: &mut Body, world: &World, cap: &Capsule) {
     }
 
     let jumping = body.vel.y > 0.0;
+    stand_on_terrain(body, world, before, was_on_floor, jumping);
     if !body.on_floor && was_on_floor && !jumping && !body.mounted && !body.swimming {
         let snap_motion = Vec3::new(0.0, -FLOOR_SNAP_LENGTH, 0.0);
         if let Some(hit) = world.sweep(cap, body.center(), snap_motion)
@@ -404,6 +406,62 @@ fn move_and_slide(body: &mut Body, world: &World, cap: &Capsule) {
             body.pos += snap_motion * hit.fraction + hit.normal * SKIN;
             body.on_floor = true;
             body.vel.y = 0.0;
+        }
+    }
+}
+
+/// Terrain is a height function, not a swept shape: a body below it is put
+/// on it, a walking body within snap distance follows it down, ground too
+/// steep to walk acts as a wall for a supported body and as a bank to slide
+/// down for a falling one.
+fn stand_on_terrain(
+    body: &mut Body,
+    world: &World,
+    before: Vec3,
+    was_on_floor: bool,
+    jumping: bool,
+) {
+    let Some((mut height, mut normal)) = world.terrain_at(body.pos.x, body.pos.z) else {
+        return;
+    };
+    let free = !body.mounted && !body.swimming;
+    let supported = was_on_floor || body.on_floor;
+    if supported && free && normal.y < FLOOR_MIN_NORMAL_Y && height > body.pos.y + 0.02 {
+        let wall = Vec3::new(normal.x, 0.0, normal.z).normalize_or_zero();
+        let moved = Vec3::new(body.pos.x - before.x, 0.0, body.pos.z - before.z);
+        let into = moved.dot(wall);
+        if into < 0.0 {
+            body.pos.x -= wall.x * into;
+            body.pos.z -= wall.z * into;
+            let v_into = body.vel.dot(wall);
+            if v_into < 0.0 {
+                body.vel -= wall * v_into;
+            }
+            if let Some(sample) = world.terrain_at(body.pos.x, body.pos.z) {
+                (height, normal) = sample;
+            }
+        }
+    }
+    let gap = body.pos.y - height;
+    let snap = was_on_floor && !jumping && free && gap <= FLOOR_SNAP_LENGTH;
+    if gap >= 0.0 && !snap {
+        return;
+    }
+    if normal.y >= FLOOR_MIN_NORMAL_Y || body.mounted {
+        body.pos.y = height;
+        body.on_floor = true;
+        if body.vel.y < 0.0 {
+            body.vel.y = 0.0;
+        }
+    } else if gap < 0.0 {
+        body.pos.y = height;
+        if free {
+            body.steep_normal = normal;
+            body.steep_ticks = STEEP_MEMORY_TICKS;
+        }
+        let into = body.vel.dot(normal);
+        if into < 0.0 {
+            body.vel -= normal * into;
         }
     }
 }

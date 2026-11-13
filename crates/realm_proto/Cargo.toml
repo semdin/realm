@@ -9,6 +9,8 @@ publish.workspace = true
 
 [dependencies]
 realm_sim.workspace = true
+ed25519-dalek.workspace = true
+getrandom.workspace = true
 
 [lints]
 workspace = true

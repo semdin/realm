@@ -2,15 +2,16 @@
 //! version only guards against an old installed client talking to a new
 //! server; it never has to be bumped by hand for drift between repositories.
 //!
-//! Inputs travel as unreliable datagrams with the last few repeated, so one
-//! lost packet loses nothing. Snapshots travel as unreliable datagrams too:
-//! the owner's body goes whole and lossless (the client rewinds to it exactly),
-//! every other entity goes as a delta against a snapshot the client has
-//! acknowledged.
+//! Joining goes over one reliable QUIC stream: the client sends [`Hello`]
+//! (protocol version and a signed login ticket), the server answers with
+//! [`JoinReply`]. After that, inputs travel as unreliable datagrams with the
+//! last few repeated, so one lost packet loses nothing, and snapshots travel as
+//! unreliable datagrams too: the owner's body whole and lossless (the client
+//! rewinds to it exactly), every other entity as a delta against a snapshot
+//! the client has acknowledged.
 
 pub mod bits;
-
-use std::collections::BTreeMap;
+pub mod ticket;
 
 use realm_sim::input::MoveInput;
 use realm_sim::movement::Body;
@@ -18,18 +19,57 @@ use realm_sim::{Vec3, WIRE_GRID};
 
 use bits::{BitReader, BitWriter, DecodeError};
 
+pub use ed25519_dalek::{SigningKey, VerifyingKey};
+
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 1;
+pub const PROTOCOL_VERSION: u16 = 2;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/1";
+pub const ALPN: &[u8] = b"realm/2";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
 
+/// Largest datagram any side sends. QUIC over a 1280-byte IPv6 minimum MTU
+/// leaves room for about 1200 bytes of payload on every path.
+pub const MAX_DATAGRAM: usize = 1200;
+
 const KIND_INPUTS: u32 = 1;
 const KIND_SNAPSHOT: u32 = 2;
+const KIND_HELLO: u32 = 3;
+const KIND_JOIN: u32 = 4;
 const KIND_BITS: u32 = 4;
+
+/// Client -> server, first message on the join stream.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hello {
+    pub protocol: u16,
+    pub ticket: Vec<u8>,
+}
+
+/// Server -> client, the answer on the join stream.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum JoinReply {
+    Accepted {
+        /// The joining player's entity id.
+        entity: u32,
+        tick: u32,
+        /// SHA-256 of the server's content; the client refuses to play on
+        /// different data.
+        content_hash: [u8; 32],
+    },
+    Refused(String),
+}
+
+/// One tick of player intent: movement plus at most one action.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct InputFrame {
+    pub movement: MoveInput,
+    /// 0 = none, otherwise the action slot (1 = basic attack, 2.. skills).
+    pub action: u8,
+    /// Entity the action is aimed at (0 = none).
+    pub target: u32,
+}
 
 /// Client -> server, every tick.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,7 +79,7 @@ pub struct InputBatch {
     /// Newest snapshot tick the client has received (its delta baseline).
     pub ack_snapshot: u32,
     /// Oldest first, at most [`MAX_INPUTS_PER_PACKET`].
-    pub inputs: Vec<MoveInput>,
+    pub inputs: Vec<InputFrame>,
 }
 
 /// Another entity as the client sees it.
@@ -50,6 +90,11 @@ pub struct EntityState {
     pub yaw: u16,
     /// Animation / pose code.
     pub state: u8,
+    /// What it is: 0 = player, 1.. = creature species (content order).
+    /// Fixed for the life of an entity id.
+    pub kind: u16,
+    /// Health as a fraction of 255.
+    pub hp: u8,
 }
 
 /// Server -> client.
@@ -62,8 +107,95 @@ pub struct Snapshot {
     pub last_input_seq: u32,
     /// The owner's body after that input.
     pub own: Body,
-    /// Every entity in the client's interest set, by id.
-    pub entities: BTreeMap<u32, EntityState>,
+    /// The owner's health, 0..=255.
+    pub own_hp: u8,
+    /// Every entity in the client's interest set, sorted by id.
+    pub entities: EntitySet,
+}
+
+/// Entities sorted by id, ascending. Snapshots, baselines and the client's
+/// view are all in this form so encoding and decoding are linear merges.
+pub type EntitySet = Vec<(u32, EntityState)>;
+
+pub fn encode_hello(hello: &Hello) -> Vec<u8> {
+    let mut w = BitWriter::new();
+    w.bits(KIND_HELLO, KIND_BITS);
+    w.u16(hello.protocol);
+    w.unsigned(hello.ticket.len() as u32);
+    for b in &hello.ticket {
+        w.u8(*b);
+    }
+    w.finish()
+}
+
+pub fn decode_hello(bytes: &[u8]) -> Result<Hello, DecodeError> {
+    let mut r = BitReader::new(bytes);
+    if r.bits(KIND_BITS)? != KIND_HELLO {
+        return Err(DecodeError("not a hello"));
+    }
+    let protocol = r.u16()?;
+    let len = r.unsigned()? as usize;
+    if len > 512 {
+        return Err(DecodeError("ticket too long"));
+    }
+    let ticket = (0..len).map(|_| r.u8()).collect::<Result<Vec<_>, _>>()?;
+    r.end()?;
+    Ok(Hello { protocol, ticket })
+}
+
+pub fn encode_join_reply(reply: &JoinReply) -> Vec<u8> {
+    let mut w = BitWriter::new();
+    w.bits(KIND_JOIN, KIND_BITS);
+    match reply {
+        JoinReply::Accepted {
+            entity,
+            tick,
+            content_hash,
+        } => {
+            w.bool(true);
+            w.u32(*entity);
+            w.u32(*tick);
+            for b in content_hash {
+                w.u8(*b);
+            }
+        }
+        JoinReply::Refused(reason) => {
+            w.bool(false);
+            let bytes = reason.as_bytes();
+            let len = bytes.len().min(255);
+            w.u8(len as u8);
+            for b in &bytes[..len] {
+                w.u8(*b);
+            }
+        }
+    }
+    w.finish()
+}
+
+pub fn decode_join_reply(bytes: &[u8]) -> Result<JoinReply, DecodeError> {
+    let mut r = BitReader::new(bytes);
+    if r.bits(KIND_BITS)? != KIND_JOIN {
+        return Err(DecodeError("not a join reply"));
+    }
+    let reply = if r.bool()? {
+        let entity = r.u32()?;
+        let tick = r.u32()?;
+        let mut content_hash = [0_u8; 32];
+        for b in &mut content_hash {
+            *b = r.u8()?;
+        }
+        JoinReply::Accepted {
+            entity,
+            tick,
+            content_hash,
+        }
+    } else {
+        let len = usize::from(r.u8()?);
+        let bytes = (0..len).map(|_| r.u8()).collect::<Result<Vec<_>, _>>()?;
+        JoinReply::Refused(String::from_utf8_lossy(&bytes).into_owned())
+    };
+    r.end()?;
+    Ok(reply)
 }
 
 pub fn encode_inputs(batch: &InputBatch) -> Vec<u8> {
@@ -73,11 +205,16 @@ pub fn encode_inputs(batch: &InputBatch) -> Vec<u8> {
     w.u32(batch.ack_snapshot);
     let count = batch.inputs.len().min(MAX_INPUTS_PER_PACKET);
     w.bits(count as u32, 4);
-    for input in &batch.inputs[batch.inputs.len() - count..] {
-        w.u8(input.strafe as u8);
-        w.u8(input.forward as u8);
-        w.u16(input.yaw);
-        w.bits(u32::from(input.buttons), 2);
+    for frame in &batch.inputs[batch.inputs.len() - count..] {
+        let m = frame.movement;
+        w.u8(m.strafe as u8);
+        w.u8(m.forward as u8);
+        w.u16(m.yaw);
+        w.bits(u32::from(m.buttons), 2);
+        w.bits(u32::from(frame.action), 3);
+        if frame.action != 0 {
+            w.unsigned(frame.target);
+        }
     }
     w.finish()
 }
@@ -95,11 +232,18 @@ pub fn decode_inputs(bytes: &[u8]) -> Result<InputBatch, DecodeError> {
     }
     let mut inputs = Vec::with_capacity(count);
     for _ in 0..count {
-        inputs.push(MoveInput {
+        let movement = MoveInput {
             strafe: r.u8()? as i8,
             forward: r.u8()? as i8,
             yaw: r.u16()?,
             buttons: r.bits(2)? as u8,
+        };
+        let action = r.bits(3)? as u8;
+        let target = if action != 0 { r.unsigned()? } else { 0 };
+        inputs.push(InputFrame {
+            movement,
+            action,
+            target,
         });
     }
     r.end()?;
@@ -112,10 +256,10 @@ pub fn decode_inputs(bytes: &[u8]) -> Result<InputBatch, DecodeError> {
 
 /// Encodes `snapshot`, delta-coding entities against `baseline` (the entity
 /// set of snapshot `snapshot.baseline_tick`, which the client acknowledged).
-pub fn encode_snapshot(
-    snapshot: &Snapshot,
-    baseline: Option<&BTreeMap<u32, EntityState>>,
-) -> Vec<u8> {
+/// Entities whose state equals the baseline's are not sent at all, so a
+/// server that leaves an entity at its baseline state skips it this time.
+/// Both sets must be sorted by id.
+pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState)]>) -> Vec<u8> {
     let mut w = BitWriter::new();
     w.bits(KIND_SNAPSHOT, KIND_BITS);
     w.u32(snapshot.tick);
@@ -131,32 +275,53 @@ pub fn encode_snapshot(
     });
     w.u32(snapshot.last_input_seq);
     write_body(&mut w, &snapshot.own);
+    w.u8(snapshot.own_hp);
 
-    let empty = BTreeMap::new();
-    let base = baseline.unwrap_or(&empty);
-    let removed: Vec<u32> = base
-        .keys()
-        .filter(|id| !snapshot.entities.contains_key(id))
-        .copied()
-        .collect();
+    let base = baseline.unwrap_or(&[]);
+    let next = &snapshot.entities;
+    debug_assert!(
+        next.windows(2).all(|p| p[0].0 < p[1].0),
+        "snapshot entities sorted by id"
+    );
+    let mut removed: Vec<u32> = Vec::new();
+    let mut changed: Vec<(u32, &EntityState, Option<&EntityState>)> = Vec::new();
+    let (mut i, mut j) = (0, 0);
+    loop {
+        match (base.get(i), next.get(j)) {
+            (Some(b), Some(n)) if b.0 == n.0 => {
+                if b.1 != n.1 {
+                    changed.push((n.0, &n.1, Some(&b.1)));
+                }
+                i += 1;
+                j += 1;
+            }
+            (Some(b), Some(n)) if b.0 < n.0 => {
+                removed.push(b.0);
+                i += 1;
+            }
+            (Some(b), None) => {
+                removed.push(b.0);
+                i += 1;
+            }
+            (_, Some(n)) => {
+                changed.push((n.0, &n.1, None));
+                j += 1;
+            }
+            (None, None) => break,
+        }
+    }
     w.unsigned(removed.len() as u32);
     let mut prev = 0_u32;
     for id in removed {
         w.unsigned(id - prev);
         prev = id;
     }
-    // Entities whose state is the same as in the baseline are not sent.
-    let changed: Vec<(&u32, &EntityState)> = snapshot
-        .entities
-        .iter()
-        .filter(|(id, state)| base.get(id) != Some(state))
-        .collect();
     w.unsigned(changed.len() as u32);
     let mut prev = 0_u32;
-    for (&id, state) in changed {
+    for (id, state, old) in changed {
         w.unsigned(id - prev);
         prev = id;
-        match base.get(&id) {
+        match old {
             Some(old) => {
                 w.bool(true);
                 let (a, b) = (grid(state.pos), grid(old.pos));
@@ -165,8 +330,8 @@ pub fn encode_snapshot(
                 if moved {
                     // Per axis: a zero bit, or a one bit and the delta. A body
                     // walking on level ground pays one bit for its height.
-                    for i in 0..3 {
-                        let delta = a[i].wrapping_sub(b[i]);
+                    for k in 0..3 {
+                        let delta = a[k].wrapping_sub(b[k]);
                         w.bool(delta != 0);
                         if delta != 0 {
                             w.signed(delta);
@@ -182,6 +347,10 @@ pub fn encode_snapshot(
                 if state.state != old.state {
                     w.u8(state.state);
                 }
+                w.bool(state.hp != old.hp);
+                if state.hp != old.hp {
+                    w.u8(state.hp);
+                }
             }
             None => {
                 w.bool(false);
@@ -190,17 +359,19 @@ pub fn encode_snapshot(
                 }
                 w.u16(state.yaw);
                 w.u8(state.state);
+                w.unsigned(u32::from(state.kind));
+                w.u8(state.hp);
             }
         }
     }
     w.finish()
 }
 
-/// Decodes a snapshot. `baseline` must be the entity set of the snapshot the
-/// packet names as its baseline (the caller looks it up by tick).
-pub fn decode_snapshot(
+/// Decodes a snapshot. `baseline` must return the entity set of the snapshot
+/// the packet names as its baseline (the caller looks it up by tick).
+pub fn decode_snapshot<'a>(
     bytes: &[u8],
-    baseline: impl FnOnce(u32) -> Option<BTreeMap<u32, EntityState>>,
+    baseline: impl FnOnce(u32) -> Option<&'a [(u32, EntityState)]>,
 ) -> Result<Snapshot, DecodeError> {
     let mut r = BitReader::new(bytes);
     if r.bits(KIND_BITS)? != KIND_SNAPSHOT {
@@ -210,29 +381,50 @@ pub fn decode_snapshot(
     let baseline_tick = r.u32()?;
     let last_input_seq = r.u32()?;
     let own = read_body(&mut r)?;
-    let mut entities = if baseline_tick == 0 {
-        BTreeMap::new()
+    let own_hp = r.u8()?;
+    let base: &[(u32, EntityState)] = if baseline_tick == 0 {
+        &[]
     } else {
         baseline(baseline_tick).ok_or(DecodeError("unknown baseline"))?
     };
-    let removed = r.unsigned()?;
-    let mut id = 0_u32;
-    for _ in 0..removed {
-        id = id
-            .checked_add(r.unsigned()?)
-            .ok_or(DecodeError("entity id overflow"))?;
-        entities.remove(&id);
+    let find = |id: u32| {
+        base.binary_search_by_key(&id, |e| e.0)
+            .ok()
+            .map(|i| base[i].1)
+    };
+
+    let removed_count = r.unsigned()? as usize;
+    if removed_count > base.len() {
+        return Err(DecodeError("more removals than baseline entities"));
     }
-    let changed = r.unsigned()?;
+    let mut removed = Vec::with_capacity(removed_count);
     let mut id = 0_u32;
-    for _ in 0..changed {
+    for k in 0..removed_count {
+        let step = r.unsigned()?;
+        if k > 0 && step == 0 {
+            return Err(DecodeError("entity ids not ascending"));
+        }
         id = id
-            .checked_add(r.unsigned()?)
+            .checked_add(step)
+            .ok_or(DecodeError("entity id overflow"))?;
+        removed.push(id);
+    }
+    let changed_count = r.unsigned()? as usize;
+    if changed_count > 4096 {
+        return Err(DecodeError("too many entities"));
+    }
+    let mut changed: EntitySet = Vec::with_capacity(changed_count);
+    let mut id = 0_u32;
+    for k in 0..changed_count {
+        let step = r.unsigned()?;
+        if k > 0 && step == 0 {
+            return Err(DecodeError("entity ids not ascending"));
+        }
+        id = id
+            .checked_add(step)
             .ok_or(DecodeError("entity id overflow"))?;
         let state = if r.bool()? {
-            let old = *entities
-                .get(&id)
-                .ok_or(DecodeError("delta for an entity the baseline lacks"))?;
+            let old = find(id).ok_or(DecodeError("delta for an entity the baseline lacks"))?;
             let mut pos = grid(old.pos);
             if r.bool()? {
                 for c in &mut pos {
@@ -247,34 +439,88 @@ pub fn decode_snapshot(
                 old.yaw
             };
             let state = if r.bool()? { r.u8()? } else { old.state };
+            let hp = if r.bool()? { r.u8()? } else { old.hp };
             EntityState {
                 pos: from_grid(pos),
                 yaw,
                 state,
+                kind: old.kind,
+                hp,
             }
         } else {
             let pos = [r.signed()?, r.signed()?, r.signed()?];
+            let yaw = r.u16()?;
+            let state = r.u8()?;
+            let kind = u16::try_from(r.unsigned()?).map_err(|_| DecodeError("entity kind"))?;
             EntityState {
                 pos: from_grid(pos),
-                yaw: r.u16()?,
-                state: r.u8()?,
+                yaw,
+                state,
+                kind,
+                hp: r.u8()?,
             }
         };
-        entities.insert(id, state);
+        changed.push((id, state));
     }
     r.end()?;
+
+    // Merge: the baseline without removed or changed ids, plus the changed.
+    let mut entities: EntitySet = Vec::with_capacity(base.len() + changed.len());
+    let (mut i, mut j, mut k) = (0, 0, 0);
+    while i < base.len() || k < changed.len() {
+        match (base.get(i).map(|e| e.0), changed.get(k).map(|e| e.0)) {
+            (Some(bid), Some(cid)) if cid <= bid => {
+                entities.push(changed[k]);
+                k += 1;
+                if cid == bid {
+                    i += 1;
+                }
+            }
+            (Some(bid), _) => {
+                while removed.get(j).is_some_and(|&rid| rid < bid) {
+                    j += 1;
+                }
+                if removed.get(j) != Some(&bid) {
+                    entities.push(base[i]);
+                }
+                i += 1;
+            }
+            (None, Some(_)) => {
+                entities.push(changed[k]);
+                k += 1;
+            }
+            (None, None) => break,
+        }
+    }
     Ok(Snapshot {
         tick,
         baseline_tick,
         last_input_seq,
         own,
+        own_hp,
         entities,
     })
 }
 
 fn grid_value(v: f32) -> i32 {
-    // The simulation keeps every value on the grid, so this is exact.
-    (v * WIRE_GRID) as i32
+    // Bodies keep every value on the grid, so this is exact for them; other
+    // positions are rounded to it here.
+    libm_round(v * WIRE_GRID) as i32
+}
+
+fn libm_round(v: f32) -> f32 {
+    // Round half away from zero without platform libm.
+    if v >= 0.0 {
+        (v + 0.5).trunc()
+    } else {
+        (v - 0.5).trunc()
+    }
+}
+
+/// Snaps a position to the wire grid (what the client will receive).
+#[must_use]
+pub fn on_grid(v: Vec3) -> Vec3 {
+    from_grid(grid(v))
 }
 
 fn grid(v: Vec3) -> [i32; 3] {

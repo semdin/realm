@@ -7,7 +7,6 @@ use parry3d::bounding_volume::Aabb;
 use parry3d::math::Pose;
 use parry3d::query::{self, Ray, ShapeCastOptions};
 use parry3d::shape::{Capsule, SharedShape};
-use parry3d::utils::Array2;
 
 use crate::Vec3;
 
@@ -52,6 +51,7 @@ pub struct GroundHit {
 #[derive(Clone, Default)]
 pub struct World {
     colliders: Vec<Collider>,
+    terrain: Vec<Terrain>,
     water: Vec<WaterArea>,
     /// Highest a broom may climb on this map (absolute y).
     pub flight_ceiling_y: f32,
@@ -64,6 +64,7 @@ impl World {
     pub fn new(flight_ceiling_y: f32, flight_max_above_ground: f32) -> Self {
         Self {
             colliders: Vec::new(),
+            terrain: Vec::new(),
             water: Vec::new(),
             flight_ceiling_y,
             flight_max_above_ground,
@@ -92,9 +93,11 @@ impl World {
         );
     }
 
-    /// A heightfield centred on `center`, `heights` laid out row by row along
-    /// Z (`rows` rows of `cols` samples, row-major), spanning `size_x` by
-    /// `size_z` metres.
+    /// Terrain: a height grid centred on `center`, `heights` laid out row by
+    /// row along Z (`rows` rows of `cols` samples, row-major), spanning
+    /// `size_x` by `size_z` metres. Terrain is not swept like the colliders:
+    /// bodies stand on it by evaluating its height, which is exact for the
+    /// triangles it is made of and costs a fraction of a capsule sweep.
     pub fn add_heightfield(
         &mut self,
         center: Vec3,
@@ -105,18 +108,26 @@ impl World {
         size_z: f32,
     ) {
         assert_eq!(heights.len(), rows * cols, "heightfield sample count");
-        // parry's Array2 is column-major: index = row + col * rows.
-        let mut column_major = vec![0.0; rows * cols];
-        for row in 0..rows {
-            for col in 0..cols {
-                column_major[row + col * rows] = heights[row * cols + col];
-            }
-        }
-        let shape = SharedShape::heightfield(
-            Array2::new(rows, cols, column_major),
-            Vec3::new(size_x, 1.0, size_z),
+        assert!(
+            rows > 1 && cols > 1,
+            "heightfield needs two rows and columns"
         );
-        self.add(Pose::from_translation(center), shape);
+        self.terrain.push(Terrain {
+            min_x: center.x - size_x * 0.5,
+            min_z: center.z - size_z * 0.5,
+            cell_x: size_x / (cols - 1) as f32,
+            cell_z: size_z / (rows - 1) as f32,
+            rows,
+            cols,
+            base_y: center.y,
+            heights: heights.to_vec(),
+        });
+    }
+
+    /// Terrain height and surface normal under a planar point.
+    #[must_use]
+    pub fn terrain_at(&self, x: f32, z: f32) -> Option<(f32, Vec3)> {
+        self.terrain.iter().find_map(|t| t.sample(x, z))
     }
 
     pub fn add_water(&mut self, area: WaterArea) {
@@ -225,6 +236,12 @@ impl World {
                 best = Some((hit.time_of_impact, hit.normal));
             }
         }
+        if let Some((height, normal)) = self.terrain_at(origin.x, origin.z) {
+            let toi = origin.y - height;
+            if (0.0..=max_distance).contains(&toi) && best.is_none_or(|(b, _)| toi < b) {
+                best = Some((toi, normal));
+            }
+        }
         best.map(|(toi, normal)| GroundHit {
             point: origin - Vec3::new(0.0, toi, 0.0),
             normal,
@@ -240,6 +257,52 @@ impl World {
             self.flight_ceiling_y + 2000.0,
         )
         .map(|hit| hit.point.y)
+    }
+}
+
+/// A regular height grid split into triangles along the (x0,z0)-(x1,z1)
+/// diagonal of every cell.
+#[derive(Clone)]
+struct Terrain {
+    min_x: f32,
+    min_z: f32,
+    cell_x: f32,
+    cell_z: f32,
+    rows: usize,
+    cols: usize,
+    base_y: f32,
+    heights: Vec<f32>,
+}
+
+impl Terrain {
+    fn sample(&self, x: f32, z: f32) -> Option<(f32, Vec3)> {
+        let gx = (x - self.min_x) / self.cell_x;
+        let gz = (z - self.min_z) / self.cell_z;
+        let max_x = (self.cols - 1) as f32;
+        let max_z = (self.rows - 1) as f32;
+        if !(0.0..=max_x).contains(&gx) || !(0.0..=max_z).contains(&gz) {
+            return None;
+        }
+        let col = (gx as usize).min(self.cols - 2);
+        let row = (gz as usize).min(self.rows - 2);
+        let fx = gx - col as f32;
+        let fz = gz - row as f32;
+        let h = |r: usize, c: usize| self.heights[r * self.cols + c];
+        let (h00, h10, h01, h11) = (
+            h(row, col),
+            h(row, col + 1),
+            h(row + 1, col),
+            h(row + 1, col + 1),
+        );
+        // Slopes along x and z inside the triangle the point is in.
+        let (dx, dz) = if fx >= fz {
+            (h10 - h00, h11 - h10)
+        } else {
+            (h11 - h01, h01 - h00)
+        };
+        let height = h00 + fx * dx + fz * dz;
+        let normal = Vec3::new(-dx / self.cell_x, 1.0, -dz / self.cell_z).normalize();
+        Some((self.base_y + height, normal))
     }
 }
 

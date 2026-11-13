@@ -1,0 +1,195 @@
+//! What the map server reads from the content: creature species, spawn
+//! packs, the basic attack, player base stats. Phase 5 ports the full rule
+//! set; this is the part the load test needs.
+
+use realm_data::Content;
+use realm_sim::Vec3;
+use realm_sim::world::World;
+use serde_json::Value;
+
+pub struct Species {
+    pub id: String,
+    pub max_hp: f32,
+    pub attack_power: f32,
+    pub move_speed: f32,
+    pub attack_range: f32,
+    pub attack_cooldown_ticks: u16,
+}
+
+pub struct Pack {
+    /// Index into [`Game::species`].
+    pub species: usize,
+    pub level: u32,
+    pub count: u32,
+    pub boss: bool,
+    pub center: (f32, f32),
+    pub half_extent: (f32, f32),
+    pub leash: f32,
+}
+
+pub struct BasicAttack {
+    pub damage: f32,
+    pub range: f32,
+    pub speed: f32,
+    pub cooldown_ticks: u16,
+}
+
+pub struct Game {
+    pub species: Vec<Species>,
+    pub packs: Vec<Pack>,
+    pub basic: BasicAttack,
+    pub player_max_hp: f32,
+    pub spawn_point: Vec3,
+    pub respawn_ticks: u16,
+    pub mob_respawn_ticks: (u32, u32),
+    hp_multiplier: f32,
+    attack_multiplier: f32,
+    strength: (f32, f32, f32),
+    aggro: (f32, f32, u32),
+}
+
+fn num(v: &Value, what: &str) -> Result<f32, String> {
+    v.as_f64()
+        .map(|n| n as f32)
+        .ok_or_else(|| format!("content: {what} is missing or not a number"))
+}
+
+fn ticks(seconds: f32) -> u16 {
+    libm::roundf(seconds * realm_sim::SIM_HZ as f32) as u16
+}
+
+impl Game {
+    pub fn from_content(content: &Content) -> Result<Self, String> {
+        let get = |name: &str| {
+            content
+                .file(name)
+                .ok_or_else(|| format!("content: {name} missing"))
+        };
+        let mobs = get("mobs.json")?;
+        let spawns = get("spawn_tables.json")?;
+        let spells = get("spells.json")?;
+        let combat = get("combat.json")?;
+        let maps = get("maps.json")?;
+        let loot = get("loot_tables.json")?;
+
+        let mut species = Vec::new();
+        for (id, def) in mobs["mobs"].as_object().into_iter().flatten() {
+            if id.starts_with('_') {
+                continue;
+            }
+            let base = &def["base"];
+            species.push(Species {
+                id: id.clone(),
+                max_hp: num(&base["max_hp"], &format!("{id} max_hp"))?,
+                attack_power: num(&base["attack_power"], &format!("{id} attack_power"))?,
+                move_speed: num(&base["move_speed"], &format!("{id} move_speed"))?,
+                attack_range: num(&base["attack_range"], &format!("{id} attack_range"))?,
+                attack_cooldown_ticks: ticks(num(
+                    &base["attack_cooldown"],
+                    &format!("{id} attack_cooldown"),
+                )?),
+            });
+        }
+        species.sort_by(|a, b| a.id.cmp(&b.id));
+
+        let mut packs = Vec::new();
+        for pack in spawns["packs"].as_array().into_iter().flatten() {
+            let mob = pack["mob"].as_str().unwrap_or_default();
+            let Some(species_index) = species.iter().position(|s| s.id == mob) else {
+                return Err(format!(
+                    "content: pack {} uses unknown creature '{mob}'",
+                    pack["id"]
+                ));
+            };
+            let area = &pack["area"];
+            packs.push(Pack {
+                species: species_index,
+                level: pack["level"].as_u64().unwrap_or(1) as u32,
+                count: pack["count"].as_u64().unwrap_or(1) as u32,
+                boss: pack["boss"].as_bool().unwrap_or(false),
+                center: (num(&area[0], "pack area")?, num(&area[1], "pack area")?),
+                half_extent: (num(&area[2], "pack area")?, num(&area[3], "pack area")?),
+                leash: pack["leash_distance"].as_f64().unwrap_or(40.0) as f32,
+            });
+        }
+
+        let basic = &spells["basic_cast"];
+        let tuning = &spawns["pack_tuning"];
+        let spawn = &maps["maps"]["grounds"]["spawn_points"]["default"];
+        let respawn = &loot["respawn_ms"];
+        Ok(Self {
+            species,
+            packs,
+            basic: BasicAttack {
+                damage: num(&basic["damage"], "basic_cast damage")?,
+                range: num(&basic["range"], "basic_cast range")?,
+                speed: num(&basic["projectile_speed"], "basic_cast projectile_speed")?,
+                cooldown_ticks: ticks(num(&basic["cooldown"], "basic_cast cooldown")?),
+            },
+            player_max_hp: num(&combat["base_stats"]["max_hp"], "base_stats.max_hp")?,
+            spawn_point: Vec3::new(
+                num(&spawn[0], "spawn")?,
+                num(&spawn[1], "spawn")?,
+                num(&spawn[2], "spawn")?,
+            ),
+            respawn_ticks: ticks(num(&combat["death"]["respawn_ms"], "death.respawn_ms")? / 1000.0),
+            mob_respawn_ticks: (
+                u32::from(ticks(num(&respawn["mob_normal_min"], "respawn")? / 1000.0)),
+                u32::from(ticks(num(&respawn["mob_normal_max"], "respawn")? / 1000.0)),
+            ),
+            hp_multiplier: num(&tuning["hp_multiplier"], "pack_tuning.hp_multiplier")?,
+            attack_multiplier: num(
+                &tuning["attack_multiplier"],
+                "pack_tuning.attack_multiplier",
+            )?,
+            strength: (
+                num(&tuning["hp_strength_base"], "hp_strength_base")?,
+                num(&tuning["hp_strength_per_level"], "hp_strength_per_level")?,
+                num(&tuning["hp_strength_floor"], "hp_strength_floor")?,
+            ),
+            aggro: (
+                num(&tuning["aggro_radius_low"], "aggro_radius_low")?,
+                num(&tuning["aggro_radius_high"], "aggro_radius_high")?,
+                tuning["aggro_radius_level"].as_u64().unwrap_or(8) as u32,
+            ),
+        })
+    }
+
+    /// A pack creature's health at its level (old game's pack strength).
+    pub fn mob_max_hp(&self, pack: &Pack) -> f32 {
+        let (base, per_level, floor) = self.strength;
+        let strength = (base + per_level * pack.level as f32).max(floor);
+        let boss = if pack.boss { 4.0 } else { 1.0 };
+        self.species[pack.species].max_hp * self.hp_multiplier * strength * boss
+    }
+
+    pub fn mob_attack(&self, pack: &Pack) -> f32 {
+        self.species[pack.species].attack_power * self.attack_multiplier
+    }
+
+    pub fn aggro_radius(&self, pack: &Pack) -> f32 {
+        let (low, high, level) = self.aggro;
+        if pack.level < level { low } else { high }
+    }
+}
+
+/// Until the world compiler (Phase 3) produces the real maps, the server runs
+/// on generated terrain covering the grounds' spawn area: 2.2 km square of
+/// gentle hills.
+pub fn test_terrain() -> World {
+    let mut world = World::new(175.0, 120.0);
+    let (rows, cols) = (129_usize, 129_usize);
+    let size = 2200.0_f32;
+    let mut heights = Vec::with_capacity(rows * cols);
+    for row in 0..rows {
+        for col in 0..cols {
+            let x = col as f32 * size / (cols - 1) as f32;
+            let z = row as f32 * size / (rows - 1) as f32;
+            heights.push(
+                4.0 * libm::sinf(x / 60.0) * libm::cosf(z / 75.0) + 2.0 * libm::sinf(z / 31.0),
+            );
+        }
+    }
+    world.add_heightfield(Vec3::ZERO, rows, cols, &heights, size, size);
+    world
+}

@@ -81,6 +81,19 @@ jobs:
         # to the fingerprint, so every platform must agree on it too).
         run: cargo run --release -p realm_content -- check content/rename_map.toml content/data | tee -a "simcheck-${{ matrix.os }}.txt"
 
+      - name: Server and bots end to end
+        if: matrix.os == 'ubuntu-26.04'
+        # The real join path (signed ticket, QUIC, snapshots against acked
+        # baselines) with 20 fighting bots; the bots fail the step unless all
+        # join and every snapshot decodes.
+        run: |
+          ./target/release/realm_server keygen keys
+          ./target/release/realm_server serve --bind 127.0.0.1:7777 --dev-spawn-near-packs > server.log 2>&1 &
+          sleep 2
+          ./target/release/realm_bots --count 20 --seconds 15 --ramp 20
+          kill %1 || true
+          grep -v '^\[net\]' server.log | tail -3
+
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: simcheck-${{ matrix.os }}

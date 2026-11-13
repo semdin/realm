@@ -14,7 +14,9 @@
 
 use std::collections::BTreeMap;
 
-use realm_proto::{EntityState, InputBatch, Snapshot};
+use realm_proto::EntitySet;
+
+use realm_proto::{EntityState, InputBatch, InputFrame, Snapshot};
 use realm_sim::input::MoveInput;
 use realm_sim::movement::{self, Body, MoveParams};
 use realm_sim::world::{WaterArea, World};
@@ -279,6 +281,10 @@ fn main() {
         .and_then(|i| args.get(i + 1))
         .cloned();
     let world = test_world();
+    if args.iter().any(|a| a == "--bench") {
+        bench(&world);
+        return;
+    }
     let params = MoveParams::default();
     let mut all = Fingerprint::new();
     println!("realm_simcheck: sim {SIM_HZ} Hz");
@@ -337,6 +343,29 @@ fn main() {
     println!("all={:016x}", all.0);
 }
 
+/// `--bench`: cost of one movement step per scenario (not part of the
+/// fingerprint; timings differ between machines).
+fn bench(world: &World) {
+    let params = MoveParams::default();
+    for scenario in scenarios() {
+        let mut steps = 0_u64;
+        let started = std::time::Instant::now();
+        for _ in 0..50 {
+            let mut body = Body::at(scenario.start);
+            body.mounted = scenario.mounted;
+            for segment in &scenario.segments {
+                let n = libm::roundf(segment.seconds * SIM_HZ as f32) as u32;
+                for _ in 0..n {
+                    movement::step(&mut body, segment.input, &params, world);
+                    steps += 1;
+                }
+            }
+        }
+        let us = started.elapsed().as_secs_f64() * 1e6 / steps as f64;
+        println!("{:<13} {us:6.2} us/step", scenario.name);
+    }
+}
+
 /// The owner's body and its input must survive the wire bit for bit.
 fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
     let snapshot = Snapshot {
@@ -344,20 +373,37 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
         baseline_tick: 0,
         last_input_seq: tick,
         own: *body,
-        entities: BTreeMap::new(),
+        own_hp: 200,
+        entities: Vec::new(),
     };
     let decoded =
         realm_proto::decode_snapshot(&realm_proto::encode_snapshot(&snapshot, None), |_| None)
             .expect("own snapshot decodes");
     assert_eq!(decoded, snapshot, "body changed on the wire at tick {tick}");
+    let frame = InputFrame {
+        movement: input,
+        action: (tick % 3) as u8,
+        target: tick * 7,
+    };
     let batch = InputBatch {
         newest_seq: tick,
         ack_snapshot: tick,
-        inputs: vec![input; 3],
+        inputs: vec![frame; 3],
     };
     let back =
         realm_proto::decode_inputs(&realm_proto::encode_inputs(&batch)).expect("inputs decode");
-    assert_eq!(back, batch, "input changed on the wire at tick {tick}");
+    let expected = InputBatch {
+        inputs: batch
+            .inputs
+            .iter()
+            .map(|f| InputFrame {
+                target: if f.action == 0 { 0 } else { f.target },
+                ..*f
+            })
+            .collect(),
+        ..batch
+    };
+    assert_eq!(back, expected, "input changed on the wire at tick {tick}");
 }
 
 /// 100 entities walking circles at 6.5 m/s, a third of them idle at any time;
@@ -367,11 +413,16 @@ fn crowd_bandwidth() -> String {
     const ENTITIES: u32 = 100;
     const TICKS: u32 = 300;
     const ACK_LAG: u32 = 3;
-    let mut history: BTreeMap<u32, BTreeMap<u32, EntityState>> = BTreeMap::new();
+    let mut history: BTreeMap<u32, EntitySet> = BTreeMap::new();
     let mut total_bytes = 0_usize;
     for tick in 1..=TICKS {
-        let mut entities = BTreeMap::new();
+        let mut entities: EntitySet = Vec::new();
         for id in 0..ENTITIES {
+            // Every entity leaves the set for a while now and then, so
+            // removals and re-entries are on the wire too.
+            if (tick / 50 + id).is_multiple_of(7) {
+                continue;
+            }
             let walking = (tick / 40 + id) % 3 != 0;
             let t = if walking {
                 tick as f32
@@ -383,14 +434,16 @@ fn crowd_bandwidth() -> String {
             let raw = center + Vec3::new(8.0 * libm::cosf(angle), 0.0, 8.0 * libm::sinf(angle));
             let pos = Vec3::new(snap(raw.x), snap(raw.y), snap(raw.z));
             let yaw = (libm::roundf(angle * 10_430.378) as i32 & 0xFFFF) as u16;
-            entities.insert(
+            entities.push((
                 id * 7 + 3,
                 EntityState {
                     pos,
                     yaw,
                     state: u8::from(walking),
+                    kind: (id % 5) as u16,
+                    hp: 255 - (tick / 30) as u8,
                 },
-            );
+            ));
         }
         let baseline_tick = tick.saturating_sub(ACK_LAG);
         let baseline = history.get(&baseline_tick);
@@ -399,10 +452,11 @@ fn crowd_bandwidth() -> String {
             baseline_tick: if baseline.is_some() { baseline_tick } else { 0 },
             last_input_seq: tick,
             own: Body::default(),
+            own_hp: 255,
             entities: entities.clone(),
         };
-        let bytes = realm_proto::encode_snapshot(&snapshot, baseline);
-        let decoded = realm_proto::decode_snapshot(&bytes, |t| history.get(&t).cloned())
+        let bytes = realm_proto::encode_snapshot(&snapshot, baseline.map(Vec::as_slice));
+        let decoded = realm_proto::decode_snapshot(&bytes, |t| history.get(&t).map(Vec::as_slice))
             .expect("crowd snapshot decodes");
         assert_eq!(
             decoded.entities, entities,
