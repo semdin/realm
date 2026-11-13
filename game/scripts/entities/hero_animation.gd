@@ -1,0 +1,620 @@
+extends Node
+class_name HeroAnimation
+
+## Rig animation graph("Build an animation graph for idle, walk,
+## run, strafe, turn, jump, fall, land, cast variants, hit, stun, death, revive,
+## interact and mounted states. Use upper-body casting blends where appropriate,
+## with explicit movement restrictions for committed attacks. Footsteps and wand
+## release events should align with contact/motion.")
+##
+## Structure - one AnimationTree over the imported hero clips:
+##
+##   output
+##     cast_blend   (Blend2: upper-body cast layer over the locomotion layer)
+##       os_blend   (Blend2: one-shots such as hit/death/land over locomotion)
+##         locomotion (crossfade between velocity blend space and authored states)
+##         oneshot    (hit / death / stun / land / mount clips)
+##       upper        (upper-body-only cast clip, no leg or hip tracks)
+##
+## The state machine below owns which clip the locomotion layer plays; the tree
+## owns only the blending. Footstep events are read from the skeleton's own foot
+## bones (a real contact test, not a guessed time), and the cast clip is seeked so
+## its extension pose lands on the predicted/server-reported release moment.
+
+signal event_fired(event_name: String)
+
+const LOCO_LAYER := 0
+const UPPER_LAYER := 1
+
+## Clips that must loop. The list is the single declaration of loop modes - no
+## caller has to guess, and every clip not listed is a one-shot.
+const LOOPING := [
+	"Idle", "Walk_A", "Running_A", "Walk_Back", "Strafe_L", "Strafe_R",
+	"Fall", "Fall_Loop", "Jump_Air", "Cast_Idle", "Cast_Idle_Loop", "Sit_Chair_Idle",
+	"Broom_Seated_Idle", "Broom_Cruise", "Broom_Accelerate",
+	"Broom_Bank_L", "Broom_Bank_R", "Broom_Climb", "Broom_Dive", "Broom_Brake",
+	"Stun_Loop",
+]
+
+## Clip aliases: the Godot glTF importer strips a trailing `_Loop` and turns it
+## into the import's loop mode, so both spellings resolve here.
+const ALIASES := {
+	"Fall_Loop": "Fall",
+	"Cast_Idle_Loop": "Cast_Idle",
+	"Stun_Loop": "Stun",
+}
+
+## Whole-body one-shots that only dress a transition. They hand the body back to
+## the stride as soon as it is actually travelling: a full-weight landing pose
+## held under an 8 m/s run read as the hero sliding across the ground (measured
+## 1.2 s of planted feet after every dismount and every running jump).
+const MOTION_INTERRUPTIBLE := ["Land", "Land_Soft", "Dismount_Broom", "Broom_Land"]
+## Ground speed (m/s) above which those one-shots yield to locomotion.
+const INTERRUPT_SPEED := 1.2
+
+## Nominal length used when a clip is missing entirely, so a machine-driven game
+## loop never divides by zero on a bad import.
+const FALLBACK_LENGTH := 0.5
+
+var anim_player: AnimationPlayer
+var tree: AnimationTree
+var root: AnimationNodeBlendTree
+var loco_transition: AnimationNodeTransition
+var ground_space: AnimationNodeBlendSpace2D
+var _loco_port := ""
+var _ground_target := Vector2.ZERO
+var _ground_blend := Vector2.ZERO
+var _ground_speed := 0.0
+var _ground_rate := 1.0
+## Ground speeds the clips were authored at, measured as the planted toe's
+## sweep (art/characters/hero_v2/rig/clip_sheet.py) on the Mixamo takes
+## (art/hero/mixamo/README.md): Walk_A 1.02 m/s, Running_A 5.62 m/s, the two
+## running strafes 4.51 / 3.50 m/s (one speed for both: their mean) and
+## Walk_Back (a backward run) 3.22 m/s. Played at these speeds the feet stay
+## planted; the time scale stretches the cycle for any other speed.
+const WALK_NATURAL_SPEED := 1.02
+const RUN_NATURAL_SPEED := 5.62
+const STRAFE_NATURAL_SPEED := 4.0
+const BACK_NATURAL_SPEED := 3.22
+## The strafes and the backpedal only play while a cast holds the facing and
+## the body keeps its 6.5 m/s run: up to 2.4x keeps their feet planted.
+const MAX_GROUND_RATE := 2.4
+const WALK_BLEND := WALK_NATURAL_SPEED / RUN_NATURAL_SPEED
+const GROUND_BLEND_SECONDS := 0.18
+const RUN_REFERENCE_SPEED := RUN_NATURAL_SPEED
+var oneshot_node: AnimationNodeAnimation
+var upper_node: AnimationNodeAnimation
+var skeleton: Skeleton3D
+## Masked upper-body cast layer (see cast_layer_modifier.gd for why the blend
+## tree alone cannot do this).
+var cast_layer: CastLayerModifier
+
+var current_state := ""
+var current_clip := ""
+var oneshot_clip := ""
+var oneshot_left := 0.0
+var cast_left := 0.0
+var cast_clip := ""
+var _cast_weight := 0.0
+var _cast_blend_in := 0.125
+var _os_weight := 0.0
+var _foot_min := {}
+var _foot_low := {}
+var _foot_high := {}
+var _last_clip_played := ""
+var enabled := true
+## False while this body is off screen (a remote hero, player.gd): see set_posing.
+var _posing := true
+
+func setup(animation_player: AnimationPlayer, skeleton_node: Skeleton3D, host: Node = null) -> void:
+	anim_player = animation_player
+	skeleton = skeleton_node
+	if anim_player == null:
+		enabled = false
+		return
+	merge_extra_clips(anim_player)
+	root = AnimationNodeBlendTree.new()
+	tree = AnimationTree.new()
+	tree.name = "HeroAnimationTree"
+	tree.tree_root = root
+	# The mixer must write BEFORE the skeleton runs its modifiers: the masked
+	# cast layer is a SkeletonModifier3D that reads what the mixer wrote and
+	# fills in the bones the locomotion clip does not own. Node processing is in
+	# tree order, so the tree is inserted ahead of the model.
+	if host:
+		host.add_child(tree)
+		host.move_child(tree, 0)
+	else:
+		add_child(tree)
+	tree.anim_player = tree.get_path_to(anim_player)
+	oneshot_node = AnimationNodeAnimation.new()
+	upper_node = AnimationNodeAnimation.new()
+	var os_blend := AnimationNodeBlend2.new()
+	# A branch at weight 0 is not processed unless synced, and the locomotion
+	# under a full one-shot froze mid-crossfade: after a dismount it still held
+	# the airborne arms-up pose of the drop and showed it as the one-shot faded.
+	os_blend.sync = true
+	var cast_blend := AnimationNodeBlend2.new()
+	_build_locomotion()
+	root.add_node("oneshot", oneshot_node, Vector2(-200, 150))
+	root.add_node("oneshot_seek", AnimationNodeTimeSeek.new())
+	root.add_node("oneshot_speed", AnimationNodeTimeScale.new())
+	root.connect_node("oneshot_seek", 0, "oneshot")
+	root.connect_node("oneshot_speed", 0, "oneshot_seek")
+	root.add_node("upper", upper_node, Vector2(-200, 300))
+	# Godot blends a clip that does not animate a track toward the rest pose, so
+	# an upper-body-only clip dragged through a plain Blend2 pulls the legs off
+	# locomotion. A per-node filter restricts the layer to the paths it owns.
+	_configure_upper_filter()
+	root.add_node("os_blend", os_blend, Vector2(0, 60))
+	root.add_node("cast_blend", cast_blend, Vector2(200, 120))
+	root.connect_node("os_blend", 0, "locomotion")
+	root.connect_node("os_blend", 1, "oneshot_speed")
+	root.connect_node("cast_blend", 0, "os_blend")
+	root.connect_node("cast_blend", 1, "upper")
+	root.connect_node("output", 0, "cast_blend")
+	tree.active = true
+	if skeleton_node:
+		cast_layer = CastLayerModifier.new()
+		cast_layer.name = "CastLayerModifier"
+		skeleton_node.add_child(cast_layer)
+	_set_weight("os_blend", 0.0)
+	_set_weight("cast_blend", 0.0)
+	for name in LOOPING:
+		var anim := _animation(name)
+		if anim:
+			anim.loop_mode = Animation.LOOP_LINEAR
+	for one_shot in ["Jump_Start", "Land", "Land_Soft", "Mount_Broom", "Dismount_Broom", "Revive",
+			"Death_A", "Hit_A", "Hit_B", "Interact", "Melee_Chop_A", "Melee_Chop_B",
+			"Spellcast_Shoot", "Spellcast_Raise", "Spellcast_Heavy", "Cast_Exit", "Broom_Takeoff", "Broom_Land"]:
+		var anim := _animation(one_shot)
+		if anim:
+			anim.loop_mode = Animation.LOOP_NONE
+	# Finger bones must only rotate at knuckle joints, never translate away from parent joints.
+	# Strip spurious translation tracks on fingers from all imported clips to prevent mesh distortion.
+	# Once per shared library (every hero body carries the same one).
+	var library := anim_player.get_animation_library("") if anim_player else null
+	if library != null and not library.has_meta(&"finger_tracks_stripped"):
+		library.set_meta(&"finger_tracks_stripped", true)
+		for anim_name in anim_player.get_animation_list():
+			var anim := anim_player.get_animation(anim_name)
+			if anim:
+				for t in range(anim.get_track_count() - 1, -1, -1):
+					if anim.track_get_type(t) == Animation.TYPE_POSITION_3D:
+						var path := String(anim.track_get_path(t))
+						if HeroBones.is_digit(path.get_slice(":", path.get_slice_count(":") - 1)):
+							anim.remove_track(t)
+
+
+## Clips retargeted outside the hero build (tools/blender/retarget_mixamo.py)
+## ship as small GLBs here - the hero armature, a carrier mesh and the clip -
+## and are merged into the hero's own library, so the hero GLB never has to be
+## rebuilt to gain a move.
+const EXTRA_CLIP_DIR := "res://assets/animations/hero/"
+
+static func merge_extra_clips(player: AnimationPlayer) -> int:
+	if player == null or not DirAccess.dir_exists_absolute(EXTRA_CLIP_DIR):
+		return 0
+	# Every hero shares the GLB's library: once it holds the extra clips, the
+	# next body must not load every clip GLB again only to find each clip there
+	# (~35 ms per wizard that came into view, on clients and the server).
+	var shared := player.get_animation_library("")
+	if shared != null and shared.has_meta(&"extra_clips_merged"):
+		return 0
+	var added := 0
+	var seen := {}
+	for file in DirAccess.get_files_at(EXTRA_CLIP_DIR):
+		var glb := file.trim_suffix(".import").trim_suffix(".remap")
+		if not glb.ends_with(".glb") or seen.has(glb):
+			continue
+		seen[glb] = true
+		var packed := load(EXTRA_CLIP_DIR + glb) as PackedScene
+		if packed == null:
+			continue
+		var scene := packed.instantiate()
+		added += merge_clips_from(player, scene.find_child("AnimationPlayer", true, false) as AnimationPlayer)
+		scene.free()
+	if shared != null:
+		shared.set_meta(&"extra_clips_merged", true)
+	return added
+
+## Copy every clip of `source` the hero does not have yet into its default
+## library, with the track paths moved onto the hero's own skeleton path (taken
+## from a clip the hero GLB already carries). `rename` maps a source clip name
+## to the name it gets here (the clip preview loads variants side by side).
+static func merge_clips_from(player: AnimationPlayer, source: AnimationPlayer, rename: Callable = Callable()) -> int:
+	if player == null or source == null:
+		return 0
+	var library := player.get_animation_library("")
+	if library == null:
+		return 0
+	var prefix := ""
+	for existing in player.get_animation_list():
+		var anim := player.get_animation(existing)
+		if anim != null and anim.get_track_count() > 0 and String(anim.track_get_path(0)).contains(":"):
+			prefix = String(anim.track_get_path(0)).get_slice(":", 0)
+			break
+	var added := 0
+	for clip_name in source.get_animation_list():
+		var target_name := String(clip_name).get_file()
+		if rename.is_valid():
+			target_name = String(rename.call(target_name))
+		if player.has_animation(target_name):
+			continue
+		var clip := (source.get_animation(clip_name) as Animation).duplicate(true) as Animation
+		if prefix != "":
+			for t in clip.get_track_count():
+				var path := String(clip.track_get_path(t))
+				if path.contains(":"):
+					clip.track_set_path(t, NodePath(prefix + ":" + path.get_slice(":", path.get_slice_count(":") - 1)))
+		clip.loop_mode = Animation.LOOP_NONE
+		library.add_animation(StringName(target_name), clip)
+		added += 1
+	return added
+
+## Restrict the cast layer to the bone paths an upper-body clip owns, so every
+## other path passes through the locomotion layer untouched.
+func _configure_upper_filter() -> void:
+	upper_node.filter_enabled = true
+	var prefix := "Skeleton3D:"
+	var probe_clip := _animation("Spellcast_Shoot_Upper")
+	if probe_clip and probe_clip.get_track_count() > 0:
+		# Filters live in the same path space as the tracks; take the prefix from
+		# the imported animation instead of hardcoding the node chain.
+		var first := String(probe_clip.track_get_path(0))
+		if first.contains(":"):
+			prefix = first.split(":")[0] + ":"
+	var bones: Array[String] = HeroBones.upper_body()
+	for bone in bones:
+		upper_node.set_filter_path(NodePath(prefix + bone), true)
+
+## ---------------------------------------------------------------- clip lookup## ---------------------------------------------------------------- clip lookup
+
+func _animation(clip_name: String) -> Animation:
+	if anim_player == null:
+		return null
+	var resolved := String(ALIASES.get(clip_name, clip_name))
+	if anim_player.has_animation(resolved):
+		return anim_player.get_animation(resolved)
+	if anim_player.has_animation(clip_name):
+		return anim_player.get_animation(clip_name)
+	return null
+
+func has_clip(clip_name: String) -> bool:
+	return _animation(clip_name) != null
+
+func clip_length(clip_name: String) -> float:
+	var anim := _animation(clip_name)
+	if anim == null:
+		return FALLBACK_LENGTH
+	return maxf(0.05, anim.length)
+
+func _resolve_name(clip_name: String) -> String:
+	var resolved := String(ALIASES.get(clip_name, clip_name))
+	if anim_player != null and anim_player.has_animation(resolved):
+		return resolved
+	return clip_name
+
+## ---------------------------------------------------------------- locomotion
+
+## Ground motion has a continuous velocity blend. Other states retain their
+## authored clips, with a real crossfade on entry and a reset on re-entry.
+func _build_locomotion() -> void:
+	ground_space = AnimationNodeBlendSpace2D.new()
+	ground_space.sync_mode = AnimationNodeBlendSpace2D.SYNC_MODE_CYCLIC_MUTABLE
+	var points := {"Idle": Vector2.ZERO, "Walk_A": Vector2(0, WALK_BLEND),
+		"Running_A": Vector2(0, 1), "Walk_Back": Vector2(0, -1),
+		"Strafe_L": Vector2(1, 0), "Strafe_R": Vector2(-1, 0)}
+	for clip: String in points:
+		var node := AnimationNodeAnimation.new()
+		node.animation = _resolve_name(clip)
+		ground_space.add_blend_point(node, points[clip], -1, clip)
+	root.add_node("ground", ground_space)
+	root.add_node("ground_speed", AnimationNodeTimeScale.new())
+	root.connect_node("ground_speed", 0, "ground")
+	loco_transition = AnimationNodeTransition.new()
+	loco_transition.xfade_time = GROUND_BLEND_SECONDS
+	loco_transition.allow_transition_to_self = true
+	var clips := anim_player.get_animation_list()
+	loco_transition.input_count = clips.size() + 1
+	loco_transition.set_input_name(0, "ground")
+	loco_transition.set_input_reset(0, false)
+	root.add_node("locomotion", loco_transition, Vector2(-200, 0))
+	root.connect_node("locomotion", 0, "ground_speed")
+	for i in range(clips.size()):
+		var node := AnimationNodeAnimation.new()
+		node.animation = clips[i]
+		var node_name := "clip_%d" % i
+		root.add_node(node_name, node)
+		loco_transition.set_input_name(i + 1, clips[i])
+		loco_transition.set_input_reset(i + 1, true)
+		root.connect_node("locomotion", i + 1, node_name)
+
+## Velocity is in the character's facing space: x left, y forward. Project
+## diagonals onto the blend diamond so they mix directions without adding idle.
+func set_ground_motion(local_velocity: Vector2) -> void:
+	if not enabled:
+		return
+	_ground_speed = local_velocity.length()
+	if oneshot_left > 0.0 and _ground_speed > INTERRUPT_SPEED and oneshot_clip in MOTION_INTERRUPTIBLE:
+		cancel_oneshot()
+	var direction := local_velocity / maxf(0.001, absf(local_velocity.x) + absf(local_velocity.y))
+	# Gait follows actual metres/second, not the current gameplay speed cap.
+	var strength := clampf(_ground_speed / RUN_REFERENCE_SPEED, 0.0, 1.0)
+	_ground_target = direction * strength if _ground_speed >= 0.25 else Vector2.ZERO
+	current_state = "idle"
+	current_clip = "Idle"
+	if _ground_speed >= 0.25:
+		if direction.y < -0.5:
+			current_state = "walk_back"
+			current_clip = "Walk_Back"
+		elif direction.x > 0.5:
+			current_state = "strafe_l"
+			current_clip = "Strafe_L"
+		elif direction.x < -0.5:
+			current_state = "strafe_r"
+			current_clip = "Strafe_R"
+		else:
+			current_state = "walk" if strength < WALK_BLEND else "run"
+			current_clip = "Walk_A" if strength < WALK_BLEND else "Running_A"
+	if _loco_port != "ground":
+		tree.set("parameters/locomotion/transition_request", "ground")
+		_loco_port = "ground"
+
+func _tick_ground(delta: float) -> void:
+	# A bounded blend also finishes completely at rest, keeping planted idle feet.
+	_ground_blend = _ground_blend.move_toward(_ground_target, delta / GROUND_BLEND_SECONDS)
+	tree.set("parameters/ground/blend_position", _ground_blend)
+	var spread := absf(_ground_blend.x) + absf(_ground_blend.y)
+	var gait := smoothstep(WALK_BLEND, 1.0, spread)
+	# Each direction's clip has its own authored speed; weigh them like the
+	# blend space does so the planted foot keeps up whichever way the body moves.
+	var side := absf(_ground_blend.x) / maxf(0.001, spread)
+	var back := maxf(0.0, -_ground_blend.y) / maxf(0.001, spread)
+	var nominal_speed := lerpf(WALK_NATURAL_SPEED, RUN_NATURAL_SPEED, gait) * (1.0 - side - back) \
+		+ STRAFE_NATURAL_SPEED * side + BACK_NATURAL_SPEED * back
+	var rate := clampf(_ground_speed / nominal_speed, 0.55, MAX_GROUND_RATE)
+	if _ground_target == Vector2.ZERO:
+		rate = 1.0
+	_ground_rate = lerpf(_ground_rate, rate, 1.0 - exp(-14.0 * delta))
+	tree.set("parameters/ground_speed/scale", _ground_rate)
+
+## Change the locomotion clip. `state` is the gameplay state name the caller
+## owns; the same state AND clip are a no-op unless `restart` is set.
+func set_locomotion(state: String, clip_name: String, restart := false) -> void:
+	if not enabled or anim_player == null:
+		return
+	var resolved := _resolve_name(clip_name)
+	if state == current_state and resolved == current_clip and not restart:
+		return
+	if not anim_player.has_animation(resolved):
+		return
+	current_state = state
+	current_clip = resolved
+	_last_clip_played = resolved
+	if _loco_port != resolved or restart:
+		tree.set("parameters/locomotion/transition_request", resolved)
+		_loco_port = resolved
+
+func has_oneshot() -> bool:
+	return oneshot_left > 0.0
+
+## Play a one-shot over the locomotion layer (hit, death, stun, land, mount).
+func play_oneshot(clip_name: String, speed := 1.0) -> void:
+	if not enabled or anim_player == null:
+		return
+	var resolved := _resolve_name(clip_name)
+	if not anim_player.has_animation(resolved):
+		return
+	oneshot_node.animation = resolved
+	tree.set("parameters/oneshot_seek/seek_request", 0.0)
+	tree.set("parameters/oneshot_speed/scale", maxf(0.05, speed))
+	oneshot_clip = resolved
+	var anim := anim_player.get_animation(resolved)
+	var length := (anim.length if anim else FALLBACK_LENGTH) / maxf(0.05, speed)
+	oneshot_left = maxf(0.05, length)
+
+func cancel_oneshot() -> void:
+	oneshot_left = 0.0
+	if tree:
+		tree.set("parameters/oneshot_speed/scale", 1.0)
+
+## Freeze the playing one-shot on its current frame until `cancel_oneshot`
+## (a held pose: the Waylink kneel is the Place clip stopped with the hand on
+## the boot).
+func hold_oneshot() -> void:
+	if not enabled or oneshot_left <= 0.0:
+		return
+	tree.set("parameters/oneshot_speed/scale", 0.0)
+	oneshot_left = 1.0e9
+
+## ---------------------------------------------------------------- cast layer
+
+## Start an upper-body cast blend. `upper_clip` should be a clip that carries no
+## leg or hip tracks (the `*_Upper` variants), so locomotion keeps driving the
+## lower body while the spell plays above it.
+func start_cast(upper_clip: String, hold_seconds: float) -> void:
+	if not enabled or anim_player == null:
+		return
+	var resolved := _resolve_name(upper_clip)
+	var clip := _animation(resolved)
+	if clip == null:
+		return
+	upper_node.animation = ""
+	cast_clip = resolved
+	cast_left = maxf(0.05, hold_seconds)
+	_cast_blend_in = 0.125
+	if cast_layer:
+		cast_layer.play(clip)
+
+## Point the casting arm at `point` (world space) for the duration of the cast:
+## the clip supplies the gesture, this makes it face the target. Call before
+## `start_cast` (or any time during it); `end_cast` releases the aim.
+func set_cast_aim(point: Vector3) -> void:
+	if cast_layer:
+		cast_layer.set_aim(point, true)
+
+## Hand the casting arm back to the clip (a melee swing aims itself).
+func clear_cast_aim() -> void:
+	if cast_layer:
+		cast_layer.set_aim(Vector3.ZERO, false)
+
+func cast_aiming() -> bool:
+	return cast_layer != null and cast_layer.aim_active()
+
+func end_cast() -> void:
+	cast_left = 0.0
+	if cast_layer:
+		cast_layer.stop()
+		cast_layer.set_aim(Vector3.ZERO, false)
+
+func casting() -> bool:
+	return cast_left > 0.0
+
+## Retime the clip's windup and recovery around the release beat. A seek alone
+## cannot align a short clip to a longer windup without skipping preparation.
+func align_cast(release_seconds_from_now: float, release_fraction := 0.45) -> float:
+	if cast_clip == "" or anim_player == null:
+		return release_fraction
+	var anim := anim_player.get_animation(cast_clip)
+	if anim == null:
+		return release_fraction
+	var fraction := clampf(release_fraction, 0.05, 0.95)
+	_cast_blend_in = clampf(release_seconds_from_now * 0.65, 0.025, 0.125)
+	if cast_layer:
+		cast_layer.align_release(release_seconds_from_now, fraction, cast_left)
+	return fraction
+
+## ---------------------------------------------------------------- per-frame
+
+## A remote hero's body poses only while it can be seen. Off screen the mixer
+## and the procedural pose layers (cast aim, wand and broom grips) stop and the
+## skeleton is left alone; the timers and blend weights in tick() keep running
+## and every request made meanwhile is held by the tree, so the body comes back
+## in the state it would have reached. The cloak's springs cull themselves
+## (CloakDeformer._update_lod).
+func set_posing(on: bool) -> void:
+	if on == _posing or tree == null:
+		return
+	_posing = on
+	tree.active = on
+	if skeleton != null:
+		if not on and not skeleton.child_entered_tree.is_connected(_on_skeleton_child):
+			skeleton.child_entered_tree.connect(_on_skeleton_child)
+		for child in skeleton.get_children():
+			_set_layer_active(child, on)
+	if on:
+		tree.advance(0.0)   # back on screen: the pose of the current state now
+
+func posing() -> bool:
+	return _posing
+
+## A pose layer added while the body is off screen (a wand equipped) starts paused.
+func _on_skeleton_child(child: Node) -> void:
+	if not _posing:
+		_set_layer_active(child, false)
+
+static func _set_layer_active(node: Node, on: bool) -> void:
+	if node is CastLayerModifier or node is WandGripModifier or node is BroomGripModifier:
+		(node as SkeletonModifier3D).active = on
+
+func tick(delta: float) -> void:
+	if not enabled:
+		return
+	_tick_ground(delta)
+	if oneshot_left > 0.0:
+		oneshot_left = maxf(0.0, oneshot_left - delta)
+		if oneshot_left <= 0.0 and oneshot_clip != "":
+			event_fired.emit("oneshot_end:%s" % oneshot_clip)
+			oneshot_clip = ""
+	if cast_left > 0.0:
+		cast_left = maxf(0.0, cast_left - delta)
+		if cast_left <= 0.0 and cast_clip != "":
+			cast_clip = ""
+			if cast_layer:
+				cast_layer.stop()
+	var os_target := 1.0 if oneshot_left > 0.0 else 0.0
+	var cast_target := 1.0 if cast_left > 0.0 else 0.0
+	_os_weight = move_toward(_os_weight, os_target, delta * 6.0)
+	_cast_weight = move_toward(_cast_weight, cast_target,
+		delta / (_cast_blend_in if cast_target > 0.0 else 0.18))
+	_set_weight("os_blend", _os_weight)
+	if cast_layer:
+		cast_layer.weight = _cast_weight
+	if skeleton and _posing:
+		_scan_footsteps(delta)
+
+## `parameters/<node>/blend_amount` as a StringName, built once per node.
+static var _blend_params := {}
+
+func _set_weight(node_name: String, value: float) -> void:
+	if tree:
+		var param: StringName = _blend_params.get(node_name, &"")
+		if param == &"":
+			param = StringName("parameters/%s/blend_amount" % node_name)
+			_blend_params[node_name] = param
+		tree.set(param, clampf(value, 0.0, 1.0))
+
+func oneshot_weight() -> float:
+	return _os_weight
+
+func cast_weight() -> float:
+	return _cast_weight
+
+## ---------------------------------------------------------------- footsteps
+
+## Contact detection from the rig, not from a guessed time: a footstep fires
+## when a foot bone enters the lowest part of its own recent vertical range while
+## the body is actually moving. The range is tracked per foot, so it works
+## whether a stride lifts the ankle 5 mm or 20 cm, and it survives a replaced or
+## retimed clip.
+const FOOTSTEP_MOVE_SPEED := 0.6
+const FOOTSTEP_BAND := 0.25
+const FOOTSTEP_ENVELOPE_DECAY := 0.0004
+
+func _scan_footsteps(delta: float) -> void:
+	var body := owner_body()
+	if body is CharacterBody3D:
+		var horizontal := Vector2((body as CharacterBody3D).velocity.x, (body as CharacterBody3D).velocity.z).length()
+		if horizontal < FOOTSTEP_MOVE_SPEED or not (body as CharacterBody3D).is_on_floor() \
+				or _loco_port != "ground":
+			_foot_low.clear()
+			_foot_min.clear()
+			_foot_high.clear()
+			return
+	for side in ["L", "R"]:
+		var idx := RigIK.bone_index(skeleton, HeroBones.foot(side))
+		if idx < 0:
+			continue
+		var y := skeleton.get_bone_global_pose(idx).origin.y
+		var lo: float = _foot_min.get(side, y)
+		var hi: float = _foot_high.get(side, y)
+		lo = minf(y, lo + FOOTSTEP_ENVELOPE_DECAY * delta * 60.0)
+		hi = maxf(y, hi - FOOTSTEP_ENVELOPE_DECAY * delta * 60.0)
+		_foot_min[side] = lo
+		_foot_high[side] = hi
+		var band := lo + (hi - lo) * FOOTSTEP_BAND
+		var inside: bool = _foot_low.get(side, false)
+		if y <= band and not inside:
+			_foot_low[side] = true
+			event_fired.emit("footstep:stone")
+		elif y > band:
+			_foot_low[side] = false
+
+## The body this graph poses (a sibling of the model inside Visuals).
+func owner_body() -> Node:
+	var node := get_parent()
+	while node != null and not (node is CharacterBody3D):
+		node = node.get_parent()
+	return node
+
+## ---------------------------------------------------------------- queries
+
+## Names of every clip this graph can reach, for tooling and tests.
+func clip_names() -> Array:
+	if anim_player == null:
+		return []
+	var out: Array = []
+	for lib in anim_player.get_animation_library_list():
+		out.append_array(anim_player.get_animation_library(lib).get_animation_list())
+	return out

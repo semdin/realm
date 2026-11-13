@@ -1,11 +1,15 @@
 //! realm_content import <rename_map.toml> <out_dir> <old_data_dir>...
 //! realm_content check <rename_map.toml> <content_dir>
+//! realm_content art <rename_map.toml> <old_godot_project> <game_dir> <res://path>...
 //!
 //! `import` reads every `*.json` of the old game's data folders, passes every
 //! key and string through the rename map, writes the result to `out_dir` and
 //! then runs `check` on it. `check` loads a content folder, verifies every
 //! cross reference, fails on any franchise-derived name still present, and
-//! prints the content hash client and server compare at login.
+//! prints the content hash client and server compare at login. `art` copies
+//! art from the old client into the new one (see `art.rs`).
+
+mod art;
 
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -23,9 +27,14 @@ fn main() -> ExitCode {
             &inputs.iter().map(PathBuf::from).collect::<Vec<_>>(),
         ),
         [cmd, map, dir] if cmd == "check" => check(Path::new(map), Path::new(dir)),
+        [cmd, map, old, new, entries @ ..] if cmd == "art" && !entries.is_empty() => {
+            renamer(Path::new(map))
+                .and_then(|r| art::art(&r, Path::new(old), Path::new(new), entries))
+        }
         _ => {
             eprintln!(
-                "usage:\n  realm_content import <rename_map.toml> <out_dir> <old_data_dir>...\n  realm_content check <rename_map.toml> <content_dir>"
+                "usage:\n  realm_content import <rename_map.toml> <out_dir> <old_data_dir>...\n  realm_content check <rename_map.toml> <content_dir>
+  realm_content art <rename_map.toml> <old_godot_project> <game_dir> <res://path>..."
             );
             return ExitCode::from(2);
         }

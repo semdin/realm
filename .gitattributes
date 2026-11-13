@@ -1,4 +1,23 @@
 * text=auto eol=lf
+*.realmmap binary
+
+# Art in the Godot client lives in LFS on the game's own LFS server (R2
+# behind lfs.agsilvery.com, see .lfsconfig). GitHub-hosted CI runners do not
+# fetch it; nothing in CI needs art yet.
+game/**/*.glb filter=lfs diff=lfs merge=lfs -text
+game/**/*.gltf filter=lfs diff=lfs merge=lfs -text
+game/**/*.bin filter=lfs diff=lfs merge=lfs -text
+game/**/*.png filter=lfs diff=lfs merge=lfs -text
+game/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+game/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+game/**/*.webp filter=lfs diff=lfs merge=lfs -text
+game/**/*.exr filter=lfs diff=lfs merge=lfs -text
+game/**/*.hdr filter=lfs diff=lfs merge=lfs -text
+game/**/*.wav filter=lfs diff=lfs merge=lfs -text
+game/**/*.ogg filter=lfs diff=lfs merge=lfs -text
+game/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+game/**/*.ttf filter=lfs diff=lfs merge=lfs -text
+game/**/*.otf filter=lfs diff=lfs merge=lfs -text
+game/**/*.res filter=lfs diff=lfs merge=lfs -text
 *.png binary
 *.glb binary
-*.realmmap binary

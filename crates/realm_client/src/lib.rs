@@ -9,6 +9,7 @@
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Mutex;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use godot::classes::mesh::{ArrayType, PrimitiveType};
@@ -42,6 +43,86 @@ impl RealmInfo {
     #[func]
     fn sim_hz() -> i64 {
         i64::from(realm_sim::SIM_HZ)
+    }
+}
+
+/// Content loaded once for the whole client (menus, look tables, item
+/// names), read through `RealmContent`.
+static CONTENT: Mutex<Option<Content>> = Mutex::new(None);
+
+/// The game's content tables for scripts: the same files, loaded and hashed
+/// by the same Rust code as the server's, handed out as dictionaries.
+#[derive(GodotClass)]
+#[class(init, base = RefCounted)]
+struct RealmContent {}
+
+#[godot_api]
+impl RealmContent {
+    /// Loads `dir` (content/data). False if it cannot be read.
+    #[func]
+    fn load(dir: GString) -> bool {
+        match Content::load(&PathBuf::from(dir.to_string())) {
+            Ok(content) => {
+                *CONTENT
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(content);
+                true
+            }
+            Err(e) => {
+                godot_error!("realm content: {e}");
+                false
+            }
+        }
+    }
+
+    /// One table (`looks` for looks.json) as a dictionary or array; nil when
+    /// content is not loaded or the table does not exist.
+    #[func]
+    fn table(name: GString) -> Variant {
+        CONTENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .and_then(|c| c.file(&format!("{name}.json")))
+            .map(|v| json_to_variant(&realm_data::without_notes(v)))
+            .unwrap_or_default()
+    }
+
+    /// The content hash the server compares at login.
+    #[func]
+    fn hash() -> GString {
+        CONTENT
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .map_or_else(GString::new, |c| GString::from(c.hash().as_str()))
+    }
+}
+
+fn json_to_variant(value: &serde_json::Value) -> Variant {
+    use serde_json::Value;
+    match value {
+        Value::Null => Variant::nil(),
+        Value::Bool(b) => b.to_variant(),
+        Value::Number(n) => n.as_i64().map_or_else(
+            || n.as_f64().unwrap_or(0.0).to_variant(),
+            |i| i.to_variant(),
+        ),
+        Value::String(s) => GString::from(s.as_str()).to_variant(),
+        Value::Array(items) => {
+            let mut out = VarArray::new();
+            for item in items {
+                out.push(&json_to_variant(item));
+            }
+            out.to_variant()
+        }
+        Value::Object(map) => {
+            let mut out = VarDictionary::new();
+            for (k, v) in map {
+                out.set(k.as_str(), &json_to_variant(v));
+            }
+            out.to_variant()
+        }
     }
 }
 
@@ -237,6 +318,38 @@ impl RealmSession {
             .as_ref()
             .and_then(|c| c.own_draw_position(alpha))
             .map_or(Vector3::ZERO, |p| Vector3::new(p.x, p.y, p.z))
+    }
+
+    /// What the view needs to pose the player's body: `position` (drawn
+    /// between ticks), `velocity`, `on_floor`, `swimming`, `mounted`,
+    /// `air_seconds` and `yaw` (the steering yaw, radians). Empty before the
+    /// first snapshot.
+    #[func]
+    fn own_body(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(core) = self.core.as_ref() else {
+            return out;
+        };
+        let Some(body) = core.body() else {
+            return out;
+        };
+        let pos = core
+            .own_draw_position(self.clock.alpha())
+            .unwrap_or(body.pos);
+        out.set("position", &Vector3::new(pos.x, pos.y, pos.z).to_variant());
+        out.set(
+            "velocity",
+            &Vector3::new(body.vel.x, body.vel.y, body.vel.z).to_variant(),
+        );
+        out.set("on_floor", &body.on_floor.to_variant());
+        out.set("swimming", &body.swimming.to_variant());
+        out.set("mounted", &body.mounted.to_variant());
+        out.set(
+            "air_seconds",
+            &(f32::from(body.air_ticks) / realm_sim::SIM_HZ as f32).to_variant(),
+        );
+        out.set("yaw", &self.intent.yaw_radians().to_variant());
+        out
     }
 
     #[func]

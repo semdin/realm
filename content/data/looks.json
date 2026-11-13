@@ -1,0 +1,177 @@
+{
+  "_about": "A character's appearance: palette entries are picked by index (a saved look keeps its index, so new entries go at the end), sliders are floats in their range. The client draws them on the hero model (HeroAppearance.apply_look).",
+  "hair_styles": [
+    "SimpleParted",
+    "Buzzed",
+    "Long",
+    "none",
+    "Wavy",
+    "Tousled",
+    "Neat",
+    "Ponytail",
+    "Curly"
+  ],
+  "outfits": [
+    "peasant",
+    "peasant_2",
+    "ranger",
+    "ranger_3"
+  ],
+  "beards": [
+    "none",
+    "stubble",
+    "short",
+    "full"
+  ],
+  "brows": [
+    "natural",
+    "bushy",
+    "arched",
+    "thin",
+    "angular",
+    "classic",
+    "classic_straight"
+  ],
+  "hair_colors": [
+    "2b1d16",
+    "120d0b",
+    "4b3122",
+    "6e3b1f",
+    "9a4f26",
+    "b9874f",
+    "dcc08a",
+    "e9e4da",
+    "7e7a76"
+  ],
+  "eye_colors": [
+    "6f8088",
+    "4c78b0",
+    "3f7d58",
+    "6a4a2d",
+    "a77f3d",
+    "2e3d62",
+    "8b8f93"
+  ],
+  "skin_tones": [
+    "ffffff",
+    "f1ded3",
+    "dcc0ab",
+    "b8977f",
+    "8f7160",
+    "62503f"
+  ],
+  "faces": [
+    "default",
+    "oval",
+    "round",
+    "square",
+    "triangular",
+    "diamond"
+  ],
+  "sliders": {
+    "height": [
+      -1.0,
+      1.0
+    ],
+    "jaw": [
+      -1.0,
+      1.0
+    ],
+    "chin": [
+      -1.0,
+      1.0
+    ],
+    "chin_height": [
+      -1.0,
+      1.0
+    ],
+    "cheekbones": [
+      -1.0,
+      1.0
+    ],
+    "cheeks": [
+      -1.0,
+      1.0
+    ],
+    "nose_length": [
+      -1.0,
+      1.0
+    ],
+    "nose_width": [
+      -1.0,
+      1.0
+    ],
+    "nose_bridge": [
+      -1.0,
+      1.0
+    ],
+    "lips": [
+      -1.0,
+      1.0
+    ],
+    "brow_ridge": [
+      -1.0,
+      1.0
+    ],
+    "eye_size": [
+      -1.0,
+      1.0
+    ],
+    "eye_spacing": [
+      -1.0,
+      1.0
+    ],
+    "eye_height": [
+      -1.0,
+      1.0
+    ],
+    "eye_tilt": [
+      -1.0,
+      1.0
+    ],
+    "eyelids": [
+      -1.0,
+      1.0
+    ],
+    "eye_bags": [
+      -1.0,
+      1.0
+    ],
+    "nose_tip": [
+      -1.0,
+      1.0
+    ],
+    "nostrils": [
+      -1.0,
+      1.0
+    ],
+    "nose_curve": [
+      -1.0,
+      1.0
+    ],
+    "mouth_width": [
+      -1.0,
+      1.0
+    ],
+    "mouth_corners": [
+      -1.0,
+      1.0
+    ],
+    "jaw_angle": [
+      -1.0,
+      1.0
+    ],
+    "age": [
+      -1.0,
+      1.0
+    ],
+    "ear_size": [
+      -1.0,
+      1.0
+    ],
+    "ear_out": [
+      -1.0,
+      1.0
+    ]
+  }
+}
