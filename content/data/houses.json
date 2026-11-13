@@ -1,0 +1,30 @@
+{
+  "velkar": {
+    "name": "Velkar",
+    "primary_color": "#d9661c",
+    "secondary_color": "#211c19",
+    "trait": "Bravery: +15% Flame Wave damage",
+    "motto": "From my ashes I rise again."
+  },
+  "nisera": {
+    "name": "Nisera",
+    "primary_color": "#7a3db0",
+    "secondary_color": "#dbb04d",
+    "trait": "Ambition: +20% Stella Ruina and Disarm damage",
+    "motto": "Knowledge runs deeper than venom."
+  },
+  "ilvane": {
+    "name": "Ilvane",
+    "primary_color": "#3d8fd1",
+    "secondary_color": "#edf2f7",
+    "trait": "Wisdom: -20% Spell Cooldowns & +25% Max Mana Pool",
+    "motto": "We arrive before the wind."
+  },
+  "torvan": {
+    "name": "Torvan",
+    "primary_color": "#8b8f96",
+    "secondary_color": "#b22e24",
+    "trait": "Loyalty: +25% Max Health",
+    "motto": "Together we hold."
+  }
+}

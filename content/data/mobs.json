@@ -1,0 +1,692 @@
+{
+  "_comment": "Server-owned creature catalog. One entry per species: the scene that renders it, its base stats (the encounter director scales them by level), resistances, loot table and display data. Encounters in spawn_tables.json name a species by its id here.",
+  "_resist_note": "resist[element] is a damage reduction fraction: 0.5 takes half, -1.0 takes double. Elements come from spells.json `element`. Absent = 0 (normal damage).",
+  "mobs": {
+    "drowned_one": {
+      "display": "Drowned One",
+      "family": "undead",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_drowned_one.tscn",
+      "base": {
+        "max_hp": 220,
+        "attack_power": 22,
+        "move_speed": 5.6,
+        "attack_range": 2.2,
+        "attack_cooldown": 1.4
+      },
+      "resist": {
+        "fire": -1.0,
+        "stun": 0.0,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "undead"
+    },
+    "black_weaver": {
+      "display": "Black Weaver",
+      "family": "beast",
+      "role": "skirmisher",
+      "scene": "res://scenes/entities/mobs/mob_black_weaver.tscn",
+      "base": {
+        "max_hp": 340,
+        "attack_power": 32,
+        "move_speed": 8.0,
+        "attack_range": 2.8,
+        "attack_cooldown": 1.4
+      },
+      "resist": {
+        "fire": -0.25,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "spider"
+    },
+    "venomfang_weaver": {
+      "display": "Venomfang Weaver",
+      "family": "beast",
+      "role": "skirmisher",
+      "scene": "res://scenes/entities/mobs/mob_venomfang_weaver.tscn",
+      "base": {
+        "max_hp": 750,
+        "attack_power": 52,
+        "move_speed": 8.8,
+        "attack_range": 3.0,
+        "attack_cooldown": 1.3
+      },
+      "exp_mult": 1.4,
+      "resist": {
+        "fire": -0.25,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "cavern_spider",
+      "abilities": [
+        {
+          "id": "venom_bite",
+          "kind": "area",
+          "clip": "Bite",
+          "anticipation": 0.75,
+          "recovery": 0.7,
+          "radius": 2.4,
+          "offset": 1.6,
+          "damage_multiplier": 1.3,
+          "every": 3,
+          "poison": {
+            "ratio": 0.16,
+            "ticks": 6,
+            "interval_ms": 1000
+          },
+          "impact_fx": "disarm",
+          "spell_id": "venom_bite"
+        },
+        {
+          "id": "venom_spit",
+          "kind": "area",
+          "at_target": true,
+          "clip": "Spit",
+          "anticipation": 0.9,
+          "recovery": 0.6,
+          "radius": 2.6,
+          "damage_multiplier": 0.8,
+          "min_range": 5.0,
+          "max_range": 16.0,
+          "cooldown": 7.0,
+          "poison": {
+            "ratio": 0.16,
+            "ticks": 6,
+            "interval_ms": 1000
+          },
+          "impact_fx": "disarm",
+          "spell_id": "venom_spit"
+        }
+      ]
+    },
+    "broodguard": {
+      "display": "Broodguard",
+      "family": "beast",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_broodguard.tscn",
+      "base": {
+        "max_hp": 1400,
+        "attack_power": 66,
+        "move_speed": 7.2,
+        "attack_range": 3.6,
+        "attack_cooldown": 1.9
+      },
+      "exp_mult": 2.0,
+      "resist": {
+        "fire": -0.25,
+        "force": 0.2,
+        "stun": 0.4,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "cavern_spider",
+      "front_guard": 0.4,
+      "abilities": [
+        {
+          "id": "brood_leap",
+          "kind": "area",
+          "clip": "Leap",
+          "anticipation": 1.1,
+          "recovery": 0.9,
+          "radius": 3.4,
+          "offset": 2.2,
+          "damage_multiplier": 1.7,
+          "every": 4,
+          "push": 4.0,
+          "lift": 2.5,
+          "impact_fx": "shockwave",
+          "spell_id": "brood_leap"
+        },
+        {
+          "id": "web_shot",
+          "kind": "area",
+          "at_target": true,
+          "clip": "Spit",
+          "anticipation": 1.0,
+          "recovery": 0.7,
+          "radius": 3.0,
+          "damage_multiplier": 0.6,
+          "min_range": 6.0,
+          "max_range": 18.0,
+          "cooldown": 10.0,
+          "web_s": 3.5,
+          "impact_fx": "disarm",
+          "spell_id": "web_shot"
+        }
+      ],
+      "displace_resist": 0.4
+    },
+    "dark_bandit": {
+      "display": "Dark Bandit",
+      "family": "dark_wizard",
+      "role": "caster",
+      "scene": "res://scenes/entities/mobs/mob_dark_bandit.tscn",
+      "base": {
+        "max_hp": 420,
+        "attack_power": 40,
+        "move_speed": 6.0,
+        "attack_range": 14.0,
+        "attack_cooldown": 2.0
+      },
+      "resist": {
+        "stun": 0.25,
+        "arcane": 0.15,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "dark_wizard"
+    },
+    "troll_forest": {
+      "display": "Forest Troll",
+      "family": "troll",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_troll_forest.tscn",
+      "base": {
+        "max_hp": 900,
+        "attack_power": 70,
+        "move_speed": 6.6,
+        "attack_range": 3.8,
+        "attack_cooldown": 2.6
+      },
+      "exp_mult": 2.0,
+      "resist": {
+        "stun": 0.4,
+        "force": -0.2,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "troll",
+      "abilities": [
+        {
+          "id": "slam",
+          "kind": "area",
+          "clip": "Slam",
+          "anticipation": 1.5,
+          "recovery": 1.3,
+          "radius": 5.0,
+          "damage_multiplier": 1.6,
+          "every": 3,
+          "spell_id": "troll_slam",
+          "stun_s": 1.0
+        }
+      ],
+      "displace_resist": 0.5
+    },
+    "troll_mountain": {
+      "display": "Mountain Troll",
+      "family": "troll",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_troll_mountain.tscn",
+      "base": {
+        "max_hp": 1300,
+        "attack_power": 95,
+        "move_speed": 6.2,
+        "attack_range": 4.2,
+        "attack_cooldown": 2.8
+      },
+      "exp_mult": 2.5,
+      "resist": {
+        "stun": 0.5,
+        "fire": 0.2,
+        "force": -0.2,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "troll",
+      "abilities": [
+        {
+          "id": "slam",
+          "kind": "area",
+          "clip": "Slam",
+          "anticipation": 1.5,
+          "recovery": 1.3,
+          "radius": 5.5,
+          "damage_multiplier": 1.7,
+          "every": 3,
+          "spell_id": "troll_slam",
+          "stun_s": 1.2
+        },
+        {
+          "id": "boulder",
+          "kind": "area",
+          "at_target": true,
+          "clip": "Swing",
+          "anticipation": 1.0,
+          "recovery": 0.6,
+          "radius": 3.5,
+          "damage_multiplier": 1.4,
+          "min_range": 7.0,
+          "max_range": 22.0,
+          "cooldown": 9.0,
+          "fx": "boulder",
+          "spell_id": "troll_boulder",
+          "push": 5.0,
+          "lift": 4.0
+        }
+      ],
+      "displace_resist": 0.6
+    },
+    "pallid": {
+      "display": "Pallid",
+      "family": "pallid",
+      "role": "caster",
+      "scene": "res://scenes/entities/mobs/mob_pallid.tscn",
+      "base": {
+        "max_hp": 700,
+        "attack_power": 80,
+        "move_speed": 6.5,
+        "attack_range": 3.2,
+        "attack_cooldown": 2.0
+      },
+      "exp_mult": 2.0,
+      "resist": {
+        "stun": 0.6,
+        "fire": 0.3,
+        "arcane": -0.15,
+        "ithrel_light": -2.0
+      },
+      "mana_first": true,
+      "loot_table": "pallid",
+      "abilities": [
+        {
+          "id": "kiss",
+          "kind": "area",
+          "at_target": true,
+          "clip": "Reach",
+          "anticipation": 1.3,
+          "recovery": 1.2,
+          "radius": 2.6,
+          "damage_multiplier": 2.0,
+          "every": 4,
+          "despair_s": 6.0,
+          "drain": 0.5,
+          "impact_fx": "disarm",
+          "spell_id": "pallid_drain"
+        }
+      ],
+      "aura": {
+        "radius": 6.0,
+        "damage_ratio": 0.08,
+        "despair_s": 2.0
+      },
+      "displace_resist": 0.3
+    },
+    "cornish_pixie": {
+      "display": "Fidgetling",
+      "family": "pixie",
+      "role": "swarm",
+      "scene": "res://scenes/entities/mobs/mob_cornish_pixie.tscn",
+      "base": {
+        "max_hp": 260,
+        "attack_power": 40,
+        "move_speed": 7.5,
+        "attack_range": 1.8,
+        "attack_cooldown": 1.3
+      },
+      "exp_mult": 0.5,
+      "resist": {
+        "stun": -0.3,
+        "force": -0.3
+      },
+      "loot_table": "",
+      "abilities": [
+        {
+          "id": "lift",
+          "kind": "area",
+          "at_target": true,
+          "clip": "Swing",
+          "anticipation": 0.7,
+          "recovery": 0.6,
+          "radius": 1.8,
+          "damage_multiplier": 0.6,
+          "every": 3,
+          "push": 3.0,
+          "lift": 7.5,
+          "spell_id": "pixie_lift"
+        }
+      ]
+    },
+    "armour_guard": {
+      "display": "Enchanted Armour",
+      "family": "armour",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_armour_guard.tscn",
+      "base": {
+        "max_hp": 1100,
+        "attack_power": 75,
+        "move_speed": 4.2,
+        "attack_range": 3.4,
+        "attack_cooldown": 2.4
+      },
+      "exp_mult": 1.6,
+      "resist": {
+        "stun": 0.5,
+        "fire": 0.3,
+        "force": -0.3,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "armour",
+      "abilities": [
+        {
+          "id": "sweep",
+          "kind": "directional",
+          "clip": "Swing",
+          "anticipation": 1.1,
+          "recovery": 1.0,
+          "range": 5.0,
+          "half_angle": 0.9,
+          "damage_multiplier": 1.4,
+          "every": 3,
+          "push": 6.5,
+          "lift": 2.0
+        }
+      ],
+      "displace_resist": 0.5
+    },
+    "armour_commander": {
+      "display": "Cursed Armour Commander",
+      "family": "armour",
+      "role": "boss",
+      "scene": "res://scenes/entities/mobs/mob_armour_commander.tscn",
+      "base": {
+        "max_hp": 1600,
+        "attack_power": 85,
+        "move_speed": 4.0,
+        "attack_range": 3.8,
+        "attack_cooldown": 2.4
+      },
+      "exp_mult": 2.0,
+      "resist": {
+        "stun": 0.7,
+        "fire": 0.3,
+        "force": -0.3,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "armour",
+      "front_guard": 0.8,
+      "displace_resist": 0.7
+    },
+    "devils_snare": {
+      "display": "Strangling Vine",
+      "family": "snare",
+      "role": "boss",
+      "scene": "res://scenes/entities/mobs/mob_devils_snare.tscn",
+      "base": {
+        "max_hp": 4000,
+        "attack_power": 90,
+        "move_speed": 0.0,
+        "attack_range": 9.0,
+        "attack_cooldown": 2.6
+      },
+      "exp_mult": 2.0,
+      "resist": {
+        "stun": 1.0,
+        "fire": -0.5,
+        "force": 0.3
+      },
+      "loot_table": "snare",
+      "parts": {
+        "species": "snare_vine",
+        "bones": {
+          "L": "VineL3",
+          "R": "VineR3",
+          "T": "VineT3"
+        }
+      },
+      "displace_resist": 1.0
+    },
+    "snare_vine": {
+      "display": "Snare Vine",
+      "family": "snare",
+      "role": "part",
+      "scene": "res://scenes/entities/mobs/mob_snare_vine.tscn",
+      "base": {
+        "max_hp": 1500,
+        "attack_power": 0,
+        "move_speed": 0.0,
+        "attack_range": 0.0,
+        "attack_cooldown": 9.0
+      },
+      "exp_mult": 0.0,
+      "resist": {
+        "stun": 1.0,
+        "fire": -1.0,
+        "arcane": 0.5,
+        "force": 0.4,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "",
+      "displace_resist": 1.0
+    },
+    "threehead": {
+      "display": "Threehead",
+      "family": "hound",
+      "role": "boss",
+      "scene": "res://scenes/entities/mobs/mob_threehead.tscn",
+      "base": {
+        "max_hp": 12000,
+        "attack_power": 140,
+        "move_speed": 2.6,
+        "attack_range": 7.0,
+        "attack_cooldown": 2.8
+      },
+      "exp_mult": 4.0,
+      "resist": {
+        "stun": 1.0
+      },
+      "loot_table": "threehead",
+      "parts": {
+        "species": "threehead_head",
+        "bones": {
+          "L": "Head.L",
+          "M": "Head.M",
+          "R": "Head.R"
+        }
+      },
+      "displace_resist": 1.0
+    },
+    "threehead_head": {
+      "display": "Threehead's Head",
+      "family": "hound",
+      "role": "part",
+      "scene": "res://scenes/entities/mobs/mob_threehead_head.tscn",
+      "base": {
+        "max_hp": 4000,
+        "attack_power": 0,
+        "move_speed": 0.0,
+        "attack_range": 0.0,
+        "attack_cooldown": 9.0
+      },
+      "exp_mult": 0.0,
+      "resist": {
+        "stun": 1.0
+      },
+      "loot_table": "",
+      "displace_resist": 1.0
+    },
+    "drowned_warden": {
+      "display": "Drowned Warden of Lunra",
+      "family": "undead",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_drowned_warden.tscn",
+      "base": {
+        "max_hp": 520,
+        "attack_power": 46,
+        "move_speed": 5.6,
+        "attack_range": 2.4,
+        "attack_cooldown": 1.5
+      },
+      "exp_mult": 1.4,
+      "resist": {
+        "fire": -1.0,
+        "stun": 0.2,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "undead",
+      "abilities": [
+        {
+          "id": "drowning_grasp",
+          "kind": "area",
+          "clip": "Swing",
+          "anticipation": 0.9,
+          "recovery": 0.8,
+          "radius": 2.2,
+          "offset": 1.2,
+          "damage_multiplier": 1.4,
+          "every": 3,
+          "web_s": 2.5
+        }
+      ]
+    },
+    "goblin_teller": {
+      "display": "Goblin Teller",
+      "family": "goblin",
+      "role": "skirmisher",
+      "scene": "res://scenes/entities/mobs/mob_goblin_teller.tscn",
+      "base": {
+        "max_hp": 300,
+        "attack_power": 28,
+        "move_speed": 4.6,
+        "attack_range": 2.0,
+        "attack_cooldown": 1.2
+      },
+      "resist": {
+        "arcane": 0.15,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "goblin_teller"
+    },
+    "goblin_guard": {
+      "display": "Goblin Vault Guard",
+      "family": "goblin",
+      "role": "brute",
+      "scene": "res://scenes/entities/mobs/mob_goblin_guard.tscn",
+      "base": {
+        "max_hp": 680,
+        "attack_power": 52,
+        "move_speed": 4.6,
+        "attack_range": 2.3,
+        "attack_cooldown": 1.6
+      },
+      "exp_mult": 1.3,
+      "resist": {
+        "stun": 0.3,
+        "arcane": 0.25,
+        "force": 0.15,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "goblin_guard",
+      "abilities": [
+        {
+          "id": "guard_shove",
+          "kind": "area",
+          "clip": "Swing",
+          "anticipation": 0.8,
+          "recovery": 0.7,
+          "radius": 2.4,
+          "offset": 1.1,
+          "damage_multiplier": 1.4,
+          "every": 3,
+          "push": 6.0
+        }
+      ]
+    },
+    "goblin_hexer": {
+      "display": "Goblin Hexer",
+      "family": "goblin",
+      "role": "caster",
+      "scene": "res://scenes/entities/mobs/mob_goblin_hexer.tscn",
+      "base": {
+        "max_hp": 240,
+        "attack_power": 30,
+        "move_speed": 4.4,
+        "attack_range": 13.0,
+        "attack_cooldown": 1.8
+      },
+      "resist": {
+        "arcane": 0.3,
+        "ithrel_light": 0.5
+      },
+      "loot_table": "goblin_teller"
+    },
+    "egg_sac": {
+      "display": "Egg Sac",
+      "family": "spider",
+      "role": "object",
+      "scene": "res://scenes/entities/mobs/mob_egg_sac.tscn",
+      "base": {
+        "max_hp": 500,
+        "attack_power": 0,
+        "move_speed": 0.0,
+        "attack_range": 0.0,
+        "attack_cooldown": 9.0
+      },
+      "exp_mult": 0.0,
+      "resist": {
+        "stun": 1.0,
+        "fire": -1.0,
+        "force": 0.3
+      },
+      "loot_table": "",
+      "displace_resist": 1.0
+    },
+    "web_cocoon": {
+      "display": "Web Cocoon",
+      "family": "spider",
+      "role": "object",
+      "scene": "res://scenes/entities/mobs/mob_web_cocoon.tscn",
+      "base": {
+        "max_hp": 400,
+        "attack_power": 0,
+        "move_speed": 0.0,
+        "attack_range": 0.0,
+        "attack_cooldown": 9.0
+      },
+      "exp_mult": 0.0,
+      "resist": {
+        "stun": 1.0,
+        "fire": -1.0,
+        "force": 0.3
+      },
+      "loot_table": "",
+      "displace_resist": 1.0
+    }
+  },
+  "_elite_note": "Any ordinary (non-boss) pack member may roll elite on each spawn. An elite is a stronger copy of the same species with its own label colour, more experience and an extra guaranteed loot roll.",
+  "elite": {
+    "chance": 0.03,
+    "hp_mult": 3.0,
+    "attack_mult": 1.5,
+    "exp_mult": 3.0,
+    "name_prefix": "Elite "
+  },
+  "_level_gap_note": "Metin2-style level gap. diff = mob level - player level. Experience and loot drop chances are scaled by the first band whose `min_diff` the diff reaches (bands sorted high to low).",
+  "level_gap": {
+    "bands": [
+      {
+        "min_diff": 8,
+        "exp": 1.2,
+        "drop": 1.0
+      },
+      {
+        "min_diff": -5,
+        "exp": 1.0,
+        "drop": 1.0
+      },
+      {
+        "min_diff": -9,
+        "exp": 0.6,
+        "drop": 0.7
+      },
+      {
+        "min_diff": -14,
+        "exp": 0.25,
+        "drop": 0.35
+      },
+      {
+        "min_diff": -999,
+        "exp": 0.05,
+        "drop": 0.1
+      }
+    ]
+  },
+  "_exp_note": "exp_mult scales the level-based pack experience for creatures that are slower to kill than their level suggests (trolls, pallids).",
+  "_abilities_note": "abilities: telegraphed patterns an ordinary creature mixes in (`every` N attacks) or throws at a target out of reach (`min_range`/`max_range` + `cooldown`). at_target centres the area on the target; despair_s stops the victim's regeneration; drain heals the attacker by that share of the damage. aura: while fighting, players within `radius` take attack_power x damage_ratio per regeneration beat and despair. push/lift: shove each victim (m/s away from the attacker, and up) - the pixie's lift. poison {ratio, ticks, interval_ms}: venom on every victim, attack_power x ratio per beat on the burn clock (authority apply_poison). web_s: the victim moves at half speed on foot for that long (apply_web, player.gd WEBBED_FACTOR).",
+  "_parts_note": "D1 multi-part creatures: `parts` names the bones a body grows targetable parts on (their species and hit points come from the part's own entry and boss_overrides part_hp). The body is immune while any part stands. `front_guard`: share of a blow from in front (~60 degrees) that a shield-bearer ignores.",
+  "_displace_note": "displace_resist: how much of a throw (Bombarda, Expelliarmus) a creature shrugs off, 1.0 = never moves. Bosses are never thrown. Ability riders on players: stun_s (no casts, no steering), push/lift (thrown: no casts until it lands), web_s (slowed), poison, despair_s."
+}

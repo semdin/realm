@@ -1,6 +1,6 @@
 [package]
 name = "realm_data"
-description = "Compiled content tables (items, skills, creatures, quests, maps) read by every side."
+description = "Content: the game's data files, their typed ids and cross-reference checks."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,6 +9,8 @@ publish.workspace = true
 
 [dependencies]
 serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
 toml.workspace = true
 
 [lints]

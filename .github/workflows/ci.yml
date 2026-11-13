@@ -1,9 +1,10 @@
 name: ci
 
 # Every push to main and every pull request: format, lint, build on the three
-# client platforms, then prove the two pieces that are hardest to get right on
-# a new platform: the QUIC transport (server selfcheck) and the GDExtension
-# loading in the pinned Godot (client smoke). GitHub-hosted runners only; the
+# client platforms, prove the QUIC transport (server selfcheck) and the
+# GDExtension loading in the pinned Godot (client smoke), then check that the
+# movement rules give bit-identical results on every platform (simcheck
+# fingerprints compared in one job). GitHub-hosted runners only; the
 # game box's self-hosted runner stays reserved for the live game's releases.
 
 on:
@@ -71,3 +72,37 @@ jobs:
           proto=$(grep -oE 'PROTOCOL_VERSION: u16 = [0-9]+' crates/realm_proto/src/lib.rs | grep -oE '[0-9]+$')
           hz=$(grep -oE 'SIM_HZ: u32 = [0-9]+' crates/realm_sim/src/lib.rs | grep -oE '[0-9]+$')
           "$godot" --headless --path tools/gdext_smoke -s res://smoke.gd -- "$proto" "$hz"
+
+      - name: Movement fingerprint
+        run: cargo run --release -p realm_simcheck | tee "simcheck-${{ matrix.os }}.txt"
+
+      - name: Content check
+        # References, leftover franchise names, and the content hash (appended
+        # to the fingerprint, so every platform must agree on it too).
+        run: cargo run --release -p realm_content -- check content/rename_map.toml content/data | tee -a "simcheck-${{ matrix.os }}.txt"
+
+      - uses: actions/upload-artifact@v7.0.2
+        with:
+          name: simcheck-${{ matrix.os }}
+          path: simcheck-${{ matrix.os }}.txt
+
+  # The rules must give bit-identical results everywhere the game ships
+  # (x86_64 Windows and Linux, ARM macOS). Any differing line fails the run.
+  movement-agreement:
+    needs: build
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/download-artifact@v8.0.2
+        with:
+          pattern: simcheck-*
+          merge-multiple: true
+      - name: Compare fingerprints
+        run: |
+          ls simcheck-*.txt
+          first=$(ls simcheck-*.txt | head -1)
+          status=0
+          for f in simcheck-*.txt; do
+            if ! diff -u "$first" "$f"; then status=1; fi
+          done
+          if [ $status -eq 0 ]; then echo "all platforms agree: $(tail -1 "$first")"; fi
+          exit $status

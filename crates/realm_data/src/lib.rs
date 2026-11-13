@@ -1,38 +1,103 @@
-//! Content tables. Phase 1 adds the converter from the old game's JSON; for
-//! now this holds the rename map every converted id goes through.
+//! Content: the game's data files (items, skills, creatures, quests, maps,
+//! spawns, loot, travel), shared by the servers, the client and the bots.
+//!
+//! Files are JSON under `content/data/`, authored by tools and by hand. Keys
+//! starting with `_` are notes for authors and are ignored by every reader.
+//! [`Content::load`] reads them, [`catalog::Catalog`] gives typed access to the
+//! ids and checks every cross reference, and [`Content::hash`] is the
+//! fingerprint client and server compare at login so both sides run the same
+//! data.
+
+pub mod catalog;
+pub mod rename;
 
 use std::collections::BTreeMap;
+use std::path::Path;
 
-use serde::Deserialize;
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
-/// `content/rename_map.toml`: old game id -> new id, grouped by kind.
-#[derive(Debug, Deserialize)]
-pub struct RenameMap {
-    #[serde(flatten)]
-    pub kinds: BTreeMap<String, BTreeMap<String, String>>,
+/// Every content file by name (`items.json` -> its JSON).
+#[derive(Clone, Debug, Default)]
+pub struct Content {
+    pub files: BTreeMap<String, Value>,
 }
 
-impl RenameMap {
-    /// Parses the map and rejects two old ids mapping to one new id.
-    pub fn parse(text: &str) -> Result<Self, String> {
-        let map: Self = toml::from_str(text).map_err(|e| e.to_string())?;
-        for (kind, entries) in &map.kinds {
-            let mut seen = BTreeMap::new();
-            for (old, new) in entries {
-                if let Some(other) = seen.insert(new.as_str(), old.as_str()) {
-                    return Err(format!("{kind}: '{other}' and '{old}' both map to '{new}'"));
-                }
+impl Content {
+    /// Reads every `*.json` in `dir`.
+    pub fn load(dir: &Path) -> Result<Self, String> {
+        let mut files = BTreeMap::new();
+        let entries = std::fs::read_dir(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        for entry in entries {
+            let path = entry.map_err(|e| e.to_string())?.path();
+            if path.extension().and_then(|e| e.to_str()) != Some("json") {
+                continue;
             }
+            let name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .ok_or("file name")?
+                .to_owned();
+            let text =
+                std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+            let value: Value =
+                serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+            files.insert(name, value);
         }
-        Ok(map)
+        if files.is_empty() {
+            return Err(format!("{}: no content files", dir.display()));
+        }
+        Ok(Self { files })
     }
 
-    /// New id for `old` of `kind`, or `old` itself when it needs no rename.
+    /// Writes every file, pretty-printed, keys in authored order.
+    pub fn save(&self, dir: &Path) -> Result<(), String> {
+        std::fs::create_dir_all(dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        for (name, value) in &self.files {
+            let mut text = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
+            text.push('\n');
+            let path = dir.join(name);
+            std::fs::write(&path, text).map_err(|e| format!("{}: {e}", path.display()))?;
+        }
+        Ok(())
+    }
+
     #[must_use]
-    pub fn rename<'a>(&'a self, kind: &str, old: &'a str) -> &'a str {
-        self.kinds
-            .get(kind)
-            .and_then(|entries| entries.get(old))
-            .map_or(old, String::as_str)
+    pub fn file(&self, name: &str) -> Option<&Value> {
+        self.files.get(name)
+    }
+
+    /// SHA-256 over every file's data without author notes, in file-name
+    /// order. Notes and formatting can change without changing the hash.
+    #[must_use]
+    pub fn hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        for (name, value) in &self.files {
+            hasher.update(name.as_bytes());
+            hasher.update([0]);
+            let data = without_notes(value);
+            hasher.update(serde_json::to_vec(&data).unwrap_or_default());
+            hasher.update([0]);
+        }
+        hasher
+            .finalize()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect()
+    }
+}
+
+/// A copy of `value` with every `_`-prefixed key removed, at any depth.
+#[must_use]
+pub fn without_notes(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .filter(|(k, _)| !k.starts_with('_'))
+                .map(|(k, v)| (k.clone(), without_notes(v)))
+                .collect(),
+        ),
+        Value::Array(items) => Value::Array(items.iter().map(without_notes).collect()),
+        other => other.clone(),
     }
 }

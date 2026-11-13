@@ -1,0 +1,16 @@
+[package]
+name = "realm_simcheck"
+description = "Runs scripted movement on a fixed test world and prints a fingerprint; CI compares it across platforms."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+realm_sim.workspace = true
+realm_proto.workspace = true
+libm = "0.2.16"
+
+[lints]
+workspace = true

@@ -1,6 +1,22 @@
 //! Shared game rules. Everything in here must behave the same on the map
 //! servers, in the Godot client (prediction) and in the headless bots, so it
 //! never touches Godot types, wall-clock time or platform APIs.
+//!
+//! Determinism: the same inputs from the same state give bit-identical results
+//! on every platform the game ships on. That rules out platform `libm` (trig
+//! goes through the pure-Rust `libm` crate), fused multiply-add, and SIMD paths
+//! that reorder operations (parry3d runs with `enhanced-determinism`). State is
+//! snapped to the wire grid after every step, so a client that rewinds to a
+//! server snapshot resumes from exactly the server's numbers.
+
+pub mod input;
+pub mod movement;
+pub mod world;
+
+mod mathx;
+
+pub use mathx::GRID as WIRE_GRID;
+pub use parry3d::math::Vec3;
 
 /// Simulation steps per second on every side.
 pub const SIM_HZ: u32 = 30;

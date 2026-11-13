@@ -5,8 +5,9 @@
 # for the internal ids that were left as they were then.
 #
 # New ids are the snake_case form of the approved English display name.
-# `token` is applied to derived ids (encounters, keys, prefixes) longest
-# match first; the other kinds are exact.
+# `token` replaces whole `_`-separated segments inside derived ids (encounters,
+# keys, prefixes, asset paths), longest match first; `text` replaces phrases in
+# player-visible strings; every other kind is an exact id match.
 
 [house]
 Gryffindor = "velkar"
@@ -61,7 +62,7 @@ portkey = "waylink"
 floo_courtyard = "hearth_pavilion"
 floo_hogsmeade = "hearth_orvell_square"
 floo_hagrid = "hearth_borins_hut"
-floo_great_hall = "hearth_great_hall"
+floo_great_hall = "hearth_feast_hall"
 floo_caverns_camp = "hearth_blackweb_camp"
 passage_hogsmeade = "passage_orvell"
 
@@ -84,6 +85,7 @@ mana_per_second_slytherin = "mana_per_second_nisera"
 dementor_kiss = "pallid_drain"
 
 [token]
+great_hall = "feast_hall"
 acromantula_venomfang = "venomfang_weaver"
 acromantula_broodguard = "broodguard"
 acromantula = "black_weaver"
@@ -113,3 +115,8 @@ gryffindor = "velkar"
 slytherin = "nisera"
 ravenclaw = "ilvane"
 hufflepuff = "torvan"
+
+# Player-visible phrases. Great Hall -> Feast Hall proposed 2026-11-13, pending the user's word.
+[text]
+"The Great Hall" = "The Feast Hall"
+"Great Hall" = "Feast Hall"

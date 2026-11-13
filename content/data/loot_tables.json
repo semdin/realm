@@ -1,0 +1,663 @@
+{
+  "_comment": "Server-owned reward tables. Rolls happen only inside the authority, using its seeded RNG.",
+  "mob": {
+    "always": [
+      {
+        "id": "oril",
+        "min": 30,
+        "max": 95
+      }
+    ],
+    "rolls": [
+      {
+        "id": "mat_phoenix_ash",
+        "chance": 0.126,
+        "min": 1,
+        "max": 3
+      },
+      {
+        "id": "potion_health",
+        "chance": 0.07,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "scroll_imbue",
+        "chance": 0.0084,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "scroll_reweave",
+        "chance": 0.0056,
+        "min": 1,
+        "max": 1
+      }
+    ],
+    "boss_always": [
+      {
+        "id": "oril",
+        "min": 250,
+        "max": 600
+      }
+    ],
+    "boss_rolls": [
+      {
+        "id": "mat_dragon_heartstring",
+        "chance": 1.0,
+        "min": 2,
+        "max": 2
+      },
+      {
+        "id": "scroll_imbue",
+        "chance": 0.6,
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "scroll_reweave",
+        "chance": 0.4,
+        "min": 1,
+        "max": 1
+      }
+    ]
+  },
+  "_tables_note": "Per-species tables (mobs.json `loot_table`). A species table ADDS its `always`/`rolls` to the base `mob` table above; `elite` adds on top for elite spawns. Every roll chance is scaled by the level-gap drop factor (mobs.json level_gap); `always` entries are not.",
+  "tables": {
+    "undead": {
+      "rolls": [
+        {
+          "id": "mat_night_steed_hair",
+          "chance": 0.0224,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "spider": {
+      "rolls": [
+        {
+          "id": "potion_mana",
+          "chance": 0.056,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "mat_elder_core",
+          "chance": 0.0028,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "troll": {
+      "always": [
+        {
+          "id": "oril",
+          "min": 40,
+          "max": 110
+        }
+      ],
+      "rolls": [
+        {
+          "id": "potion_health",
+          "chance": 0.07,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "id": "mat_elder_core",
+          "chance": 0.0084,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "pallid": {
+      "rolls": [
+        {
+          "id": "mat_night_steed_hair",
+          "chance": 0.042,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "potion_mana",
+          "chance": 0.056,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "scroll_reweave",
+          "chance": 0.0084,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "dark_wizard": {
+      "always": [
+        {
+          "id": "oril",
+          "min": 20,
+          "max": 60
+        }
+      ],
+      "rolls": [
+        {
+          "id": "scroll_imbue",
+          "chance": 0.0084,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "armour": {
+      "always": [
+        {
+          "id": "oril",
+          "min": 60,
+          "max": 140
+        }
+      ],
+      "rolls": [
+        {
+          "id": "potion_health",
+          "chance": 0.084,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "id": "scroll_reweave",
+          "chance": 0.0112,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "snare": {
+      "always": [
+        {
+          "id": "mat_phoenix_ash",
+          "min": 1,
+          "max": 3
+        }
+      ],
+      "rolls": [
+        {
+          "id": "scroll_imbue",
+          "chance": 0.07,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "threehead": {
+      "always": [
+        {
+          "id": "oril",
+          "min": 800,
+          "max": 1500
+        }
+      ],
+      "rolls": [
+        {
+          "id": "mat_dragon_heartstring",
+          "chance": 0.168,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "id": "scroll_imbue",
+          "chance": 0.14,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "scroll_reweave",
+          "chance": 0.112,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "cavern_spider": {
+      "always": [
+        {
+          "id": "oril",
+          "min": 30,
+          "max": 90
+        }
+      ],
+      "rolls": [
+        {
+          "id": "potion_health",
+          "chance": 0.063,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "id": "potion_mana",
+          "chance": 0.049,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "mat_night_steed_hair",
+          "chance": 0.014,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "mat_elder_core",
+          "chance": 0.007,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "scroll_imbue",
+          "chance": 0.0042,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "scroll_reweave",
+          "chance": 0.0028,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "mat_spider_silk",
+          "chance": 0.084,
+          "min": 1,
+          "max": 2
+        },
+        {
+          "id": "mat_weaver_venom",
+          "chance": 0.035,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "queen_seal",
+          "chance": 0.001,
+          "min": 1,
+          "max": 1
+        },
+        {
+          "id": "hearth_dust",
+          "chance": 0.014,
+          "min": 1,
+          "max": 1
+        }
+      ]
+    },
+    "goblin_teller": {
+      "_comment": "Goblins carry gold, not junk: no base item rolls, lots of orils, and gear only rarely but always enchanted (efsun).",
+      "no_base_rolls": true,
+      "always": [
+        {
+          "id": "oril",
+          "min": 140,
+          "max": 320
+        }
+      ],
+      "rolls": [
+        {
+          "id": "oril",
+          "chance": 0.15,
+          "min": 300,
+          "max": 700
+        }
+      ],
+      "gear": {
+        "chance": 0.006,
+        "elite_chance": 0.05,
+        "enchanted_chance": 1.0,
+        "bonus_count_weights": [
+          25,
+          45,
+          30
+        ],
+        "accessory_chance": 0.008
+      }
+    },
+    "goblin_guard": {
+      "no_base_rolls": true,
+      "always": [
+        {
+          "id": "oril",
+          "min": 260,
+          "max": 600
+        }
+      ],
+      "rolls": [
+        {
+          "id": "oril",
+          "chance": 0.18,
+          "min": 600,
+          "max": 1400
+        },
+        {
+          "id": "scroll_imbue",
+          "chance": 0.006,
+          "min": 1,
+          "max": 1
+        }
+      ],
+      "gear": {
+        "chance": 0.01,
+        "elite_chance": 0.07,
+        "enchanted_chance": 1.0,
+        "bonus_count_weights": [
+          10,
+          45,
+          45
+        ],
+        "accessory_chance": 0.012
+      }
+    }
+  },
+  "elite": {
+    "always": [
+      {
+        "id": "oril",
+        "min": 120,
+        "max": 320
+      }
+    ],
+    "rolls": [
+      {
+        "id": "scroll_imbue",
+        "chance": 0.105,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "mat_night_steed_hair",
+        "chance": 0.147,
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "mat_dragon_heartstring",
+        "chance": 0.063,
+        "min": 1,
+        "max": 1
+      }
+    ]
+  },
+  "gear": {
+    "_comment": "Gear pieces (wand/cloak/broom) dropped by kills, picked from enchantable items whose required_level is in (mob level - level_band, mob level]. enchanted_chance of them come with 1..N efsun bonuses (bonus_count_weights[i] = weight of i+1 bonuses); such a chest is a chest_rare and glows differently. accessory_chance = the accessory roll (hat/gloves/boots/focus/pendant/ring of the tier whose required_level is in the same level band; accessories never come from the gear roll). Every chance except boss/monolith is scaled by the level-gap drop factor.",
+    "accessory_chance": 0.035,
+    "chance": 0.0084,
+    "elite_chance": 0.056,
+    "boss_chance": 0.5,
+    "monolith_chance": 0.3,
+    "level_band": 15,
+    "enchanted_chance": 0.3,
+    "bonus_count_weights": [
+      65,
+      28,
+      7
+    ]
+  },
+  "dungeon_trial": {
+    "always": [
+      {
+        "id": "oril",
+        "min": 300,
+        "max": 700
+      },
+      {
+        "id": "potion_health",
+        "min": 2,
+        "max": 3
+      },
+      {
+        "id": "mat_phoenix_ash",
+        "min": 2,
+        "max": 4
+      }
+    ],
+    "rolls": [
+      {
+        "id": "scroll_imbue",
+        "chance": 0.5,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "mat_dragon_heartstring",
+        "chance": 0.35,
+        "min": 1,
+        "max": 1
+      }
+    ]
+  },
+  "monolith": {
+    "always": [
+      {
+        "id": "oril",
+        "min": 600,
+        "max": 1800
+      },
+      {
+        "id": "oril",
+        "min": 400,
+        "max": 1200
+      },
+      {
+        "id": "mat_phoenix_ash",
+        "min": 2,
+        "max": 4
+      },
+      {
+        "id": "mat_dragon_heartstring",
+        "min": 1,
+        "max": 3
+      },
+      {
+        "id": "mat_night_steed_hair",
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "potion_health",
+        "min": 3,
+        "max": 6
+      },
+      {
+        "id": "potion_mana",
+        "min": 3,
+        "max": 6
+      }
+    ],
+    "rolls": [
+      {
+        "id": "mat_elder_core",
+        "chance": 0.25,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "scroll_imbue",
+        "chance": 0.5,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "scroll_reweave",
+        "chance": 0.3,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "hearth_dust",
+        "chance": 0.25,
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "waylink_boot",
+        "chance": 0.04,
+        "min": 1,
+        "max": 1
+      }
+    ]
+  },
+  "respawn_ms": {
+    "mob_normal_min": 15000,
+    "mob_normal_max": 25000,
+    "mob_boss_min": 90000,
+    "mob_boss_max": 120000,
+    "pack_normal_min": 15000,
+    "pack_normal_max": 25000,
+    "pack_boss_min": 90000,
+    "pack_boss_max": 120000
+  },
+  "dungeon_corridor": {
+    "always": [
+      {
+        "id": "oril",
+        "min": 1200,
+        "max": 2400
+      },
+      {
+        "id": "potion_health",
+        "min": 3,
+        "max": 5
+      },
+      {
+        "id": "mat_phoenix_ash",
+        "min": 3,
+        "max": 6
+      }
+    ],
+    "rolls": [
+      {
+        "id": "scroll_imbue",
+        "chance": 0.8,
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "scroll_reweave",
+        "chance": 0.6,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "mat_dragon_heartstring",
+        "chance": 0.7,
+        "min": 1,
+        "max": 2
+      }
+    ]
+  },
+  "_drop_note": "2026-10-18: mob item chances lowered (base table, species x0.4, elite x0.6). Every kill now drops ONE chest holding all of its rolls (authority._spawn_chest). 2026-10-21: ordinary-mob item chances x0.7 again (base, species, elite tables and the gear/accessory/elite gear rolls); boss, monolith and dungeon rewards unchanged. 2026-10-31: creature_drop scales every item chance of an ordinary (non-boss) creature kill - base, species, elite, gear and accessory rolls - so a chest is roughly one kill in ten in the open world (dungeon creatures also take rewards.creature_drop).",
+  "creature_drop": 0.45,
+  "monolith_spider": {
+    "always": [
+      {
+        "id": "oril",
+        "min": 900,
+        "max": 1800
+      },
+      {
+        "id": "mat_spider_silk",
+        "min": 2,
+        "max": 4
+      }
+    ],
+    "rolls": [
+      {
+        "id": "mat_weaver_venom",
+        "chance": 0.6,
+        "min": 1,
+        "max": 3
+      },
+      {
+        "id": "queen_seal",
+        "chance": 0.08,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "scroll_imbue",
+        "chance": 0.12,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "scroll_reweave",
+        "chance": 0.08,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "mat_night_steed_hair",
+        "chance": 0.1,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "potion_health",
+        "chance": 0.5,
+        "min": 2,
+        "max": 4
+      },
+      {
+        "id": "hearth_dust",
+        "chance": 0.25,
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "waylink_boot",
+        "chance": 0.05,
+        "min": 1,
+        "max": 1
+      }
+    ]
+  },
+  "dungeon_spider_lair": {
+    "always": [
+      {
+        "id": "potion_health",
+        "min": 3,
+        "max": 5
+      },
+      {
+        "id": "mat_spider_silk",
+        "min": 3,
+        "max": 6
+      },
+      {
+        "id": "mat_weaver_venom",
+        "min": 2,
+        "max": 4
+      }
+    ],
+    "rolls": [
+      {
+        "id": "scroll_imbue",
+        "chance": 0.8,
+        "min": 1,
+        "max": 2
+      },
+      {
+        "id": "scroll_reweave",
+        "chance": 0.6,
+        "min": 1,
+        "max": 1
+      },
+      {
+        "id": "mat_phoenix_ash",
+        "chance": 0.7,
+        "min": 2,
+        "max": 4
+      }
+    ]
+  }
+}

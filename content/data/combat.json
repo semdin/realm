@@ -1,0 +1,941 @@
+{
+  "_comment": "Server-owned combat constants. The authority reads these; the client uses them only for prediction and tooltips. GDDATA_UPGRADE_TABLE in client/scripts/autoload/game_data.gd must stay equal to wand_tiers (a harness check enforces it).",
+  "wand_tiers": [
+    {
+      "tier": 0,
+      "multiplier": 1.0,
+      "chance": 100,
+      "cost": 100,
+      "material_id": "mat_phoenix_ash",
+      "material_amount": 1
+    },
+    {
+      "tier": 1,
+      "multiplier": 1.12,
+      "chance": 100,
+      "cost": 400,
+      "material_id": "mat_phoenix_ash",
+      "material_amount": 1
+    },
+    {
+      "tier": 2,
+      "multiplier": 1.25,
+      "chance": 95,
+      "cost": 1200,
+      "material_id": "mat_phoenix_ash",
+      "material_amount": 2
+    },
+    {
+      "tier": 3,
+      "multiplier": 1.4,
+      "chance": 85,
+      "cost": 2600,
+      "material_id": "mat_phoenix_ash",
+      "material_amount": 3
+    },
+    {
+      "tier": 4,
+      "multiplier": 1.6,
+      "chance": 75,
+      "cost": 5000,
+      "material_id": "mat_dragon_heartstring",
+      "material_amount": 1
+    },
+    {
+      "tier": 5,
+      "multiplier": 1.85,
+      "chance": 60,
+      "cost": 9000,
+      "material_id": "mat_dragon_heartstring",
+      "material_amount": 2
+    },
+    {
+      "tier": 6,
+      "multiplier": 2.15,
+      "chance": 45,
+      "cost": 15000,
+      "material_id": "mat_night_steed_hair",
+      "material_amount": 1
+    },
+    {
+      "tier": 7,
+      "multiplier": 2.5,
+      "chance": 30,
+      "cost": 22000,
+      "material_id": "mat_night_steed_hair",
+      "material_amount": 2
+    },
+    {
+      "tier": 8,
+      "multiplier": 3.0,
+      "chance": 15,
+      "cost": 30000,
+      "material_id": "mat_elder_core",
+      "material_amount": 1
+    },
+    {
+      "tier": 9,
+      "multiplier": 3.5,
+      "chance": 0,
+      "cost": 0,
+      "material_id": "",
+      "material_amount": 0
+    }
+  ],
+  "upgrade_curves": {
+    "_comment": "Per-+N growth of an item's fixed stats, indexed by tier 0..9. The steps themselves (chance, cost, material, failure) are wand_tiers, shared by every refinable kind. weapon: attack_value and magic_attack ranges (and the spell's own base damage) scale with wand_tiers.multiplier. armor_mult: every item's fixed armor. stat_mult: fixed bonus_hp / bonus_mana. mount: the broom's mount_speed scaled by speed_mult. Percent and per-second fixed stats do not grow. Every wearable item refines +0..+9.",
+    "refinable_types": [
+      "weapon",
+      "armor",
+      "mount",
+      "accessory"
+    ],
+    "fail_downgrade_from": 4,
+    "mount": {
+      "speed_mult": [
+        1.0,
+        1.01,
+        1.02,
+        1.04,
+        1.06,
+        1.08,
+        1.11,
+        1.14,
+        1.17,
+        1.2
+      ]
+    },
+    "armor_mult": [
+      1.0,
+      1.1,
+      1.2,
+      1.32,
+      1.45,
+      1.6,
+      1.76,
+      1.94,
+      2.14,
+      2.35
+    ],
+    "stat_mult": [
+      1.0,
+      1.15,
+      1.3,
+      1.5,
+      1.75,
+      2.0,
+      2.3,
+      2.65,
+      3.05,
+      3.5
+    ]
+  },
+  "enchant": {
+    "_comment": "Enchantments (efsun), Metin2 style. Imbue adds one bonus with imbue_chance[current count] percent (a failure still uses the scroll); reweave rerolls every bonus keeping the count. A bonus rolls a stat from the pool of the item's slot kind (slot_kinds; never a stat the item already has, never one of the item's own fixed stats) and a grade by grade_weights; value = values[grade]. `disabled` stats stay listed in the pools but are not rolled until their mechanic ships. `legacy` stats are no longer rolled but keep working on items that carry them. `flag` stats are on/off (any value > 0). Units: % is percent, /s points per second, plain numbers are flat. Every stat has a `theme` (attack, mind, hunt, control, guard, vitality, fortune, travel); slot_themes lists the themes a piece may roll, so a pool entry outside them never rolls (boots never roll attack speed or crit, only guard / mind / vitality / fortune). families maps a creature family (mobs.json) to its 'strong against' stat.",
+    "max_bonuses": 5,
+    "imbue_scroll": "scroll_imbue",
+    "reweave_scroll": "scroll_reweave",
+    "imbue_chance": [
+      100,
+      90,
+      70,
+      50,
+      30
+    ],
+    "grade_weights": [
+      40,
+      30,
+      18,
+      9,
+      3
+    ],
+    "stats": {
+      "spell_power": {
+        "label": "Spell Power",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "theme": "mind"
+      },
+      "crit_chance": {
+        "label": "Critical Chance",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "theme": "attack"
+      },
+      "pierce_chance": {
+        "label": "Piercing Hit Chance",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "theme": "attack"
+      },
+      "vs_dark_wizard": {
+        "label": "Strong against Dark Wizards",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "theme": "hunt"
+      },
+      "vs_dark_creature": {
+        "label": "Strong against Dark Creatures",
+        "unit": "%",
+        "values": [
+          4,
+          8,
+          12,
+          16,
+          20
+        ],
+        "theme": "hunt"
+      },
+      "vs_beast": {
+        "label": "Strong against Beasts",
+        "unit": "%",
+        "values": [
+          4,
+          8,
+          12,
+          16,
+          20
+        ],
+        "theme": "hunt"
+      },
+      "vs_construct": {
+        "label": "Strong against Enchanted Constructs",
+        "unit": "%",
+        "values": [
+          4,
+          8,
+          12,
+          16,
+          20
+        ],
+        "theme": "hunt"
+      },
+      "attack_speed": {
+        "label": "Attack Speed",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "theme": "attack"
+      },
+      "cast_speed": {
+        "label": "Casting Speed",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          10,
+          20
+        ],
+        "theme": "mind"
+      },
+      "stun_chance": {
+        "label": "Chance to Stun",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "_comment": "A player's hit on a creature: stun for stun_ms (scaled by the mob's stun resist, 1.0 = immune; bosses never). No new stun proc until grace_ms after it ends.",
+        "stun_ms": 1000,
+        "grace_ms": 2500,
+        "theme": "control"
+      },
+      "slow_chance": {
+        "label": "Chance to Slow",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "_comment": "A player's hit on a creature: move and attack speed x factor for slow_ms (half as long on bosses).",
+        "slow_ms": 3000,
+        "factor": 0.6,
+        "theme": "control"
+      },
+      "burn_chance": {
+        "label": "Chance to Ignite",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "_comment": "A player's hit on a creature: ignite for ticks x interval_ms; each tick deals max(damage, hit_share x the hit). Never weakens a stronger burn already running.",
+        "burn": {
+          "damage": 12,
+          "hit_share": 0.12,
+          "ticks": 3,
+          "interval_ms": 1000
+        },
+        "theme": "control"
+      },
+      "max_hp": {
+        "label": "Max Health",
+        "unit": "",
+        "values": [
+          40,
+          80,
+          120,
+          180,
+          250
+        ],
+        "theme": "guard"
+      },
+      "max_mana": {
+        "label": "Max Mana",
+        "unit": "",
+        "values": [
+          30,
+          60,
+          90,
+          135,
+          190
+        ],
+        "theme": "mind"
+      },
+      "melee_resist": {
+        "label": "Melee Resistance",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          10,
+          15
+        ],
+        "theme": "guard"
+      },
+      "projectile_resist": {
+        "label": "Projectile Resistance",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          10,
+          15
+        ],
+        "theme": "guard"
+      },
+      "spell_resist": {
+        "label": "Spell Resistance",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          10,
+          15
+        ],
+        "theme": "guard"
+      },
+      "block_chance": {
+        "label": "Block Chance",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "theme": "guard"
+      },
+      "projectile_dodge": {
+        "label": "Deflect Projectiles",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          10,
+          15
+        ],
+        "theme": "guard"
+      },
+      "reflect": {
+        "label": "Reflect Damage",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "theme": "guard"
+      },
+      "life_steal": {
+        "label": "Life Drain",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "theme": "vitality"
+      },
+      "mana_steal": {
+        "label": "Mana Steal Chance",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          10
+        ],
+        "theme": "mind"
+      },
+      "stun_immunity": {
+        "label": "Stun Immunity",
+        "unit": "",
+        "values": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "flag": true,
+        "theme": "guard",
+        "_comment": "Flag: a creature's stun (the troll's slam) does not land on the wearer. Throws still do."
+      },
+      "slow_immunity": {
+        "label": "Slow Immunity",
+        "unit": "",
+        "values": [
+          1,
+          1,
+          1,
+          1,
+          1
+        ],
+        "flag": true,
+        "theme": "guard",
+        "_comment": "Flag: a creature's slow (spider web, drowning grasp) does not land on the wearer."
+      },
+      "hp_regen": {
+        "label": "Health Regeneration",
+        "unit": "/s",
+        "values": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "theme": "vitality"
+      },
+      "mana_regen": {
+        "label": "Mana Regeneration",
+        "unit": "/s",
+        "values": [
+          1,
+          2,
+          3,
+          4,
+          6
+        ],
+        "theme": "mind"
+      },
+      "move_speed": {
+        "label": "Movement Speed",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          5,
+          8
+        ],
+        "theme": "travel"
+      },
+      "exp_bonus": {
+        "label": "Experience Gained",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "theme": "fortune"
+      },
+      "oril_bonus": {
+        "label": "Oril Found",
+        "unit": "%",
+        "values": [
+          3,
+          6,
+          9,
+          12,
+          15
+        ],
+        "theme": "fortune"
+      },
+      "drop_chance": {
+        "label": "Item Drop Chance",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          10,
+          20
+        ],
+        "theme": "fortune"
+      },
+      "mount_speed": {
+        "label": "Mount Speed",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "legacy": true
+      },
+      "defense": {
+        "label": "Magic Armour",
+        "unit": "%",
+        "values": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "legacy": true
+      },
+      "monster_damage": {
+        "label": "Damage against creatures",
+        "unit": "%",
+        "values": [
+          3,
+          6,
+          9,
+          12,
+          15
+        ],
+        "legacy": true
+      },
+      "creature_resist": {
+        "label": "Resist creatures",
+        "unit": "%",
+        "values": [
+          2,
+          4,
+          6,
+          8,
+          10
+        ],
+        "legacy": true
+      }
+    },
+    "pools": {
+      "wand": [
+        "spell_power",
+        "crit_chance",
+        "pierce_chance",
+        "vs_dark_wizard",
+        "vs_dark_creature",
+        "vs_beast",
+        "vs_construct",
+        "cast_speed",
+        "stun_chance",
+        "slow_chance",
+        "burn_chance"
+      ],
+      "cloak": [
+        "max_hp",
+        "max_mana",
+        "melee_resist",
+        "projectile_resist",
+        "spell_resist",
+        "reflect",
+        "life_steal",
+        "hp_regen"
+      ],
+      "hat": [
+        "vs_dark_wizard",
+        "vs_dark_creature",
+        "vs_beast",
+        "vs_construct",
+        "spell_power",
+        "cast_speed",
+        "spell_resist",
+        "mana_steal",
+        "hp_regen",
+        "mana_regen"
+      ],
+      "gloves": [
+        "vs_dark_wizard",
+        "vs_dark_creature",
+        "vs_beast",
+        "vs_construct",
+        "crit_chance",
+        "pierce_chance",
+        "melee_resist",
+        "mana_steal",
+        "oril_bonus",
+        "drop_chance"
+      ],
+      "boots": [
+        "max_hp",
+        "max_mana",
+        "melee_resist",
+        "projectile_resist",
+        "spell_resist",
+        "projectile_dodge",
+        "slow_immunity",
+        "hp_regen",
+        "exp_bonus",
+        "oril_bonus"
+      ],
+      "focus": [
+        "vs_dark_wizard",
+        "vs_dark_creature",
+        "vs_beast",
+        "vs_construct",
+        "block_chance",
+        "reflect",
+        "stun_immunity",
+        "slow_immunity",
+        "exp_bonus",
+        "oril_bonus"
+      ],
+      "pendant": [
+        "max_mana",
+        "melee_resist",
+        "projectile_resist",
+        "crit_chance",
+        "stun_chance",
+        "slow_chance",
+        "projectile_dodge",
+        "mana_steal",
+        "exp_bonus",
+        "oril_bonus"
+      ],
+      "ring": [
+        "max_hp",
+        "pierce_chance",
+        "vs_dark_wizard",
+        "vs_dark_creature",
+        "vs_beast",
+        "vs_construct",
+        "spell_resist",
+        "life_steal",
+        "mana_steal",
+        "drop_chance"
+      ],
+      "broom": [
+        "max_hp",
+        "max_mana",
+        "hp_regen",
+        "mana_regen",
+        "exp_bonus",
+        "oril_bonus",
+        "drop_chance"
+      ]
+    },
+    "slot_themes": {
+      "wand": [
+        "attack",
+        "mind",
+        "hunt",
+        "control"
+      ],
+      "cloak": [
+        "guard",
+        "mind",
+        "vitality"
+      ],
+      "hat": [
+        "hunt",
+        "mind",
+        "guard",
+        "vitality"
+      ],
+      "gloves": [
+        "attack",
+        "hunt",
+        "guard",
+        "mind",
+        "fortune"
+      ],
+      "boots": [
+        "guard",
+        "mind",
+        "vitality",
+        "fortune"
+      ],
+      "focus": [
+        "hunt",
+        "guard",
+        "fortune"
+      ],
+      "pendant": [
+        "attack",
+        "control",
+        "guard",
+        "mind",
+        "fortune"
+      ],
+      "ring": [
+        "attack",
+        "hunt",
+        "guard",
+        "mind",
+        "vitality",
+        "fortune"
+      ],
+      "broom": [
+        "guard",
+        "mind",
+        "vitality",
+        "fortune"
+      ]
+    },
+    "crit_multiplier": 1.5,
+    "slot_kinds": {
+      "main_hand": "wand",
+      "chest": "cloak",
+      "head": "hat",
+      "hands": "gloves",
+      "feet": "boots",
+      "off_hand": "focus",
+      "neck": "pendant",
+      "ring_left": "ring",
+      "ring_right": "ring",
+      "broom": "broom"
+    },
+    "families": {
+      "dark_wizard": "vs_dark_wizard",
+      "undead": "vs_dark_creature",
+      "pallid": "vs_dark_creature",
+      "beast": "vs_beast",
+      "troll": "vs_beast",
+      "hound": "vs_beast",
+      "pixie": "vs_beast",
+      "armour": "vs_construct",
+      "snare": "vs_construct",
+      "spider": "vs_beast",
+      "goblin": "vs_dark_creature"
+    }
+  },
+  "critical": {
+    "_comment": "Every player hit rolls a critical: base_chance + the attacker's enchanted crit_chance, plus finisher_bonus on the last hit of the basic combo chain (all percent, capped at max_chance). A crit deals multiplier x damage. Creatures never crit.",
+    "base_chance": 5.0,
+    "finisher_bonus": 15.0,
+    "max_chance": 60.0,
+    "multiplier": 1.75
+  },
+  "item_stats": {
+    "_comment": "Fixed item stats (items.json) and the Metin2-style hit rules. Damage: basic_cast adds a roll of the wand's attack_value, every other spell adds a roll of magic_attack x the spell's magic_attack_coef (spells.json); the sum scales with the +N multiplier, house and skill, then spell_power, family bonus, crit/pierce. Armour: reduction = armor / (armor + armor_base + armor_per_level x attacker level), capped; after it the matching melee/projectile/spell resistance (by mob_attack_kinds; unknown ids are spells), capped. Speeds: attack_speed shortens the basic_cast cooldown (/ (1 + pct)), cast_speed every other cooldown (x (1 - pct)), move_speed scales walking only. Piercing ignores the creature's resistances and front guard.",
+    "armor_base": 100,
+    "armor_per_level": 8,
+    "armor_max_reduction": 75,
+    "resist_cap": 50,
+    "attack_speed_cap": 100,
+    "cast_speed_cap": 40,
+    "move_speed_min": -20,
+    "move_speed_max": 40,
+    "block_cap": 50,
+    "dodge_cap": 50,
+    "reflect_cap": 30,
+    "life_steal_cap": 20,
+    "mob_attack_kinds": {
+      "melee": "melee",
+      "boss_cone": "melee",
+      "boss_area": "melee",
+      "boss_slam": "melee",
+      "troll_slam": "melee",
+      "troll_boulder": "projectile",
+      "stun_bolt": "projectile",
+      "basic_cast": "projectile",
+      "venom_bite": "melee",
+      "venom_spit": "projectile",
+      "web_shot": "projectile",
+      "brood_leap": "melee",
+      "poison": "spell"
+    }
+  },
+  "houses": {
+    "velkar": {
+      "hp_multiplier": 1.0,
+      "mana_multiplier": 1.0,
+      "spell_damage": {
+        "flame_wave": 1.15
+      }
+    },
+    "nisera": {
+      "hp_multiplier": 1.0,
+      "mana_multiplier": 1.0,
+      "spell_damage": {
+        "ultimate": 1.2,
+        "disarm": 1.2
+      }
+    },
+    "ilvane": {
+      "hp_multiplier": 1.0,
+      "mana_multiplier": 1.25,
+      "cooldown_multiplier": 0.8
+    },
+    "torvan": {
+      "hp_multiplier": 1.25,
+      "mana_multiplier": 1.0
+    }
+  },
+  "base_stats": {
+    "max_hp": 500,
+    "max_mana": 300,
+    "oril": 500,
+    "level": 1,
+    "exp_base": 200,
+    "exp_growth": 1.5,
+    "exp_curve": {
+      "_comment": "Experience needed for the next level = the experience one ordinary creature of that level gives (spawn_tables pack_tuning: exp_base + exp_per_level x L + exp_per_level_sq x L^2) x the kills a level should take without quests (kills_base + kills_per_level x (L - 1)), rounded to 10 and capped at limits.max_exp. Quests pay a share of this threshold (server/tools/gen_quests.py). exp_base / exp_growth above are the old exponential curve, used only when this block is missing.",
+      "kills_base": 10,
+      "kills_per_level": 10
+    },
+    "level_hp_gain": 45,
+    "level_mana_gain": 25
+  },
+  "regeneration": {
+    "hp_per_second": 4.0,
+    "mana_per_second": 8.0,
+    "mana_per_second_nisera": 10.0
+  },
+  "skills": {
+    "_comment": "Metin2-style skill training. Every level above 1 earns one skill point (points = level - 1 - points spent); a point raises one upgradeable skill by one level. Level 10 is Master (shown as M). Damage, cooldown and effect duration scale with the caster's level of that skill; level 1 is the unmodified spells.json value.",
+    "max_level": 10,
+    "master_level": 10,
+    "upgradeable": [
+      "stun_bolt",
+      "flame_wave",
+      "shockwave",
+      "disarm",
+      "ward_shield",
+      "ultimate",
+      "frost_grip"
+    ],
+    "damage_per_level": 0.06,
+    "master_damage_bonus": 0.1,
+    "cooldown_per_level": 0.02,
+    "effect_per_level": 0.04
+  },
+  "attributes": {
+    "_comment": "Metin2 status points (C window). points_per_level points per level gained ((level - 1) x points_per_level, derived, never stored), spent one at a time, up to `max` in one stat. Each point adds the listed amounts to the character's derived stats (HPEquipment.stats): max_hp / max_mana flat, attack_value / magic_attack to both ends of the wand range, attack_speed / crit_chance / spell_power in percent.",
+    "points_per_level": 2,
+    "max": 90,
+    "stats": {
+      "vit": {
+        "label": "Vitality",
+        "desc": "+12 Max Health per point",
+        "max_hp": 12
+      },
+      "int": {
+        "label": "Intellect",
+        "desc": "+8 Max Mana and +1 Magic Attack Value per point",
+        "max_mana": 8,
+        "magic_attack": 1
+      },
+      "str": {
+        "label": "Strength",
+        "desc": "+1 Attack Value and +3 Max Health per point",
+        "attack_value": 1,
+        "max_hp": 3
+      },
+      "dex": {
+        "label": "Agility",
+        "desc": "+0.4% Attack Speed and +0.1% Critical Chance per point",
+        "attack_speed": 0.4,
+        "crit_chance": 0.1
+      }
+    }
+  },
+  "limits": {
+    "max_level": 100,
+    "max_exp": 2000000000,
+    "max_item_amount": 9999,
+    "max_inventory_kinds": 40,
+    "mount_offensive_cast": false
+  },
+  "house_ranks": {
+    "_comment": "House standing, earned only from quest rewards (reward_house_rep). thresholds[i] is the total reputation needed to hold rank i+1; reputation stops at the last threshold. Gated content names a rank (spells.json: requires_house_rank).",
+    "thresholds": [
+      0,
+      100,
+      250,
+      500,
+      900,
+      1500,
+      2400
+    ],
+    "titles": [
+      "Initiate",
+      "Novice",
+      "Adept",
+      "Sentinel",
+      "House Captain",
+      "Champion",
+      "Legend"
+    ]
+  },
+  "death": {
+    "_comment": "A dead player chooses: revive_here (where it fell, revive_here_fraction of hp/mana, a short ward) or town (the map's respawn point, full hp/mana). Both unlock respawn_ms after death; with no choice the body returns to town after auto_respawn_ms.",
+    "respawn_ms": 3000,
+    "auto_respawn_ms": 180000,
+    "revive_here_fraction": 0.5,
+    "revive_here_ward_ms": 3000,
+    "respawn_position": [
+      0.0,
+      57.86,
+      78.0
+    ]
+  }
+}

@@ -9,3 +9,7 @@ publish.workspace = true
 
 [lints]
 workspace = true
+
+[dependencies]
+libm = "0.2.16"
+parry3d = { version = "0.31.1", default-features = false, features = ["std", "alloc", "required-features", "enhanced-determinism"] }
