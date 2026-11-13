@@ -1,0 +1,17 @@
+[package]
+name = "realm_netcheck"
+description = "Plays a scripted session through the real client core and counts every correction the server forces."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+realm_data.workspace = true
+realm_netclient.workspace = true
+realm_proto.workspace = true
+realm_sim.workspace = true
+
+[lints]
+workspace = true

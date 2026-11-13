@@ -455,6 +455,7 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
             .expect("own snapshot decodes");
     assert_eq!(decoded, snapshot, "body changed on the wire at tick {tick}");
     let frame = InputFrame {
+        tick: tick + 1000,
         movement: input,
         action: (tick % 3) as u8,
         target: tick * 7,

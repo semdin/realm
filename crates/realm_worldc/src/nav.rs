@@ -6,9 +6,7 @@
 use std::collections::{BTreeMap, HashMap};
 
 use glam::{UVec3, Vec3A};
-use parry3d::shape::{Ball, Capsule, ConvexPolyhedron, Cuboid, Cylinder};
-use realm_sim::Vec3;
-use realm_sim::pack::{HOLE, MapPack, NavMesh, NavPortal, PackShape, v3};
+use realm_sim::pack::{HOLE, MapPack, NavMesh, NavPortal};
 use rerecast::{Aabb3d, AreaType, ConfigBuilder, HeightfieldBuilder, TriMesh};
 
 /// Creatures and players share the player's capsule for paths.
@@ -18,72 +16,6 @@ const AGENT_CLIMB: f32 = 0.45;
 const AGENT_SLOPE_DEG: f32 = 48.0;
 /// Voxels per tile side (0.35 m voxels: about 90 m tiles).
 const TILE_CELLS: u16 = 256;
-
-struct Triangles {
-    vertices: Vec<[f32; 3]>,
-    indices: Vec<[u32; 3]>,
-    min: [f32; 3],
-    max: [f32; 3],
-}
-
-fn bounds(vertices: &[[f32; 3]]) -> ([f32; 3], [f32; 3]) {
-    let mut min = [f32::MAX; 3];
-    let mut max = [f32::MIN; 3];
-    for v in vertices {
-        for k in 0..3 {
-            min[k] = min[k].min(v[k]);
-            max[k] = max[k].max(v[k]);
-        }
-    }
-    (min, max)
-}
-
-/// Every collider as world-space triangles.
-fn collider_triangles(pack: &MapPack) -> Vec<Triangles> {
-    let mut out = Vec::new();
-    for c in &pack.colliders {
-        let (local, indices): (Vec<Vec3>, Vec<[u32; 3]>) = match &c.shape {
-            PackShape::Box { half } => Cuboid::new(v3(*half)).to_trimesh(),
-            PackShape::Sphere { radius } => Ball::new(*radius).to_trimesh(8, 8),
-            PackShape::Capsule {
-                half_height,
-                radius,
-            } => Capsule::new_y(*half_height, *radius).to_trimesh(8, 4),
-            PackShape::Cylinder {
-                half_height,
-                radius,
-            } => Cylinder::new(*half_height, *radius).to_trimesh(12),
-            PackShape::Convex { points } => {
-                let pts: Vec<Vec3> = points.iter().copied().map(v3).collect();
-                match ConvexPolyhedron::from_convex_hull(&pts) {
-                    Some(hull) => hull.to_trimesh(),
-                    None => continue,
-                }
-            }
-            PackShape::TriMesh { vertices, indices } => {
-                (vertices.iter().copied().map(v3).collect(), indices.clone())
-            }
-        };
-        let [x, y, z, w] = c.rotation;
-        let rotation = realm_sim::world::rotation_from_xyzw(x, y, z, w);
-        let t = v3(c.translation);
-        let vertices: Vec<[f32; 3]> = local
-            .iter()
-            .map(|p| {
-                let q = rotation * *p + t;
-                [q.x, q.y, q.z]
-            })
-            .collect();
-        let (min, max) = bounds(&vertices);
-        out.push(Triangles {
-            vertices,
-            indices,
-            min,
-            max,
-        });
-    }
-    out
-}
 
 /// Terrain cells overlapping `[min_x, max_x] x [min_z, max_z]` as triangles
 /// (same diagonal as the movement rules), holes left out.
@@ -142,7 +74,7 @@ pub struct BakeReport {
 }
 
 pub fn bake(pack: &MapPack, y_min: f32, y_max: f32) -> Result<(NavMesh, BakeReport), String> {
-    let colliders = collider_triangles(pack);
+    let colliders = pack.collider_meshes();
     // Planar extent: terrain grids and colliders.
     let (mut min_x, mut min_z, mut max_x, mut max_z) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
     for g in &pack.terrain {

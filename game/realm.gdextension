@@ -1,0 +1,12 @@
+; Both editor/debug runs and exported builds load the optimised extension:
+; the rules run 30 Hz prediction and replays, and a debug build of them is
+; far slower than the game. Build it with: cargo build --release -p realm_client
+[configuration]
+entry_symbol = "gdext_rust_init"
+compatibility_minimum = 4.7
+reloadable = false
+
+[libraries]
+windows.x86_64 = "res://../target/release/realm_client.dll"
+linux.x86_64 = "res://../target/release/librealm_client.so"
+macos = "res://../target/release/librealm_client.dylib"

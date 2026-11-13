@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use parry3d::shape::{Ball, Capsule, ConvexPolyhedron, Cuboid, Cylinder};
+
 use crate::Vec3;
 use crate::world::{WaterArea, World};
 
@@ -125,7 +127,63 @@ pub struct NavPortal {
     pub p1: [f32; 3],
 }
 
+/// One collider as world-space triangles (navigation bake, debug drawing).
+pub struct ColliderMesh {
+    pub vertices: Vec<[f32; 3]>,
+    pub indices: Vec<[u32; 3]>,
+    pub min: [f32; 3],
+    pub max: [f32; 3],
+}
+
 impl MapPack {
+    /// Every static collider as world-space triangles.
+    #[must_use]
+    pub fn collider_meshes(&self) -> Vec<ColliderMesh> {
+        let mut out = Vec::new();
+        for c in &self.colliders {
+            let (local, indices): (Vec<Vec3>, Vec<[u32; 3]>) = match &c.shape {
+                PackShape::Box { half } => Cuboid::new(v3(*half)).to_trimesh(),
+                PackShape::Sphere { radius } => Ball::new(*radius).to_trimesh(8, 8),
+                PackShape::Capsule {
+                    half_height,
+                    radius,
+                } => Capsule::new_y(*half_height, *radius).to_trimesh(8, 4),
+                PackShape::Cylinder {
+                    half_height,
+                    radius,
+                } => Cylinder::new(*half_height, *radius).to_trimesh(12),
+                PackShape::Convex { points } => {
+                    let pts: Vec<Vec3> = points.iter().copied().map(v3).collect();
+                    match ConvexPolyhedron::from_convex_hull(&pts) {
+                        Some(hull) => hull.to_trimesh(),
+                        None => continue,
+                    }
+                }
+                PackShape::TriMesh { vertices, indices } => {
+                    (vertices.iter().copied().map(v3).collect(), indices.clone())
+                }
+            };
+            let [x, y, z, w] = c.rotation;
+            let rotation = crate::world::rotation_from_xyzw(x, y, z, w);
+            let t = v3(c.translation);
+            let vertices: Vec<[f32; 3]> = local
+                .iter()
+                .map(|p| {
+                    let q = rotation * *p + t;
+                    [q.x, q.y, q.z]
+                })
+                .collect();
+            let (min, max) = bounds(&vertices);
+            out.push(ColliderMesh {
+                vertices,
+                indices,
+                min,
+                max,
+            });
+        }
+        out
+    }
+
     /// Builds the collision world.
     pub fn world(&self) -> Result<World, String> {
         if self.version != PACK_VERSION {
@@ -181,4 +239,16 @@ pub const MAGIC: &[u8; 4] = b"RMAP";
 
 pub fn v3(a: [f32; 3]) -> Vec3 {
     Vec3::new(a[0], a[1], a[2])
+}
+
+fn bounds(vertices: &[[f32; 3]]) -> ([f32; 3], [f32; 3]) {
+    let mut min = [f32::MAX; 3];
+    let mut max = [f32::MIN; 3];
+    for v in vertices {
+        for k in 0..3 {
+            min[k] = min[k].min(v[k]);
+            max[k] = max[k].max(v[k]);
+        }
+    }
+    (min, max)
 }

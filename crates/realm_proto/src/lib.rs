@@ -22,10 +22,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 2;
+pub const PROTOCOL_VERSION: u16 = 3;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/2";
+pub const ALPN: &[u8] = b"realm/3";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -64,6 +64,10 @@ pub enum JoinReply {
 /// One tick of player intent: movement plus at most one action.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct InputFrame {
+    /// The simulation tick the client ran this input on. The server runs it
+    /// with the world as it was on that tick (staircase poses), so arrival
+    /// time never changes the result.
+    pub tick: u32,
     pub movement: MoveInput,
     /// 0 = none, otherwise the action slot (1 = basic attack, 2.. skills).
     pub action: u8,
@@ -205,7 +209,11 @@ pub fn encode_inputs(batch: &InputBatch) -> Vec<u8> {
     w.u32(batch.ack_snapshot);
     let count = batch.inputs.len().min(MAX_INPUTS_PER_PACKET);
     w.bits(count as u32, 4);
-    for frame in &batch.inputs[batch.inputs.len() - count..] {
+    let frames = &batch.inputs[batch.inputs.len() - count..];
+    let newest_tick = frames.last().map_or(0, |f| f.tick);
+    w.u32(newest_tick);
+    for frame in frames {
+        w.unsigned(newest_tick.wrapping_sub(frame.tick));
         let m = frame.movement;
         w.u8(m.strafe as u8);
         w.u8(m.forward as u8);
@@ -230,8 +238,10 @@ pub fn decode_inputs(bytes: &[u8]) -> Result<InputBatch, DecodeError> {
     if count == 0 || count > MAX_INPUTS_PER_PACKET {
         return Err(DecodeError("input count"));
     }
+    let newest_tick = r.u32()?;
     let mut inputs = Vec::with_capacity(count);
     for _ in 0..count {
+        let tick = newest_tick.wrapping_sub(r.unsigned()?);
         let movement = MoveInput {
             strafe: r.u8()? as i8,
             forward: r.u8()? as i8,
@@ -241,6 +251,7 @@ pub fn decode_inputs(bytes: &[u8]) -> Result<InputBatch, DecodeError> {
         let action = r.bits(3)? as u8;
         let target = if action != 0 { r.unsigned()? } else { 0 };
         inputs.push(InputFrame {
+            tick,
             movement,
             action,
             target,

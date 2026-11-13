@@ -100,6 +100,18 @@ jobs:
           kill %1 || true
           grep -v '^\[net\]' server.log | tail -3
 
+      - name: Prediction under latency and loss
+        if: matrix.os == 'ubuntu-26.04'
+        # Phase 4 exit: the client's own motion never snaps back at 200 ms
+        # round trip and 2% loss, on the castle (stairs, floors) map. The
+        # check fails on any correction.
+        run: |
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7777 > server.log 2>&1 &
+          ./target/release/realm_netem --listen 127.0.0.1:7800 --server 127.0.0.1:7777 --delay-ms 100 --jitter-ms 20 --loss 0.02 &
+          sleep 2
+          ./target/release/realm_netcheck --server 127.0.0.1:7800 --map castle_interior --seconds 30
+          kill %1 %2 || true
+
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: simcheck-${{ matrix.os }}

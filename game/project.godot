@@ -1,0 +1,17 @@
+; The realm client. Game state lives in the realm_client extension (Rust);
+; scripts here only draw it and read the player's controls.
+config_version=5
+
+[application]
+config/name="Thousand Realms (realm)"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7", "Mobile")
+
+[display]
+window/size/viewport_width=1600
+window/size/viewport_height=900
+
+[rendering]
+renderer/rendering_method="mobile"
+renderer/rendering_method.mobile="mobile"
+anti_aliasing/quality/screen_space_aa=1

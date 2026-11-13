@@ -68,6 +68,12 @@ const STATE_DEAD: u8 = 3;
 const CORPSE_TICKS: u32 = 60;
 const PROJECTILE_HIT_RADIUS: f32 = 0.7;
 const CHEST: f32 = 1.15;
+/// Most steps a player may run in one tick (catching up after a stall).
+const MAX_BURST: u32 = 4;
+/// A missing input is given up for lost after this many ticks.
+const LOST_AFTER_TICKS: u32 = 6;
+/// How far an input's own tick may lie from the server's (two seconds).
+const INPUT_TICK_WINDOW: u32 = 60;
 /// Inputs a client may run ahead of the server before it is resynchronised.
 const RESYNC_AHEAD: u32 = 60;
 /// Creatures re-find the ground under them every this many ticks.
@@ -118,6 +124,10 @@ struct Player {
     home: Vec3,
     /// Last place the body stood on ground.
     last_ground: Vec3,
+    /// Steps this player may still run (one more per tick, capped).
+    allowance: u32,
+    /// Ticks the next input has been missing while later ones wait.
+    gap_ticks: u32,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -450,6 +460,8 @@ impl Sim {
                     dead_until: 0,
                     home,
                     last_ground: home,
+                    allowance: 0,
+                    gap_ticks: 0,
                 };
                 let entity = self.world.spawn(player).id();
                 let id = self.new_id(entity);
@@ -535,6 +547,8 @@ impl Sim {
         let tick = self.tick;
         // Moving staircases take their pose for this tick before anyone moves.
         self.stairs.apply(&mut self.terrain, tick);
+        let has_stairs = !self.stairs.flights.is_empty();
+        let mut stairs_at = tick;
         let mut casts: Vec<(Entity, u32)> = Vec::new();
         let mut query = self.world.query::<(Entity, &mut Player)>();
         for (entity, mut player) in query.iter_mut(&mut self.world) {
@@ -553,32 +567,44 @@ impl Sim {
                 }
                 continue;
             }
-            // Jitter buffer: run the next input in sequence; when it has not
-            // arrived, repeat the last movement without its action. A client
-            // that ran ahead (buffer too deep) catches up two inputs a tick.
-            let runs = if player.pending.len() > 4 { 2 } else { 1 };
-            for _ in 0..runs {
+            // Each received input runs exactly once, in sequence, on the world
+            // as it was on the tick the client ran it, so when an input
+            // arrives never changes what it does. Nothing is invented for an
+            // input that has not arrived: the body waits for it. A client gets
+            // one step per tick on average and a short burst after a stall,
+            // so it cannot speed itself up.
+            player.allowance = (player.allowance + 1).min(MAX_BURST);
+            while player.allowance > 0 {
                 let next = player.last_seq + 1;
-                let frame = if let Some(frame) = player.pending.remove(&next) {
-                    player.last_seq = next;
-                    player.last_frame = frame;
-                    frame
-                } else {
-                    // Inputs lost for good (everything older than what is
-                    // pending) are skipped rather than waited for.
-                    if let Some((&first, _)) = player.pending.iter().next()
-                        && first > next + 3
-                    {
-                        player.last_seq = first - 1;
+                let Some(frame) = player.pending.remove(&next) else {
+                    // A gap that stays open while later inputs arrive means those
+                    // inputs were lost for good (every packet repeating them was
+                    // dropped): skip them.
+                    match player.pending.keys().next() {
+                        Some(&first) if player.gap_ticks >= LOST_AFTER_TICKS => {
+                            player.last_seq = first - 1;
+                            player.gap_ticks = 0;
+                            continue;
+                        }
+                        Some(_) => player.gap_ticks += 1,
+                        None => {}
                     }
-                    InputFrame {
-                        action: 0,
-                        target: 0,
-                        ..player.last_frame
-                    }
+                    break;
                 };
+                player.gap_ticks = 0;
+                player.allowance -= 1;
+                player.last_seq = next;
+                player.last_frame = frame;
+                let input_tick = frame.tick.clamp(
+                    tick.saturating_sub(INPUT_TICK_WINDOW),
+                    tick + INPUT_TICK_WINDOW,
+                );
+                if has_stairs && input_tick != stairs_at {
+                    self.stairs.apply(&mut self.terrain, input_tick);
+                    stairs_at = input_tick;
+                }
                 let mut body = player.body;
-                self.stairs.carry(&mut body, tick);
+                self.stairs.carry(&mut body, input_tick);
                 movement::step(&mut body, frame.movement, &self.params, &self.terrain);
                 player.body = body;
                 if body.pos.y < self.game.y_min {
@@ -598,6 +624,9 @@ impl Sim {
                     casts.push((entity, frame.target));
                 }
             }
+        }
+        if stairs_at != tick {
+            self.stairs.apply(&mut self.terrain, tick);
         }
         for (caster, target_id) in casts {
             self.start_basic_attack(caster, target_id);

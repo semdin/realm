@@ -12,6 +12,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 godot.workspace = true
+realm_data.workspace = true
+realm_netclient.workspace = true
 realm_proto.workspace = true
 realm_sim.workspace = true
 

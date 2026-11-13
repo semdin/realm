@@ -230,13 +230,15 @@ async fn bot(
                         .min_by(|a, b| a.2.total_cmp(&b.2))
                 });
                 let frame = if own_hp == 0 {
-                    InputFrame::default()
+                    InputFrame { tick: acked + 3, ..InputFrame::default() }
                 } else if let Some((target_id, pos, dist)) = target {
                     let yaw = yaw_toward(own, pos);
                     let circle = if (seq / 90).is_multiple_of(2) { 90 } else { -90 };
                     let (strafe, forward) = if dist > 14.0 { (0, 127) } else { (circle, 0) };
                     totals.attacks.fetch_add(1, Ordering::Relaxed);
-                    InputFrame { movement: MoveInput { strafe, forward, yaw, buttons: 0 }, action: 1, target: target_id }
+                    InputFrame {
+                        tick: acked + 3,
+                        movement: MoveInput { strafe, forward, yaw, buttons: 0 }, action: 1, target: target_id }
                 } else {
                     if seq.is_multiple_of(60) {
                         rng ^= rng << 13;
@@ -244,7 +246,9 @@ async fn bot(
                         rng ^= rng << 5;
                         wander_yaw = (rng & 0xFFFF) as u16;
                     }
-                    InputFrame { movement: MoveInput { strafe: 0, forward: 127, yaw: wander_yaw, buttons: 0 }, action: 0, target: 0 }
+                    InputFrame {
+                        tick: acked + 3,
+                        movement: MoveInput { strafe: 0, forward: 127, yaw: wander_yaw, buttons: 0 }, action: 0, target: 0 }
                 };
                 sent.push_back(frame);
                 while sent.len() > 4 {

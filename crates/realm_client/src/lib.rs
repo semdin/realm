@@ -1,10 +1,26 @@
-//! Rust side of the Godot client. Phase 0 exposes `RealmInfo` so the smoke
-//! project can prove the extension loads in the pinned Godot version.
+//! Rust side of the Godot client. `RealmSession` is a node the game scene
+//! adds once: it owns the connection and the client core (prediction,
+//! reconciliation, interpolation), steps the rules at 30 Hz from Godot's
+//! frame clock, and hands the view layer what to draw. Game state never
+//! lives in GDScript; scripts read it from here and draw it.
 
 // The GDExtension entry point is an `unsafe impl` by design of the bindings.
 #![allow(unsafe_code)]
 
+use std::net::SocketAddr;
+use std::path::PathBuf;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
+
+use godot::classes::mesh::{ArrayType, PrimitiveType};
+use godot::classes::{ArrayMesh, INode, Node};
 use godot::prelude::*;
+use realm_data::Content;
+use realm_netclient::{ClientCore, NetEvent, NetHandle};
+use realm_proto::SigningKey;
+use realm_proto::ticket::Ticket;
+use realm_sim::FixedStep;
+use realm_sim::input::MoveInput;
+use realm_sim::pack::{HOLE, MapPack};
 
 struct RealmExtension;
 
@@ -27,4 +43,346 @@ impl RealmInfo {
     fn sim_hz() -> i64 {
         i64::from(realm_sim::SIM_HZ)
     }
+}
+
+/// One game session: connection, rules, and what to draw.
+#[derive(GodotClass)]
+#[class(base = Node)]
+struct RealmSession {
+    base: Base<Node>,
+    content: Option<Content>,
+    pack: Option<MapPack>,
+    net: Option<NetHandle>,
+    core: Option<ClientCore>,
+    clock: FixedStep,
+    started: Instant,
+    intent: MoveInput,
+    action: (u8, u32),
+    status: String,
+}
+
+#[godot_api]
+impl INode for RealmSession {
+    fn init(base: Base<Node>) -> Self {
+        Self {
+            base,
+            content: None,
+            pack: None,
+            net: None,
+            core: None,
+            clock: FixedStep::default(),
+            started: Instant::now(),
+            intent: MoveInput::default(),
+            action: (0, 0),
+            status: "idle".to_owned(),
+        }
+    }
+
+    fn process(&mut self, delta: f64) {
+        self.pump();
+        let steps = self.clock.advance(delta as f32);
+        for _ in 0..steps {
+            let (Some(core), Some(net)) = (self.core.as_mut(), self.net.as_ref()) else {
+                break;
+            };
+            let (action, target) = self.action;
+            net.send(core.step(self.intent, action, target));
+            self.action = (0, 0);
+        }
+    }
+}
+
+impl RealmSession {
+    fn local_ticks(&self) -> f64 {
+        self.started.elapsed().as_secs_f64() * ClientCore::HZ
+    }
+
+    /// Handles everything the network thread has delivered.
+    fn pump(&mut self) {
+        let Some(net) = self.net.as_ref() else { return };
+        let mut events = Vec::new();
+        while let Some(event) = net.poll() {
+            events.push(event);
+        }
+        for event in events {
+            match event {
+                NetEvent::Joined {
+                    entity,
+                    tick,
+                    content_hash,
+                } => {
+                    let (Some(content), Some(pack)) = (self.content.as_ref(), self.pack.as_ref())
+                    else {
+                        continue;
+                    };
+                    let hash: String = content_hash.iter().map(|b| format!("{b:02x}")).collect();
+                    if hash != content.hash() {
+                        self.status = "refused: the server runs different content".to_owned();
+                        self.net = None;
+                        return;
+                    }
+                    match (pack.world(), realm_data::staircases(content, pack)) {
+                        (Ok(world), Ok(stairs)) => {
+                            self.core = Some(ClientCore::new(world, stairs, entity, tick));
+                            self.status = "joined".to_owned();
+                        }
+                        (Err(e), _) | (_, Err(e)) => self.status = format!("closed: {e}"),
+                    }
+                }
+                NetEvent::Refused(reason) => self.status = format!("refused: {reason}"),
+                NetEvent::Datagram(bytes) => {
+                    let now = self.local_ticks();
+                    if let Some(core) = self.core.as_mut() {
+                        core.on_datagram(&bytes, now);
+                    }
+                }
+                NetEvent::Closed(reason) => {
+                    self.status = format!("closed: {reason}");
+                    self.core = None;
+                }
+            }
+        }
+    }
+
+    fn load(&mut self, content_dir: &str, maps_dir: &str, map: &str) -> Result<(), String> {
+        let content = Content::load(&PathBuf::from(content_dir))?;
+        let pack =
+            realm_data::maps::read_pack(&PathBuf::from(maps_dir).join(format!("{map}.realmmap")))?;
+        self.content = Some(content);
+        self.pack = Some(pack);
+        Ok(())
+    }
+}
+
+#[godot_api]
+impl RealmSession {
+    /// Development join: loads content and the map pack, mints a ticket with
+    /// the dev key in `keys_dir` and connects. Returns false (and sets
+    /// `status`) when something is missing. Production clients get their
+    /// ticket from the login service instead.
+    #[func]
+    fn start_dev(
+        &mut self,
+        server: GString,
+        keys_dir: GString,
+        content_dir: GString,
+        maps_dir: GString,
+        map: GString,
+    ) -> bool {
+        let result = (|| -> Result<(), String> {
+            self.load(
+                &content_dir.to_string(),
+                &maps_dir.to_string(),
+                &map.to_string(),
+            )?;
+            let keys = PathBuf::from(keys_dir.to_string());
+            let secret: [u8; 32] = std::fs::read(keys.join("ticket.key"))
+                .map_err(|e| format!("ticket.key: {e}"))?
+                .try_into()
+                .map_err(|_| "ticket.key must be 32 bytes")?;
+            let key = SigningKey::from_bytes(&secret);
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|e| e.to_string())?
+                .as_secs();
+            let character = u64::from(getrandom_u32());
+            let ticket = Ticket::new(character, character, now + 60)
+                .map_err(|e| e.to_string())?
+                .sign(&key);
+            let cert =
+                std::fs::read(keys.join("tls.crt.der")).map_err(|e| format!("tls.crt.der: {e}"))?;
+            let addr: SocketAddr = server
+                .to_string()
+                .parse()
+                .map_err(|e| format!("server address: {e}"))?;
+            self.net = Some(NetHandle::connect(addr, "localhost", cert, ticket)?);
+            self.status = "connecting".to_owned();
+            Ok(())
+        })();
+        match result {
+            Ok(()) => true,
+            Err(e) => {
+                self.status = format!("closed: {e}");
+                false
+            }
+        }
+    }
+
+    /// "idle", "connecting", "joined", "refused: ..." or "closed: ...".
+    #[func]
+    fn status(&self) -> GString {
+        GString::from(self.status.as_str())
+    }
+
+    /// Steering for the next ticks: `strafe` right and `forward` in -1..1,
+    /// `yaw` the camera yaw in radians (0 looks along -Z).
+    #[func]
+    fn set_intent(&mut self, strafe: f32, forward: f32, yaw: f32, jump: bool, descend: bool) {
+        let buttons = (if jump { MoveInput::JUMP } else { 0 })
+            | (if descend { MoveInput::DESCEND } else { 0 });
+        self.intent = MoveInput::from_intent(strafe, forward, yaw, buttons);
+    }
+
+    /// An action for the next tick (1 = basic attack) aimed at `target`.
+    #[func]
+    fn set_action(&mut self, slot: i64, target: i64) {
+        self.action = (slot.clamp(0, 7) as u8, target.max(0) as u32);
+    }
+
+    /// The player's body, drawn between the last two ticks.
+    #[func]
+    fn own_position(&self) -> Vector3 {
+        let alpha = self.clock.alpha();
+        self.core
+            .as_ref()
+            .and_then(|c| c.own_draw_position(alpha))
+            .map_or(Vector3::ZERO, |p| Vector3::new(p.x, p.y, p.z))
+    }
+
+    #[func]
+    fn own_entity(&self) -> i64 {
+        self.core.as_ref().map_or(0, |c| i64::from(c.me()))
+    }
+
+    /// Everyone else, interpolated for this frame: parallel arrays `ids`,
+    /// `kinds`, `positions`, `yaws`, `states`, `hp`.
+    #[func]
+    fn remote(&self) -> VarDictionary {
+        let mut ids = PackedInt32Array::new();
+        let mut kinds = PackedInt32Array::new();
+        let mut positions = PackedVector3Array::new();
+        let mut yaws = PackedFloat32Array::new();
+        let mut states = PackedInt32Array::new();
+        let mut hp = PackedInt32Array::new();
+        if let Some(core) = self.core.as_ref() {
+            for e in core.remote_entities(self.local_ticks()) {
+                ids.push(e.id as i32);
+                kinds.push(i32::from(e.kind));
+                positions.push(Vector3::new(e.pos.x, e.pos.y, e.pos.z));
+                yaws.push(e.yaw);
+                states.push(i32::from(e.state));
+                hp.push(i32::from(e.hp));
+            }
+        }
+        let mut out = VarDictionary::new();
+        out.set("ids", &ids.to_variant());
+        out.set("kinds", &kinds.to_variant());
+        out.set("positions", &positions.to_variant());
+        out.set("yaws", &yaws.to_variant());
+        out.set("states", &states.to_variant());
+        out.set("hp", &hp.to_variant());
+        out
+    }
+
+    /// Connection and prediction counters for an on-screen readout.
+    #[func]
+    fn stats(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        if let Some(core) = self.core.as_ref() {
+            let s = core.stats;
+            out.set("snapshots", &(s.snapshots as i64).to_variant());
+            out.set("corrections", &(s.corrections as i64).to_variant());
+            out.set("max_correction", &s.max_correction.to_variant());
+            out.set("tick", &i64::from(core.tick()).to_variant());
+            out.set("hp", &i64::from(core.own_hp()).to_variant());
+        }
+        out
+    }
+
+    /// The map's terrain as a mesh, one vertex every `stride` samples.
+    #[func]
+    fn terrain_mesh(&self, stride: i64) -> Option<Gd<ArrayMesh>> {
+        let pack = self.pack.as_ref()?;
+        let stride = stride.max(1) as usize;
+        let mut vertices = PackedVector3Array::new();
+        let mut indices = PackedInt32Array::new();
+        for grid in &pack.terrain {
+            let (rows, cols) = (grid.rows as usize, grid.cols as usize);
+            let (r_n, c_n) = ((rows - 1) / stride + 1, (cols - 1) / stride + 1);
+            let base = vertices.len() as i32;
+            let mut holes = Vec::with_capacity(r_n * c_n);
+            for r in 0..r_n {
+                for c in 0..c_n {
+                    let (rr, cc) = ((r * stride).min(rows - 1), (c * stride).min(cols - 1));
+                    let h = grid.heights[rr * cols + cc];
+                    holes.push(h == HOLE);
+                    vertices.push(Vector3::new(
+                        grid.min_x + cc as f32 * grid.spacing_x,
+                        if h == HOLE {
+                            0.0
+                        } else {
+                            h as f32 / realm_sim::WIRE_GRID
+                        },
+                        grid.min_z + rr as f32 * grid.spacing_z,
+                    ));
+                }
+            }
+            for r in 0..r_n - 1 {
+                for c in 0..c_n - 1 {
+                    let i = base + (r * c_n + c) as i32;
+                    let (right, down) = (i + 1, i + c_n as i32);
+                    // No ground where any corner is a hole (caves, pits).
+                    if [i, right, down, down + 1]
+                        .iter()
+                        .any(|&k| holes[(k - base) as usize])
+                    {
+                        continue;
+                    }
+                    // Counter-clockwise seen from above (Godot's front face).
+                    for k in [i, right, down + 1, i, down + 1, down] {
+                        indices.push(k);
+                    }
+                }
+            }
+        }
+        if vertices.is_empty() {
+            return None;
+        }
+        Some(mesh(vertices, indices))
+    }
+
+    /// Every static collider as one grey mesh (programmer art until the
+    /// real scene is streamed in Phase 6).
+    #[func]
+    fn collider_mesh(&self) -> Option<Gd<ArrayMesh>> {
+        let pack = self.pack.as_ref()?;
+        let mut vertices = PackedVector3Array::new();
+        let mut indices = PackedInt32Array::new();
+        for part in pack.collider_meshes() {
+            let base = vertices.len() as i32;
+            for v in &part.vertices {
+                vertices.push(Vector3::new(v[0], v[1], v[2]));
+            }
+            for t in &part.indices {
+                // parry winds outward-facing triangles counter-clockwise;
+                // Godot culls by clockwise front faces, so flip the order.
+                indices.push(base + t[0] as i32);
+                indices.push(base + t[2] as i32);
+                indices.push(base + t[1] as i32);
+            }
+        }
+        if vertices.is_empty() {
+            return None;
+        }
+        Some(mesh(vertices, indices))
+    }
+}
+
+fn mesh(vertices: PackedVector3Array, indices: PackedInt32Array) -> Gd<ArrayMesh> {
+    let mut arrays = VarArray::new();
+    arrays.resize(ArrayType::MAX.ord() as usize, &Variant::nil());
+    arrays.set(ArrayType::VERTEX.ord() as usize, &vertices.to_variant());
+    arrays.set(ArrayType::INDEX.ord() as usize, &indices.to_variant());
+    let mut mesh = ArrayMesh::new_gd();
+    mesh.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);
+    mesh
+}
+
+fn getrandom_u32() -> u32 {
+    // Dev characters only need to differ between two windows on one PC.
+    (SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.subsec_nanos())
+        | 1)
+        ^ std::process::id()
 }

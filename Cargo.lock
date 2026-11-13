@@ -1381,6 +1381,8 @@ name = "realm_client"
 version = "0.1.0"
 dependencies = [
  "godot",
+ "realm_data",
+ "realm_netclient",
  "realm_proto",
  "realm_sim",
 ]
@@ -1404,6 +1406,34 @@ dependencies = [
  "sha2",
  "toml",
  "zstd",
+]
+
+[[package]]
+name = "realm_netcheck"
+version = "0.1.0"
+dependencies = [
+ "realm_data",
+ "realm_netclient",
+ "realm_proto",
+ "realm_sim",
+]
+
+[[package]]
+name = "realm_netclient"
+version = "0.1.0"
+dependencies = [
+ "quinn",
+ "realm_proto",
+ "realm_sim",
+ "rustls",
+ "tokio",
+]
+
+[[package]]
+name = "realm_netem"
+version = "0.1.0"
+dependencies = [
+ "tokio",
 ]
 
 [[package]]

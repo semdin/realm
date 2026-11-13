@@ -15,7 +15,11 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_server` | Map server (one process per map and channel): QUIC join with signed tickets, 30 Hz ECS simulation (players, creatures with sleep and AI levels of detail, bolts), interest grid, prioritized delta snapshots; `keygen`, `serve`, `selfcheck`. Loads one compiled map pack; creatures follow navigation-mesh paths. |
 | `crates/realm_worldc` | World compiler: Godot export -> map packs (colliders, terrain, water, moving geometry, navigation mesh baked with rerecast); `check` walks bodies from every spawn point and tests paths. |
 | `crates/realm_bots` | Load-test clients over the real join path; each runs to the nearest creature and attacks it. |
-| `crates/realm_client` | GDExtension the Godot client loads. Phase 0: `RealmInfo` only. |
+| `crates/realm_netclient` | The client's network core without Godot: prediction with exact reconciliation, snapshot store, remote-entity interpolation (`ClientCore`), and the QUIC connection on a background thread (`NetHandle`). |
+| `crates/realm_client` | GDExtension the Godot client loads: `RealmSession` (joins, steps the 30 Hz prediction, reports own body, others, stats and the map as meshes). |
+| `crates/realm_netem` | UDP proxy that adds delay, jitter and loss in both directions. |
+| `crates/realm_netcheck` | One scripted player through `ClientCore`; fails on any correction (Phase 4 exit). |
+| `game/` | The new Godot client (Mobile renderer). Phase 4: programmer-art view (grey map, capsules) over `RealmSession`. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
 | `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
@@ -36,10 +40,19 @@ cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data
+cargo run --release -p realm_netem -- --listen 127.0.0.1:7800 --server 127.0.0.1:7777 --delay-ms 100 --loss 0.02
+cargo run --release -p realm_netcheck -- --server 127.0.0.1:7800 --map castle_interior --seconds 60
 ```
 
-Rebuilding the map packs from the old game (until the Godot project moves in,
-Phase 4): export its collision world headless, then compile.
+The client (needs `cargo build --release -p realm_client` and a running server;
+WASD, Space, Ctrl, right mouse drag, wheel):
+
+```bash
+godot --path game -- --server 127.0.0.1:7777 --map grounds
+godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
+```
+
+Rebuilding the map packs from the old game (until the old scenes move in, Phase 6): export its collision world headless, then compile.
 
 ```bash
 godot --headless --path ../server/world -s "$(pwd -W)/tools/world_export/world_export.gd" -- --out "$(pwd -W)/build/world_export"
@@ -64,7 +77,8 @@ CI (`.github/workflows/ci.yml`) runs on GitHub-hosted Windows, Linux and macOS
 runners: format, clippy with warnings as errors, release build, the QUIC
 selfcheck, the Godot extension smoke, the movement fingerprint, the content
 check, the map pack check, and on Linux a server with 20 fighting bots on the
-real grounds map; a final job fails unless
+real grounds map plus one predicted player on the castle through 200 ms
+round trip and 2% loss (fails on any correction); a final job fails unless
 all three platforms printed identical fingerprints and content hashes.
 
 There is no regression test suite by design. Correctness and speed are checked
