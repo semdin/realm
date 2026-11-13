@@ -189,6 +189,7 @@ fn test_world() -> World {
         min_z: -100.0,
         max_z: 100.0,
         surface_y: 0.0,
+        min_depth: None,
     });
     // Stairs: ten 0.2 m treads, 0.35 m deep, up +Z from z = 10, then a landing.
     for k in 1..=10 {

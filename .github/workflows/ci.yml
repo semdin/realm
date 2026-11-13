@@ -81,6 +81,12 @@ jobs:
         # to the fingerprint, so every platform must agree on it too).
         run: cargo run --release -p realm_content -- check content/rename_map.toml content/data | tee -a "simcheck-${{ matrix.os }}.txt"
 
+      - name: Map packs check
+        # Every map: bodies rest on ground from each spawn point and keep to
+        # the map's height band walking four ways; random navigation paths
+        # exist and never leave the mesh.
+        run: cargo run --release -p realm_worldc -- check world/maps content/data
+
       - name: Server and bots end to end
         if: matrix.os == 'ubuntu-26.04'
         # The real join path (signed ticket, QUIC, snapshots against acked

@@ -4,7 +4,6 @@
 
 use realm_data::Content;
 use realm_sim::Vec3;
-use realm_sim::world::World;
 use serde_json::Value;
 
 pub struct Species {
@@ -40,6 +39,8 @@ pub struct Game {
     pub basic: BasicAttack,
     pub player_max_hp: f32,
     pub spawn_point: Vec3,
+    /// Bottom of the map's height band: a body below it fell out of the map.
+    pub y_min: f32,
     pub respawn_ticks: u16,
     pub mob_respawn_ticks: (u32, u32),
     hp_multiplier: f32,
@@ -59,7 +60,8 @@ fn ticks(seconds: f32) -> u16 {
 }
 
 impl Game {
-    pub fn from_content(content: &Content) -> Result<Self, String> {
+    /// The rules for one map: only its own creature packs, its spawn point.
+    pub fn from_content(content: &Content, map: &str) -> Result<Self, String> {
         let get = |name: &str| {
             content
                 .file(name)
@@ -94,6 +96,9 @@ impl Game {
 
         let mut packs = Vec::new();
         for pack in spawns["packs"].as_array().into_iter().flatten() {
+            if pack["map"].as_str() != Some(map) {
+                continue;
+            }
             let mob = pack["mob"].as_str().unwrap_or_default();
             let Some(species_index) = species.iter().position(|s| s.id == mob) else {
                 return Err(format!(
@@ -115,7 +120,15 @@ impl Game {
 
         let basic = &spells["basic_cast"];
         let tuning = &spawns["pack_tuning"];
-        let spawn = &maps["maps"]["grounds"]["spawn_points"]["default"];
+        let points = &maps["maps"][map]["spawn_points"];
+        let spawn = if points["default"].is_array() {
+            &points["default"]
+        } else {
+            points
+                .as_object()
+                .and_then(|o| o.values().next())
+                .ok_or_else(|| format!("map {map}: no spawn points"))?
+        };
         let respawn = &loot["respawn_ms"];
         Ok(Self {
             species,
@@ -127,6 +140,7 @@ impl Game {
                 cooldown_ticks: ticks(num(&basic["cooldown"], "basic_cast cooldown")?),
             },
             player_max_hp: num(&combat["base_stats"]["max_hp"], "base_stats.max_hp")?,
+            y_min: maps["maps"][map]["y_min"].as_f64().unwrap_or(-1.0e6) as f32,
             spawn_point: Vec3::new(
                 num(&spawn[0], "spawn")?,
                 num(&spawn[1], "spawn")?,
@@ -171,25 +185,4 @@ impl Game {
         let (low, high, level) = self.aggro;
         if pack.level < level { low } else { high }
     }
-}
-
-/// Until the world compiler (Phase 3) produces the real maps, the server runs
-/// on generated terrain covering the grounds' spawn area: 2.2 km square of
-/// gentle hills.
-pub fn test_terrain() -> World {
-    let mut world = World::new(175.0, 120.0);
-    let (rows, cols) = (129_usize, 129_usize);
-    let size = 2200.0_f32;
-    let mut heights = Vec::with_capacity(rows * cols);
-    for row in 0..rows {
-        for col in 0..cols {
-            let x = col as f32 * size / (cols - 1) as f32;
-            let z = row as f32 * size / (rows - 1) as f32;
-            heights.push(
-                4.0 * libm::sinf(x / 60.0) * libm::cosf(z / 75.0) + 2.0 * libm::sinf(z / 31.0),
-            );
-        }
-    }
-    world.add_heightfield(Vec3::ZERO, rows, cols, &heights, size, size);
-    world
 }

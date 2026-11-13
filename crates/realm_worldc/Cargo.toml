@@ -1,0 +1,21 @@
+[package]
+name = "realm_worldc"
+description = "World compiler: authoring export -> map packs (collision, terrain, water, navigation)."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+realm_sim.workspace = true
+realm_data.workspace = true
+serde_json.workspace = true
+postcard.workspace = true
+zstd.workspace = true
+rerecast.workspace = true
+glam.workspace = true
+parry3d = { version = "0.31.1", default-features = false, features = ["std", "alloc", "required-features", "enhanced-determinism"] }
+
+[lints]
+workspace = true

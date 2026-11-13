@@ -12,10 +12,13 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_data` | Content loading, rename map, typed ids and cross-reference checks, content hash. |
 | `crates/realm_content` | `import` (old game data -> `content/data` through the rename map) and `check`. |
 | `crates/realm_simcheck` | Scripted movement on a fixed test world + wire round trips + crowd bandwidth; CI compares its output across platforms. |
-| `crates/realm_server` | Map server (one process per map and channel): QUIC join with signed tickets, 30 Hz ECS simulation (players, creatures with sleep and AI levels of detail, bolts), interest grid, prioritized delta snapshots; `keygen`, `serve`, `selfcheck`. Runs on generated terrain until Phase 3. |
+| `crates/realm_server` | Map server (one process per map and channel): QUIC join with signed tickets, 30 Hz ECS simulation (players, creatures with sleep and AI levels of detail, bolts), interest grid, prioritized delta snapshots; `keygen`, `serve`, `selfcheck`. Loads one compiled map pack; creatures follow navigation-mesh paths. |
+| `crates/realm_worldc` | World compiler: Godot export -> map packs (colliders, terrain, water, moving geometry, navigation mesh baked with rerecast); `check` walks bodies from every spawn point and tests paths. |
 | `crates/realm_bots` | Load-test clients over the real join path; each runs to the nearest creature and attacks it. |
 | `crates/realm_client` | GDExtension the Godot client loads. Phase 0: `RealmInfo` only. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
+| `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
+| `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
 | `content/rename_map.toml` | Old game id -> new id (no franchise-derived id reaches the new core). |
 | `content/data/` | The game's content (12 JSON files, imported 2026-11-13). Keys starting with `_` are author notes. |
 | `perf/budgets.toml` | Client budgets on the reference machine (low preset). |
@@ -29,9 +32,18 @@ cargo run -p realm_server -- selfcheck               # QUIC loopback: TLS, strea
 cargo run -p realm_perfgate -- perf/budgets.toml report.json [--report-only]
 cargo run --release -p realm_simcheck [-- --trace stairs | --bench]   # movement fingerprint / cost
 cargo run --release -p realm_server -- keygen keys            # dev ticket key + TLS cert (keys/ is gitignored)
-cargo run --release -p realm_server -- serve --bind 127.0.0.1:7777 --dev-spawn-near-packs
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50
 cargo run -p realm_content -- check content/rename_map.toml content/data
+cargo run --release -p realm_worldc -- check world/maps content/data
+```
+
+Rebuilding the map packs from the old game (until the Godot project moves in,
+Phase 4): export its collision world headless, then compile.
+
+```bash
+godot --headless --path ../server/world -s "$(pwd -W)/tools/world_export/world_export.gd" -- --out "$(pwd -W)/build/world_export"
+cargo run --release -p realm_worldc -- build build/world_export world/maps content/data
 ```
 
 Godot extension smoke (after a build; Windows shown):
@@ -50,8 +62,9 @@ runtime files. CI and Windows release builds use MSVC.
 
 CI (`.github/workflows/ci.yml`) runs on GitHub-hosted Windows, Linux and macOS
 runners: format, clippy with warnings as errors, release build, the QUIC
-selfcheck, the Godot extension smoke, the movement fingerprint and the content
-check, and on Linux a server with 20 fighting bots; a final job fails unless
+selfcheck, the Godot extension smoke, the movement fingerprint, the content
+check, the map pack check, and on Linux a server with 20 fighting bots on the
+real grounds map; a final job fails unless
 all three platforms printed identical fingerprints and content hashes.
 
 There is no regression test suite by design. Correctness and speed are checked

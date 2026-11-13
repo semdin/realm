@@ -19,6 +19,7 @@ use bytes::Bytes;
 use realm_proto::ticket::Ticket;
 use realm_proto::{EntitySet, EntityState, InputBatch, InputFrame, JoinReply, Snapshot};
 use realm_sim::movement::{self, Body, MoveParams};
+use realm_sim::nav::{NavQuery, NavScratch};
 use realm_sim::world::World as Terrain;
 use realm_sim::{SIM_DT, Vec3};
 
@@ -68,6 +69,15 @@ const PROJECTILE_HIT_RADIUS: f32 = 0.7;
 const CHEST: f32 = 1.15;
 /// Inputs a client may run ahead of the server before it is resynchronised.
 const RESYNC_AHEAD: u32 = 60;
+/// Creatures re-find the ground under them every this many ticks.
+const GROUND_EVERY: u32 = 3;
+/// Within this distance a creature walks straight at its goal.
+const DIRECT_CHASE: f32 = 6.0;
+/// A goal that moved this far from where a path was planned for gets a new
+/// path at once instead of at the next scheduled re-plan.
+const REPLAN_DRIFT: f32 = 8.0;
+/// Polygons one path search may visit (a creature's chase stays local).
+const PATH_NODE_BUDGET: usize = 3000;
 
 #[derive(Component)]
 struct NetId(u32);
@@ -105,6 +115,8 @@ struct Player {
     max_hp: f32,
     dead_until: u32,
     home: Vec3,
+    /// Last place the body stood on ground.
+    last_ground: Vec3,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -132,6 +144,11 @@ struct Mob {
     died_at: u32,
     rng: u32,
     state: u8,
+    /// Corners still to walk to the current goal, nearest first.
+    path: Vec<Vec3>,
+    /// The goal the path was planned for, and when to plan again.
+    path_goal: Vec3,
+    replan_at: u32,
 }
 
 struct Projectile {
@@ -180,6 +197,15 @@ pub struct Stats {
     pub casts: u64,
     /// Refused attacks: unknown target, not a living creature, out of range.
     pub refused: [u64; 3],
+    pub paths: u64,
+    /// Players found below the map's height band this window (fell out).
+    pub fallen: u64,
+    /// Furthest any living player got from where it spawned, metres.
+    pub roamed: f32,
+    /// Where the first player that fell this window last stood.
+    pub fell_at: Option<Vec3>,
+    pub path_ms: f64,
+    pub ground_ms: f64,
     pub hits: u64,
     pub kills: u64,
     pub player_deaths: u64,
@@ -205,6 +231,8 @@ pub struct Sim {
     /// Every living player's position this tick.
     player_pos: HashMap<Entity, Vec3>,
     awake: Vec<bool>,
+    nav: NavQuery,
+    nav_scratch: NavScratch,
     dev_spawn_near_packs: bool,
     pub stats: Stats,
     params: MoveParams,
@@ -285,6 +313,7 @@ impl Sim {
     pub fn new(
         game: Game,
         terrain: Terrain,
+        nav: NavQuery,
         content_hash: [u8; 32],
         dev_spawn_near_packs: bool,
     ) -> Self {
@@ -303,6 +332,8 @@ impl Sim {
             player_cells: vec![Vec::new(); GRID_DIM * GRID_DIM],
             player_pos: HashMap::new(),
             awake: vec![false; GRID_DIM * GRID_DIM],
+            nav,
+            nav_scratch: NavScratch::default(),
             dev_spawn_near_packs,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -356,6 +387,9 @@ impl Sim {
                     died_at: 0,
                     rng: xorshift(&mut rng) | 1,
                     state: STATE_IDLE,
+                    path: Vec::new(),
+                    path_goal: home,
+                    replan_at: 0,
                 };
                 let entity = self.world.spawn(mob).id();
                 let id = self.new_id(entity);
@@ -411,6 +445,7 @@ impl Sim {
                     max_hp: self.game.player_max_hp,
                     dead_until: 0,
                     home,
+                    last_ground: home,
                 };
                 let entity = self.world.spawn(player).id();
                 let id = self.new_id(entity);
@@ -531,6 +566,18 @@ impl Sim {
                 let mut body = player.body;
                 movement::step(&mut body, frame.movement, &self.params, &self.terrain);
                 player.body = body;
+                if body.pos.y < self.game.y_min {
+                    if self.stats.fallen == 0 {
+                        self.stats.fell_at = Some(player.last_ground);
+                    }
+                    self.stats.fallen += 1;
+                } else if body.on_floor {
+                    player.last_ground = body.pos;
+                }
+                self.stats.roamed = self
+                    .stats
+                    .roamed
+                    .max(planar_distance(body.pos, player.home));
                 player.cooldown = player.cooldown.saturating_sub(1);
                 if frame.action == 1 && player.cooldown == 0 {
                     casts.push((entity, frame.target));
@@ -650,8 +697,13 @@ impl Sim {
         let mut strikes: Vec<(Entity, f32)> = Vec::new();
         let mut awake = 0;
         let mut thinking = 0;
+        let mut paths = 0_u64;
+        let mut path_ms = 0.0_f64;
+        let mut ground_ms = 0.0_f64;
         let game = &self.game;
         let terrain = &self.terrain;
+        let nav = &self.nav;
+        let mut scratch = std::mem::take(&mut self.nav_scratch);
         let player_cells = &self.player_cells;
         let player_pos = &self.player_pos;
         let awake_cells = &self.awake;
@@ -664,6 +716,7 @@ impl Sim {
                     mob.hp = mob.max_hp;
                     mob.mode = MobMode::Idle;
                     mob.state = STATE_IDLE;
+                    mob.path.clear();
                 }
                 continue;
             }
@@ -760,13 +813,74 @@ impl Sim {
                     0.3
                 };
                 if dist > stop {
-                    let step = (speed * SIM_DT).min(dist - stop);
-                    let dir = to / dist;
-                    mob.pos += dir * step;
-                    mob.pos.y = terrain
-                        .ground_height(mob.pos.x, mob.pos.z)
-                        .unwrap_or(mob.pos.y);
-                    mob.yaw = yaw_of(dir);
+                    // Walk the navigation mesh. Close in (a melee chase) the
+                    // creature goes straight at its goal. Further out it plans
+                    // a path when it has none, once a second, or when the goal
+                    // has moved far from what it planned for; in between, the
+                    // path's last corner follows the goal.
+                    if dist < DIRECT_CHASE {
+                        mob.path.clear();
+                        mob.path.push(goal);
+                    } else {
+                        let goal_moved =
+                            planar_distance_sq(goal, mob.path_goal) > REPLAN_DRIFT * REPLAN_DRIFT;
+                        if mob.path.is_empty() || goal_moved || tick >= mob.replan_at {
+                            let t0 = Instant::now();
+                            let planned = nav.path(mob.pos, goal, PATH_NODE_BUDGET, &mut scratch);
+                            path_ms += t0.elapsed().as_secs_f64() * 1000.0;
+                            mob.path = match planned {
+                                Some(mut corners) => {
+                                    corners.reverse();
+                                    corners
+                                }
+                                None => vec![goal],
+                            };
+                            mob.path_goal = goal;
+                            mob.replan_at = tick + 30 + (mob.rng % 10);
+                            paths += 1;
+                        } else if let Some(end) = mob.path.first_mut() {
+                            *end = goal;
+                        }
+                    }
+                    let mut budget = speed * SIM_DT;
+                    while budget > 0.0 {
+                        let Some(&corner) = mob.path.last() else {
+                            break;
+                        };
+                        let leg = Vec3::new(corner.x - mob.pos.x, 0.0, corner.z - mob.pos.z);
+                        let leg_len = leg.length();
+                        let last_leg = mob.path.len() == 1;
+                        let keep = if last_leg { stop.min(leg_len) } else { 0.0 };
+                        if leg_len - keep <= budget {
+                            mob.pos.x += leg.x / leg_len.max(1e-4) * (leg_len - keep);
+                            mob.pos.z += leg.z / leg_len.max(1e-4) * (leg_len - keep);
+                            budget -= leg_len - keep;
+                            if leg_len > 1e-3 {
+                                mob.yaw = yaw_of(leg / leg_len);
+                            }
+                            mob.path.pop();
+                            if last_leg {
+                                break;
+                            }
+                        } else {
+                            mob.pos.x += leg.x / leg_len * budget;
+                            mob.pos.z += leg.z / leg_len * budget;
+                            mob.yaw = yaw_of(leg / leg_len);
+                            budget = 0.0;
+                        }
+                    }
+                    // Height follows the ground every third tick, creatures
+                    // spread over the three (a few centimetres of lag at a
+                    // run; clients smooth it anyway).
+                    if (tick + mob.rng).is_multiple_of(GROUND_EVERY) {
+                        let t_ground = Instant::now();
+                        if let Some(ground) =
+                            terrain.ray_down(mob.pos + Vec3::new(0.0, 1.5, 0.0), 4.0)
+                        {
+                            mob.pos.y = ground.point.y;
+                        }
+                        ground_ms += t_ground.elapsed().as_secs_f64() * 1000.0;
+                    }
                     mob.state = STATE_MOVING;
                 } else if matches!(mob.mode, MobMode::Wander(_)) {
                     mob.mode = MobMode::Idle;
@@ -785,6 +899,10 @@ impl Sim {
         }
         self.stats.awake_mobs = awake;
         self.stats.thinking_mobs += thinking;
+        self.stats.paths += paths;
+        self.stats.path_ms += path_ms;
+        self.stats.ground_ms += ground_ms;
+        self.nav_scratch = scratch;
 
         let respawn = self.game.respawn_ticks;
         for (target, damage) in strikes {

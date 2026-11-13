@@ -14,10 +14,12 @@ impl core::fmt::Display for DecodeError {
 
 impl std::error::Error for DecodeError {}
 
+/// Bits collect in a 64-bit accumulator and leave it a whole byte at a time.
 #[derive(Default)]
 pub struct BitWriter {
     bytes: Vec<u8>,
-    bit: u32,
+    acc: u64,
+    pending: u32,
 }
 
 impl BitWriter {
@@ -29,15 +31,16 @@ impl BitWriter {
     /// Writes the low `count` bits of `value` (`count` <= 32).
     pub fn bits(&mut self, value: u32, count: u32) {
         debug_assert!(count <= 32);
-        for i in 0..count {
-            if self.bit == 0 {
-                self.bytes.push(0);
-            }
-            if (value >> i) & 1 == 1 {
-                let last = self.bytes.len() - 1;
-                self.bytes[last] |= 1 << self.bit;
-            }
-            self.bit = (self.bit + 1) % 8;
+        if count == 0 {
+            return;
+        }
+        let masked = u64::from(value) & ((1_u64 << count) - 1);
+        self.acc |= masked << self.pending;
+        self.pending += count;
+        while self.pending >= 8 {
+            self.bytes.push(self.acc as u8);
+            self.acc >>= 8;
+            self.pending -= 8;
         }
     }
 
@@ -84,17 +87,16 @@ impl BitWriter {
     }
 
     #[must_use]
-    pub fn finish(self) -> Vec<u8> {
+    pub fn finish(mut self) -> Vec<u8> {
+        if self.pending > 0 {
+            self.bytes.push(self.acc as u8);
+        }
         self.bytes
     }
 
     #[must_use]
     pub fn bit_len(&self) -> usize {
-        if self.bit == 0 {
-            self.bytes.len() * 8
-        } else {
-            (self.bytes.len() - 1) * 8 + self.bit as usize
-        }
+        self.bytes.len() * 8 + self.pending as usize
     }
 }
 
@@ -111,18 +113,23 @@ impl<'a> BitReader<'a> {
 
     pub fn bits(&mut self, count: u32) -> Result<u32, DecodeError> {
         debug_assert!(count <= 32);
-        if self.pos + count as usize > self.bytes.len() * 8 {
+        let end = self.pos + count as usize;
+        if end > self.bytes.len() * 8 {
             return Err(DecodeError("ran past the end"));
         }
-        let mut value = 0_u32;
-        for i in 0..count {
-            let byte = self.bytes[self.pos / 8];
-            if (byte >> (self.pos % 8)) & 1 == 1 {
-                value |= 1 << i;
-            }
-            self.pos += 1;
+        if count == 0 {
+            return Ok(0);
         }
-        Ok(value)
+        // Up to 32 bits starting anywhere in a byte span at most five bytes.
+        let first = self.pos / 8;
+        let last = (end - 1) / 8;
+        let mut word = 0_u64;
+        for (k, byte) in self.bytes[first..=last].iter().enumerate() {
+            word |= u64::from(*byte) << (8 * k);
+        }
+        let value = (word >> (self.pos % 8)) & ((1_u64 << count) - 1);
+        self.pos = end;
+        Ok(value as u32)
     }
 
     pub fn bool(&mut self) -> Result<bool, DecodeError> {

@@ -148,6 +148,12 @@ impl Catalog {
                     format!("spawn pack {id}: creature '{mob}'")
                 });
             }
+            match pack["map"].as_str() {
+                Some(map) => cat.check(&mut errors, cat.maps.contains(map), || {
+                    format!("spawn pack {id}: map '{map}'")
+                }),
+                None => errors.push(format!("spawn pack {id}: no map")),
+            }
             if let Some(template) = pack["template"].as_str() {
                 cat.check(&mut errors, cat.pack_templates.contains(template), || {
                     format!("spawn pack {id}: template '{template}'")

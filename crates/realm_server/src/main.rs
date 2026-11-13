@@ -5,8 +5,8 @@
 //!       a TLS certificate for the server (tls.crt.der / tls.key.der). The
 //!       login service holds ticket.key in production; map servers only read
 //!       ticket.pub.
-//!   realm_server serve [--bind 0.0.0.0:7777] [--keys keys] [--content content/data]
-//!                      [--dev-spawn-near-packs]
+//!   realm_server serve [--map grounds] [--bind 0.0.0.0:7777] [--keys keys]
+//!                      [--content content/data] [--maps world/maps] [--dev-spawn-near-packs]
 //!       Runs one map at 30 Hz and prints a status line every 5 seconds.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
@@ -64,6 +64,8 @@ fn keygen(dir: &Path) -> AnyResult<()> {
 }
 
 struct Options {
+    map: String,
+    maps: PathBuf,
     bind: String,
     keys: PathBuf,
     content: PathBuf,
@@ -72,6 +74,8 @@ struct Options {
 
 fn options(args: &[String]) -> AnyResult<Options> {
     let mut o = Options {
+        map: "grounds".to_owned(),
+        maps: PathBuf::from("world/maps"),
         bind: "0.0.0.0:7777".to_owned(),
         keys: PathBuf::from("keys"),
         content: PathBuf::from("content/data"),
@@ -85,6 +89,8 @@ fn options(args: &[String]) -> AnyResult<Options> {
                 .ok_or_else(|| format!("{arg} needs a value"))
         };
         match arg.as_str() {
+            "--map" => o.map = value()?,
+            "--maps" => o.maps = PathBuf::from(value()?),
             "--bind" => o.bind = value()?,
             "--keys" => o.keys = PathBuf::from(value()?),
             "--content" => o.content = PathBuf::from(value()?),
@@ -103,8 +109,10 @@ fn serve(args: &[String]) -> AnyResult<()> {
     for (i, byte) in content_hash.iter_mut().enumerate() {
         *byte = u8::from_str_radix(&hash_hex[i * 2..i * 2 + 2], 16)?;
     }
-    let game = game::Game::from_content(&content)?;
-    let terrain = game::test_terrain();
+    let game = game::Game::from_content(&content, &o.map)?;
+    let pack = realm_data::maps::read_pack(&o.maps.join(format!("{}.realmmap", o.map)))?;
+    let terrain = pack.world()?;
+    let nav = realm_sim::nav::NavQuery::new(&pack.nav);
     let pub_bytes: [u8; 32] = std::fs::read(o.keys.join("ticket.pub"))?
         .try_into()
         .map_err(|_| "ticket.pub must be 32 bytes")?;
@@ -113,9 +121,12 @@ fn serve(args: &[String]) -> AnyResult<()> {
     let tls_key = std::fs::read(o.keys.join("tls.key.der"))?;
 
     let (tx, rx) = crossbeam_channel::unbounded();
-    let mut sim = Sim::new(game, terrain, content_hash, o.dev_spawn_near_packs);
+    let mut sim = Sim::new(game, terrain, nav, content_hash, o.dev_spawn_near_packs);
     println!(
-        "[server] content {}..., {} creatures, listening on {}{}",
+        "[server] map {} ({} colliders, {} nav polygons), content {}..., {} creatures, listening on {}{}",
+        o.map,
+        pack.colliders.len(),
+        pack.nav.polygons.len(),
         &hash_hex[..12],
         sim.creature_count(),
         o.bind,
@@ -184,7 +195,7 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
         0.0
     };
     println!(
-        "[tick {}] players={} creatures={} awake={} think/s={:.0} | casts/s={:.0} hits/s={:.0} kills={} deaths={} refused={:?} | tick ms p50={:.2} p99={:.2} max={:.2} late={} | {} | out {:.2} KB/s per player, {:.1} snapshots/s per player",
+        "[tick {}] players={} creatures={} awake={} think/s={:.0} | casts/s={:.0} hits/s={:.0} kills={} deaths={} refused={:?} paths/s={:.0} ({:.2} ms/tick) ground {:.2} ms/tick | fallen={} (last stood at {:?}) roamed={:.0}m | tick ms p50={:.2} p99={:.2} max={:.2} late={} | {} | out {:.2} KB/s per player, {:.1} snapshots/s per player",
         tick,
         players,
         creatures,
@@ -195,6 +206,14 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
         stats.kills,
         stats.player_deaths,
         stats.refused,
+        stats.paths as f64 / seconds,
+        stats.path_ms / n,
+        stats.ground_ms / n,
+        stats.fallen,
+        stats
+            .fell_at
+            .map(|p| (p.x.round(), p.y.round(), p.z.round())),
+        stats.roamed,
         pick(0.5),
         pick(0.99),
         pick(1.0),
@@ -216,4 +235,10 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
     stats.kills = 0;
     stats.player_deaths = 0;
     stats.refused = [0; 3];
+    stats.paths = 0;
+    stats.path_ms = 0.0;
+    stats.ground_ms = 0.0;
+    stats.fallen = 0;
+    stats.fell_at = None;
+    stats.roamed = 0.0;
 }
