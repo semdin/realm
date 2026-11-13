@@ -38,8 +38,7 @@ impl RenameMap {
     pub fn parse(text: &str) -> Result<Self, String> {
         let map: Self = toml::from_str(text).map_err(|e| e.to_string())?;
         for (kind, entries) in &map.kinds {
-            // Tokens may alias: a singular and a plural ("inferius",
-            // "inferi") are one name.
+            // Tokens may alias: a singular and its plural are one name.
             if kind == "token" {
                 continue;
             }
@@ -130,7 +129,8 @@ impl Renamer {
     }
 
     /// Author notes are prose: franchise words in them are replaced word by
-    /// word ("Floo" -> "Hearth", "dementors" -> "pallids"), keeping case.
+    /// word (an old place name -> its new one, a plural creature name ->
+    /// the new plural), keeping case.
     fn rename_notes(&self, value: &Value, report: &mut RenameReport) -> Value {
         match value {
             Value::String(s) => {
@@ -270,7 +270,7 @@ impl Renamer {
     /// Renames a file path or an asset name (a node, clip or material in a
     /// model): every run of `_` segments between `/ . - : space` that spells
     /// a token or an exact id is replaced. A capitalised run stays
-    /// capitalised (`Cast_Stupefy` -> `Cast_Stun_Bolt`) and an upper-case one
+    /// capitalised (`Cast_Old_Spell` -> `Cast_New_Name`) and an upper-case one
     /// upper-case.
     #[must_use]
     pub fn rename_path(&self, s: &str) -> String {
@@ -282,6 +282,15 @@ impl Renamer {
             }
         }
         out
+    }
+
+    /// The first visible phrase of the `text` table found in `s`.
+    #[must_use]
+    pub fn text_leftover(&self, s: &str) -> Option<String> {
+        self.text
+            .iter()
+            .find(|(old, _)| s.contains(old.as_str()))
+            .map(|(old, _)| old.clone())
     }
 
     /// The first franchise-derived word in a path or asset name.
@@ -394,14 +403,21 @@ impl Renamer {
             .map(str::to_lowercase)
             .collect();
         for (token, _) in &self.tokens {
-            // In prose only single-word tokens are names (a "dementor"); a
-            // lower-case "great hall" is ordinary English. Capitalised proper
-            // phrases are covered by the `text` table below.
+            // In prose only single-word tokens are names (an old creature
+            // name); a lower-case two-word token can be ordinary English.
+            // Capitalised proper phrases are covered by the `text` table
+            // below.
             if !identifier && token.len() > 1 {
                 continue;
             }
             if token.len() <= words.len() && words.windows(token.len()).any(|w| w == &token[..]) {
                 return Some(token.join("_"));
+            }
+        }
+        // Single-word exact ids (spell and creature names) in prose too.
+        for key in self.exact.keys() {
+            if !key.contains('_') && words.iter().any(|w| *w == key.to_lowercase()) {
+                return Some(key.clone());
             }
         }
         for (phrase, _) in &self.text {

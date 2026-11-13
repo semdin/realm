@@ -185,16 +185,16 @@ impl Catalog {
                 });
             }
         }
-        for section in ["floo", "portkey"] {
+        for section in ["hearthway", "waylink"] {
             if let Some(item) = travel[section]["item"].as_str() {
                 cat.check(&mut errors, cat.is_item(item), || {
                     format!("travel.json {section}: item '{item}'")
                 });
             }
         }
-        for node in strings(&travel["floo"]["known_by_default"]) {
+        for node in strings(&travel["hearthway"]["known_by_default"]) {
             cat.check(&mut errors, cat.travel_nodes.contains(&node), || {
-                format!("travel.json floo default '{node}'")
+                format!("travel.json hearthway default '{node}'")
             });
         }
 

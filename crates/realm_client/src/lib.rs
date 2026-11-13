@@ -51,6 +51,8 @@ impl RealmInfo {
 /// Content loaded once for the whole client (menus, look tables, item
 /// names), read through `RealmContent`.
 static CONTENT: Mutex<Option<Content>> = Mutex::new(None);
+/// The typed rules built from it (item numbers for tooltips).
+static RULES: Mutex<Option<Rules>> = Mutex::new(None);
 
 /// The game's content tables for scripts: the same files, loaded and hashed
 /// by the same Rust code as the server's, handed out as dictionaries.
@@ -65,6 +67,16 @@ impl RealmContent {
     fn load(dir: GString) -> bool {
         match Content::load(&PathBuf::from(dir.to_string())) {
             Ok(content) => {
+                let rules = match Rules::from_content(&content) {
+                    Ok(rules) => rules,
+                    Err(e) => {
+                        godot_error!("realm content rules: {e}");
+                        return false;
+                    }
+                };
+                *RULES
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(rules);
                 *CONTENT
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(content);
@@ -88,6 +100,22 @@ impl RealmContent {
             .and_then(|c| c.file(&format!("{name}.json")))
             .map(|v| json_to_variant(&realm_data::without_notes(v)))
             .unwrap_or_default()
+    }
+
+    /// One item's fixed stats at refine level `tier`, as the rules compute
+    /// them (tooltips, the merchant): `bonus_hp`, `bonus_mana`, `armor`,
+    /// `attack_value` / `magic_attack` ([min, max] scaled by the +N
+    /// multiplier, or absent), the percent stats, `mount_speed`,
+    /// `sell_price`, `required_level`, `refinable`, `enchantable`.
+    #[func]
+    fn item_stats(id: GString, tier: i64) -> VarDictionary {
+        RULES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .map_or_else(VarDictionary::new, |r| {
+                item_stats_dict(r, &id.to_string(), tier)
+            })
     }
 
     /// The content hash the server compares at login.
@@ -123,6 +151,71 @@ fn item_dict(item: &Item) -> VarDictionary {
         bonuses.set(bonus.stat.as_str(), &bonus.value.to_variant());
     }
     out.set("bonuses", &bonuses.to_variant());
+    out
+}
+
+/// One item's fixed stats at refine level `tier` (see RealmContent.item_stats).
+fn item_stats_dict(rules: &Rules, id: &str, tier: i64) -> VarDictionary {
+    let mut out = VarDictionary::new();
+    let tier = tier.clamp(0, 9) as u8;
+    let n = rules.item_stats(id, tier);
+    out.set("bonus_hp", &n.bonus_hp.to_variant());
+    out.set("bonus_mana", &n.bonus_mana.to_variant());
+    out.set("armor", &n.armor.to_variant());
+    if let Some((a, b)) = n.attack_value {
+        out.set(
+            "attack_value",
+            &PackedFloat32Array::from(&[a, b][..]).to_variant(),
+        );
+    }
+    if let Some((a, b)) = n.magic_attack {
+        out.set(
+            "magic_attack",
+            &PackedFloat32Array::from(&[a, b][..]).to_variant(),
+        );
+    }
+    for (key, value) in &n.percent {
+        out.set(key.as_str(), &value.to_variant());
+    }
+    if let Some(speed) = n.mount_speed {
+        out.set("mount_speed", &speed.to_variant());
+    }
+    out.set(
+        "sell_price",
+        &(rules.sell_price(id, tier) as i64).to_variant(),
+    );
+    if let Some(def) = rules.item(id) {
+        out.set(
+            "required_level",
+            &i64::from(def.required_level).to_variant(),
+        );
+    }
+    out.set("refinable", &rules.refinable(id).to_variant());
+    out.set("enchantable", &rules.enchantable(id).to_variant());
+    out
+}
+
+/// What `sheet`'s gear adds up to (see RealmSession.derived_stats).
+fn derived_dict(rules: &Rules, sheet: &CharacterSheet) -> VarDictionary {
+    let mut out = VarDictionary::new();
+    let d = rules.derived(sheet);
+    out.set("max_hp", &i64::from(d.max_hp).to_variant());
+    out.set("max_mana", &i64::from(d.max_mana).to_variant());
+    out.set("armor", &d.armor.to_variant());
+    out.set("wand_tier", &i64::from(d.wand_tier).to_variant());
+    out.set(
+        "attack_value",
+        &PackedFloat32Array::from(&[d.attack_value.0, d.attack_value.1][..]).to_variant(),
+    );
+    out.set(
+        "magic_attack",
+        &PackedFloat32Array::from(&[d.magic_attack.0, d.magic_attack.1][..]).to_variant(),
+    );
+    out.set("mount_speed", &d.mount_speed.to_variant());
+    out.set("weapon_multiplier", &d.weapon_multiplier.to_variant());
+    for (key, value) in &d.stats {
+        out.set(key.as_str(), &value.to_variant());
+    }
     out
 }
 
@@ -450,6 +543,7 @@ impl RealmSession {
             return out;
         };
         out.set("id", &(sheet.id as i64).to_variant());
+        out.set("revision", &(sheet.revision as i64).to_variant());
         out.set("name", &GString::from(sheet.name.as_str()).to_variant());
         out.set("house", &GString::from(sheet.house.as_str()).to_variant());
         out.set("level", &i64::from(sheet.level).to_variant());
@@ -600,84 +694,47 @@ impl RealmSession {
         Slot::ALL.iter().map(|s| GString::from(s.name())).collect()
     }
 
-    /// One item's fixed stats at refine level `tier`, as the rules compute
-    /// them (tooltips): `bonus_hp`, `bonus_mana`, `armor`, `attack_value` /
-    /// `magic_attack` ([min, max] or absent), the percent stats,
-    /// `mount_speed`, `sell_price`, `required_level`, `refinable`,
-    /// `enchantable`.
-    #[func]
-    fn item_stats(&self, id: GString, tier: i64) -> VarDictionary {
-        let mut out = VarDictionary::new();
-        let Some(rules) = self.rules.as_ref() else {
-            return out;
-        };
-        let id = id.to_string();
-        let tier = tier.clamp(0, 9) as u8;
-        let n = rules.item_stats(&id, tier);
-        out.set("bonus_hp", &n.bonus_hp.to_variant());
-        out.set("bonus_mana", &n.bonus_mana.to_variant());
-        out.set("armor", &n.armor.to_variant());
-        if let Some((a, b)) = n.attack_value {
-            out.set(
-                "attack_value",
-                &PackedFloat32Array::from(&[a, b][..]).to_variant(),
-            );
-        }
-        if let Some((a, b)) = n.magic_attack {
-            out.set(
-                "magic_attack",
-                &PackedFloat32Array::from(&[a, b][..]).to_variant(),
-            );
-        }
-        for (key, value) in &n.percent {
-            out.set(key.as_str(), &value.to_variant());
-        }
-        if let Some(speed) = n.mount_speed {
-            out.set("mount_speed", &speed.to_variant());
-        }
-        out.set(
-            "sell_price",
-            &(rules.sell_price(&id, tier) as i64).to_variant(),
-        );
-        if let Some(def) = rules.item(&id) {
-            out.set(
-                "required_level",
-                &i64::from(def.required_level).to_variant(),
-            );
-        }
-        out.set("refinable", &rules.refinable(&id).to_variant());
-        out.set("enchantable", &rules.enchantable(&id).to_variant());
-        out
-    }
-
     /// What the player's gear adds up to: `max_hp`, `max_mana`, `armor`,
     /// `wand_tier`, `attack_value`, `magic_attack`, `mount_speed`,
     /// `weapon_multiplier` and every enchantment stat.
     #[func]
     fn derived_stats(&self) -> VarDictionary {
-        let mut out = VarDictionary::new();
-        let (Some(rules), Some(sheet)) = (self.rules.as_ref(), self.sheet.as_ref()) else {
-            return out;
-        };
-        let d = rules.derived(sheet);
-        out.set("max_hp", &i64::from(d.max_hp).to_variant());
-        out.set("max_mana", &i64::from(d.max_mana).to_variant());
-        out.set("armor", &d.armor.to_variant());
-        out.set("wand_tier", &i64::from(d.wand_tier).to_variant());
-        out.set(
-            "attack_value",
-            &PackedFloat32Array::from(&[d.attack_value.0, d.attack_value.1][..]).to_variant(),
-        );
-        out.set(
-            "magic_attack",
-            &PackedFloat32Array::from(&[d.magic_attack.0, d.magic_attack.1][..]).to_variant(),
-        );
-        out.set("mount_speed", &d.mount_speed.to_variant());
-        out.set("weapon_multiplier", &d.weapon_multiplier.to_variant());
-        for (key, value) in &d.stats {
-            out.set(key.as_str(), &value.to_variant());
+        match (self.rules.as_ref(), self.sheet.as_ref()) {
+            (Some(rules), Some(sheet)) => derived_dict(rules, sheet),
+            _ => VarDictionary::new(),
         }
-        out
+    }
+
+    /// `derived_stats` as they would be after moving `from` to `to` (the
+    /// "what changes if you wear it" line); empty if the move is not
+    /// possible.
+    #[func]
+    fn preview_move(&self, from: i64, to: i64) -> VarDictionary {
+        struct NoDice;
+        impl realm_rules::Dice for NoDice {
+            fn unit(&mut self) -> f32 {
+                0.0
+            }
+        }
+        let (Some(rules), Some(sheet), Some(from), Some(to)) = (
+            self.rules.as_ref(),
+            self.sheet.as_ref(),
+            cell(from),
+            cell(to),
+        ) else {
+            return VarDictionary::new();
+        };
+        let mut after = sheet.clone();
+        let moved = rules.apply_item_op(
+            &mut after,
+            &ItemOp::Move { from, to },
+            realm_rules::ItemContext::default(),
+            &mut NoDice,
+        );
+        if moved.is_err() {
+            return VarDictionary::new();
+        }
+        derived_dict(rules, &after)
     }
 
     /// Connection and prediction counters for an on-screen readout.

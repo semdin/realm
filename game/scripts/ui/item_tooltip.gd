@@ -1,0 +1,299 @@
+extends PanelContainer
+class_name ItemTooltip
+
+## The item hover card: name, kind, rarity, the item's real stat lines, and lore.
+##
+## Every number here comes from the running game, never from a mock-up:
+## `Items` (the content table) supplies `type`, `rarity` and the type-specific fields, the
+## wand tier comes from the individual bag or equipment entry, and the upgrade multiplier
+## from `HPRules.combat()`. If a field is absent for an item, its row is
+## simply not built - the card never shows a placeholder dash.
+##
+## Style follows the reference: the name is tinted by rarity, the kind and rarity
+## sit on one line, the stats are green, and the flavour text is a dim italic
+## block at the bottom.
+
+# i18n-begin
+const KIND_LABEL := {
+	"weapon": "One-Handed Wand",
+	"armor": "Body Armour",
+	"mount": "Broom mount",
+	"consumable": "Consumable",
+	"material": "Crafting material",
+}
+
+const RARITY_COLOUR := {
+	"common": Color(0.88, 0.88, 0.88),
+	"uncommon": Color(0.35, 0.82, 0.35),
+	"rare": Color(0.36, 0.60, 0.94),
+	"epic": Color(0.68, 0.40, 0.96),
+	"legendary": Color(0.97, 0.66, 0.16),
+}
+
+const RARITY_NAME := {
+	"common": "Common",
+	"uncommon": "Uncommon",
+	"rare": "Rare",
+	"epic": "Epic",
+	"legendary": "Legendary",
+}
+# i18n-end
+
+var _column: VBoxContainer = null
+var _last_id := ""
+
+
+## A `PanelContainer`, not a `Panel`, so the card is exactly as big as its
+## content. A bare Panel with an anchored child reports a minimum size of zero,
+## which draws an invisible card that only its (unclipped) labels can betray.
+func _ready() -> void:
+	theme = UITheme.get_theme()
+	theme_type_variation = UITheme.V_TOOLTIP_CARD
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	z_index = 200
+	hide()
+
+	_column = VBoxContainer.new()
+	_column.add_theme_constant_override("separation", 3)
+	_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_column)
+
+
+static func rarity_of(item_id: String) -> String:
+	if not Items.item(item_id).is_empty():
+		var r: Variant = Items.item(item_id).get("rarity", "common")
+		if r != null and String(r) != "":
+			return String(r).to_lower()
+	return "common"
+
+
+## The rarity name for the top-right corner, e.g. "Unique" in the reference.
+static func rarity_label(item_id: String) -> String:
+	return I18n.t(String(RARITY_NAME.get(rarity_of(item_id), "Common")))
+
+
+## Build the card for `item_id`. `entry` is the player's inventory record, so a
+## stacked or upgraded instance can show its own count and tier.
+func show_item(item_id: String, entry: Dictionary = {}) -> void:
+	if Items.item(item_id).is_empty():
+		hide()
+		return
+	_last_id = item_id
+	for child in _column.get_children():
+		_column.remove_child(child)
+		child.queue_free()
+
+	# Metin2 layout: everything centred, one fact per line, no labels.
+	var data: Dictionary = Items.item(item_id)
+	var tint: Color = RARITY_COLOUR.get(rarity_of(item_id), RARITY_COLOUR["common"])
+	var tier := int(entry.get("tier", 0))
+	var title := I18n.t(String(data.get("name", item_id)))
+	if ItemRules.refinable(item_id):
+		title += " +%d" % tier
+	_add_line(title, tint, UITheme.FS_LABEL, true)
+	var wearable := not (data.get("slots", []) as Array).is_empty()
+	var needed := ItemRules.required_level(item_id)
+	var level := _local_level()
+	if wearable:
+		_add_line(tr("Level: %d") % needed, UITheme.c("parchment"))
+	_add_gap()
+	for line in _stat_rows(item_id, data, entry):
+		var colour: Color = ENCHANT_COLOUR if int(line[1]) == 2 else (Color(1.0, 0.45, 0.4) if int(line[1]) == 3 else STAT_COLOUR)
+		_add_line(String(line[0]), colour, UITheme.FS_SMALL, int(line[1]) == 2)
+	var amount := int(entry.get("amount", 0))
+	if amount > 1:
+		_add_line(tr("Quantity: %d") % amount, UITheme.c("parchment"))
+	if wearable:
+		_add_gap()
+		# Red when the viewer cannot wear it yet - the server refuses the equip
+		# with "level_too_low" (ItemRules.level_ok) either way.
+		if level > 0 and level < needed:
+			_add_line(tr("[ Requires level %d ]") % needed, Color(1.0, 0.36, 0.32))
+		else:
+			_add_line(tr("[ Wearable ]"), Color(0.62, 0.86, 1.0))
+	var desc := I18n.t(String(data.get("desc", "")))
+	if desc != "" and not wearable:
+		_add_gap()
+		_add_lore(desc)
+	_refit()
+	show()
+
+const STAT_COLOUR := Color(0.93, 0.91, 0.86)
+## Enchantments read brighter than the base lines (Metin2's bonus lines).
+const ENCHANT_COLOUR := Color(0.78, 0.66, 1.0)
+
+func _add_line(text: String, colour: Color, size: int = UITheme.FS_SMALL, bold: bool = false) -> void:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	if bold:
+		l.add_theme_font_override("font", UITheme.font_body_bold())
+	l.add_theme_font_size_override("font_size", size)
+	l.add_theme_color_override("font_color", colour)
+	l.add_theme_color_override("font_outline_color", UITheme.c("shadow"))
+	l.add_theme_constant_override("outline_size", UITheme.outline_for(UITheme.FS_BODY, 3))
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_column.add_child(l)
+
+func _add_gap() -> void:
+	var gap := Control.new()
+	gap.custom_minimum_size = Vector2(0, 4)
+	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_column.add_child(gap)
+
+## The card must be sized before it is drawn; a container only recomputes on
+## the next layout pass, so force one now.
+func _refit() -> void:
+	set_anchors_preset(Control.PRESET_TOP_LEFT)
+	custom_minimum_size = Vector2(maxf(220.0, _column.get_combined_minimum_size().x + 24.0), _column.get_combined_minimum_size().y + 16.0)
+	reset_size()
+
+
+func hide_item() -> void:
+	hide()
+	_last_id = ""
+
+
+## Move the card next to the cursor, flipping to the other side of it when it
+## would run off the right or bottom edge.
+func follow_cursor() -> void:
+	if not visible:
+		return
+	var vp := get_viewport()
+	if vp == null:
+		return
+	var mouse := vp.get_mouse_position()
+	var view := vp.get_visible_rect().size
+	var at := mouse + Vector2(18, 12)
+	if at.x + size.x > view.x - 6.0:
+		at.x = mouse.x - size.x - 18.0
+	if at.y + size.y > view.y - 6.0:
+		at.y = maxf(6.0, view.y - size.y - 6.0)
+	at.x = clampf(at.x, 6.0, maxf(6.0, view.x-size.x-6.0))
+	at.y = clampf(at.y, 6.0, maxf(6.0, view.y-size.y-6.0))
+	var delta := at - global_position
+	offset_left += delta.x
+	offset_right += delta.x
+	offset_top += delta.y
+	offset_bottom += delta.y
+
+
+func _is_wand(item_id: String) -> bool:
+	return item_id.begins_with("wand_")
+
+
+func _stat_rows(item_id: String, data: Dictionary, entry: Dictionary) -> Array:
+	"""The item's fixed stats at its own +N (kind 1, a penalty kind 3), then its enchantments (kind 2)."""
+	var rows := []
+	var tier := int(entry.get("tier", 0))
+	for line in ItemRules.fixed_lines(item_id, tier):
+		rows.append([String(line.text), 3 if bool(line.negative) else 1])
+	if data.has("heal_hp"):
+		rows.append([tr("Restores %d Health") % int(data["heal_hp"]), 1])
+	if data.has("heal_mana"):
+		rows.append([tr("Restores %d Mana") % int(data["heal_mana"]), 1])
+	for bonus in entry.get("bonuses", []):
+		rows.append([ItemRules.bonus_text(bonus), 2])
+	return rows
+
+
+# ------------------------------------------------------------------ rows
+
+func _row() -> HBoxContainer:
+	var h := HBoxContainer.new()
+	h.add_theme_constant_override("separation", 10)
+	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_column.add_child(h)
+	return h
+
+
+func _add_name_row(text: String, colour: Color, right: String, icon_id: String = "") -> void:
+	var h := _row()
+	if icon_id != "":
+		# The same picture the bag cell shows, so the card is unmistakably about
+		# the thing under the cursor.
+		var icon := UITheme.icon_rect(icon_id, 26.0)
+		icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		h.add_child(icon)
+	var name_label := Label.new()
+	name_label.text = text
+	name_label.add_theme_font_override("font", UITheme.font_title())
+	name_label.add_theme_font_size_override("font_size", UITheme.FS_LABEL)
+	name_label.add_theme_color_override("font_color", colour)
+	name_label.add_theme_color_override("font_outline_color", UITheme.c("shadow"))
+	name_label.add_theme_constant_override("outline_size", UITheme.outline_for(UITheme.FS_BODY, 3))
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(name_label)
+
+	var rarity_label_node := Label.new()
+	rarity_label_node.text = right
+	rarity_label_node.add_theme_font_size_override("font_size", UITheme.FS_SMALL)
+	rarity_label_node.add_theme_color_override("font_color", colour)
+	rarity_label_node.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+	rarity_label_node.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(rarity_label_node)
+
+
+func _add_kind_row(item_id: String, data: Dictionary) -> void:
+	var kind := String(data.get("type", ""))
+	var text: String = tr(String(KIND_LABEL.get(kind, kind.capitalize())))
+	if kind == "armor":
+		text = tr(String(data.get("slots",["armor"])[0]).replace("_", " ").capitalize())
+	_add_kv(tr(kind.capitalize()), text, UITheme.c("text_dim"))
+
+
+func _local_level() -> int:
+	if not is_inside_tree():
+		return 0
+	for body in get_tree().get_nodes_in_group("players"):
+		if bool(body.get("is_local_player")):
+			return int(body.get("level"))
+	return 0
+
+
+func _add_kv(left: String, right: String, colour: Color) -> void:
+	var h := _row()
+	var l := Label.new()
+	l.text = left
+	l.add_theme_font_size_override("font_size", UITheme.FS_SMALL)
+	l.add_theme_color_override("font_color", UITheme.c("text_dim"))
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(l)
+	var spacer := Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(spacer)
+	var r := Label.new()
+	r.text = right
+	r.add_theme_font_size_override("font_size", UITheme.FS_SMALL)
+	r.add_theme_color_override("font_color", colour)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	h.add_child(r)
+
+
+## kind 2 = an enchantment line (violet, the Metin2 bonus colour).
+func _add_stat_row(text: String, kind: int) -> void:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", UITheme.FS_SMALL)
+	l.add_theme_color_override("font_color", UITheme.c("magic") if kind == 2 else UITheme.c("good"))
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_column.add_child(l)
+
+
+func _add_lore(text: String) -> void:
+	var l := Label.new()
+	l.text = text
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.custom_minimum_size = Vector2(268, 0)
+	l.add_theme_font_size_override("font_size", UITheme.FS_SMALL)
+	l.add_theme_color_override("font_color", UITheme.c("text_dim"))
+	l.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_column.add_child(l)
+	_refit()
+
+
+func _add_divider() -> void:
+	_column.add_child(UITheme.divider())

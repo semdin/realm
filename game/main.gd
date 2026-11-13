@@ -9,6 +9,7 @@ extends Node3D
 ##   godot --path game -- [--server 127.0.0.1:7777] [--map grounds]
 ##   godot --headless --path game -- --check 20     joins, walks, prints, quits
 ##   [--cam-distance 4] [--cam-side 90]              camera framing (captures)
+##   [--open-bag 1]                                   start with the inventory open
 ##   [--character 7]                                  play this dev character (saved when the
 ##                                                    server runs with --characters)
 ##
@@ -19,6 +20,9 @@ const KIND_COLORS := [Color(0.35, 0.65, 1.0), Color(0.85, 0.3, 0.25), Color(0.9,
 	Color(0.55, 0.8, 0.3), Color(0.7, 0.4, 0.85), Color(0.9, 0.85, 0.3)]
 
 const HeroViewScript := "res://scripts/view/hero_view.gd"
+const PlayerSheetScript := "res://scripts/view/player_sheet.gd"
+const NoticeScript := "res://scripts/view/notice_band.gd"
+const InventoryScript := "res://scripts/ui/inventory_arcane.gd"
 ## Entity kind of a player in snapshots (creatures carry their kind id + 1).
 const KIND_PLAYER := 0
 
@@ -26,6 +30,9 @@ var session: Node
 var player: Node3D
 ## Other players' heroes by entity id.
 var heroes := {}
+## The player's sheet for the windows, and the windows.
+var sheet_view: Node
+var inventory: Control
 ## Creatures with a model by entity id (CreatureView); species without one yet
 ## are drawn as capsules.
 var beasts := {}
@@ -105,6 +112,36 @@ func _build_view() -> void:
 	var layer := CanvasLayer.new()
 	layer.add_child(hud)
 	add_child(layer)
+	_build_ui()
+
+## The windows: a full-screen root holding the notice band ("HUD", which the
+## windows look for) and the inventory (I).
+func _build_ui() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	add_child(layer)
+	var root := Control.new()
+	root.name = "UI"
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(root)
+	var band: Control = load(NoticeScript).new()
+	band.name = "HUD"
+	root.add_child(band)
+	sheet_view = load(PlayerSheetScript).new(session)
+	add_child(sheet_view)
+	inventory = load(InventoryScript).new()
+	inventory.name = "Inventory"
+	root.add_child(inventory)
+	inventory.prepare(sheet_view)
+	if _arg("--open-bag", "") != "":
+		inventory.open_for_player(sheet_view)
+
+func toggle_inventory() -> void:
+	if inventory.visible:
+		inventory.hide()
+	else:
+		inventory.open_for_player(sheet_view)
 
 ## The player's hero wears the look the sheet carries (applied when it
 ## changes).
@@ -154,6 +191,9 @@ func _build_map() -> void:
 	built = true
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_I:
+		toggle_inventory()
+		return
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		cam_yaw -= event.relative.x * 0.005
 		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004, -1.3, 0.4)

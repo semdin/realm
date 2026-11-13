@@ -81,6 +81,10 @@ jobs:
         # to the fingerprint, so every platform must agree on it too).
         run: cargo run --release -p realm_content -- check content/rename_map.toml content/data | tee -a "simcheck-${{ matrix.os }}.txt"
 
+      - name: No franchise-derived names left
+        if: matrix.os == 'ubuntu-26.04'
+        run: cargo run --release -p realm_content -- scan content/rename_map.toml game crates content/data tools README.md
+
       - name: Map packs check
         # Every map: bodies rest on ground from each spawn point and keep to
         # the map's height band walking four ways; random navigation paths

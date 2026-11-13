@@ -1,6 +1,7 @@
 //! realm_content import <rename_map.toml> <out_dir> <old_data_dir>...
 //! realm_content check <rename_map.toml> <content_dir>
 //! realm_content art <rename_map.toml> <old_godot_project> <game_dir> <res://path>...
+//! realm_content scan <rename_map.toml> <file_or_dir>...
 //!
 //! `import` reads every `*.json` of the old game's data folders, passes every
 //! key and string through the rename map, writes the result to `out_dir` and
@@ -27,6 +28,9 @@ fn main() -> ExitCode {
             &inputs.iter().map(PathBuf::from).collect::<Vec<_>>(),
         ),
         [cmd, map, dir] if cmd == "check" => check(Path::new(map), Path::new(dir)),
+        [cmd, map, paths @ ..] if cmd == "scan" && !paths.is_empty() => {
+            renamer(Path::new(map)).and_then(|r| art::scan(&r, paths))
+        }
         [cmd, map, old, new, entries @ ..] if cmd == "art" && !entries.is_empty() => {
             renamer(Path::new(map))
                 .and_then(|r| art::art(&r, Path::new(old), Path::new(new), entries))
@@ -34,7 +38,8 @@ fn main() -> ExitCode {
         _ => {
             eprintln!(
                 "usage:\n  realm_content import <rename_map.toml> <out_dir> <old_data_dir>...\n  realm_content check <rename_map.toml> <content_dir>
-  realm_content art <rename_map.toml> <old_godot_project> <game_dir> <res://path>..."
+  realm_content art <rename_map.toml> <old_godot_project> <game_dir> <res://path>...
+  realm_content scan <rename_map.toml> <file_or_dir>..."
             );
             return ExitCode::from(2);
         }

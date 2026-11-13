@@ -322,3 +322,90 @@ fn rename_glb(renamer: &Renamer, bytes: &[u8]) -> Result<Option<Vec<u8>>, String
     out.extend_from_slice(rest);
     Ok(Some(out))
 }
+
+/// Files never read as text by `scan`.
+const BINARY: &[&str] = &[
+    "png", "jpg", "jpeg", "webp", "exr", "hdr", "glb", "bin", "ogg", "wav", "mp3", "ttf", "otf",
+    "res", "scn", "realmmap", "ctex", "dll", "so", "dylib", "exe",
+];
+
+/// `realm_content scan`: every franchise-derived word, phrase or file name
+/// left in text files (scripts, scenes, shaders, catalogues), with where it
+/// is. For files moved by hand, which `art` does not see.
+pub fn scan(renamer: &Renamer, paths: &[String]) -> Result<(), Vec<String>> {
+    let mut problems = Vec::new();
+    let mut files = 0_usize;
+    let mut stack: Vec<std::path::PathBuf> = paths.iter().map(std::path::PathBuf::from).collect();
+    while let Some(path) = stack.pop() {
+        if path.is_dir() {
+            if path.file_name().is_some_and(|n| n == ".godot") {
+                continue;
+            }
+            match std::fs::read_dir(&path) {
+                Ok(entries) => stack.extend(entries.flatten().map(|e| e.path())),
+                Err(e) => problems.push(format!("{}: {e}", path.display())),
+            }
+            continue;
+        }
+        let name = path
+            .to_string_lossy()
+            .replace(std::path::MAIN_SEPARATOR, "/");
+        if let Some(w) = renamer.path_leftover(&name) {
+            problems.push(format!("{name}: file name says '{w}'"));
+        }
+        let ext = path
+            .extension()
+            .map(|e| e.to_string_lossy().to_ascii_lowercase())
+            .unwrap_or_default();
+        if BINARY.contains(&ext.as_str()) {
+            continue;
+        }
+        let Ok(text) = std::fs::read_to_string(&path) else {
+            continue;
+        };
+        files += 1;
+        // A gettext catalogue: only the source text (msgid) is ours to check;
+        // translations are other languages' words (a Turkish word can spell
+        // an old English token).
+        let catalogue = ext == "po";
+        let mut in_translation = false;
+        for (n, line) in text.lines().enumerate() {
+            if catalogue {
+                if line.starts_with("msgstr") {
+                    in_translation = true;
+                } else if line.starts_with("msgid")
+                    || line.starts_with("msgctxt")
+                    || line.is_empty()
+                {
+                    in_translation = false;
+                }
+                if in_translation {
+                    continue;
+                }
+            }
+            let mut found = BTreeSet::new();
+            for word in line.split(|c: char| !(c.is_ascii_alphanumeric() || c == '_')) {
+                if !word.is_empty()
+                    && let Some(w) = renamer.path_leftover(word)
+                {
+                    found.insert(w);
+                }
+            }
+            if let Some(phrase) = renamer.text_leftover(line) {
+                found.insert(phrase);
+            }
+            for w in found {
+                problems.push(format!("{name}:{}: '{w}'", n + 1));
+            }
+        }
+    }
+    println!(
+        "scan: {files} text files, {} franchise-derived leftovers",
+        problems.len()
+    );
+    if problems.is_empty() {
+        Ok(())
+    } else {
+        Err(problems)
+    }
+}
