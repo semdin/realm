@@ -3,8 +3,10 @@ class_name CreatureView
 
 ## One creature drawn from interpolated snapshots: its model and clips come from
 ## content/data/creature_views.json, the clip it plays from the replicated state
-## (idle, moving, attacking, dead) and the speed it is seen to cover. It decides
-## nothing.
+## (idle, moving, attacking, dead), the speed it is seen to cover and its
+## replicated status (StatusFX draws the look; a stunned or thrown body plays
+## its stun clip, a frozen one holds its pose, a slowed one moves at the slowed
+## pace). It decides nothing.
 
 ## Snapshot states (realm_server sim.rs).
 const STATE_IDLE := 0
@@ -16,29 +18,29 @@ const STATE_DEAD := 3
 ## falls back to Idle.
 const ANIM_SETS := {
 	"spider": {"idle": "Idle", "walk": "Walk", "run": "Walk",
-		"anticipation": "Bite_Anticipation", "attack": "Bite_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Bite_Anticipation", "attack": "Bite_Attack", "hit": "Hit", "stun": "Stun", "death": "Death"},
 	"troll": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"caster": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Charge2_Anticipation", "attack": "Charge2_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Charge2_Anticipation", "attack": "Charge2_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"undead": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"goblin": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"goblin_caster": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Cast_Anticipation", "attack": "Cast_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Cast_Anticipation", "attack": "Cast_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"wraith": {"idle": "Idle", "walk": "Float", "run": "Float",
-		"anticipation": "Reach_Anticipation", "attack": "Reach_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Reach_Anticipation", "attack": "Reach_Attack", "hit": "Hit", "stun": "Stun", "death": "Death"},
 	"hound": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Bite_Anticipation", "attack": "Bite_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Bite_Anticipation", "attack": "Bite_Attack", "hit": "Hit", "stun": "Sleep", "death": "Death"},
 	"snare": {"idle": "Idle", "walk": "Idle", "run": "Idle",
-		"anticipation": "Lash_Anticipation", "attack": "Lash_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Lash_Anticipation", "attack": "Lash_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"knight": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"pixie": {"idle": "Idle", "walk": "Idle", "run": "Idle",
-		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "death": "Death"},
+		"anticipation": "Swing_Anticipation", "attack": "Swing_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"generic": {"idle": "Idle", "walk": "Walk", "run": "Run",
-		"anticipation": "Idle", "attack": "Idle", "hit": "Hit", "death": "Death"},
+		"anticipation": "Idle", "attack": "Idle", "hit": "Hit", "stun": "Hit", "death": "Death"},
 }
 
 ## Seen ground speed (m/s) above which the body counts as moving, with
@@ -46,6 +48,9 @@ const ANIM_SETS := {
 const MOVING_ON := 0.35
 const MOVING_OFF := 0.15
 const TURN_RATE := 10.0
+## A stun played on the hit clip (no stun clip of its own) holds the recoil
+## this far into it, the body reeling, for as long as the stun lasts.
+const STUN_HOLD := 0.4
 
 static var _views := {}
 static var _species := []
@@ -59,8 +64,20 @@ var _speed := 0.0
 var _moving := false
 var _last := Vector3.ZERO
 var _has_last := false
-var _dead := false
 var _attack_phase := ""
+## Read by StatusFX: the drawn meshes, the head's height over the feet and
+## whether the body died.
+var visuals: Node3D
+var head_height := 0.0
+var is_dead := false
+## The replicated status bits (StatusFX.STATUS_*).
+var status := 0
+## The clip pace the replicated state asks for, and the status pace over it
+## (StatusFX: 0 frozen, the slowed pace, 1).
+var _anim_speed := 1.0
+var _cc_pace := 1.0
+## The stun on the hit clip: "" none, "recoil" playing in, "held" at STUN_HOLD.
+var _stun_phase := ""
 
 ## Species ids in the server's order: a snapshot's creature kind is its index
 ## here plus one (realm_server game.rs sorts species by id).
@@ -95,14 +112,30 @@ func setup(kind: int) -> bool:
 	model.scale = Vector3.ONE * float(view.get("scale", 1.0))
 	model.position.y = float(view.get("offset_y", 0.0)) + float(view.get("hover_height", 0.0))
 	add_child(model)
+	visuals = model
+	# the name label's height (creature_views.json) sits just over the head
+	head_height = maxf(0.0, float(view.get("label_height", 0.0)) - 0.45)
 	var found := model.find_child("AnimationPlayer", true, false)
 	anim_player = found as AnimationPlayer
 	if anim_player != null:
-		for clip in ["Idle", "Walk", "Run", "Float"]:
+		for clip in ["Idle", "Walk", "Run", "Float", "Stun", "Sleep"]:
 			if anim_player.has_animation(clip):
 				anim_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 	_play("idle")
 	return true
+
+## The replicated status (main.gd hands it over when it changes): the look on
+## the body, and through set_cc_anim_scale the pace of its clips.
+func set_status(bits: int) -> void:
+	if bits == status:
+		return
+	status = bits
+	StatusFX.update(self, bits)
+
+## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
+func set_cc_anim_scale(pace: float) -> void:
+	_cc_pace = pace
+	_apply_speed()
 
 func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 	if _has_last and delta > 0.0:
@@ -112,15 +145,23 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 	_has_last = true
 	_moving = _speed > (MOVING_OFF if _moving else MOVING_ON)
 	position = drawn
+	if state == STATE_DEAD:
+		if not is_dead:
+			is_dead = true
+			_stun_phase = ""
+			_play("death", 0.1)
+		return
+	is_dead = false
+	if _cc_pace <= 0.0:
+		# frozen solid: the pose and the facing it was caught in are held
+		return
 	# Snapshot yaw 0 looks along -Z; the models look along +Z.
 	facing = rotate_toward(facing, yaw + PI, TURN_RATE * delta)
 	rotation.y = facing
-	if state == STATE_DEAD:
-		if not _dead:
-			_dead = true
-			_play("death", 0.1)
+	if status & (StatusFX.STATUS_STUN | StatusFX.STATUS_KNOCKED):
+		_play_stunned()
 		return
-	_dead = false
+	_stun_phase = ""
 	if state == STATE_ATTACKING:
 		_play_attack()
 		return
@@ -137,6 +178,26 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 		_play(slot, 0.18, clampf(_speed / authored, 0.4, 3.0) if authored > 0.0 else 1.0)
 	else:
 		_play("idle")
+
+## Stunned or thrown: a body with a stun clip of its own loops it; one without
+## plays its hit clip into the recoil and holds it there.
+func _play_stunned() -> void:
+	if anim_player == null:
+		return
+	_attack_phase = ""
+	var clip := _clip("stun")
+	var looping := anim_player.get_animation(clip).loop_mode != Animation.LOOP_NONE
+	if looping:
+		_stun_phase = ""
+		_play("stun", 0.12)
+		return
+	if _stun_phase == "":
+		_stun_phase = "recoil"
+		_play("stun", 0.08)
+	elif _stun_phase == "recoil" and anim_player.current_animation_position 			>= anim_player.get_animation(clip).length * STUN_HOLD:
+		_stun_phase = "held"
+		_anim_speed = 0.0
+		_apply_speed()
 
 ## An attack is anticipation then the strike, repeated while the state holds.
 func _play_attack() -> void:
@@ -159,8 +220,14 @@ func _play(slot: String, blend := 0.18, speed := 1.0) -> void:
 	var clip := _clip(slot)
 	if not anim_player.has_animation(clip):
 		return
+	_anim_speed = speed
 	if anim_player.current_animation == clip and anim_player.is_playing():
-		anim_player.speed_scale = speed
+		_apply_speed()
 		return
 	anim_player.play(clip, blend)
-	anim_player.speed_scale = speed
+	_apply_speed()
+
+func _apply_speed() -> void:
+	if anim_player != null:
+		# the corpse falls at the normal pace, frozen or not
+		anim_player.speed_scale = _anim_speed * (1.0 if is_dead else _cc_pace)

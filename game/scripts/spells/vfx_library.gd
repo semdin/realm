@@ -144,6 +144,14 @@ const SPELLS := {
 					"amount": 3, "length": [0.3, 0.7], "width": 0.24, "core_px": 1.6, "glow": 0.7, "life": 0.2, "strike_hz": 24.0},
 				{"kind": "light", "colour": true, "energy": 2.2, "range": 4.0, "life": 0.16},
 			], "length": 1.8, "audio": "spell_stun_bolt_impact"},
+			# While stunned the leftover charge drips off the body as the same
+			# sparks the hit threw, falling from the shoulders to the ground
+			# (StatusFX keeps it on the body for as long as the stun lasts).
+			"sustain": {"layers": [
+				{"kind": "particles", "embers": true, "core": true, "colour": true, "continuous": true, "forward": -0.6,
+					"amount": 24, "life": 1.3, "speed": [0.2, 0.9], "size": [0.009, 0.022], "spread": 180.0,
+					"gravity": 4.0, "drag": 1.2, "turbulence": 3.0, "radius": 0.28, "energy": 0.9, "floor": true, "bounce": 0.3},
+			], "length": 1.8, "audio": "spell_stun_bolt_end"},
 		},
 	},
 	"flame_wave": {

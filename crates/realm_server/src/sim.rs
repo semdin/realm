@@ -29,6 +29,7 @@ use realm_sim::{SIM_DT, Vec3};
 use crate::game::Game;
 
 mod combat;
+mod status;
 use crate::store::StoreJob;
 use combat::{Bolt, Caster};
 use realm_proto::control::CombatEvent;
@@ -200,6 +201,8 @@ struct Mob {
     /// The goal the path was planned for, and when to plan again.
     path_goal: Vec3,
     replan_at: u32,
+    /// Holds, slows, burns and throws on the body.
+    status: status::Status,
 }
 
 /// What one client has been sent.
@@ -255,6 +258,11 @@ pub struct Stats {
     pub hits: u64,
     pub kills: u64,
     pub player_deaths: u64,
+    /// Crowd control this window: holds and throws a spell put on a
+    /// creature, enchantment procs, burn and bleed ticks.
+    pub holds: u64,
+    pub procs: u64,
+    pub dot_ticks: u64,
 }
 
 struct PendingJoin {
@@ -276,6 +284,8 @@ pub struct Sim {
     ids: HashMap<u32, Entity>,
     next_id: u32,
     bolts: Vec<Bolt>,
+    /// Creatures with a burn, a bleed or a throw running.
+    ticking: Vec<Entity>,
     /// This tick's combat events, where they happened.
     events: Vec<(Vec3, CombatEvent)>,
     /// Events only their player hears (a refused cast).
@@ -419,6 +429,7 @@ impl Sim {
             ids: HashMap::new(),
             next_id: 1,
             bolts: Vec::new(),
+            ticking: Vec::new(),
             events: Vec::new(),
             private_events: Vec::new(),
             rows: Vec::new(),
@@ -489,6 +500,7 @@ impl Sim {
                     path: Vec::new(),
                     path_goal: home,
                     replan_at: 0,
+                    status: status::Status::default(),
                 };
                 let entity = self.world.spawn(mob).id();
                 let id = self.new_id(entity);
@@ -515,6 +527,7 @@ impl Sim {
         self.creatures();
         lap(1, &mut self.stats);
         self.advance_bolts();
+        self.advance_status();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -1127,6 +1140,13 @@ impl Sim {
             }
             let nearest_d = nearest.map_or(f32::MAX, |n| n.2);
             mob.attack_cd = mob.attack_cd.saturating_sub(1);
+            // Held or thrown: no thought, no step, no strike.
+            if mob.status.locked(tick) {
+                mob.state = STATE_IDLE;
+                continue;
+            }
+            let pace = mob.status.speed(tick);
+            let strength = mob.status.strength(tick);
 
             if tick >= mob.next_think {
                 thinking += 1;
@@ -1178,13 +1198,13 @@ impl Sim {
             // Move every tick toward the current goal.
             let (goal, speed, attack) = match mob.mode {
                 MobMode::Chase(target) => match player_pos.get(&target).copied() {
-                    Some(p) => (Some(p), species.move_speed, Some(target)),
+                    Some(p) => (Some(p), species.move_speed * pace, Some(target)),
                     None => (None, 0.0, None),
                 },
-                MobMode::Wander(to) => (Some(to), species.move_speed * 0.35, None),
+                MobMode::Wander(to) => (Some(to), species.move_speed * 0.35 * pace, None),
                 MobMode::Return => {
                     mob.hp = mob.max_hp;
-                    (Some(mob.home), species.move_speed * 1.5, None)
+                    (Some(mob.home), species.move_speed * 1.5 * pace, None)
                 }
                 _ => (None, 0.0, None),
             };
@@ -1276,7 +1296,12 @@ impl Sim {
                     mob.yaw = yaw_of(to / dist.max(0.001));
                     if mob.attack_cd == 0 {
                         mob.attack_cd = species.attack_cooldown_ticks;
-                        strikes.push((target, game.mob_attack(pack), mob_entity, pack.level));
+                        strikes.push((
+                            target,
+                            game.mob_attack(pack) * strength,
+                            mob_entity,
+                            pack.level,
+                        ));
                     }
                     mob.state = STATE_ATTACKING;
                 }
@@ -1316,6 +1341,8 @@ impl Sim {
                 },
                 kind: 0,
                 hp: hp_byte(p.hp, p.max_hp),
+                // Player holds arrive with creature abilities (5.4).
+                status: 0,
             };
             self.rows.push(Row {
                 id: id.0,
@@ -1335,6 +1362,11 @@ impl Sim {
                 state: m.state,
                 kind: m.species + 1,
                 hp: hp_byte(m.hp, m.max_hp),
+                status: if m.mode == MobMode::Dead {
+                    0
+                } else {
+                    m.status.bits(tick)
+                },
             };
             self.rows.push(Row {
                 id: id.0,

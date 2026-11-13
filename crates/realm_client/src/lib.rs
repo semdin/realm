@@ -786,7 +786,7 @@ impl RealmSession {
     }
 
     /// Everyone else, interpolated for this frame: parallel arrays `ids`,
-    /// `kinds`, `positions`, `yaws`, `states`, `hp`.
+    /// `kinds`, `positions`, `yaws`, `states`, `hp`, `statuses` (STATUS_* bits).
     #[func]
     fn remote(&self) -> VarDictionary {
         let mut ids = PackedInt32Array::new();
@@ -795,6 +795,7 @@ impl RealmSession {
         let mut yaws = PackedFloat32Array::new();
         let mut states = PackedInt32Array::new();
         let mut hp = PackedInt32Array::new();
+        let mut statuses = PackedInt32Array::new();
         if let Some(core) = self.core.as_ref() {
             for e in core.remote_entities(self.local_ticks()) {
                 ids.push(e.id as i32);
@@ -803,6 +804,7 @@ impl RealmSession {
                 yaws.push(e.yaw);
                 states.push(i32::from(e.state));
                 hp.push(i32::from(e.hp));
+                statuses.push(i32::from(e.status));
             }
         }
         let mut out = VarDictionary::new();
@@ -812,6 +814,7 @@ impl RealmSession {
         out.set("yaws", &yaws.to_variant());
         out.set("states", &states.to_variant());
         out.set("hp", &hp.to_variant());
+        out.set("statuses", &statuses.to_variant());
         out
     }
 

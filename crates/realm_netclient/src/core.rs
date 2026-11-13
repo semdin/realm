@@ -56,6 +56,8 @@ pub struct RemoteEntity {
     pub yaw: f32,
     pub state: u8,
     pub hp: u8,
+    /// STATUS_* bits.
+    pub status: u8,
 }
 
 pub struct ClientCore {
@@ -397,6 +399,7 @@ impl ClientCore {
                 yaw: yaw(then.yaw) + turn * f,
                 state: now_state.state,
                 hp: now_state.hp,
+                status: now_state.status,
             });
         }
         out

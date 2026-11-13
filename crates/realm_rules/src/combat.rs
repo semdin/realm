@@ -127,8 +127,31 @@ pub struct CreatureDef {
     pub mana_first: bool,
 }
 
+/// What the control enchantments do when they proc on a hit (combat.json
+/// enchant.stats stun_chance / slow_chance / burn_chance).
+#[derive(Clone, Debug, Default)]
+pub struct ProcSpecs {
+    pub stun_ms: u32,
+    /// No new stun proc until this long after the last one ends.
+    pub stun_grace_ms: u32,
+    pub slow_ms: u32,
+    pub slow_factor: f32,
+    pub burn: Dot,
+}
+
+/// Gravity a thrown body falls under, m/s².
+pub const LAUNCH_GRAVITY: f32 = 24.0;
+
+/// How long a throw of `lift` m/s keeps a body in the air (it lands where it
+/// took off), at least `floor_ms`.
+#[must_use]
+pub fn airborne_ms(lift: f32, floor_ms: u32) -> u32 {
+    floor_ms.max((2.0 * lift.max(0.0) / LAUNCH_GRAVITY * 1000.0).round() as u32)
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct CombatRules {
+    pub procs: ProcSpecs,
     pub spells: BTreeMap<String, SpellDef>,
     /// Spells by index (inputs carry the index).
     pub spell_order: Vec<String>,
@@ -345,6 +368,14 @@ impl CombatRules {
                 },
             );
         }
+        let stats = &combat["enchant"]["stats"];
+        rules.procs = ProcSpecs {
+            stun_ms: ms(&stats["stun_chance"]["stun_ms"]),
+            stun_grace_ms: ms(&stats["stun_chance"]["grace_ms"]),
+            slow_ms: ms(&stats["slow_chance"]["slow_ms"]),
+            slow_factor: f(&stats["slow_chance"]["factor"], 0.6),
+            burn: dot(&stats["burn_chance"]["burn"]).unwrap_or_default(),
+        };
         rules.house_rank_thresholds = combat["house_ranks"]["thresholds"]
             .as_array()
             .map(|a| a.iter().map(ms).collect())
@@ -526,6 +557,32 @@ impl CombatRules {
             .copied()
             .unwrap_or(0.0);
         (1.0 - resist).clamp(0.0, 3.0)
+    }
+
+    /// How much of a crowd-control hold a creature keeps (its stun
+    /// resistance: 1 = immune, negative = longer), 0..2.
+    #[must_use]
+    pub fn hold_scale(&self, creature: &str) -> f32 {
+        let resist = self
+            .creatures
+            .get(creature)
+            .and_then(|c| c.resist.get("stun"))
+            .copied()
+            .unwrap_or(0.0);
+        (1.0 - resist).clamp(0.0, 2.0)
+    }
+
+    /// How far a creature can be thrown (1 - displace_resist; bosses never).
+    #[must_use]
+    pub fn displace_scale(&self, creature: &str, boss: bool) -> f32 {
+        if boss {
+            return 0.0;
+        }
+        let resist = self
+            .creatures
+            .get(creature)
+            .map_or(0.0, |c| c.displace_resist);
+        (1.0 - resist).clamp(0.0, 1.0)
     }
 
     /// "melee", "projectile" or "spell" for a creature attack id.

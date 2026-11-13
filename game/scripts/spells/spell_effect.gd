@@ -75,8 +75,10 @@ var _retire_at := 0.0
 var _accent := Color.WHITE
 
 ## Build this stage. `opts` may carry follow_target, target_position,
-## aoe_radius, floor_y and floor_normal (the ground under the effect) and
-## house (the caster's, for a spell drawn in its house colours).
+## aoe_radius, floor_y and floor_normal (the ground under the effect), house
+## (the caster's, for a spell drawn in its house colours) and duration (how
+## long the stage lives, outranking the table's length: a status look that its
+## owner frees when the status ends).
 func setup(p_spell: String, p_stage: String, p_quality: String, p_origin: Vector3,
 		p_dir: Vector3, p_caster: Node3D = null, opts: Dictionary = {}) -> void:
 	spell_id = p_spell
@@ -111,6 +113,8 @@ func setup(p_spell: String, p_stage: String, p_quality: String, p_origin: Vector
 		if life > 0.0:
 			_duration = maxf(_duration, life + offset)
 	_duration = maxf(_duration, float(_stage_data().get("length", 0.0)))
+	if float(opts.get("duration", 0.0)) > 0.0:
+		_duration = float(opts["duration"])
 	if stage == "travel":
 		if follow_target == null:
 			_duration = maxf(_duration, 2.5)

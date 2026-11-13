@@ -521,6 +521,11 @@ fn crowd_bandwidth() -> String {
                     state: u8::from(walking),
                     kind: (id % 5) as u16,
                     hp: 255 - (tick / 30) as u8,
+                    status: if (tick / 40 + id) % 3 == 0 {
+                        0b0100_0101
+                    } else {
+                        0
+                    },
                 },
             ));
         }

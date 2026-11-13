@@ -5,7 +5,9 @@ class_name HeroView
 ## (HeroAppearance), the animation graph (HeroAnimation) and the pose state
 ## picked from the body's motion. It decides nothing; the body's position,
 ## velocity and contacts come from the Rust rules (own player) or from
-## interpolated snapshots (everyone else).
+## interpolated snapshots (everyone else). Its replicated status draws on it
+## (StatusFX): stunned or frozen it plays the stun loop, thrown the fall loop,
+## frozen its pose is held and slowed its clips play at the slowed pace.
 
 ## A short hop or a step down keeps the light airborne pose; past this long
 ## in the air, or falling faster than HARD_FALL_SPEED, the body flails.
@@ -56,6 +58,17 @@ var _has_last := false
 var _estimated_velocity := Vector3.ZERO
 ## A standing caster turns to face what it casts at (radians; NAN = keep).
 var _turn_to := NAN
+## The replicated status bits (StatusFX.STATUS_*) and the clip pace StatusFX
+## sets for them (0 frozen, the slowed pace, 1). Below 1 the animation tree is
+## advanced by hand at that pace.
+var status := 0
+var _cc_pace := 1.0
+var _tree_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
+
+## The drawn meshes (StatusFX lays its skin looks over them).
+var visuals: Node3D:
+	get:
+		return body
 
 const DEFAULT_WAND := "wand_ashwood"
 var _wand_key := ""
@@ -89,6 +102,24 @@ func setup(house_color: Color, look: Dictionary = {}) -> void:
 		anim.name = "HeroAnimation"
 		add_child(anim)
 		anim.setup(player, skeleton, self)
+
+## The replicated status (main.gd hands it over when it changes).
+func set_status(bits: int) -> void:
+	if bits == status:
+		return
+	status = bits
+	StatusFX.update(self, bits)
+
+## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
+func set_cc_anim_scale(pace: float) -> void:
+	if anim == null or anim.tree == null:
+		return
+	if _cc_pace >= 1.0 and pace < 1.0:
+		_tree_mode = anim.tree.callback_mode_process
+		anim.tree.callback_mode_process = AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_MANUAL
+	elif _cc_pace < 1.0 and pace >= 1.0:
+		anim.tree.callback_mode_process = _tree_mode
+	_cc_pace = pace
 
 ## A cast began: the spell's upper-body clip blends over locomotion, timed so
 ## the wand's forward snap lands `release_seconds` from now (the server's
@@ -131,6 +162,9 @@ func drive_remote(drawn: Vector3, delta: float) -> void:
 func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_seconds: float, delta: float) -> void:
 	position = at
 	self.velocity = velocity
+	if _cc_pace <= 0.0:
+		# frozen solid: the pose and the facing it was caught in are held
+		return
 	var flat := Vector2(velocity.x, velocity.z)
 	if flat.length() > FACE_MIN_SPEED:
 		# The model looks along +Z; face the direction of travel.
@@ -142,7 +176,15 @@ func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_s
 	rotation.y = facing
 	if anim == null:
 		return
-	anim.tick(delta)
+	anim.tick(delta * _cc_pace)
+	if _cc_pace < 1.0 and anim.tree != null and anim.tree.active:
+		anim.tree.advance(delta * _cc_pace)
+	if status & StatusFX.STATUS_KNOCKED:
+		anim.set_locomotion("thrown", "Fall_Loop")
+		return
+	if status & (StatusFX.STATUS_STUN | StatusFX.STATUS_FREEZE):
+		anim.set_locomotion("stun", "Stun_Loop")
+		return
 	if swimming:
 		anim.set_locomotion("swim_idle" if flat.length() < 0.5 else "swim", "Idle" if flat.length() < 0.5 else "Running_A")
 		return

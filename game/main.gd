@@ -18,8 +18,12 @@ extends Node3D
 ## and takes a basic cast, anything else takes the basic cast at that point.
 ## Tab cycles the nearest living creatures, Esc closes the bag or drops the
 ## target, I opens the bag; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
-## The check mode also fights: it targets the nearest creature, casts the basic
-## cast every CHECK_CAST_SECONDS and fails when none of its casts hit.
+## The check mode also fights: it targets the nearest creature, learns and casts
+## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
+## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
+## the status looks on a character that knows them). It fails when none of its
+## casts hit or when no creature it hit was ever seen thrown (STATUS_KNOCKED);
+## the final line prints the status bits seen on its target.
 ##
 ## Paths to keys/, content/data and world/maps default to the realm checkout
 ## the project sits in.
@@ -85,6 +89,14 @@ var check_hp := -1
 var check_learn_sent := false
 var check_shockwave_cast := false
 var check_bursts := 0
+## Status bits seen on each creature (entity id -> union), the creatures the
+## check's own hits landed on, and the union seen on its target.
+var check_statuses := {}
+var check_hit_ids := {}
+var check_target_statuses := 0
+## `--check-spells`: the rotation the check casts instead of the basic cast.
+var check_spells: PackedStringArray = []
+var check_spell_next := 0
 var built := false
 
 func _arg(name: String, fallback: String) -> String:
@@ -97,6 +109,9 @@ func _ready() -> void:
 	check_seconds = float(_arg("--check", "0"))
 	cam_distance = float(_arg("--cam-distance", str(cam_distance)))
 	cam_side = deg_to_rad(float(_arg("--cam-side", "0")))
+	var rotation_arg := _arg("--check-spells", "")
+	if rotation_arg != "":
+		check_spells = rotation_arg.split(",", false)
 	if not ClassDB.class_exists("RealmSession"):
 		printerr("realm: the realm_client extension did not load (cargo build --release -p realm_client)")
 		get_tree().quit(2)
@@ -148,6 +163,7 @@ func _build_view() -> void:
 	combat.beasts = beasts
 	combat.session = session
 	add_child(combat)
+	StatusFX.warm_assets()
 	readout = Label.new()
 	readout.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
 	readout.grow_horizontal = Control.GROW_DIRECTION_BEGIN
@@ -361,6 +377,7 @@ func _show_combat() -> void:
 				if int(event["attacker"]) == own:
 					check_hits += 1
 					check_hp = int(event["hp"])
+					check_hit_ids[int(event["target"])] = true
 			"cast_started":
 				if int(event["caster"]) == own:
 					check_casts += 1
@@ -408,8 +425,38 @@ func _check_fight(delta: float) -> void:
 		if not check_shockwave_cast and int(session.skill_level("shockwave")) > 0:
 			check_shockwave_cast = true
 			cast_spell("shockwave")
+		elif not check_spells.is_empty():
+			cast_spell(check_spells[check_spell_next % check_spells.size()])
+			check_spell_next += 1
 		else:
 			cast_spell("basic_cast")
+
+## The status bits every creature in view carries this frame, gathered for the
+## check's verdict.
+func _check_statuses(ids: PackedInt32Array, kinds: PackedInt32Array, statuses: PackedInt32Array) -> void:
+	for i in ids.size():
+		if kinds[i] == KIND_PLAYER or statuses[i] == 0:
+			continue
+		check_statuses[ids[i]] = int(check_statuses.get(ids[i], 0)) | statuses[i]
+		if ids[i] == target:
+			check_target_statuses |= statuses[i]
+
+## The status bits seen on any creature the check's hits landed on.
+func _check_hit_statuses() -> int:
+	var seen := 0
+	for id in check_hit_ids:
+		seen |= int(check_statuses.get(id, 0))
+	return seen
+
+## Status bits as names: "stun+knocked".
+static func _status_names(bits: int) -> String:
+	var names := PackedStringArray()
+	for pair in [[StatusFX.STATUS_STUN, "stun"], [StatusFX.STATUS_FREEZE, "freeze"], [StatusFX.STATUS_SLOW, "slow"],
+			[StatusFX.STATUS_BLEED, "bleed"], [StatusFX.STATUS_BURN, "burn"], [StatusFX.STATUS_POISON, "poison"],
+			[StatusFX.STATUS_KNOCKED, "knocked"], [StatusFX.STATUS_WEAK, "weak"]]:
+		if bits & int(pair[0]):
+			names.append(String(pair[1]))
+	return "+".join(names) if not names.is_empty() else "none"
 
 func _process(delta: float) -> void:
 	if session == null:
@@ -444,6 +491,7 @@ func _process(delta: float) -> void:
 	var me: Vector3 = own.get("position", Vector3.ZERO)
 	if not own.is_empty():
 		player.drive_own(own, delta)
+		player.set_status(int(own.get("status", 0)))
 	var look_at_point := me + Vector3(0, 1.5, 0)
 	var offset := Vector3(0, 0, cam_distance).rotated(Vector3.RIGHT, cam_pitch).rotated(Vector3.UP, cam_yaw + cam_side)
 	camera.position = look_at_point + offset
@@ -455,6 +503,7 @@ func _process(delta: float) -> void:
 	var kinds: PackedInt32Array = others["kinds"]
 	var yaws: PackedFloat32Array = others["yaws"]
 	var states: PackedInt32Array = others["states"]
+	var statuses: PackedInt32Array = others["statuses"]
 	var seen := {}
 	var creatures := 0
 	drawn = {session.own_entity(): me}
@@ -466,6 +515,7 @@ func _process(delta: float) -> void:
 			if not heroes.has(ids[i]):
 				heroes[ids[i]] = _new_hero()
 			heroes[ids[i]].drive_remote(positions[i], delta)
+			heroes[ids[i]].set_status(statuses[i])
 			continue
 		if not no_model.has(kinds[i]):
 			seen[ids[i]] = true
@@ -478,6 +528,7 @@ func _process(delta: float) -> void:
 					beast.queue_free()
 					no_model[kinds[i]] = true
 			if beasts.has(ids[i]):
+				beasts[ids[i]].set_status(statuses[i])
 				beasts[ids[i]].drive(positions[i], yaws[i], states[i], delta)
 				continue
 		crowd.multimesh.set_instance_transform(creatures, Transform3D(Basis(), positions[i] + Vector3(0, 0.925, 0)))
@@ -492,6 +543,7 @@ func _process(delta: float) -> void:
 	_follow_target()
 	if check_seconds > 0.0:
 		_check_fight(delta)
+		_check_statuses(ids, kinds, statuses)
 	_show_combat()
 
 	var stats: Dictionary = session.stats()
@@ -519,6 +571,9 @@ bag: %s" % [
 	if check_seconds > 0.0 and Time.get_ticks_msec() / 1000.0 - check_started > check_seconds:
 		print("realm check: ", readout.text.replace("
 ", " | "),
-			" | fight: %d own casts started, %d own hits, %d own bursts, target hp %d/255" % [check_casts, check_hits, check_bursts, check_hp])
-		var passed := int(stats.get("corrections", 0)) == 0 and int(stats.get("snapshots", 0)) > 0 and check_hits > 0 and check_bursts > 0
+			" | fight: %d own casts started, %d own hits, %d own bursts, target hp %d/255" % [check_casts, check_hits, check_bursts, check_hp],
+			" | statuses: target %s (%d), hit creatures %s (%d)" % [_status_names(check_target_statuses),
+				check_target_statuses, _status_names(_check_hit_statuses()), _check_hit_statuses()])
+		var passed := int(stats.get("corrections", 0)) == 0 and int(stats.get("snapshots", 0)) > 0 and check_hits > 0 \
+			and check_bursts > 0 and _check_hit_statuses() & StatusFX.STATUS_KNOCKED != 0
 		get_tree().quit(0 if passed else 1)

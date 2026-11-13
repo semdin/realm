@@ -1,10 +1,13 @@
 //! realm_bots --server 127.0.0.1:7777 --keys keys --count 500 --seconds 120 [--ramp 50]
+//!            [--skill shockwave=3]
 //!
 //! Headless players for load tests. Each bot mints a ticket with the dev key,
 //! joins over QUIC exactly like the game client, sends inputs at 30 Hz and
 //! decodes every snapshot against its acknowledged baseline. It runs toward
 //! the nearest living creature it can see and attacks it; with nothing in
-//! sight it wanders. Every 5 seconds it prints what the bots received. Exits
+//! sight it wanders. Each bot spends its free skill point on `--skill`
+//! (name=spell index, default Shockwave, a throw) and opens every twelfth
+//! attack with it, so crowd control runs under load too. Every 5 seconds it prints what the bots received. Exits
 //! with an error unless every bot joined and every snapshot decoded.
 
 use std::collections::VecDeque;
@@ -44,6 +47,8 @@ struct Options {
     count: u32,
     seconds: u64,
     ramp: u32,
+    /// The skill each bot learns, and its spell index.
+    skill: (String, u8),
 }
 
 fn options() -> AnyResult<Options> {
@@ -53,6 +58,7 @@ fn options() -> AnyResult<Options> {
         count: 10,
         seconds: 60,
         ramp: 50,
+        skill: ("shockwave".to_owned(), 3),
     };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut it = args.iter();
@@ -64,6 +70,10 @@ fn options() -> AnyResult<Options> {
             "--count" => o.count = value.parse()?,
             "--seconds" => o.seconds = value.parse()?,
             "--ramp" => o.ramp = value.parse()?,
+            "--skill" => {
+                let (name, index) = value.split_once('=').ok_or("--skill takes name=index")?;
+                o.skill = (name.to_owned(), index.parse()?);
+            }
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -105,6 +115,7 @@ fn main() -> AnyResult<()> {
             endpoints.push(endpoint);
         }
         let deadline = Instant::now() + Duration::from_secs(o.seconds);
+        let skill = Arc::new(o.skill.clone());
         let spawner = {
             let totals = totals.clone();
             let endpoints = endpoints.clone();
@@ -112,9 +123,9 @@ fn main() -> AnyResult<()> {
                 let gap = Duration::from_secs_f64(1.0 / f64::from(o.ramp.max(1)));
                 for id in 0..o.count {
                     let endpoint = endpoints[(id / 50) as usize].clone();
-                    let (totals, key) = (totals.clone(), key.clone());
+                    let (totals, key, skill) = (totals.clone(), key.clone(), skill.clone());
                     tokio::spawn(async move {
-                        if let Err(error) = bot(id, endpoint, o.server, &key, &totals, deadline).await {
+                        if let Err(error) = bot(id, endpoint, o.server, &key, &totals, deadline, &skill).await {
                             totals.failed.fetch_add(1, Ordering::Relaxed);
                             if id < 3 {
                                 eprintln!("[bot {id}] {error}");
@@ -185,6 +196,7 @@ async fn bot(
     key: &SigningKey,
     totals: &Totals,
     deadline: Instant,
+    skill: &(String, u8),
 ) -> AnyResult<()> {
     let connection = endpoint.connect(server, "localhost")?.await?;
     let (mut send, mut recv) = connection.open_bi().await?;
@@ -217,6 +229,13 @@ async fn bot(
         }
     };
     totals.connected.fetch_add(1, Ordering::Relaxed);
+    // encode_client frames the message itself.
+    send.write_all(&realm_proto::control::encode_client(
+        &realm_proto::control::ClientMsg::LearnSkill(skill.0.clone()),
+    ))
+    .await?;
+    let skill_action = skill.1 + 1;
+    let mut attacks = 0_u32;
     let _drain = tokio::spawn(async move {
         let _keep_open = send;
         let mut chunk = [0_u8; 4096];
@@ -258,13 +277,19 @@ async fn bot(
                     let circle = if (seq / 90).is_multiple_of(2) { 90 } else { -90 };
                     let (strafe, forward) = if dist > 14.0 { (0, 127) } else { (circle, 0) };
                     let fire = seq >= ready_at;
+                    let mut action = 0;
                     if fire {
+                        // Shockwave's 6.5 s cooldown is shorter than twelve
+                        // basic casts (12 x 17 ticks).
+                        let opener = attacks.is_multiple_of(12);
+                        action = if opener { skill_action } else { 1 };
                         ready_at = seq + 17;
+                        attacks += 1;
                         totals.attacks.fetch_add(1, Ordering::Relaxed);
                     }
                     InputFrame {
                         tick: acked + 3,
-                        movement: MoveInput { strafe, forward, yaw, buttons: 0 }, action: u8::from(fire), target: target_id, aim: [0; 3] }
+                        movement: MoveInput { strafe, forward, yaw, buttons: 0 }, action, target: target_id, aim: [0; 3] }
                         .aimed_at(pos + Vec3::new(0.0, 1.15, 0.0))
                 } else {
                     if seq.is_multiple_of(60) {

@@ -25,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 6;
+pub const PROTOCOL_VERSION: u16 = 7;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/6";
+pub const ALPN: &[u8] = b"realm/7";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -126,7 +126,21 @@ pub struct EntityState {
     pub kind: u16,
     /// Health as a fraction of 255.
     pub hp: u8,
+    /// Crowd control and damage over time on the body (STATUS_* bits).
+    pub status: u8,
 }
+
+/// Status bits (`EntityState::status`).
+pub const STATUS_STUN: u8 = 1 << 0;
+pub const STATUS_FREEZE: u8 = 1 << 1;
+pub const STATUS_SLOW: u8 = 1 << 2;
+pub const STATUS_BLEED: u8 = 1 << 3;
+pub const STATUS_BURN: u8 = 1 << 4;
+pub const STATUS_POISON: u8 = 1 << 5;
+pub const STATUS_KNOCKED: u8 = 1 << 6;
+pub const STATUS_WEAK: u8 = 1 << 7;
+/// A body that cannot act while any of these runs.
+pub const STATUS_LOCKED: u8 = STATUS_STUN | STATUS_FREEZE | STATUS_KNOCKED;
 
 /// Server -> client.
 #[derive(Clone, Debug, PartialEq)]
@@ -402,6 +416,10 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
                 if state.hp != old.hp {
                     w.u8(state.hp);
                 }
+                w.bool(state.status != old.status);
+                if state.status != old.status {
+                    w.u8(state.status);
+                }
             }
             None => {
                 w.bool(false);
@@ -412,6 +430,7 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
                 w.u8(state.state);
                 w.unsigned(u32::from(state.kind));
                 w.u8(state.hp);
+                w.u8(state.status);
             }
         }
     }
@@ -492,12 +511,14 @@ pub fn decode_snapshot<'a>(
             };
             let state = if r.bool()? { r.u8()? } else { old.state };
             let hp = if r.bool()? { r.u8()? } else { old.hp };
+            let status = if r.bool()? { r.u8()? } else { old.status };
             EntityState {
                 pos: from_grid(pos),
                 yaw,
                 state,
                 kind: old.kind,
                 hp,
+                status,
             }
         } else {
             let pos = [r.signed()?, r.signed()?, r.signed()?];
@@ -510,6 +531,7 @@ pub fn decode_snapshot<'a>(
                 state,
                 kind,
                 hp: r.u8()?,
+                status: r.u8()?,
             }
         };
         changed.push((id, state));

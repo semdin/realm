@@ -48,11 +48,13 @@ pub enum CombatEvent {
     CastRefused { spell: u8, reason: String },
 }
 
-/// Hit flags.
+/// Hit flags: what the hit was, and what a control enchantment added to it.
 pub const HIT_CRIT: u8 = 1;
 pub const HIT_FINISHER: u8 = 2;
 pub const HIT_PIERCE: u8 = 4;
-pub const HIT_REFLECTED: u8 = 8;
+pub const HIT_STUN: u8 = 8;
+pub const HIT_SLOW: u8 = 16;
+pub const HIT_BURN: u8 = 32;
 use serde::{Deserialize, Serialize};
 
 /// Largest frame either side accepts; a peer sending more is closed.

@@ -101,15 +101,15 @@ fn arr(v: Vec3) -> [f32; 3] {
 impl Sim {
     /// The rules, held apart from `self` so a spell can be read while the
     /// world changes.
-    fn rules(&self) -> Arc<Rules> {
+    pub(super) fn rules(&self) -> Arc<Rules> {
         Arc::clone(&self.game.rules)
     }
 
-    fn net_id_of(&self, entity: Entity) -> u32 {
+    pub(super) fn net_id_of(&self, entity: Entity) -> u32 {
         self.world.get::<super::NetId>(entity).map_or(0, |n| n.0)
     }
 
-    fn event(&mut self, at: Vec3, event: CombatEvent) {
+    pub(super) fn event(&mut self, at: Vec3, event: CombatEvent) {
         self.events.push((at, event));
     }
 
@@ -124,7 +124,7 @@ impl Sim {
         ));
     }
 
-    fn protected(&self, at: Vec3) -> bool {
+    pub(super) fn protected(&self, at: Vec3) -> bool {
         self.game.rules.protected(&self.game.map, at.x, at.y, at.z)
     }
 
@@ -703,10 +703,14 @@ impl Sim {
             mob.died_at = tick;
             let span = hi.saturating_sub(lo).max(1);
             mob.respawn_at = tick + lo + xorshift(&mut mob.rng) % span;
+            mob.status = super::status::Status::default();
             self.stats.kills += 1;
         } else if !matches!(mob.mode, MobMode::Chase(_)) {
             mob.mode = MobMode::Chase(attacker);
             mob.next_think = tick;
+        }
+        if mob.mode != MobMode::Dead {
+            flags |= self.apply_status(attacker, victim, spell, amount);
         }
         self.stats.hits += 1;
         if let Some(mut player) = self.world.get_mut::<Player>(attacker) {

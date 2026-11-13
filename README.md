@@ -39,7 +39,7 @@ cargo run --release -p realm_simcheck [-- --trace stairs | --bench]   # movement
 cargo run --release -p realm_server -- keygen keys            # dev ticket key + TLS cert (keys/ is gitignored)
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
-cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50
+cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data
 cargo run --release -p realm_netem -- --listen 127.0.0.1:7800 --server 127.0.0.1:7777 --delay-ms 100 --loss 0.02
@@ -57,6 +57,12 @@ python tools/fixtures/make_prepared_character.py build/characters 900002
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters
 cargo run --release -p realm_netcheck -- --server 127.0.0.1:7777 --character 900002 --seconds 6
 ```
+
+Crowd control runs on the server: a spell's stun, freeze, slow, throw,
+weakening, burn and bleed, and the gear's stun/slow/burn procs, land on the
+creature it hit and reach every client as the entity's status byte
+(`STATUS_*` in realm_proto); the server's stats line counts holds, procs and
+burn/bleed ticks.
 
 The client (needs `cargo build --release -p realm_client` and a running server;
 WASD, Space, Ctrl, right mouse drag, wheel):
