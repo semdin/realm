@@ -19,6 +19,25 @@ const TURN_RATE := 14.0
 ## Below this ground speed the body keeps its facing.
 const FACE_MIN_SPEED := 0.6
 const DEFAULT_CLOAK := "cloak_wool"
+## The upper-body clip each spell casts with (assets/animations/hero, merged by
+## HeroAnimation.merge_extra_clips). `release` is the clip fraction where the
+## wand hand is furthest forward, `hold` how long the cast layer owns the arm,
+## `aim` false for a swing that keeps its own arc. The basic chain is keyed per
+## step ("basic_cast:<step>"); Light of Ithrel leaves the wand with Flame
+## Wave's thrust and Frost Grip with Shockwave's overhead throw.
+const SPELL_CLIPS := {
+	"stun_bolt": {"clip": "Cast_Stun_Bolt", "release": 0.226, "hold": 0.72},
+	"flame_wave": {"clip": "Cast_Flame_Wave", "release": 0.25, "hold": 0.66, "aim": false},
+	"light_of_ithrel": {"clip": "Cast_Flame_Wave", "release": 0.25, "hold": 0.7, "aim": false},
+	"shockwave": {"clip": "Cast_Shockwave", "release": 0.182, "hold": 0.7},
+	"frost_grip": {"clip": "Cast_Shockwave", "release": 0.182, "hold": 0.7},
+	"disarm": {"clip": "Cast_Disarm", "release": 0.128, "hold": 0.6},
+	"ward_shield": {"clip": "Cast_Ward_Shield", "release": 0.128, "hold": 0.9, "aim": false},
+	"ultimate": {"clip": "Cast_Ultimate", "release": 0.158, "hold": 0.85},
+	"basic_cast:0": {"clip": "Cast_Basic1", "release": 0.222, "hold": 0.36},
+	"basic_cast:1": {"clip": "Cast_Basic2", "release": 0.231, "hold": 0.4, "aim": false},
+	"basic_cast:2": {"clip": "Cast_Basic3", "release": 0.222, "hold": 0.55},
+}
 
 var body: Node3D
 var anim: HeroAnimation
@@ -35,6 +54,8 @@ var _air_time := 0.0
 var _last_position := Vector3.ZERO
 var _has_last := false
 var _estimated_velocity := Vector3.ZERO
+## A standing caster turns to face what it casts at (radians; NAN = keep).
+var _turn_to := NAN
 
 func setup(house_color: Color, look: Dictionary = {}) -> void:
 	body = HeroAppearance.spawn(self, house_color)
@@ -54,6 +75,26 @@ func setup(house_color: Color, look: Dictionary = {}) -> void:
 		anim.name = "HeroAnimation"
 		add_child(anim)
 		anim.setup(player, skeleton, self)
+
+## A cast began: the spell's upper-body clip blends over locomotion, timed so
+## the wand's forward snap lands `release_seconds` from now (the server's
+## windup), with the casting arm aimed at `aim` (world space). `step` picks the
+## basic chain's move (0..2).
+func play_cast(spell: String, aim: Vector3, release_seconds: float, step := 0) -> void:
+	if anim == null:
+		return
+	var own: Dictionary = SPELL_CLIPS.get("basic_cast:%d" % clampi(step, 0, 2) if spell == "basic_cast" else spell, {})
+	var upper := String(own.get("clip", "Spellcast_Shoot")) + "_Upper"
+	var hold := float(own.get("hold", 0.42))
+	anim.start_cast(upper, hold)
+	anim.align_cast(clampf(release_seconds, 0.01, hold - 0.02), float(own.get("release", 0.45)))
+	if bool(own.get("aim", true)):
+		anim.set_cast_aim(aim)
+	else:
+		anim.clear_cast_aim()
+	var flat := Vector2(aim.x - position.x, aim.z - position.z)
+	if flat.length() > 0.2:
+		_turn_to = atan2(flat.x, flat.y)
 
 ## The player's own body: everything known exactly.
 func drive_own(state: Dictionary, delta: float) -> void:
@@ -81,6 +122,9 @@ func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_s
 		# The model looks along +Z; face the direction of travel.
 		var target := atan2(velocity.x, velocity.z)
 		facing = rotate_toward(facing, target, TURN_RATE * delta)
+		_turn_to = NAN
+	elif not is_nan(_turn_to):
+		facing = rotate_toward(facing, _turn_to, TURN_RATE * delta)
 	rotation.y = facing
 	if anim == null:
 		return

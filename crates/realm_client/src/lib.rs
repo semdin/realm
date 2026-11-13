@@ -263,6 +263,11 @@ struct RealmSession {
     action: (u8, u32, realm_sim::Vec3),
     /// Combat events and skill answers not yet taken by the view.
     combat_events: Vec<realm_proto::control::CombatEvent>,
+    /// Local clock (ticks) at which each spell (by index) is ready again, and
+    /// at which the current cast's lock ends: the client sends no request the
+    /// server would only refuse.
+    ready_at: [f64; 16],
+    busy_until: f64,
     skill_results: Vec<(String, bool, String)>,
     status: String,
     /// The player's character sheet as the server last sent it.
@@ -287,6 +292,8 @@ impl INode for RealmSession {
             intent: MoveInput::default(),
             action: (0, 0, realm_sim::Vec3::ZERO),
             combat_events: Vec::new(),
+            ready_at: [0.0; 16],
+            busy_until: 0.0,
             skill_results: Vec::new(),
             status: "idle".to_owned(),
             sheet: None,
@@ -310,6 +317,43 @@ impl INode for RealmSession {
 }
 
 impl RealmSession {
+    /// The player's own casts start their cooldowns here, with the same
+    /// rules the server used.
+    fn track_cooldowns(&mut self, events: &[realm_proto::control::CombatEvent]) {
+        use realm_proto::control::CombatEvent;
+        let now = self.local_ticks();
+        let me = self.core.as_ref().map_or(0, ClientCore::me);
+        for event in events {
+            let CombatEvent::CastStarted { caster, spell, .. } = event else {
+                continue;
+            };
+            if *caster != me {
+                continue;
+            }
+            if let Some(cd) = self.cooldown_ticks(*spell) {
+                self.ready_at[usize::from(*spell)] = now + cd.0;
+                self.busy_until = now + cd.1;
+            }
+        }
+    }
+
+    /// (cooldown, cast lock) of a spell for this character, in ticks.
+    fn cooldown_ticks(&self, index: u8) -> Option<(f64, f64)> {
+        let (rules, sheet) = (self.rules.as_ref()?, self.sheet.as_ref()?);
+        let spell = rules.combat.spell_by_index(index)?;
+        let derived = rules.derived(sheet);
+        let stat = |k: &str| derived.stats.get(k).copied().unwrap_or(0.0);
+        let cd = rules.combat.cooldown(
+            spell,
+            &sheet.house,
+            rules.combat.skill_level(sheet, &spell.id),
+            stat("attack_speed"),
+            stat("cast_speed"),
+        );
+        let hz = f64::from(realm_sim::SIM_HZ);
+        Some((f64::from(cd) * hz, f64::from(spell.cast_lock) * hz))
+    }
+
     fn local_ticks(&self) -> f64 {
         self.started.elapsed().as_secs_f64() * ClientCore::HZ
     }
@@ -354,7 +398,10 @@ impl RealmSession {
                     }
                 }
                 NetEvent::Control(ServerMsg::Sheet(sheet)) => self.sheet = Some(*sheet),
-                NetEvent::Control(ServerMsg::Combat(events)) => self.combat_events.extend(events),
+                NetEvent::Control(ServerMsg::Combat(events)) => {
+                    self.track_cooldowns(&events);
+                    self.combat_events.extend(events);
+                }
                 NetEvent::Control(ServerMsg::SkillResult { spell, ok, reason }) => {
                     self.skill_results.push((spell, ok, reason));
                 }
@@ -470,6 +517,8 @@ impl RealmSession {
 
     /// Casts `spell` on the next tick at `target` (entity id, 0 = none) and
     /// `aim` (a world point). False for a spell the content does not have.
+    /// Not sent (false) while the spell is cooling down beyond the server's
+    /// 250 ms queue.
     #[func]
     fn cast(&mut self, spell: GString, target: i64, aim: Vector3) -> bool {
         let Some(index) = self
@@ -480,12 +529,106 @@ impl RealmSession {
         else {
             return false;
         };
+        let now = self.local_ticks();
+        let ready = self.ready_at[usize::from(index)].max(self.busy_until);
+        if ready - now > 0.25 * f64::from(realm_sim::SIM_HZ) {
+            return false;
+        }
         self.action = (
             index + 1,
             target.max(0) as u32,
             realm_sim::Vec3::new(aim.x, aim.y, aim.z),
         );
         true
+    }
+
+    /// Seconds until `spell` can be cast again (0 = ready).
+    #[func]
+    fn cooldown_remaining(&self, spell: GString) -> f64 {
+        let Some(index) = self
+            .rules
+            .as_ref()
+            .and_then(|r| r.combat.spell(&spell.to_string()))
+            .map(|s| s.index)
+        else {
+            return 0.0;
+        };
+        let left = self.ready_at[usize::from(index)] - self.local_ticks();
+        (left / f64::from(realm_sim::SIM_HZ)).max(0.0)
+    }
+
+    /// The full cooldown of `spell` for this character, seconds.
+    #[func]
+    fn cooldown_total(&self, spell: GString) -> f64 {
+        self.rules
+            .as_ref()
+            .and_then(|r| r.combat.spell(&spell.to_string()))
+            .and_then(|s| self.cooldown_ticks(s.index))
+            .map_or(0.0, |(cd, _)| cd / f64::from(realm_sim::SIM_HZ))
+    }
+
+    /// The character's level of `spell` (0 = not learned; spells that are
+    /// not skills are 1), and the unspent skill points (`skill_points`).
+    #[func]
+    fn skill_level(&self, spell: GString) -> i64 {
+        match (self.rules.as_ref(), self.sheet.as_ref()) {
+            (Some(r), Some(sheet)) => i64::from(r.combat.skill_level(sheet, &spell.to_string())),
+            _ => 0,
+        }
+    }
+
+    #[func]
+    fn skill_points(&self) -> i64 {
+        match (self.rules.as_ref(), self.sheet.as_ref()) {
+            (Some(r), Some(sheet)) => i64::from(r.combat.skill_points(sheet)),
+            _ => 0,
+        }
+    }
+
+    /// What a ray from `origin` along `dir` meets within `reach`: `entity`
+    /// (the nearest creature or other player whose body it passes through, 0
+    /// = none), `point` (where it meets that body or the world).
+    #[func]
+    fn pick(&self, origin: Vector3, dir: Vector3, reach: f32) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(core) = self.core.as_ref() else {
+            return out;
+        };
+        let o = realm_sim::Vec3::new(origin.x, origin.y, origin.z);
+        let d = realm_sim::Vec3::new(dir.x, dir.y, dir.z).normalize_or_zero();
+        let end = o + d * reach;
+        let world_t = core.world().line_hit(o, end).unwrap_or(1.0) * reach;
+        let mut best: Option<(f32, u32)> = None;
+        for e in core.remote_entities(self.local_ticks()) {
+            if e.state == 3 {
+                continue;
+            }
+            // A body is an upright cylinder 0.6 m round, 2.2 m tall.
+            let rel = e.pos - o;
+            let flat = realm_sim::Vec3::new(d.x, 0.0, d.z);
+            let flat_len2 = flat.length_squared();
+            let t = if flat_len2 > 1.0e-6 {
+                (realm_sim::Vec3::new(rel.x, 0.0, rel.z).dot(flat) / flat_len2).max(0.0)
+            } else {
+                0.0
+            };
+            // `d` is a unit vector: t is the distance along the ray.
+            let at = o + d * t;
+            let close = realm_sim::Vec3::new(at.x - e.pos.x, 0.0, at.z - e.pos.z).length();
+            if t <= world_t
+                && close <= 0.6
+                && at.y >= e.pos.y - 0.2
+                && at.y <= e.pos.y + 2.4
+                && best.is_none_or(|(b, _)| t < b)
+            {
+                best = Some((t, e.id));
+            }
+        }
+        let (t, entity) = best.unwrap_or((world_t, 0));
+        let p = o + d * t;
+        out.set("entity", &i64::from(entity).to_variant());
+        out.set("point", &Vector3::new(p.x, p.y, p.z).to_variant());
+        out
     }
 
     /// Spends a skill point on `spell`; the answer comes through

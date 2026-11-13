@@ -5569,3 +5569,18 @@ msgstr "Mutfaklar"
 msgid "Torvan House"
 msgstr "Torvan Hanesi"
 
+msgid "[%s] %s  ·  %s\n%d mana · %.1fs cooldown\n%s\nDrag onto another slot to swap"
+msgstr "[%s] %s  ·  %s\n%d mana · %.1f sn bekleme\n%s\nYer değiştirmek için başka bir yuvaya sürükle"
+
+msgid "Click to learn - spends a skill point (%d left)"
+msgstr "Öğrenmek için tıkla - bir beceri puanı harcar (%d kaldı)"
+
+msgid "Learn %s first - gain a level to earn a skill point"
+msgstr "Önce %s büyüsünü öğren - beceri puanı için seviye atla"
+
+msgid "Learn %s first - click its slot to spend a skill point"
+msgstr "Önce %s büyüsünü öğren - beceri puanı harcamak için yuvasına tıkla"
+
+msgid "You learned %s!"
+msgstr "%s öğrenildi!"
+

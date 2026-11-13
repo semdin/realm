@@ -1,8 +1,8 @@
 extends Control
 
 ## The notice band: one short line near the top of the screen for answers
-## the windows give ("Not enough Oril.", "Sold for 20 Oril."). Windows find it
-## as the sibling named "HUD" and call `show_notice`. A new line replaces the
+## the windows and the action bar give ("Not enough Oril.", "Sold for 20
+## Oril."); the HUD hands its `show_notice` calls here. A new line replaces the
 ## old one; each fades after a few seconds.
 
 const SHOW_SECONDS := 3.0
@@ -13,7 +13,7 @@ var _label: Label
 var _left := 0.0
 
 func _ready() -> void:
-	set_anchors_preset(Control.PRESET_FULL_RECT)
+	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_label = UITheme.body("", UITheme.FS_BODY, UITheme.c("parchment"))
 	_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
