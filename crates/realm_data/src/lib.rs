@@ -88,6 +88,40 @@ impl Content {
     }
 }
 
+/// The moving staircases a map's pack anchors, built from the content's
+/// `staircases` specs.
+pub fn staircases(
+    content: &Content,
+    pack: &realm_sim::pack::MapPack,
+) -> Result<realm_sim::staircase::Staircases, String> {
+    use realm_sim::staircase::{Staircase, StaircaseSpec, Staircases};
+    let list = content
+        .file("maps.json")
+        .and_then(|m| m["staircases"].as_array())
+        .cloned()
+        .unwrap_or_default();
+    let mut flights = Vec::new();
+    for anchor in &pack.staircases {
+        let raw = list
+            .get(anchor.spec_index as usize)
+            .ok_or_else(|| format!("{}: staircase {} has no spec", pack.map, anchor.spec_index))?;
+        let spec: StaircaseSpec = serde_json::from_value(without_notes(raw))
+            .map_err(|e| format!("staircase {}: {e}", anchor.spec_index))?;
+        if spec.id != anchor.id {
+            return Err(format!(
+                "{}: staircase spec {} has id {}, the map expects {}",
+                pack.map, anchor.spec_index, spec.id, anchor.id
+            ));
+        }
+        flights.push(Staircase::new(
+            spec,
+            realm_sim::pack::v3(anchor.translation),
+            anchor.yaw,
+        ));
+    }
+    Ok(Staircases::new(flights))
+}
+
 /// A copy of `value` with every `_`-prefixed key removed, at any depth.
 #[must_use]
 pub fn without_notes(value: &Value) -> Value {

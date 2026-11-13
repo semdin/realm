@@ -13,6 +13,7 @@ pub mod input;
 pub mod movement;
 pub mod nav;
 pub mod pack;
+pub mod staircase;
 pub mod world;
 
 mod mathx;

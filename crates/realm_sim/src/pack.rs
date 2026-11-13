@@ -10,7 +10,7 @@ use crate::Vec3;
 use crate::world::{WaterArea, World};
 
 /// Bumped whenever the layout changes.
-pub const PACK_VERSION: u32 = 1;
+pub const PACK_VERSION: u32 = 2;
 
 /// Height grid value meaning "no terrain here" (a hole).
 pub const HOLE: i32 = i32::MIN;
@@ -24,11 +24,23 @@ pub struct MapPack {
     pub terrain: Vec<TerrainGrid>,
     pub water: Vec<PackWater>,
     pub colliders: Vec<PackCollider>,
-    /// Moving geometry (swinging staircases, gates): kept out of the static
-    /// world; the rules place it per tick (Phase 5).
+    /// Moving geometry the export found outside any rule: kept out of the
+    /// static world.
     pub dynamic: Vec<DynamicCollider>,
     /// Polygons creatures path on (empty until baked).
     pub nav: NavMesh,
+    /// Where each moving staircase stands (its spec is in the content).
+    pub staircases: Vec<StairAnchor>,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub struct StairAnchor {
+    /// Entry of the content's `staircases` list.
+    pub spec_index: u32,
+    pub id: u32,
+    pub translation: [f32; 3],
+    /// Yaw about +Y, radians.
+    pub yaw: f32,
 }
 
 /// Heights in 1/256 m, row by row along +Z, `cols` samples per row.

@@ -403,7 +403,10 @@ fn move_and_slide(body: &mut Body, world: &World, cap: &Capsule) {
         if let Some(hit) = world.sweep(cap, body.center(), snap_motion)
             && is_floor_contact(world, body.center() + snap_motion * hit.fraction, &hit)
         {
-            body.pos += snap_motion * hit.fraction + hit.normal * SKIN;
+            // The skin gap is added straight up: along a slope's normal it
+            // would push a standing body a few millimetres downhill every
+            // tick, and it would creep down every ramp it stood on.
+            body.pos += snap_motion * hit.fraction + Vec3::new(0.0, SKIN, 0.0);
             body.on_floor = true;
             body.vel.y = 0.0;
         }

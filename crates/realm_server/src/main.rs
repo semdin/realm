@@ -113,6 +113,7 @@ fn serve(args: &[String]) -> AnyResult<()> {
     let pack = realm_data::maps::read_pack(&o.maps.join(format!("{}.realmmap", o.map)))?;
     let terrain = pack.world()?;
     let nav = realm_sim::nav::NavQuery::new(&pack.nav);
+    let stairs = realm_data::staircases(&content, &pack)?;
     let pub_bytes: [u8; 32] = std::fs::read(o.keys.join("ticket.pub"))?
         .try_into()
         .map_err(|_| "ticket.pub must be 32 bytes")?;
@@ -121,12 +122,21 @@ fn serve(args: &[String]) -> AnyResult<()> {
     let tls_key = std::fs::read(o.keys.join("tls.key.der"))?;
 
     let (tx, rx) = crossbeam_channel::unbounded();
-    let mut sim = Sim::new(game, terrain, nav, content_hash, o.dev_spawn_near_packs);
+    let staircase_count = stairs.flights.len();
+    let mut sim = Sim::new(
+        game,
+        terrain,
+        nav,
+        stairs,
+        content_hash,
+        o.dev_spawn_near_packs,
+    );
     println!(
-        "[server] map {} ({} colliders, {} nav polygons), content {}..., {} creatures, listening on {}{}",
+        "[server] map {} ({} colliders, {} nav polygons, {} staircases), content {}..., {} creatures, listening on {}{}",
         o.map,
         pack.colliders.len(),
         pack.nav.polygons.len(),
+        staircase_count,
         &hash_hex[..12],
         sim.creature_count(),
         o.bind,

@@ -65,6 +65,9 @@ pub struct GroundHit {
 #[derive(Clone, Default)]
 pub struct World {
     colliders: Vec<Collider>,
+    /// Colliders a rule moves or switches (staircases); replaced every tick,
+    /// always tested after the static ones.
+    moving: Vec<Collider>,
     grid: HashMap<(i32, i32), Vec<u32>>,
     terrain: Vec<Terrain>,
     water: Vec<WaterArea>,
@@ -102,6 +105,19 @@ impl World {
             }
         }
         self.colliders.push(Collider { pose, shape, aabb });
+    }
+
+    /// Replaces the moving colliders (call once per tick, before bodies move).
+    pub fn set_moving(&mut self, colliders: &[(Pose, SharedShape)]) {
+        self.moving.clear();
+        for (pose, shape) in colliders {
+            let aabb = shape.compute_aabb(pose);
+            self.moving.push(Collider {
+                pose: *pose,
+                shape: shape.clone(),
+                aabb,
+            });
+        }
     }
 
     /// An axis-aligned box from its centre and half extents.
@@ -230,6 +246,17 @@ impl World {
             .map(|w| w.surface_y)
     }
 
+    /// The collider with this candidate index: static ones first, then the
+    /// moving ones numbered after them.
+    fn collider(&self, index: u32) -> &Collider {
+        let i = index as usize;
+        if i < self.colliders.len() {
+            &self.colliders[i]
+        } else {
+            &self.moving[i - self.colliders.len()]
+        }
+    }
+
     /// Indices of colliders whose bounds may overlap `bounds`, ascending.
     fn candidates(&self, bounds: &Aabb) -> Vec<u32> {
         let mut out = Vec::new();
@@ -246,6 +273,14 @@ impl World {
         }
         out.sort_unstable();
         out.dedup();
+        let base = self.colliders.len() as u32;
+        out.extend(
+            self.moving
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| overlaps(bounds, &c.aabb))
+                .map(|(i, _)| base + i as u32),
+        );
         out
     }
 
@@ -266,7 +301,7 @@ impl World {
         };
         let mut best: Option<SweepHit> = None;
         for index in self.candidates(&swept) {
-            let collider = &self.colliders[index as usize];
+            let collider = self.collider(index);
             let Ok(Some(hit)) = query::cast_shapes(
                 &pose,
                 motion,
@@ -301,7 +336,7 @@ impl World {
         let mut push = Vec3::ZERO;
         let mut deepest = 0.0_f32;
         for index in self.candidates(&bounds) {
-            let collider = &self.colliders[index as usize];
+            let collider = self.collider(index);
             if let Ok(Some(contact)) =
                 query::contact(&pose, capsule, &collider.pose, collider.shape.as_ref(), 0.0)
                 && contact.dist < deepest
@@ -335,6 +370,27 @@ impl World {
                 || origin.y < b.mins.y
                 || origin.y - max_distance > b.maxs.y
             {
+                continue;
+            }
+            if let Some(hit) =
+                collider
+                    .shape
+                    .cast_ray_and_get_normal(&collider.pose, &ray, max_distance, true)
+                && best.is_none_or(|(toi, _)| hit.time_of_impact < toi)
+            {
+                best = Some((hit.time_of_impact, hit.normal));
+            }
+        }
+        for collider in &self.moving {
+            let b = &collider.aabb;
+            if origin.x < b.mins.x
+                || origin.x > b.maxs.x
+                || origin.z < b.mins.z
+                || origin.z > b.maxs.z
+            {
+                continue;
+            }
+            if origin.y < b.mins.y || origin.y - max_distance > b.maxs.y {
                 continue;
             }
             if let Some(hit) =

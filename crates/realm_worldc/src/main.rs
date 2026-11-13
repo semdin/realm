@@ -27,7 +27,7 @@ use realm_sim::nav::NavQuery;
 use realm_sim::pack::v3;
 use realm_sim::pack::{
     DynamicCollider, HOLE, MapPack, NavMesh, PACK_VERSION, PackCollider, PackShape, PackWater,
-    TerrainGrid,
+    StairAnchor, TerrainGrid,
 };
 use realm_sim::world::basis_rotation;
 use realm_sim::{Vec3, WIRE_GRID};
@@ -314,6 +314,27 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
         let flight = info["flight_allowed"].as_bool().unwrap_or(false);
         let y_max = info["y_max"].as_f64().unwrap_or(1000.0) as f32;
         let y_min = info["y_min"].as_f64().unwrap_or(-1000.0) as f32;
+        let mut staircases = Vec::new();
+        for anchor in doc["staircases"].as_array().into_iter().flatten() {
+            let x: Vec<f32> = anchor["xform"]
+                .as_array()
+                .ok_or("staircase xform")?
+                .iter()
+                .map(f)
+                .collect::<Result<_, _>>()?;
+            // Yaw-only anchors: the basis x column is (cos, 0, -sin).
+            if x.len() != 12 || x[4] < 0.999 {
+                return Err(format!("{map}: staircase anchor is not upright"));
+            }
+            staircases.push(StairAnchor {
+                spec_index: anchor["spec_index"]
+                    .as_u64()
+                    .ok_or("staircase spec_index")? as u32,
+                id: anchor["id"].as_u64().ok_or("staircase id")? as u32,
+                translation: [x[9], x[10], x[11]],
+                yaw: (-x[2]).atan2(x[0]),
+            });
+        }
         let mut pack = MapPack {
             version: PACK_VERSION,
             map: map.clone(),
@@ -326,6 +347,7 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
             colliders,
             dynamic,
             nav: NavMesh::default(),
+            staircases,
         };
         pack.world().map_err(|e| format!("{map}: {e}"))?;
         let started = Instant::now();
@@ -428,12 +450,23 @@ fn check_nav(map: &str, pack: &MapPack, problems: &mut Vec<String>) {
 
 fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
     let infos = map_infos(content_dir)?;
+    let content = Content::load(content_dir)?;
     let mut problems = Vec::new();
     let params = MoveParams::default();
     for (map, info) in &infos {
         let path: PathBuf = maps_dir.join(format!("{map}.realmmap"));
         let pack = read_pack(&path)?;
-        let world = pack.world().map_err(|e| format!("{map}: {e}"))?;
+        let mut world = pack.world().map_err(|e| format!("{map}: {e}"))?;
+        // Moving staircases run as in the game: placed every tick, carrying
+        // bodies on their decks.
+        let mut stairs = realm_data::staircases(&content, &pack)?;
+        let mut tick = 0_u32;
+        let mut step = |body: &mut Body, input: MoveInput, world: &mut realm_sim::world::World| {
+            tick += 1;
+            stairs.apply(world, tick);
+            stairs.carry(body, tick);
+            movement::step(body, input, &params, world);
+        };
         let y_min = info["y_min"].as_f64().unwrap_or(-1e6) as f32;
         let y_max = info["y_max"].as_f64().unwrap_or(1e6) as f32;
         let spawns: Vec<(String, Vec3)> = info["spawn_points"]
@@ -451,7 +484,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         for (name, spawn) in &spawns {
             let mut body = Body::at(*spawn + Vec3::new(0.0, 0.5, 0.0));
             for _ in 0..60 {
-                movement::step(&mut body, MoveInput::default(), &params, &world);
+                step(&mut body, MoveInput::default(), &mut world);
             }
             if !body.on_floor {
                 problems.push(format!(
@@ -470,7 +503,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
                     buttons: 0,
                 };
                 for _ in 0..90 {
-                    movement::step(&mut walker, input, &params, &world);
+                    step(&mut walker, input, &mut world);
                 }
                 if walker.pos.y < y_min || walker.pos.y > y_max {
                     problems.push(format!(
@@ -482,8 +515,9 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
             }
         }
         println!(
-            "check {map:<24} {:>5} colliders, {} spawn points, {rested} came to rest and walked four ways",
+            "check {map:<24} {:>5} colliders, {} staircases, {} spawn points, {rested} came to rest and walked four ways",
             world.collider_count(),
+            pack.staircases.len(),
             spawns.len()
         );
         check_nav(map, &pack, &mut problems);

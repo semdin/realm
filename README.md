@@ -7,7 +7,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 
 | Path | What it is |
 | --- | --- |
-| `crates/realm_sim` | Game rules (fixed 30 Hz step): movement (walk, jump, stairs, slopes, swimming, broom) over a collision world. Bit-identical on every platform. No Godot types. |
+| `crates/realm_sim` | Game rules (fixed 30 Hz step): movement (walk, jump, stairs, slopes, swimming, broom) over a collision world, navigation queries, the castle's moving staircases (a pure function of the tick). Bit-identical on every platform. No Godot types. |
 | `crates/realm_proto` | Wire format: bit packing, input batches, snapshots (owner's body lossless, other entities delta-coded). |
 | `crates/realm_data` | Content loading, rename map, typed ids and cross-reference checks, content hash. |
 | `crates/realm_content` | `import` (old game data -> `content/data` through the rename map) and `check`. |

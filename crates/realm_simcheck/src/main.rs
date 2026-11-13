@@ -19,6 +19,7 @@ use realm_proto::EntitySet;
 use realm_proto::{EntityState, InputBatch, InputFrame, Snapshot};
 use realm_sim::input::MoveInput;
 use realm_sim::movement::{self, Body, MoveParams};
+use realm_sim::staircase::{Dock, Flight, Staircase, StaircaseSpec, Staircases, Timing};
 use realm_sim::world::{WaterArea, World};
 use realm_sim::{SIM_HZ, Vec3};
 
@@ -281,7 +282,7 @@ fn main() {
         .position(|a| a == "--trace")
         .and_then(|i| args.get(i + 1))
         .cloned();
-    let world = test_world();
+    let mut world = test_world();
     if args.iter().any(|a| a == "--bench") {
         bench(&world);
         return;
@@ -338,10 +339,82 @@ fn main() {
             print.0
         );
     }
+    let (ride, ride_hash) = stair_ride(&mut world, &params);
+    all.bytes(&ride_hash.to_le_bytes());
+    println!("{ride}");
     let crowd = crowd_bandwidth();
     all.bytes(crowd.as_bytes());
     println!("{crowd}");
     println!("all={:016x}", all.0);
+}
+
+/// A body standing mid-deck on a castle-style swinging flight through one
+/// whole cycle (dwell, warning, swing, docking): it must be carried round
+/// and end on the deck at the other dock.
+fn stair_ride(world: &mut World, params: &MoveParams) -> (String, u64) {
+    let dock = |bottom: [f32; 3], yaw: f32| Dock {
+        id: String::new(),
+        bottom,
+        yaw,
+        bottom_landing: bottom,
+        top_landing: bottom,
+        gates: vec!["top".to_owned()],
+    };
+    let spec = StaircaseSpec {
+        id: 1,
+        map_id: "test".to_owned(),
+        origin: [0.0; 3],
+        pivot: Some([0.0, -6.0]),
+        flight: Flight {
+            rise: 10.0,
+            run: 30.0,
+            width: 5.0,
+        },
+        timing: Timing {
+            dwell_ms: 12_000,
+            warning_ms: 2_000,
+            moving_ms: 6_000,
+            docking_ms: 1_500,
+        },
+        start_delay_ms: 0,
+        docks: vec![
+            dock([-3.0, 0.0, 9.0], 180.0),
+            dock([-15.0, 0.0, -9.0], 90.0),
+        ],
+    };
+    let mut stairs = Staircases::new(vec![Staircase::new(
+        spec,
+        Vec3::new(-60.0, 0.0, -60.0),
+        0.0,
+    )]);
+    let start = stairs.flights[0].deck_point(0.0, Vec3::new(0.0, 5.2, 15.0));
+    let mut body = Body::at(start);
+    let mut print = Fingerprint::new();
+    let ticks = 750_u32;
+    for tick in 1..=ticks {
+        stairs.apply(world, tick);
+        stairs.carry(&mut body, tick);
+        movement::step(&mut body, MoveInput::default(), params, world);
+        wire_round_trip(&body, MoveInput::default(), tick);
+        print.body(&body);
+    }
+    let on_deck = stairs.flights[0].on_deck(f64::from(ticks), body.pos);
+    world.set_moving(&[]);
+    assert!(
+        on_deck && body.on_floor,
+        "stair_ride: the body fell off the deck: {body:?}"
+    );
+    let line = format!(
+        "{:<13} ticks={ticks:4} end=({:9.4},{:8.4},{:9.4}) floor={} on_deck={} hash={:016x}",
+        "stair_ride",
+        body.pos.x,
+        body.pos.y,
+        body.pos.z,
+        u8::from(body.on_floor),
+        u8::from(on_deck),
+        print.0
+    );
+    (line, print.0)
 }
 
 /// `--bench`: cost of one movement step per scenario (not part of the

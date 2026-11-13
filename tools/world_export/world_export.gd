@@ -8,10 +8,12 @@ extends SceneTree
 ##   godot --headless --path ../server/world -s <abs>/world_export.gd -- --out <abs dir>
 ##
 ## Per map it writes <map>.json (shapes, transforms, terrain grids, water,
-## triggers) and <map>.bin (the large float arrays the JSON points into).
-## Only bodies on a layer the player collides with are taken (the player's
-## mask); moving ones (AnimatableBody3D: the castle's swinging staircases,
-## dungeon gates) are marked dynamic. Nothing in the old project changes.
+## triggers, staircase anchors) and <map>.bin (the large float arrays the
+## JSON points into). Only bodies on a layer the player collides with are
+## taken (the player's mask). Bodies a rule moves or switches (the castle's
+## staircase decks and landing gates) are left out: the staircase rule in
+## realm_sim rebuilds them from the anchors. Nothing in the old project
+## changes.
 
 const PLAYER_MASK := 39
 ## Loaded at run time: naming the old project's global classes here would
@@ -104,7 +106,8 @@ func _offset(map_id: String) -> Vector3:
 
 func _map_entry(map_id: String) -> Dictionary:
 	if not _maps.has(map_id):
-		_maps[map_id] = {"colliders": [], "terrain": [], "water": [], "triggers": [], "blob": PackedByteArray(), "skipped": {}}
+		_maps[map_id] = {"colliders": [], "terrain": [], "water": [], "triggers": [], "staircases": [],
+			"blob": PackedByteArray(), "skipped": {}, "ruled": {}}
 	return _maps[map_id]
 
 func _blob(map_id: String, floats: PackedFloat32Array) -> Dictionary:
@@ -127,7 +130,13 @@ func _export() -> void:
 		var is_area := body is Area3D
 		if not is_area and (body.collision_layer & PLAYER_MASK) == 0:
 			continue
-		var kind := "trigger" if is_area else ("dynamic" if body is AnimatableBody3D else "static")
+		# Bodies a rule moves or switches (staircase decks and the gates that
+		# close a landing while its flight is away) are rebuilt by the rule from
+		# the staircase anchors below, never baked as scenery.
+		if body is AnimatableBody3D or String(body.name).begins_with("TongueGate"):
+			_map_entry(_map_of(body.global_position)).ruled[String(body.name).left(10)] = true
+			continue
+		var kind := "trigger" if is_area else "static"
 		for owner_id in body.get_shape_owners():
 			if body.is_shape_owner_disabled(owner_id):
 				continue
@@ -138,6 +147,7 @@ func _export() -> void:
 				bodies += 1
 	_export_terrain()
 	_export_water()
+	_export_staircases()
 	for map_id in _maps:
 		_write(String(map_id))
 	print("world_export: %d shapes over %d maps -> %s" % [bodies, _maps.size(), _out])
@@ -219,6 +229,18 @@ func _export_terrain() -> void:
 			"cols": cols, "rows": rows, "heights": _blob(map_id, heights)})
 		print("world_export: Terrain3D %dx%d samples from (%.0f, %.0f) at %.2f m" % [cols, rows, x0, z0, spacing])
 
+## Where each moving staircase stands: its catalog entry (`spec_index`) and
+## the transform its flight poses are relative to.
+func _export_staircases() -> void:
+	for node in root.find_children("*", "Node3D", true, false):
+		if not node.has_method("platform_transform_at"):
+			continue
+		var xform: Transform3D = node.global_transform
+		var map_id := _map_of(xform.origin)
+		var local := Transform3D(xform.basis, xform.origin - _offset(map_id))
+		_map_entry(map_id).staircases.append({"spec_index": int(node.get("spec_index")),
+			"id": int(node.get("object_id")), "xform": _xform(local)})
+
 ## The grounds lake: water wherever the terrain lies deeper than SWIM_DEPTH
 ## under the water line inside DEPTH_RECT (GroundsLake.is_water_at).
 func _export_water() -> void:
@@ -231,7 +253,8 @@ func _write(map_id: String) -> void:
 	var entry: Dictionary = _maps[map_id]
 	var doc := {
 		"map": map_id, "colliders": entry.colliders, "terrain": entry.terrain, "water": entry.water,
-		"triggers": entry.triggers, "skipped": entry.skipped.keys(),
+		"triggers": entry.triggers, "staircases": entry.staircases, "skipped": entry.skipped.keys(),
+		"ruled": entry.ruled.keys(),
 		"source": "old game server world, exported %s" % Time.get_datetime_string_from_system(true),
 	}
 	var json := FileAccess.open(_out.path_join(map_id + ".json"), FileAccess.WRITE)
@@ -240,6 +263,6 @@ func _write(map_id: String) -> void:
 	var bin := FileAccess.open(_out.path_join(map_id + ".bin"), FileAccess.WRITE)
 	bin.store_buffer(entry.blob)
 	bin.close()
-	print("world_export: %s: %d colliders, %d terrain grids, %d triggers, %.1f MB data, skipped %s" % [
-		map_id, entry.colliders.size(), entry.terrain.size(), entry.triggers.size(),
-		entry.blob.size() / 1048576.0, entry.skipped.keys().slice(0, 5)])
+	print("world_export: %s: %d colliders, %d terrain grids, %d triggers, %d staircases, %.1f MB data, skipped %s, ruled %s" % [
+		map_id, entry.colliders.size(), entry.terrain.size(), entry.triggers.size(), entry.staircases.size(),
+		entry.blob.size() / 1048576.0, entry.skipped.keys().slice(0, 5), entry.ruled.keys()])

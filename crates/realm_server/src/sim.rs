@@ -20,6 +20,7 @@ use realm_proto::ticket::Ticket;
 use realm_proto::{EntitySet, EntityState, InputBatch, InputFrame, JoinReply, Snapshot};
 use realm_sim::movement::{self, Body, MoveParams};
 use realm_sim::nav::{NavQuery, NavScratch};
+use realm_sim::staircase::Staircases;
 use realm_sim::world::World as Terrain;
 use realm_sim::{SIM_DT, Vec3};
 
@@ -233,6 +234,7 @@ pub struct Sim {
     awake: Vec<bool>,
     nav: NavQuery,
     nav_scratch: NavScratch,
+    stairs: Staircases,
     dev_spawn_near_packs: bool,
     pub stats: Stats,
     params: MoveParams,
@@ -314,6 +316,7 @@ impl Sim {
         game: Game,
         terrain: Terrain,
         nav: NavQuery,
+        stairs: Staircases,
         content_hash: [u8; 32],
         dev_spawn_near_packs: bool,
     ) -> Self {
@@ -334,6 +337,7 @@ impl Sim {
             awake: vec![false; GRID_DIM * GRID_DIM],
             nav,
             nav_scratch: NavScratch::default(),
+            stairs,
             dev_spawn_near_packs,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -507,20 +511,30 @@ impl Sim {
         }
     }
 
+    /// Where a joining player appears. A map spawn point is authored with
+    /// its height: the ground is looked for just under it, so indoors the body
+    /// lands on the floor, not on the roof above it. Next to a creature pack
+    /// (outdoors) the highest surface is the ground.
     fn spawn_point_for(&self, character: u64) -> Vec3 {
-        let (x, z) = if self.dev_spawn_near_packs && !self.game.packs.is_empty() {
+        if self.dev_spawn_near_packs && !self.game.packs.is_empty() {
             let pack =
                 &self.game.packs[(character as usize).wrapping_mul(7919) % self.game.packs.len()];
-            (pack.center.0 + 14.0, pack.center.1)
-        } else {
-            (self.game.spawn_point.x, self.game.spawn_point.z)
-        };
-        Vec3::new(x, self.ground(x, z) + 0.05, z)
+            let (x, z) = (pack.center.0 + 14.0, pack.center.1);
+            return Vec3::new(x, self.ground(x, z) + 0.05, z);
+        }
+        let spawn = self.game.spawn_point;
+        let floor = self
+            .terrain
+            .ray_down(spawn + Vec3::new(0.0, 1.5, 0.0), 6.0)
+            .map_or(spawn.y, |hit| hit.point.y);
+        Vec3::new(spawn.x, floor + 0.05, spawn.z)
     }
 
     /// Moves every player by its next input and starts its actions.
     fn players(&mut self) {
         let tick = self.tick;
+        // Moving staircases take their pose for this tick before anyone moves.
+        self.stairs.apply(&mut self.terrain, tick);
         let mut casts: Vec<(Entity, u32)> = Vec::new();
         let mut query = self.world.query::<(Entity, &mut Player)>();
         for (entity, mut player) in query.iter_mut(&mut self.world) {
@@ -564,6 +578,7 @@ impl Sim {
                     }
                 };
                 let mut body = player.body;
+                self.stairs.carry(&mut body, tick);
                 movement::step(&mut body, frame.movement, &self.params, &self.terrain);
                 player.body = body;
                 if body.pos.y < self.game.y_min {
