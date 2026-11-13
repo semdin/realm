@@ -24,6 +24,12 @@ var session: Node
 var player: Node3D
 ## Other players' heroes by entity id.
 var heroes := {}
+## Creatures with a model by entity id (CreatureView); species without one yet
+## are drawn as capsules.
+var beasts := {}
+## Kinds whose species has no model in this client yet.
+var no_model := {}
+const CreatureViewScript := "res://scripts/view/creature_view.gd"
 var house_color := Color(0.85, 0.4, 0.11)
 var crowd: MultiMeshInstance3D
 var camera: Camera3D
@@ -184,6 +190,8 @@ func _process(delta: float) -> void:
 	var ids: PackedInt32Array = others["ids"]
 	var positions: PackedVector3Array = others["positions"]
 	var kinds: PackedInt32Array = others["kinds"]
+	var yaws: PackedFloat32Array = others["yaws"]
+	var states: PackedInt32Array = others["states"]
 	var seen := {}
 	var creatures := 0
 	crowd.multimesh.instance_count = positions.size()
@@ -194,19 +202,34 @@ func _process(delta: float) -> void:
 				heroes[ids[i]] = _new_hero()
 			heroes[ids[i]].drive_remote(positions[i], delta)
 			continue
+		if not no_model.has(kinds[i]):
+			seen[ids[i]] = true
+			if not beasts.has(ids[i]):
+				var beast: Node3D = load(CreatureViewScript).new()
+				add_child(beast)
+				if beast.setup(kinds[i]):
+					beasts[ids[i]] = beast
+				else:
+					beast.queue_free()
+					no_model[kinds[i]] = true
+			if beasts.has(ids[i]):
+				beasts[ids[i]].drive(positions[i], yaws[i], states[i], delta)
+				continue
 		crowd.multimesh.set_instance_transform(creatures, Transform3D(Basis(), positions[i] + Vector3(0, 0.925, 0)))
 		crowd.multimesh.set_instance_color(creatures, KIND_COLORS[kinds[i] % KIND_COLORS.size()])
 		creatures += 1
 	crowd.multimesh.visible_instance_count = creatures
-	for id in heroes.keys():
-		if not seen.has(id):
-			heroes[id].queue_free()
-			heroes.erase(id)
+	for table: Dictionary in [heroes, beasts]:
+		for id in table.keys():
+			if not seen.has(id):
+				table[id].queue_free()
+				table.erase(id)
 
 	var stats: Dictionary = session.stats()
-	hud.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)\n%s  %d others in view" % [
+	hud.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d\n%s  %d others in view" % [
 		Engine.get_frames_per_second(), stats.get("tick", 0), stats.get("hp", 0), stats.get("snapshots", 0),
-		stats.get("corrections", 0), stats.get("max_correction", 0.0), str(me.snapped(Vector3(0.1, 0.1, 0.1))),
+		stats.get("corrections", 0), stats.get("max_correction", 0.0), stats.get("server_moves", 0),
+		str(me.snapped(Vector3(0.1, 0.1, 0.1))),
 		positions.size()]
 	if player.anim != null:
 		hud.text += "  pose %s" % player.anim.current_clip

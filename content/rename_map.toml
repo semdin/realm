@@ -42,6 +42,7 @@ fluffy_head = "threehead_head"
 dementor = "pallid"
 
 [item]
+wand_elder = "wand_ithrel_replica"
 robe_auror = "robe_wardens_battle_cloak"
 broom_nimbus2000 = "broom_windcutter_2000"
 broom_firebolt = "broom_skysplitter"
@@ -85,6 +86,10 @@ mana_per_second_slytherin = "mana_per_second_nisera"
 dementor_kiss = "pallid_drain"
 
 [token]
+inferius_warden = "drowned_warden"
+inferius = "drowned_one"
+cornish_pixie = "fidgetling"
+devils_snare = "strangling_vine"
 great_hall = "feast_hall"
 acromantula_venomfang = "venomfang_weaver"
 acromantula_broodguard = "broodguard"
@@ -116,7 +121,7 @@ slytherin = "nisera"
 ravenclaw = "ilvane"
 hufflepuff = "torvan"
 
-# Player-visible phrases. Great Hall -> Feast Hall proposed 2026-11-13, pending the user's word.
+# Player-visible phrases. Great Hall -> Feast Hall approved 2026-11-13.
 [text]
 "The Great Hall" = "The Feast Hall"
 "Great Hall" = "Feast Hall"

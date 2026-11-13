@@ -169,8 +169,8 @@ fn main() -> AnyResult<()> {
     };
     let s = core.stats;
     println!(
-        "[netcheck] {} snapshots, {} decode errors, {} corrections (max {:.3} m), {} inputs replayed, {deaths} deaths",
-        s.snapshots, s.decode_errors, s.corrections, s.max_correction, s.replayed
+        "[netcheck] {} snapshots, {} decode errors, {} corrections (max {:.3} m), {} inputs replayed, {deaths} deaths, {} server moves (death/respawn)",
+        s.snapshots, s.decode_errors, s.corrections, s.max_correction, s.replayed, s.server_moves
     );
     if s.corrections > 0 || s.decode_errors > 0 || s.snapshots < seconds * 10 {
         return Err("the player was corrected, or snapshots went missing".into());

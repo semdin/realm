@@ -21,8 +21,8 @@
       "main_hand"
     ]
   },
-  "wand_elder": {
-    "id": "wand_elder",
+  "wand_ithrel_replica": {
+    "id": "wand_ithrel_replica",
     "name": "Ithrel Wand Replica",
     "type": "weapon",
     "desc": "15-inch starwood with night steed hair core. Unlocks immense raw destructive power.",

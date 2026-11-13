@@ -42,6 +42,9 @@ pub struct ClientStats {
     pub max_correction: f32,
     /// Inputs replayed after reconciliations.
     pub replayed: u64,
+    /// Reconciliations the server caused on purpose: the body stopping at a
+    /// death and moving to the respawn point. Not prediction errors.
+    pub server_moves: u64,
 }
 
 /// A remote entity as it should be drawn now.
@@ -74,6 +77,9 @@ pub struct ClientCore {
     /// Server tick estimate as `local_ticks + offset` (see `server_tick_at`).
     clock_offset: Option<f64>,
     own_hp: u8,
+    /// The newest snapshot said the player is dead: like the server, the
+    /// body then ignores its inputs until the respawn.
+    dead: bool,
     pub stats: ClientStats,
 }
 
@@ -98,6 +104,7 @@ impl ClientCore {
             confirmed: 0,
             clock_offset: None,
             own_hp: 255,
+            dead: false,
             stats: ClientStats::default(),
         }
     }
@@ -141,7 +148,12 @@ impl ClientCore {
         params: &MoveParams,
         body: &mut Body,
         frame: &InputFrame,
+        dead: bool,
     ) {
+        if dead {
+            // The server consumes a dead player's inputs without moving it.
+            return;
+        }
         if !stairs.flights.is_empty() {
             stairs.apply(world, frame.tick);
         }
@@ -169,6 +181,7 @@ impl ClientCore {
                     &self.params,
                     body,
                     &frame,
+                    self.dead,
                 );
                 *body
             }
@@ -223,7 +236,16 @@ impl ClientCore {
             self.acked = snapshot.tick;
         }
         self.own_hp = snapshot.own_hp;
-        self.reconcile(&snapshot);
+        let was_dead = self.dead;
+        if !self
+            .snapshots
+            .back()
+            .is_some_and(|(t, _)| *t > snapshot.tick)
+        {
+            // Only the newest snapshot says whether the player is dead now.
+            self.dead = snapshot.own_hp == 0;
+        }
+        self.reconcile(&snapshot, was_dead != self.dead);
         let pos = self.snapshots.partition_point(|(t, _)| *t < snapshot.tick);
         if self
             .snapshots
@@ -240,7 +262,9 @@ impl ClientCore {
 
     /// The server ran inputs up to `last_input_seq` and its body is
     /// `snapshot.own`: rewind to it and replay the inputs it has not seen.
-    fn reconcile(&mut self, snapshot: &Snapshot) {
+    /// `life_changed`: this snapshot is the first to show a death or a
+    /// respawn, so a difference is the server's doing, not a misprediction.
+    fn reconcile(&mut self, snapshot: &Snapshot, life_changed: bool) {
         let confirmed = snapshot.last_input_seq;
         // A snapshot that arrives after a newer one (reordered on the way)
         // confirms nothing new.
@@ -267,6 +291,7 @@ impl ClientCore {
                     &self.params,
                     &mut body,
                     &p.frame,
+                    self.dead,
                 );
                 p.after = body;
             }
@@ -285,12 +310,15 @@ impl ClientCore {
                 &self.params,
                 &mut body,
                 &p.frame,
+                self.dead,
             );
             p.after = body;
             self.stats.replayed += 1;
         }
         let moved = (body.pos - current.pos).length();
-        if predicted.is_some() {
+        if life_changed {
+            self.stats.server_moves += 1;
+        } else if predicted.is_some() {
             self.stats.corrections += 1;
             self.stats.max_correction = self.stats.max_correction.max(moved);
         }

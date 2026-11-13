@@ -306,11 +306,11 @@
       },
       "displace_resist": 0.3
     },
-    "cornish_pixie": {
+    "fidgetling": {
       "display": "Fidgetling",
       "family": "pixie",
       "role": "swarm",
-      "scene": "res://scenes/entities/mobs/mob_cornish_pixie.tscn",
+      "scene": "res://scenes/entities/mobs/mob_fidgetling.tscn",
       "base": {
         "max_hp": 260,
         "attack_power": 40,
@@ -401,11 +401,11 @@
       "front_guard": 0.8,
       "displace_resist": 0.7
     },
-    "devils_snare": {
+    "strangling_vine": {
       "display": "Strangling Vine",
       "family": "snare",
       "role": "boss",
-      "scene": "res://scenes/entities/mobs/mob_devils_snare.tscn",
+      "scene": "res://scenes/entities/mobs/mob_strangling_vine.tscn",
       "base": {
         "max_hp": 4000,
         "attack_power": 90,

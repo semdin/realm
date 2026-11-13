@@ -245,7 +245,8 @@ pub struct Sim {
     nav: NavQuery,
     nav_scratch: NavScratch,
     stairs: Staircases,
-    dev_spawn_near_packs: bool,
+    /// Development: players spawn next to one of these packs (indices).
+    dev_spawn_packs: Vec<usize>,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -328,8 +329,22 @@ impl Sim {
         nav: NavQuery,
         stairs: Staircases,
         content_hash: [u8; 32],
-        dev_spawn_near_packs: bool,
-    ) -> Self {
+        dev_spawn_near: Option<&str>,
+    ) -> Result<Self, String> {
+        let dev_spawn_packs: Vec<usize> = match dev_spawn_near {
+            None => Vec::new(),
+            Some(species) => {
+                let packs: Vec<usize> = (0..game.packs.len())
+                    .filter(|&i| {
+                        species.is_empty() || game.species[game.packs[i].species].id == species
+                    })
+                    .collect();
+                if packs.is_empty() {
+                    return Err(format!("no {species} packs on this map"));
+                }
+                packs
+            }
+        };
         let mut sim = Self {
             tick: 1,
             world: World::new(),
@@ -348,12 +363,12 @@ impl Sim {
             nav,
             nav_scratch: NavScratch::default(),
             stairs,
-            dev_spawn_near_packs,
+            dev_spawn_packs,
             stats: Stats::default(),
             params: MoveParams::default(),
         };
         sim.spawn_creatures();
-        sim
+        Ok(sim)
     }
 
     pub fn creature_count(&self) -> usize {
@@ -528,9 +543,9 @@ impl Sim {
     /// lands on the floor, not on the roof above it. Next to a creature pack
     /// (outdoors) the highest surface is the ground.
     fn spawn_point_for(&self, character: u64) -> Vec3 {
-        if self.dev_spawn_near_packs && !self.game.packs.is_empty() {
-            let pack =
-                &self.game.packs[(character as usize).wrapping_mul(7919) % self.game.packs.len()];
+        if !self.dev_spawn_packs.is_empty() {
+            let pick = (character as usize).wrapping_mul(7919) % self.dev_spawn_packs.len();
+            let pack = &self.game.packs[self.dev_spawn_packs[pick]];
             let (x, z) = (pack.center.0 + 14.0, pack.center.1);
             return Vec3::new(x, self.ground(x, z) + 0.05, z);
         }

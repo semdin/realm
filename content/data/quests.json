@@ -1441,7 +1441,7 @@
       "desc": "Enter the Sealed Wing from the castle. The fidgetlings swarm and lift you off your feet.",
       "giver": "Archivist Emrel Sav",
       "type": "kill",
-      "target": "cornish_pixie",
+      "target": "fidgetling",
       "count": 8,
       "requires": [
         "q061"
@@ -1496,7 +1496,7 @@
       "desc": "Fire is the answer. Burn the vines, then the root.",
       "giver": "Archivist Emrel Sav",
       "type": "kill",
-      "target": "devils_snare",
+      "target": "strangling_vine",
       "count": 1,
       "boss": true,
       "reward_exp": 139145,
@@ -1518,7 +1518,7 @@
       "desc": "The fidgetlings on the stairs beyond the snare are worse than the first lot.",
       "giver": "Archivist Emrel Sav",
       "type": "kill",
-      "target": "cornish_pixie",
+      "target": "fidgetling",
       "count": 10,
       "reward_exp": 77303,
       "reward_gold": 1605,

@@ -1,0 +1,218 @@
+{
+  "_about": "How each creature is drawn (the client's CreatureView): its model and scale, the clip set its animations follow (anim_set), the ground speeds its walk and run cycles were authored at (0 = play at 1x), a hover height for fliers, the boss variant's model, and the name label height. Presentation only; the server never reads it.",
+  "black_weaver": {
+    "anim_set": "spider",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/black_weaver.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/boss_matriarch.glb",
+    "boss_scale": 1.0,
+    "label_height": 2.1
+  },
+  "broodguard": {
+    "anim_set": "spider",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/broodguard.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/broodguard.glb",
+    "boss_scale": 1.2,
+    "label_height": 3.2
+  },
+  "venomfang_weaver": {
+    "anim_set": "spider",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/venomfang_weaver.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/venomfang_weaver.glb",
+    "boss_scale": 1.25,
+    "label_height": 2.4
+  },
+  "armour_commander": {
+    "anim_set": "knight",
+    "walk_speed": 0.706,
+    "run_speed": 8.02,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/armour_commander.glb",
+    "scale": 1.0,
+    "label_height": 3.7
+  },
+  "armour_guard": {
+    "anim_set": "knight",
+    "walk_speed": 0.539,
+    "run_speed": 6.12,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/armour_guard.glb",
+    "scale": 1.0,
+    "label_height": 2.9
+  },
+  "fidgetling": {
+    "anim_set": "pixie",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 1.1,
+    "model": "res://assets/models/monsters/fidgetling.glb",
+    "scale": 1.0,
+    "label_height": 2.3
+  },
+  "dark_bandit": {
+    "anim_set": "caster",
+    "walk_speed": 0.744,
+    "run_speed": 4.3,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/dark_bandit.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/boss_commander.glb",
+    "boss_scale": 1.0,
+    "label_height": 2.3
+  },
+  "pallid": {
+    "anim_set": "wraith",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/pallid.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/pallid_warden.glb",
+    "boss_scale": 1.0,
+    "label_height": 3.4
+  },
+  "strangling_vine": {
+    "anim_set": "snare",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/strangling_vine.glb",
+    "scale": 1.0,
+    "label_height": 5.2,
+    "rig": "snare_boss"
+  },
+  "egg_sac": {
+    "anim_set": "generic",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/caverns/cavern_eggs.glb",
+    "scale": 0.6,
+    "label_height": 1.9,
+    "rig": "web_object"
+  },
+  "threehead": {
+    "anim_set": "hound",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/threehead.glb",
+    "scale": 1.0,
+    "label_height": 8.4,
+    "rig": "threehead_boss"
+  },
+  "threehead_head": {
+    "anim_set": "generic",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "label_height": 1.9,
+    "rig": "boss_part"
+  },
+  "goblin_guard": {
+    "anim_set": "goblin",
+    "walk_speed": 0.572,
+    "run_speed": 2.383,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/goblin_guard.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/goblin_guard.glb",
+    "boss_scale": 1.2,
+    "label_height": 1.7
+  },
+  "goblin_hexer": {
+    "anim_set": "goblin_caster",
+    "walk_speed": 0.497,
+    "run_speed": 2.264,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/goblin_hexer.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/goblin_hexer.glb",
+    "boss_scale": 1.2,
+    "label_height": 1.6
+  },
+  "goblin_teller": {
+    "anim_set": "goblin",
+    "walk_speed": 0.382,
+    "run_speed": 2.272,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/goblin_teller.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/goblin_teller.glb",
+    "boss_scale": 1.2,
+    "label_height": 1.6
+  },
+  "drowned_one": {
+    "anim_set": "undead",
+    "walk_speed": 0.367,
+    "run_speed": 3.519,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/drowned_one.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/drowned_one.glb",
+    "boss_scale": 1.2,
+    "label_height": 2.3
+  },
+  "drowned_warden": {
+    "anim_set": "undead",
+    "walk_speed": 0.379,
+    "run_speed": 3.561,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/drowned_warden.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/drowned_warden.glb",
+    "boss_scale": 1.2,
+    "label_height": 2.3
+  },
+  "snare_vine": {
+    "anim_set": "generic",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "label_height": 1.3,
+    "rig": "boss_part"
+  },
+  "troll_forest": {
+    "anim_set": "troll",
+    "walk_speed": 0.898,
+    "run_speed": 10.2,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/troll_forest.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/troll_forest.glb",
+    "boss_scale": 1.2,
+    "label_height": 4.5
+  },
+  "troll_mountain": {
+    "anim_set": "troll",
+    "walk_speed": 1.123,
+    "run_speed": 12.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/monsters/troll_mountain.glb",
+    "scale": 1.0,
+    "boss_model": "res://assets/models/monsters/troll_mountain.glb",
+    "boss_scale": 1.25,
+    "label_height": 5.0
+  },
+  "web_cocoon": {
+    "anim_set": "generic",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
+    "hover_height": 0.0,
+    "model": "res://assets/models/caverns/cavern_cocoon.glb",
+    "scale": 2.4,
+    "label_height": 2.8,
+    "rig": "web_object"
+  }
+}

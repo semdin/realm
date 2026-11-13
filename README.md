@@ -10,7 +10,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_sim` | Game rules (fixed 30 Hz step): movement (walk, jump, stairs, slopes, swimming, broom) over a collision world, navigation queries, the castle's moving staircases (a pure function of the tick). Bit-identical on every platform. No Godot types. |
 | `crates/realm_proto` | Wire format: bit packing, input batches, snapshots (owner's body lossless, other entities delta-coded). |
 | `crates/realm_data` | Content loading, rename map, typed ids and cross-reference checks, content hash. |
-| `crates/realm_content` | `import` (old game data -> `content/data` through the rename map) and `check`. |
+| `crates/realm_content` | `import` (old game data -> `content/data` through the rename map), `check`, and `art` (copies art from the old client into `game/` with everything it references, renaming paths and the names inside models; fails on any franchise-derived word left). |
 | `crates/realm_simcheck` | Scripted movement on a fixed test world + wire round trips + crowd bandwidth; CI compares its output across platforms. |
 | `crates/realm_server` | Map server (one process per map and channel): QUIC join with signed tickets, 30 Hz ECS simulation (players, creatures with sleep and AI levels of detail, bolts), interest grid, prioritized delta snapshots; `keygen`, `serve`, `selfcheck`. Loads one compiled map pack; creatures follow navigation-mesh paths. |
 | `crates/realm_worldc` | World compiler: Godot export -> map packs (colliders, terrain, water, moving geometry, navigation mesh baked with rerecast); `check` walks bodies from every spawn point and tests paths. |
@@ -19,7 +19,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_client` | GDExtension the Godot client loads: `RealmSession` (joins, steps the 30 Hz prediction, reports own body, others, stats and the map as meshes). |
 | `crates/realm_netem` | UDP proxy that adds delay, jitter and loss in both directions. |
 | `crates/realm_netcheck` | One scripted player through `ClientCore`; fails on any correction (Phase 4 exit). |
-| `game/` | The new Godot client (Mobile renderer). Phase 4: programmer-art view (grey map, capsules) over `RealmSession`. |
+| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`); the map is still grey collision geometry until the scenes stream in (Phase 6). Art is in LFS. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
 | `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
@@ -36,7 +36,7 @@ cargo run -p realm_server -- selfcheck               # QUIC loopback: TLS, strea
 cargo run -p realm_perfgate -- perf/budgets.toml report.json [--report-only]
 cargo run --release -p realm_simcheck [-- --trace stairs | --bench]   # movement fingerprint / cost
 cargo run --release -p realm_server -- keygen keys            # dev ticket key + TLS cert (keys/ is gitignored)
-cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data
@@ -50,6 +50,15 @@ WASD, Space, Ctrl, right mouse drag, wheel):
 ```bash
 godot --path game -- --server 127.0.0.1:7777 --map grounds
 godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
+godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
+```
+
+Art lives in Git LFS on the game's own LFS server (`.lfsconfig`); a fresh
+clone needs `git lfs pull`, then `godot --headless --path game --import` once
+(also after adding a script with a new `class_name`). Moving more art over:
+
+```bash
+cargo run --release -p realm_content -- art content/rename_map.toml ../client game res://assets/models/monsters/troll_forest.glb
 ```
 
 Rebuilding the map packs from the old game (until the old scenes move in, Phase 6): export its collision world headless, then compile.

@@ -38,6 +38,11 @@ impl RenameMap {
     pub fn parse(text: &str) -> Result<Self, String> {
         let map: Self = toml::from_str(text).map_err(|e| e.to_string())?;
         for (kind, entries) in &map.kinds {
+            // Tokens may alias: a singular and a plural ("inferius",
+            // "inferi") are one name.
+            if kind == "token" {
+                continue;
+            }
             let mut seen = BTreeMap::new();
             for (old, new) in entries {
                 if let Some(other) = seen.insert(new.as_str(), old.as_str()) {

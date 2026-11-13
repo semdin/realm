@@ -745,7 +745,7 @@
           "message": "The castle's sealed wing is out of bounds... something is buzzing.",
           "spawn": [
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 6,
               "spread": 3.5,
@@ -756,7 +756,7 @@
               ]
             },
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 6,
               "spread": 3.5,
@@ -780,7 +780,7 @@
               "assist": 8.0
             },
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 4,
               "spread": 3.0,
@@ -811,7 +811,7 @@
               "assist": 8.0
             },
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 5,
               "spread": 3.0,
@@ -861,7 +861,7 @@
           "optional": true,
           "spawn": [
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 5,
               "spread": 3.0,
@@ -873,7 +873,7 @@
               "assist": 6.0
             },
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 5,
               "spread": 3.0,
@@ -892,7 +892,7 @@
           "optional": true,
           "spawn": [
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 5,
               "spread": 3.0,
@@ -1032,7 +1032,7 @@
           "message": "Strangling Vine! Burn its vines - Flame Wave!",
           "spawn": [
             {
-              "mob": "devils_snare",
+              "mob": "strangling_vine",
               "role": "miniboss",
               "at": [
                 0.0,
@@ -1052,7 +1052,7 @@
           "message": "Fidgetlings pour out of the Snare's roots!",
           "spawn": [
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 3,
               "spread": 2.5,
@@ -1063,7 +1063,7 @@
               ]
             },
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 3,
               "spread": 2.5,
@@ -1090,7 +1090,7 @@
           "message": "Fidgetlings swarm the stair!",
           "spawn": [
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 8,
               "spread": 3.5,
@@ -1140,7 +1140,7 @@
           "message": "Fidgetlings stream out from under Threehead's paws!",
           "spawn": [
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 4,
               "spread": 3.0,
@@ -1151,7 +1151,7 @@
               ]
             },
             {
-              "mob": "cornish_pixie",
+              "mob": "fidgetling",
               "role": "trash",
               "count": 4,
               "spread": 3.0,

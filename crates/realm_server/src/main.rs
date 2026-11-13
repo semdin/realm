@@ -6,8 +6,10 @@
 //!       login service holds ticket.key in production; map servers only read
 //!       ticket.pub.
 //!   realm_server serve [--map grounds] [--bind 0.0.0.0:7777] [--keys keys]
-//!                      [--content content/data] [--maps world/maps] [--dev-spawn-near-packs]
-//!       Runs one map at 30 Hz and prints a status line every 5 seconds.
+//!                      [--content content/data] [--maps world/maps]
+//!                      [--dev-spawn-near-packs | --dev-spawn-near <species>]
+//!       Runs one map at 30 Hz and prints a status line every 5 seconds. The
+//!       dev options spawn players next to a creature pack (of one species).
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -69,7 +71,9 @@ struct Options {
     bind: String,
     keys: PathBuf,
     content: PathBuf,
-    dev_spawn_near_packs: bool,
+    /// Spawn players next to packs: `Some("")` any pack, `Some(id)` packs
+    /// of that species.
+    dev_spawn_near: Option<String>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -79,7 +83,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         bind: "0.0.0.0:7777".to_owned(),
         keys: PathBuf::from("keys"),
         content: PathBuf::from("content/data"),
-        dev_spawn_near_packs: false,
+        dev_spawn_near: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -94,7 +98,8 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--bind" => o.bind = value()?,
             "--keys" => o.keys = PathBuf::from(value()?),
             "--content" => o.content = PathBuf::from(value()?),
-            "--dev-spawn-near-packs" => o.dev_spawn_near_packs = true,
+            "--dev-spawn-near-packs" => o.dev_spawn_near = Some(String::new()),
+            "--dev-spawn-near" => o.dev_spawn_near = Some(value()?),
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -129,8 +134,8 @@ fn serve(args: &[String]) -> AnyResult<()> {
         nav,
         stairs,
         content_hash,
-        o.dev_spawn_near_packs,
-    );
+        o.dev_spawn_near.as_deref(),
+    )?;
     println!(
         "[server] map {} ({} colliders, {} nav polygons, {} staircases), content {}..., {} creatures, listening on {}{}",
         o.map,
@@ -140,10 +145,10 @@ fn serve(args: &[String]) -> AnyResult<()> {
         &hash_hex[..12],
         sim.creature_count(),
         o.bind,
-        if o.dev_spawn_near_packs {
-            " (dev: players spawn next to packs)"
-        } else {
-            ""
+        match o.dev_spawn_near.as_deref() {
+            Some("") => " (dev: players spawn next to packs)".to_owned(),
+            Some(id) => format!(" (dev: players spawn next to {id} packs)"),
+            None => String::new(),
         }
     );
 

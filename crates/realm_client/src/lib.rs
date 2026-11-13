@@ -396,6 +396,7 @@ impl RealmSession {
             out.set("snapshots", &(s.snapshots as i64).to_variant());
             out.set("corrections", &(s.corrections as i64).to_variant());
             out.set("max_correction", &s.max_correction.to_variant());
+            out.set("server_moves", &(s.server_moves as i64).to_variant());
             out.set("tick", &i64::from(core.tick()).to_variant());
             out.set("hp", &i64::from(core.own_hp()).to_variant());
         }
