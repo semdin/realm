@@ -20,7 +20,7 @@ use realm_netclient::{ClientCore, NetEvent, NetHandle};
 use realm_proto::SigningKey;
 use realm_proto::control::{ClientMsg, ServerMsg};
 use realm_proto::ticket::Ticket;
-use realm_rules::{CharacterSheet, Item, Slot};
+use realm_rules::{Cell, CharacterSheet, Item, ItemOp, Rules, Slot};
 use realm_sim::FixedStep;
 use realm_sim::input::MoveInput;
 use realm_sim::pack::{HOLE, MapPack};
@@ -101,6 +101,17 @@ impl RealmContent {
     }
 }
 
+/// 0..39: a bag cell; 100 + n: equipment slot n.
+fn cell(value: i64) -> Option<Cell> {
+    match value {
+        0..100 => u8::try_from(value).ok().map(Cell::Bag),
+        _ => usize::try_from(value - 100)
+            .ok()
+            .and_then(|i| Slot::ALL.get(i))
+            .map(|s| Cell::Worn(*s)),
+    }
+}
+
 fn item_dict(item: &Item) -> VarDictionary {
     let mut out = VarDictionary::new();
     out.set("id", &GString::from(item.id.as_str()).to_variant());
@@ -148,6 +159,7 @@ fn json_to_variant(value: &serde_json::Value) -> Variant {
 struct RealmSession {
     base: Base<Node>,
     content: Option<Content>,
+    rules: Option<Rules>,
     pack: Option<MapPack>,
     net: Option<NetHandle>,
     core: Option<ClientCore>,
@@ -158,6 +170,9 @@ struct RealmSession {
     status: String,
     /// The player's character sheet as the server last sent it.
     sheet: Option<CharacterSheet>,
+    /// Item answers not yet taken by the view.
+    item_results: Vec<(u32, bool, String, i64)>,
+    next_op: u32,
 }
 
 #[godot_api]
@@ -166,6 +181,7 @@ impl INode for RealmSession {
         Self {
             base,
             content: None,
+            rules: None,
             pack: None,
             net: None,
             core: None,
@@ -175,6 +191,8 @@ impl INode for RealmSession {
             action: (0, 0),
             status: "idle".to_owned(),
             sheet: None,
+            item_results: Vec::new(),
+            next_op: 1,
         }
     }
 
@@ -237,6 +255,12 @@ impl RealmSession {
                     }
                 }
                 NetEvent::Control(ServerMsg::Sheet(sheet)) => self.sheet = Some(sheet),
+                NetEvent::Control(ServerMsg::ItemResult {
+                    op_id,
+                    ok,
+                    reason,
+                    amount,
+                }) => self.item_results.push((op_id, ok, reason, amount)),
                 NetEvent::Closed(reason) => {
                     self.status = format!("closed: {reason}");
                     self.core = None;
@@ -249,6 +273,7 @@ impl RealmSession {
         let content = Content::load(&PathBuf::from(content_dir))?;
         let pack =
             realm_data::maps::read_pack(&PathBuf::from(maps_dir).join(format!("{map}.realmmap")))?;
+        self.rules = Some(Rules::from_content(&content)?);
         self.content = Some(content);
         self.pack = Some(pack);
         Ok(())
@@ -431,8 +456,16 @@ impl RealmSession {
         out.set("exp", &(sheet.exp as i64).to_variant());
         out.set("hp", &i64::from(sheet.hp).to_variant());
         out.set("mana", &i64::from(sheet.mana).to_variant());
-        out.set("max_hp", &i64::from(sheet.base_max_hp).to_variant());
-        out.set("max_mana", &i64::from(sheet.base_max_mana).to_variant());
+        // The maximums count what is worn.
+        let (max_hp, max_mana) =
+            self.rules
+                .as_ref()
+                .map_or((sheet.base_max_hp, sheet.base_max_mana), |r| {
+                    let d = r.derived(sheet);
+                    (d.max_hp, d.max_mana)
+                });
+        out.set("max_hp", &i64::from(max_hp).to_variant());
+        out.set("max_mana", &i64::from(max_mana).to_variant());
         out.set("oril", &(sheet.oril as i64).to_variant());
         let mut bag = VarArray::new();
         for cell in &sheet.bag {
@@ -472,6 +505,179 @@ impl RealmSession {
             }
         }
         net.send_control(&ClientMsg::Look(raw));
+    }
+
+    /// Sends an item request against the current sheet; returns its op id
+    /// (0 when there is no sheet yet). The answer comes through
+    /// `take_item_results`.
+    fn item_request(&mut self, op: ItemOp) -> i64 {
+        let (Some(net), Some(sheet)) = (self.net.as_ref(), self.sheet.as_ref()) else {
+            return 0;
+        };
+        let op_id = self.next_op;
+        self.next_op = self.next_op.wrapping_add(1).max(1);
+        net.send_control(&ClientMsg::Item {
+            op_id,
+            revision: sheet.revision,
+            op,
+        });
+        i64::from(op_id)
+    }
+
+    /// Moves an item: cells are 0..39 for the bag, 100 + slot index for
+    /// equipment (`slot_names` order). Equip and unequip are moves.
+    #[func]
+    fn move_item(&mut self, from: i64, to: i64) -> i64 {
+        match (cell(from), cell(to)) {
+            (Some(from), Some(to)) => self.item_request(ItemOp::Move { from, to }),
+            _ => 0,
+        }
+    }
+
+    #[func]
+    fn use_item(&mut self, bag_cell: i64) -> i64 {
+        self.item_request(ItemOp::Use {
+            cell: bag_cell.clamp(0, 255) as u8,
+        })
+    }
+
+    #[func]
+    fn sell_item(&mut self, bag_cell: i64) -> i64 {
+        self.item_request(ItemOp::Sell {
+            cell: bag_cell.clamp(0, 255) as u8,
+        })
+    }
+
+    #[func]
+    fn destroy_item(&mut self, bag_cell: i64) -> i64 {
+        self.item_request(ItemOp::Destroy {
+            cell: bag_cell.clamp(0, 255) as u8,
+        })
+    }
+
+    #[func]
+    fn buy_item(&mut self, item: GString, amount: i64) -> i64 {
+        self.item_request(ItemOp::Buy {
+            item: item.to_string(),
+            amount: amount.clamp(1, 20) as u16,
+        })
+    }
+
+    #[func]
+    fn refine_item(&mut self, target: i64) -> i64 {
+        cell(target).map_or(0, |target| self.item_request(ItemOp::Refine { target }))
+    }
+
+    #[func]
+    fn enchant_item(&mut self, scroll_cell: i64, target: i64) -> i64 {
+        cell(target).map_or(0, |target| {
+            self.item_request(ItemOp::Enchant {
+                scroll: scroll_cell.clamp(0, 255) as u8,
+                target,
+            })
+        })
+    }
+
+    /// Answers to item requests since the last call: `op_id`, `ok`,
+    /// `reason`, `amount`.
+    #[func]
+    fn take_item_results(&mut self) -> VarArray {
+        let mut out = VarArray::new();
+        for (op_id, ok, reason, amount) in self.item_results.drain(..) {
+            let mut answer = VarDictionary::new();
+            answer.set("op_id", &i64::from(op_id).to_variant());
+            answer.set("ok", &ok.to_variant());
+            answer.set("reason", &GString::from(reason.as_str()).to_variant());
+            answer.set("amount", &amount.to_variant());
+            out.push(&answer.to_variant());
+        }
+        out
+    }
+
+    /// Equipment slot names in index order (cell 100 + index).
+    #[func]
+    fn slot_names() -> PackedStringArray {
+        Slot::ALL.iter().map(|s| GString::from(s.name())).collect()
+    }
+
+    /// One item's fixed stats at refine level `tier`, as the rules compute
+    /// them (tooltips): `bonus_hp`, `bonus_mana`, `armor`, `attack_value` /
+    /// `magic_attack` ([min, max] or absent), the percent stats,
+    /// `mount_speed`, `sell_price`, `required_level`, `refinable`,
+    /// `enchantable`.
+    #[func]
+    fn item_stats(&self, id: GString, tier: i64) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(rules) = self.rules.as_ref() else {
+            return out;
+        };
+        let id = id.to_string();
+        let tier = tier.clamp(0, 9) as u8;
+        let n = rules.item_stats(&id, tier);
+        out.set("bonus_hp", &n.bonus_hp.to_variant());
+        out.set("bonus_mana", &n.bonus_mana.to_variant());
+        out.set("armor", &n.armor.to_variant());
+        if let Some((a, b)) = n.attack_value {
+            out.set(
+                "attack_value",
+                &PackedFloat32Array::from(&[a, b][..]).to_variant(),
+            );
+        }
+        if let Some((a, b)) = n.magic_attack {
+            out.set(
+                "magic_attack",
+                &PackedFloat32Array::from(&[a, b][..]).to_variant(),
+            );
+        }
+        for (key, value) in &n.percent {
+            out.set(key.as_str(), &value.to_variant());
+        }
+        if let Some(speed) = n.mount_speed {
+            out.set("mount_speed", &speed.to_variant());
+        }
+        out.set(
+            "sell_price",
+            &(rules.sell_price(&id, tier) as i64).to_variant(),
+        );
+        if let Some(def) = rules.item(&id) {
+            out.set(
+                "required_level",
+                &i64::from(def.required_level).to_variant(),
+            );
+        }
+        out.set("refinable", &rules.refinable(&id).to_variant());
+        out.set("enchantable", &rules.enchantable(&id).to_variant());
+        out
+    }
+
+    /// What the player's gear adds up to: `max_hp`, `max_mana`, `armor`,
+    /// `wand_tier`, `attack_value`, `magic_attack`, `mount_speed`,
+    /// `weapon_multiplier` and every enchantment stat.
+    #[func]
+    fn derived_stats(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let (Some(rules), Some(sheet)) = (self.rules.as_ref(), self.sheet.as_ref()) else {
+            return out;
+        };
+        let d = rules.derived(sheet);
+        out.set("max_hp", &i64::from(d.max_hp).to_variant());
+        out.set("max_mana", &i64::from(d.max_mana).to_variant());
+        out.set("armor", &d.armor.to_variant());
+        out.set("wand_tier", &i64::from(d.wand_tier).to_variant());
+        out.set(
+            "attack_value",
+            &PackedFloat32Array::from(&[d.attack_value.0, d.attack_value.1][..]).to_variant(),
+        );
+        out.set(
+            "magic_attack",
+            &PackedFloat32Array::from(&[d.magic_attack.0, d.magic_attack.1][..]).to_variant(),
+        );
+        out.set("mount_speed", &d.mount_speed.to_variant());
+        out.set("weapon_multiplier", &d.weapon_multiplier.to_variant());
+        for (key, value) in &d.stats {
+            out.set(key.as_str(), &value.to_variant());
+        }
+        out
     }
 
     /// Connection and prediction counters for an on-screen readout.

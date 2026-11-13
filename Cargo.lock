@@ -1427,6 +1427,7 @@ dependencies = [
  "realm_data",
  "realm_netclient",
  "realm_proto",
+ "realm_rules",
  "realm_sim",
 ]
 
@@ -1486,6 +1487,7 @@ dependencies = [
  "bevy_ecs",
  "bytes",
  "crossbeam-channel",
+ "getrandom 0.4.3",
  "libm",
  "quinn",
  "rcgen",

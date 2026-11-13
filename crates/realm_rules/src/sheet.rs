@@ -66,6 +66,8 @@ impl Slot {
 pub struct Bonus {
     pub stat: String,
     pub value: f32,
+    /// Which of the stat's values was rolled (0 = weakest).
+    pub grade: u8,
 }
 
 /// A stack (`uid` 0) or an item instance (its own `uid`, amount 1).

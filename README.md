@@ -46,6 +46,18 @@ cargo run --release -p realm_netem -- --listen 127.0.0.1:7800 --server 127.0.0.1
 cargo run --release -p realm_netcheck -- --server 127.0.0.1:7800 --map castle_interior --seconds 60
 ```
 
+netcheck also runs the control channel: a look request and item requests
+(equip, unequip, wrong slot, potion at full health, bag moves, selling,
+buying away from a shop, refining without material, a stale request). On a
+new character it runs the refusals; on the prepared character it runs the paid
+paths (potion, refine +2, imbue, reweave, buying at a hearth):
+
+```bash
+python tools/fixtures/make_prepared_character.py build/characters 900002
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters
+cargo run --release -p realm_netcheck -- --server 127.0.0.1:7777 --character 900002 --seconds 6
+```
+
 The client (needs `cargo build --release -p realm_client` and a running server;
 WASD, Space, Ctrl, right mouse drag, wheel):
 

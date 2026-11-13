@@ -68,6 +68,8 @@ pub enum NetEvent {
 const AUTOSAVE_TICKS: u32 = 30 * 30;
 /// A changed sheet is saved this long after its last change (5 s).
 const SAVE_DEBOUNCE_TICKS: u32 = 5 * 30;
+/// Gear changes, selling, refining wait this long after combat (5 s).
+const COMBAT_LOCK_TICKS: u32 = 5 * 30;
 /// Reliable messages a client may have waiting; past that it is closed.
 pub const CONTROL_QUEUE: usize = 256;
 
@@ -159,6 +161,9 @@ struct Player {
     sheet: CharacterSheet,
     /// Tick of the first unsaved change, if any.
     dirty_since: Option<u32>,
+    /// Last tick this player attacked or was hit (gear changes wait for
+    /// peace).
+    last_combat: u32,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -287,6 +292,8 @@ pub struct Sim {
     stairs: Staircases,
     /// Development: players spawn next to one of these packs (indices).
     dev_spawn_packs: Vec<usize>,
+    /// State of the server's dice (refining, enchanting).
+    dice_state: u32,
     /// Joins waiting for their character to load.
     pending: HashMap<ConnId, PendingJoin>,
     /// The newest sheet of each character whose save has not finished: a
@@ -322,6 +329,15 @@ fn cells_around(p: Vec3, radius_cells: i32) -> impl Iterator<Item = usize> {
                 .then(|| z as usize * GRID_DIM + x as usize)
         })
     })
+}
+
+/// The rules' dice over the server's xorshift.
+struct ServerDice(u32);
+
+impl realm_rules::Dice for ServerDice {
+    fn unit(&mut self) -> f32 {
+        unit(&mut self.0)
+    }
 }
 
 fn xorshift(state: &mut u32) -> u32 {
@@ -411,6 +427,7 @@ impl Sim {
             nav_scratch: NavScratch::default(),
             stairs,
             dev_spawn_packs,
+            dice_state: getrandom::u32().unwrap_or(0x2545_F491) | 1,
             pending: HashMap::new(),
             unsaved: HashMap::new(),
             store,
@@ -623,7 +640,7 @@ impl Sim {
             .as_ref()
             .filter(|p| p.map == self.game.map)
             .map(|p| Vec3::new(p.pos[0], p.pos[1], p.pos[2]));
-        let max_hp = sheet.base_max_hp.max(1) as f32;
+        let max_hp = self.game.rules.derived(&sheet).max_hp.max(1) as f32;
         // A character saved dead comes back whole at the map's spawn.
         let (start, hp) = if sheet.hp == 0 {
             (home, max_hp)
@@ -645,6 +662,7 @@ impl Sim {
             gap_ticks: 0,
             sheet,
             dirty_since: None,
+            last_combat: 0,
         };
         let entity = self.world.spawn(player).id();
         let id = self.new_id(entity);
@@ -757,6 +775,76 @@ impl Sim {
                 player.dirty_since.get_or_insert(tick);
                 self.send_sheet(conn);
             }
+            ClientMsg::Item {
+                op_id,
+                revision,
+                op,
+            } => self.item_op(conn, entity, op_id, revision, &op),
+        }
+    }
+
+    /// One item request: gates from the server's own state, the rules do
+    /// the rest; the answer and (on success) the new sheet go back.
+    fn item_op(
+        &mut self,
+        conn: ConnId,
+        entity: Entity,
+        op_id: u32,
+        revision: u64,
+        op: &realm_rules::ItemOp,
+    ) {
+        let tick = self.tick;
+        let Some(mut sheet) = self.sheet_of(entity) else {
+            return;
+        };
+        let reply = if sheet.revision != revision {
+            Err("stale")
+        } else {
+            let Some(player) = self.world.get::<Player>(entity) else {
+                return;
+            };
+            let pos = player.body.pos;
+            let ctx = realm_rules::ItemContext {
+                dead: player.dead_until != 0,
+                in_combat: player.last_combat != 0 && tick < player.last_combat + COMBAT_LOCK_TICKS,
+                casting: false,
+                mounted: player.body.mounted,
+                at_shop: self.game.rules.at_hearth(&self.game.map, pos.x, pos.z),
+            };
+            let mut dice = ServerDice(xorshift(&mut self.dice_state) | 1);
+            let result = self
+                .game
+                .rules
+                .apply_item_op(&mut sheet, op, ctx, &mut dice);
+            self.dice_state = dice.0;
+            result
+        };
+        let (ok, reason, amount) = match reply {
+            Ok(done) => (true, done.reason, done.amount),
+            Err(reason) => (false, reason, 0),
+        };
+        if ok {
+            let max_hp = self.game.rules.derived(&sheet).max_hp.max(1) as f32;
+            if let Some(mut player) = self.world.get_mut::<Player>(entity) {
+                // A potion changed hp; gear may have changed the maximum.
+                player.max_hp = max_hp;
+                player.hp = (sheet.hp as f32).min(max_hp);
+                sheet.place = None;
+                player.sheet = sheet;
+                player.dirty_since.get_or_insert(tick);
+            }
+        }
+        self.send_control(
+            conn,
+            &ServerMsg::ItemResult {
+                op_id,
+                ok,
+                reason: reason.to_owned(),
+                amount,
+            },
+        );
+        if ok || reason == "stale" {
+            self.send_sheet(conn);
         }
     }
 
@@ -898,6 +986,7 @@ impl Sim {
                     .max(planar_distance(body.pos, player.home));
                 player.cooldown = player.cooldown.saturating_sub(1);
                 if frame.action == 1 && player.cooldown == 0 {
+                    player.last_combat = tick;
                     casts.push((entity, frame.target));
                 }
             }
@@ -1231,6 +1320,7 @@ impl Sim {
                 && player.dead_until == 0
             {
                 player.hp -= damage;
+                player.last_combat = tick;
                 if player.hp <= 0.0 {
                     player.hp = 0.0;
                     player.dead_until = tick + u32::from(respawn);

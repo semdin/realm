@@ -7,7 +7,7 @@
 //! This module does no I/O: [`frame`] wraps bytes to write, [`FrameReader`]
 //! takes whatever arrived and hands back whole frames.
 
-use realm_rules::CharacterSheet;
+use realm_rules::{CharacterSheet, ItemOp};
 use serde::{Deserialize, Serialize};
 
 /// Largest frame either side accepts; a peer sending more is closed.
@@ -19,6 +19,15 @@ pub enum ServerMsg {
     /// The player's whole character sheet: sent after joining and whenever
     /// it changes.
     Sheet(CharacterSheet),
+    /// The answer to an item request. `reason` is a word the client turns
+    /// into a message ("equipped", "no_gold", "stale", ...); `amount` is the
+    /// oril earned or spent, the points restored or the new tier.
+    ItemResult {
+        op_id: u32,
+        ok: bool,
+        reason: String,
+        amount: i64,
+    },
 }
 
 /// Client -> server.
@@ -26,6 +35,14 @@ pub enum ServerMsg {
 pub enum ClientMsg {
     /// A new appearance (looks.json keys -> value); the server cleans it.
     Look(Vec<(String, f32)>),
+    /// An item operation, made against the sheet at `revision` (a request
+    /// made against an older sheet is refused as "stale"; the client has the
+    /// new sheet by then).
+    Item {
+        op_id: u32,
+        revision: u64,
+        op: ItemOp,
+    },
 }
 
 #[derive(Debug, PartialEq, Eq)]

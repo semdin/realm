@@ -775,7 +775,7 @@
     "multiplier": 1.75
   },
   "item_stats": {
-    "_comment": "Fixed item stats (items.json) and the Metin2-style hit rules. Damage: basic_cast adds a roll of the wand's attack_value, every other spell adds a roll of magic_attack x the spell's magic_attack_coef (spells.json); the sum scales with the +N multiplier, house and skill, then spell_power, family bonus, crit/pierce. Armour: reduction = armor / (armor + armor_base + armor_per_level x attacker level), capped; after it the matching melee/projectile/spell resistance (by mob_attack_kinds; unknown ids are spells), capped. Speeds: attack_speed shortens the basic_cast cooldown (/ (1 + pct)), cast_speed every other cooldown (x (1 - pct)), move_speed scales walking only. Piercing ignores the creature's resistances and front guard.",
+    "_comment": "Fixed item stats (items.json) and the Metin2-style hit rules. Damage: basic_cast adds a roll of the wand's attack_value, every other spell adds a roll of magic_attack x the spell's magic_attack_coef (spells.json); the sum scales with the +N multiplier, house and skill, then spell_power, family bonus, crit/pierce. Armour: reduction = armor / (armor + armor_base + armor_per_level x attacker level), capped; after it the matching melee/projectile/spell resistance (by mob_attack_kinds; unknown ids are spells), capped. Speeds: attack_speed shortens the basic_cast cooldown (/ (1 + pct)), cast_speed every other cooldown (x (1 - pct)), move_speed scales walking only. Piercing ignores the creature's resistances and front guard. Selling: sell_by_rarity is what a merchant pays for one piece (an item's own sell_price overrides it), +50% per refinement tier; stackables fetch a tenth.",
     "armor_base": 100,
     "armor_per_level": 8,
     "armor_max_reduction": 75,
@@ -802,6 +802,13 @@
       "web_shot": "projectile",
       "brood_leap": "melee",
       "poison": "spell"
+    },
+    "sell_by_rarity": {
+      "common": 40,
+      "uncommon": 120,
+      "rare": 300,
+      "epic": 800,
+      "legendary": 2000
     }
   },
   "houses": {

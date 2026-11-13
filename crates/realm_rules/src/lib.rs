@@ -6,6 +6,7 @@
 //! saved, what the owner sees, and the only input the server's systems
 //! change.
 
+pub mod items;
 pub mod sheet;
 
 use std::collections::BTreeMap;
@@ -14,7 +15,8 @@ use realm_data::{Content, without_notes};
 use serde::Deserialize;
 use serde_json::Value;
 
-pub use sheet::{BAG_SLOTS, CharacterSheet, Item, MAX_STACK, Place, Slot};
+pub use items::{Cell, Derived, Dice, Done, ItemContext, ItemOp, ItemRules, ItemStats};
+pub use sheet::{BAG_SLOTS, Bonus, CharacterSheet, Item, MAX_STACK, Place, Slot};
 
 /// Item facts the rules need (`items.json`).
 #[derive(Clone, Debug, Default)]
@@ -24,6 +26,20 @@ pub struct ItemDef {
     pub slots: Vec<Slot>,
     /// Stacks share one bag cell; everything else is an instance with a uid.
     pub stackable: bool,
+    pub rarity: String,
+    pub required_level: u16,
+    pub buy_price: Option<u64>,
+    pub sell_price: Option<u64>,
+    pub attack_value: Option<(f32, f32)>,
+    pub magic_attack: Option<(f32, f32)>,
+    pub armor: f32,
+    pub bonus_hp: f32,
+    pub bonus_mana: f32,
+    /// Fixed percent / per-second stats (items::FIXED_PERCENT keys).
+    pub percent: BTreeMap<String, f32>,
+    pub mount_speed: Option<f32>,
+    pub heal_hp: u32,
+    pub heal_mana: u32,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -61,6 +77,7 @@ pub struct Rules {
     pub starter: Starter,
     pub items: BTreeMap<String, ItemDef>,
     pub looks: LookRules,
+    pub item_rules: ItemRules,
 }
 
 fn file<'a>(content: &'a Content, name: &str) -> Result<&'a Value, String> {
@@ -106,15 +123,15 @@ impl Rules {
             let stackable = def["stackable"]
                 .as_bool()
                 .unwrap_or(matches!(kind.as_str(), "consumable" | "material"));
-            items.insert(
-                id.clone(),
-                ItemDef {
-                    id: id.clone(),
-                    kind,
-                    slots,
-                    stackable,
-                },
-            );
+            let mut item = ItemDef {
+                id: id.clone(),
+                kind,
+                slots,
+                stackable,
+                ..ItemDef::default()
+            };
+            items::read_item(&mut item, def);
+            items.insert(id.clone(), item);
         }
         let looks_file = without_notes(file(content, "looks.json")?);
         let mut looks = LookRules::default();
@@ -136,6 +153,7 @@ impl Rules {
             starter,
             items,
             looks,
+            item_rules: ItemRules::from_content(content)?,
         };
         rules.check()?;
         Ok(rules)

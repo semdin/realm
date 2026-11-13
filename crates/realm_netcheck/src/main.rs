@@ -1,5 +1,6 @@
 //! realm_netcheck --server 127.0.0.1:7800 [--keys keys] [--map grounds]
 //!                [--content content/data] [--maps world/maps] [--seconds 60]
+//!                [--character 900001]
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -16,9 +17,123 @@ use realm_data::Content;
 use realm_netclient::{ClientCore, NetEvent, NetHandle};
 use realm_proto::SigningKey;
 use realm_proto::ticket::Ticket;
+use realm_rules::{Cell, ItemOp};
 use realm_sim::input::MoveInput;
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
+
+/// Item requests made one after another, each with the answer the server
+/// must give. A new character (the starter kit: health potions in bag cell
+/// 0, mana potions in cell 1, the wand worn) runs the refusals and the bag
+/// moves; a prepared character (hurt, at a hearth, with Velkar Ash and
+/// scrolls in cells 2-4; tools/fixtures) runs the paid paths.
+fn item_script(prepared: bool) -> Vec<(ItemOp, bool, &'static str)> {
+    use realm_rules::Slot::MainHand;
+    if prepared {
+        return vec![
+            (ItemOp::Use { cell: 0 }, true, "consumed"),
+            (
+                ItemOp::Refine {
+                    target: Cell::Worn(MainHand),
+                },
+                true,
+                "refined",
+            ),
+            (
+                ItemOp::Refine {
+                    target: Cell::Worn(MainHand),
+                },
+                true,
+                "refined",
+            ),
+            (
+                ItemOp::Enchant {
+                    scroll: 3,
+                    target: Cell::Worn(MainHand),
+                },
+                true,
+                "enchanted",
+            ),
+            (
+                ItemOp::Enchant {
+                    scroll: 4,
+                    target: Cell::Worn(MainHand),
+                },
+                true,
+                "enchanted",
+            ),
+            (
+                ItemOp::Buy {
+                    item: "hearth_dust".to_owned(),
+                    amount: 1,
+                },
+                true,
+                "bought",
+            ),
+        ];
+    }
+    vec![
+        (
+            ItemOp::Move {
+                from: Cell::Worn(MainHand),
+                to: Cell::Bag(5),
+            },
+            true,
+            "unequipped",
+        ),
+        (
+            ItemOp::Move {
+                from: Cell::Bag(5),
+                to: Cell::Worn(MainHand),
+            },
+            true,
+            "equipped",
+        ),
+        (
+            ItemOp::Move {
+                from: Cell::Bag(0),
+                to: Cell::Worn(MainHand),
+            },
+            false,
+            "wrong_slot",
+        ),
+        (ItemOp::Use { cell: 0 }, false, "resource_full"),
+        (
+            ItemOp::Move {
+                from: Cell::Bag(0),
+                to: Cell::Bag(10),
+            },
+            true,
+            "moved",
+        ),
+        (
+            ItemOp::Move {
+                from: Cell::Bag(1),
+                to: Cell::Bag(10),
+            },
+            true,
+            "moved",
+        ),
+        (ItemOp::Sell { cell: 1 }, true, "sold"),
+        (
+            ItemOp::Buy {
+                item: "hearth_dust".to_owned(),
+                amount: 1,
+            },
+            false,
+            "not_at_shop",
+        ),
+        (
+            ItemOp::Refine {
+                target: Cell::Worn(MainHand),
+            },
+            false,
+            "no_material",
+        ),
+        (ItemOp::Destroy { cell: 10 }, true, "destroyed"),
+        (ItemOp::Destroy { cell: 10 }, false, "item_missing"),
+    ]
+}
 
 fn arg(args: &[String], name: &str, default: &str) -> String {
     args.iter()
@@ -87,7 +202,8 @@ fn main() -> AnyResult<()> {
         .map_err(|_| "ticket.key must be 32 bytes")?;
     let key = SigningKey::from_bytes(&secret);
     let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
-    let ticket = Ticket::new(900_001, 900_001, now + 60)?.sign(&key);
+    let character: u64 = arg(&args, "--character", "900001").parse()?;
+    let ticket = Ticket::new(character, character, now + 60)?.sign(&key);
     let net = NetHandle::connect(
         server,
         "localhost",
@@ -115,6 +231,13 @@ fn main() -> AnyResult<()> {
         ("not_a_look_key".to_owned(), 1.0),
     ];
     let mut look_answered = false;
+    // Then the item requests, each waiting for the answer to the one before.
+    let mut script = item_script(false);
+    let mut step = 0_usize;
+    let mut revision = 0_u64;
+    let mut awaiting_sheet = false;
+    let mut items_done = false;
+    let mut stale_checked = false;
     while started.elapsed() < deadline {
         while let Some(event) = net.poll() {
             match event {
@@ -162,7 +285,7 @@ fn main() -> AnyResult<()> {
                         net.send_control(&realm_proto::control::ClientMsg::Look(
                             asked_look.clone(),
                         ));
-                    } else if !sheet.look.is_empty() {
+                    } else if !look_answered && !sheet.look.is_empty() {
                         let get =
                             |k: &str| sheet.look.iter().find(|(key, _)| key == k).map(|(_, v)| *v);
                         println!("[netcheck] look came back cleaned: {:?}", sheet.look);
@@ -177,7 +300,73 @@ fn main() -> AnyResult<()> {
                         }
                         look_answered = true;
                     }
+                    revision = sheet.revision;
+                    if look_answered && !items_done && (awaiting_sheet || step == 0) {
+                        awaiting_sheet = false;
+                        let holds = |cell: usize, id: &str| {
+                            sheet.bag[cell].as_ref().is_some_and(|i| i.id == id)
+                        };
+                        if step == 0 && holds(2, "mat_phoenix_ash") {
+                            script = item_script(true);
+                        } else if step == 0
+                            && !(holds(0, "potion_health") && holds(1, "potion_mana"))
+                        {
+                            return Err("the item check needs a new character (run the server without --characters) or the prepared one".into());
+                        }
+                        if let Some((op, _, _)) = script.get(step) {
+                            net.send_control(&realm_proto::control::ClientMsg::Item {
+                                op_id: step as u32,
+                                revision,
+                                op: op.clone(),
+                            });
+                        }
+                    }
                     sheets += 1;
+                }
+                NetEvent::Control(realm_proto::control::ServerMsg::ItemResult {
+                    op_id,
+                    ok,
+                    reason,
+                    amount,
+                }) => {
+                    if op_id == u32::MAX {
+                        // the deliberately stale request
+                        if ok || reason != "stale" {
+                            return Err(
+                                format!("a stale request was answered {ok} {reason}").into()
+                            );
+                        }
+                        stale_checked = true;
+                        continue;
+                    }
+                    let (_, want_ok, want) = &script[op_id as usize];
+                    println!(
+                        "[netcheck] item step {op_id}: {} {reason} ({amount})",
+                        if ok { "ok" } else { "refused" }
+                    );
+                    if ok != *want_ok || reason != *want {
+                        return Err(
+                            format!("item step {op_id}: expected {want}, got {reason}").into()
+                        );
+                    }
+                    step += 1;
+                    if step == script.len() {
+                        items_done = true;
+                        // One request made against an old sheet must be refused.
+                        net.send_control(&realm_proto::control::ClientMsg::Item {
+                            op_id: u32::MAX,
+                            revision: revision.saturating_sub(1),
+                            op: ItemOp::Destroy { cell: 0 },
+                        });
+                    } else if ok {
+                        awaiting_sheet = true;
+                    } else if let Some((op, _, _)) = script.get(step) {
+                        net.send_control(&realm_proto::control::ClientMsg::Item {
+                            op_id: step as u32,
+                            revision,
+                            op: op.clone(),
+                        });
+                    }
                 }
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }
@@ -224,6 +413,9 @@ fn main() -> AnyResult<()> {
     }
     if !look_answered {
         return Err("the look request was never answered".into());
+    }
+    if !items_done || !stale_checked {
+        return Err(format!("item requests stopped at step {step} of {}", script.len()).into());
     }
     Ok(())
 }
