@@ -16,10 +16,12 @@
 //! - A pack comes back whole, on a fresh anchor in its area, some time after
 //!   its last member fell.
 
+use crate::game::PackKind;
 use realm_proto::control::CombatEvent;
 use realm_rules::creatures::{
-    AGGRO_SCAN_MS, AbilityDef, BOLT_REACH, HOME_RADIUS, LEASH_HOT_MS, LEASH_HOT_SCALE, MELEE_LUNGE,
-    MELEE_SLACK, RETURN_REGEN_SHARE, RING_PACE, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
+    AGGRO_SCAN_MS, AbilityDef, BOLT_REACH, ENRAGE_ATTACK, ENRAGE_COOLDOWN, ENRAGE_SPEED,
+    HOME_RADIUS, LEASH_HOT_MS, LEASH_HOT_SCALE, MELEE_LUNGE, MELEE_SLACK, RETURN_REGEN_SHARE,
+    RING_PACE, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
 };
 use realm_sim::nav::{NavQuery, NavScratch};
 use realm_sim::world::World as Terrain;
@@ -34,6 +36,8 @@ use super::{
 
 /// Packs are checked for their respawn this often.
 const RESPAWN_CHECK_TICKS: u32 = 15;
+/// A world boss is announced this long before it comes back (60 s).
+const WORLD_BOSS_WARNING: u32 = 60 * SIM_HZ;
 /// Another pack's anchor this close rejects a respawn spot.
 const ANCHOR_SPACING: f32 = 6.2;
 /// Steepest ground a pack respawns on (normal's up component).
@@ -77,6 +81,10 @@ pub(super) struct PackState {
     pub members: Vec<Entity>,
     pub alive: u32,
     pub respawn_at: Option<u32>,
+    /// A Dark Shard: the waves it has called this life.
+    pub waves_done: usize,
+    /// A world boss: "it comes soon" was said for this respawn.
+    pub announced: bool,
 }
 
 /// An attack between its first windup tick and the end of its recovery.
@@ -297,7 +305,7 @@ impl Sim {
                     MobMode::Chase(t) => Some(t),
                     _ => None,
                 };
-                let reach = self.game.species[usize::from(m.species)].attack_range + 0.8;
+                let reach = m.attack_range + 0.8;
                 let engaged = m.attack.is_some()
                     || target
                         .and_then(|t| self.player_pos.get(&t))
@@ -343,8 +351,21 @@ impl Sim {
             }
             awake += 1;
             let pack = &game.packs[mob.pack];
-            let species = &game.species[pack.species];
+            let species = &game.species[usize::from(mob.species)];
+            // Dark Shards and dummies stand.
+            if species.object {
+                continue;
+            }
             let brain = &species.brain;
+            let rage = mob.enraged;
+            let move_speed = mob.move_speed * if rage { ENRAGE_SPEED } else { 1.0 };
+            let attack_range = mob.attack_range;
+            let cooldown =
+                f32::from(species.attack_cooldown_ticks) * if rage { ENRAGE_COOLDOWN } else { 1.0 };
+            let boss = pack.boss_setup.as_ref().filter(|_| mob.boss);
+            let extras: &[u16] = boss
+                .and_then(|b| rules.mobs.bosses.get(&b.key))
+                .map_or(&[], |b| b.extras.as_slice());
             let anchor = packs[mob.pack].anchor;
             let mates = views[mob.pack].as_slice();
             let pace = mob.status.speed(tick);
@@ -378,14 +399,7 @@ impl Sim {
                     let regen = mob.max_hp * RETURN_REGEN_SHARE * SIM_DT;
                     mob.hp = (mob.hp + regen).min(mob.max_hp);
                     let home = mob.home;
-                    let moved = walk.step(
-                        &mut mob,
-                        home,
-                        species.move_speed * pace,
-                        0.3,
-                        tick,
-                        Vec3::ZERO,
-                    );
+                    let moved = walk.step(&mut mob, home, move_speed * pace, 0.3, tick, Vec3::ZERO);
                     mob.state = if moved { STATE_MOVING } else { STATE_IDLE };
                     if planar_distance(mob.pos, home) < HOME_RADIUS {
                         mob.hp = mob.max_hp;
@@ -397,7 +411,7 @@ impl Sim {
                     if pack.aggressive && tick >= mob.next_scan {
                         mob.next_scan = tick + scan_ticks;
                         thinking += 1;
-                        let radius = game.aggro_radius(pack);
+                        let radius = game.aggro_radius(mob.level);
                         let eye = mob.pos + Vec3::new(0.0, CHEST, 0.0);
                         let mut seen: Vec<(f32, Entity, Vec3)> = Vec::new();
                         for c in cells_around(mob.pos, 1) {
@@ -411,8 +425,8 @@ impl Sim {
                         seen.sort_unstable_by(|a, b| a.0.total_cmp(&b.0));
                         let found = seen.into_iter().find(|&(_, _, pos)| {
                             !protected(pos)
-                                && (species.bolt.is_some()
-                                    || !out_of_reach(mob.pos, pos, species.attack_range))
+                                && ((species.bolt.is_some() && !mob.boss)
+                                    || !out_of_reach(mob.pos, pos, attack_range))
                                 && clear(eye, pos + Vec3::new(0.0, CHEST, 0.0))
                         });
                         if let Some((_, player, _)) = found {
@@ -424,7 +438,7 @@ impl Sim {
                     // Stand a few seconds, stroll a few metres from home,
                     // stand again.
                     if let MobMode::Wander(to) = mob.mode {
-                        let speed = species.move_speed * WANDER_PACE * pace;
+                        let speed = move_speed * WANDER_PACE * pace;
                         let moved = walk.step(&mut mob, to, speed, 0.3, tick, Vec3::ZERO);
                         mob.state = if moved { STATE_MOVING } else { STATE_IDLE };
                         if !moved || tick >= mob.next_think {
@@ -458,13 +472,21 @@ impl Sim {
                         auras.push(me);
                     }
                     let hot = tick < mob.hit_at + hot_ticks;
-                    let limit = pack.leash * if hot { LEASH_HOT_SCALE } else { 1.0 };
+                    // A boss keeps to its arena.
+                    let leash = boss.map_or(pack.leash, |b| {
+                        if b.arena_radius > 0.0 {
+                            b.arena_radius
+                        } else {
+                            pack.leash
+                        }
+                    });
+                    let limit = leash * if hot { LEASH_HOT_SCALE } else { 1.0 };
                     if (mob.pos - anchor).length() > limit {
                         deeds.push(Deed::Break(me));
                         continue;
                     }
-                    if species.bolt.is_none() && !pack.boss {
-                        if out_of_reach(mob.pos, tpos, species.attack_range) {
+                    if species.bolt.is_none() && !mob.boss {
+                        if out_of_reach(mob.pos, tpos, attack_range) {
                             if mob.unreachable_since == 0 {
                                 mob.unreachable_since = tick;
                             } else if tick - mob.unreachable_since > unreachable_ticks {
@@ -481,12 +503,12 @@ impl Sim {
                         mob.state = STATE_ATTACKING;
                         if !a.released {
                             // A plain swing follows a retreating target.
-                            if a.ability.is_none() && species.bolt.is_none() {
-                                let stop = species.attack_range * 0.8;
+                            if a.ability.is_none() && (species.bolt.is_none() || mob.boss) {
+                                let stop = attack_range * 0.8;
                                 walk.step(
                                     &mut mob,
                                     tpos,
-                                    species.move_speed * WINDUP_STEP * pace,
+                                    move_speed * WINDUP_STEP * pace,
                                     stop,
                                     tick,
                                     Vec3::ZERO,
@@ -509,10 +531,11 @@ impl Sim {
                     let dist = planar_distance(mob.pos, tpos);
                     let eye = mob.pos + Vec3::new(0.0, CHEST, 0.0);
                     let chest = tpos + Vec3::new(0.0, CHEST, 0.0);
-                    let can_act = brain.windup_ms > 0 || !brain.abilities.is_empty();
+                    let can_act =
+                        brain.windup_ms > 0 || !brain.abilities.is_empty() || boss.is_some();
                     // A target out of reach draws a thrown ability.
-                    if can_act && mob.attack_cd <= 0.0 && dist > species.attack_range {
-                        let throw = brain.abilities.iter().copied().find(|&i| {
+                    if can_act && mob.attack_cd <= 0.0 && dist > attack_range {
+                        let throw = brain.abilities.iter().chain(extras).copied().find(|&i| {
                             rules.mobs.ability(i).is_some_and(|ab| match ab.trigger {
                                 Trigger::Thrown {
                                     min_range,
@@ -533,28 +556,17 @@ impl Sim {
                             if let Trigger::Thrown { cooldown_ms, .. } = ab.trigger {
                                 mob.set_thrown_ready(i, tick + ticks(cooldown_ms));
                             }
-                            let a = begin(
-                                &mut mob,
-                                ab,
-                                target,
-                                tpos,
-                                tick,
-                                species.attack_cooldown_ticks,
-                            );
+                            let a = begin(&mut mob, ab, target, tpos, tick, cooldown);
                             deeds.push(telegraph(net_id.0, ab, &a));
                             continue;
                         }
                     }
-                    let ranged = species.bolt.is_some();
-                    let reach = if ranged {
-                        BOLT_REACH
-                    } else {
-                        species.attack_range
-                    };
+                    let ranged = species.bolt.is_some() && !mob.boss;
+                    let reach = if ranged { BOLT_REACH } else { attack_range };
                     let in_reach = dist <= reach && (!ranged || clear(eye, chest));
                     // The ring: past `attack_slots` mates on this target, wait.
                     let mut ring = None;
-                    if !ranged && !pack.boss && mates.len() > 1 {
+                    if !ranged && !mob.boss && mates.len() > 1 {
                         let ahead = mates
                             .iter()
                             .filter(|m| {
@@ -574,21 +586,33 @@ impl Sim {
                     }
                     if can_act && in_reach && ring.is_none() && mob.attack_cd <= 0.0 {
                         mob.attacks_made += 1;
-                        let every = brain.abilities.iter().copied().find(|&i| {
-                            rules.mobs.ability(i).is_some_and(|ab| {
-                                matches!(ab.trigger, Trigger::Every(n) if mob.attacks_made.is_multiple_of(n))
+                        // A boss cycles its style's patterns (those of its
+                        // first phase); everyone else mixes in every Nth.
+                        let cycle: Vec<u16> = boss
+                            .and_then(|b| rules.mobs.patterns.get(&b.style))
+                            .map(|list| {
+                                list.iter()
+                                    .copied()
+                                    .filter(|&i| {
+                                        rules.mobs.ability(i).is_some_and(|ab| ab.min_phase <= 1)
+                                    })
+                                    .collect()
                             })
-                        });
+                            .unwrap_or_default();
+                        let every = if cycle.is_empty() {
+                            brain.abilities.iter().copied().find(|&i| {
+                                rules.mobs.ability(i).is_some_and(|ab| {
+                                    matches!(ab.trigger, Trigger::Every(n) if mob.attacks_made.is_multiple_of(n))
+                                })
+                            })
+                        } else {
+                            let i = cycle[mob.pattern_next as usize % cycle.len()];
+                            mob.pattern_next += 1;
+                            Some(i)
+                        };
                         mob.yaw = yaw_of(flat_dir(mob.pos, tpos));
                         if let Some(ab) = every.and_then(|i| rules.mobs.ability(i)) {
-                            let a = begin(
-                                &mut mob,
-                                ab,
-                                target,
-                                tpos,
-                                tick,
-                                species.attack_cooldown_ticks,
-                            );
+                            let a = begin(&mut mob, ab, target, tpos, tick, cooldown);
                             deeds.push(telegraph(net_id.0, ab, &a));
                         } else if brain.windup_ms > 0 || brain.recovery_ms > 0 {
                             let release = tick + ticks(brain.windup_ms);
@@ -601,7 +625,7 @@ impl Sim {
                                 done: release + ticks(brain.recovery_ms),
                                 released: false,
                             });
-                            mob.attack_cd = f32::from(species.attack_cooldown_ticks);
+                            mob.attack_cd = cooldown;
                         }
                         mob.state = STATE_ATTACKING;
                         continue;
@@ -620,19 +644,15 @@ impl Sim {
                         Some(spot) => walk.step(
                             &mut mob,
                             spot,
-                            species.move_speed * RING_PACE * pace,
+                            move_speed * RING_PACE * pace,
                             RING_HOLD,
                             tick,
                             push,
                         ),
                         None if in_reach => false,
                         None => {
-                            let stop = if ranged {
-                                0.3
-                            } else {
-                                species.attack_range * 0.8
-                            };
-                            walk.step(&mut mob, tpos, species.move_speed * pace, stop, tick, push)
+                            let stop = if ranged { 0.3 } else { attack_range * 0.8 };
+                            walk.step(&mut mob, tpos, move_speed * pace, stop, tick, push)
                         }
                     };
                     if !moved {
@@ -788,11 +808,17 @@ impl Sim {
 
     /// A creature fell: its corpse lingers, and the last of a pack starts
     /// the pack's respawn clock.
-    pub(super) fn mob_died(&mut self, mob: Entity) {
+    /// `killer`: whose blow (or burn) felled it, if anyone's.
+    pub(super) fn mob_died(&mut self, mob: Entity, killer: Option<Entity>) {
         let tick = self.tick;
         let Some(mut m) = self.world.get_mut::<Mob>(mob) else {
             return;
         };
+        // A training dummy never falls: it stands up whole.
+        if self.game.packs[m.pack].kind == PackKind::Dummy {
+            m.hp = m.max_hp;
+            return;
+        }
         m.hp = 0.0;
         m.mode = MobMode::Dead;
         m.state = STATE_DEAD;
@@ -802,8 +828,9 @@ impl Sim {
             .attack
             .take()
             .is_some_and(|a| a.ability.is_some() && !a.released);
-        let (pack, at) = (m.pack, m.pos);
+        let pack = m.pack;
         let roll = xorshift(&mut m.rng);
+        let at = m.pos;
         self.stats.kills += 1;
         // A creature that falls mid-windup takes its warning with it.
         if cancelled {
@@ -812,9 +839,253 @@ impl Sim {
         }
         let state = &mut self.packs[pack];
         state.alive = state.alive.saturating_sub(1);
-        if state.alive == 0 {
-            let (lo, hi) = self.game.packs[pack].respawn_ticks;
+        let p = &self.game.packs[pack];
+        let summoned = matches!(p.kind, PackKind::Summons(_));
+        if state.alive == 0 && !summoned {
+            let (lo, hi) = p.respawn_ticks;
             state.respawn_at = Some(tick + lo + roll % hi.saturating_sub(lo).max(1));
+            state.announced = false;
+        }
+        // A commander rages when a pack mate falls.
+        if p.commander {
+            for i in 0..self.packs[pack].members.len() {
+                let mate = self.packs[pack].members[i];
+                if let Some(mut m) = self.world.get_mut::<Mob>(mate)
+                    && m.boss
+                    && m.mode != MobMode::Dead
+                {
+                    m.enraged = true;
+                }
+            }
+        }
+        let actor = killer
+            .and_then(|k| self.world.get::<Player>(k))
+            .map(|p| p.sheet.name.clone())
+            .unwrap_or_default();
+        let world_boss = self.game.packs[pack].world_boss;
+        if world_boss && self.world.get::<Mob>(mob).is_some_and(|m| m.boss) {
+            let name = self.boss_name(pack);
+            self.notice(None, "boss_slain", name, actor.clone(), (0, 0));
+        }
+        let stone = match &self.game.packs[pack].kind {
+            PackKind::Stone(kind) => self
+                .game
+                .rules
+                .mobs
+                .stone_types
+                .get(kind)
+                .map(|t| t.name.clone()),
+            _ => None,
+        };
+        if let Some(name) = stone {
+            self.notice(Some(at), "stone_shattered", name, actor, (0, 0));
+        }
+    }
+
+    /// A boss pack's boss name.
+    fn boss_name(&self, pack: usize) -> String {
+        self.game.packs[pack]
+            .boss_setup
+            .as_ref()
+            .and_then(|b| self.game.rules.mobs.bosses.get(&b.key))
+            .map(|b| b.name.clone())
+            .unwrap_or_default()
+    }
+
+    /// Tells the players near `at` (everyone on the map when None).
+    pub(super) fn notice(
+        &mut self,
+        at: Option<Vec3>,
+        kind: &str,
+        subject: String,
+        actor: String,
+        (value, of): (u32, u32),
+    ) {
+        println!("[notice] {kind} {subject} {actor} {value}/{of}");
+        let msg = realm_proto::control::ServerMsg::Notice {
+            kind: kind.to_owned(),
+            subject,
+            actor,
+            value,
+            of,
+        };
+        let conns: Vec<super::ConnId> = self
+            .clients
+            .iter()
+            .filter(|(_, c)| {
+                at.is_none_or(|at| {
+                    self.world
+                        .get::<Player>(c.entity)
+                        .is_some_and(|p| planar_distance(p.body.pos, at) <= super::INTEREST_RADIUS)
+                })
+            })
+            .map(|(conn, _)| *conn)
+            .collect();
+        for conn in conns {
+            self.send_control(conn, &msg);
+        }
+    }
+
+    /// What a creature is, for `Inspect`.
+    pub(super) fn creature_info(&self, id: u32) -> Option<realm_proto::control::ServerMsg> {
+        let entity = *self.ids.get(&id)?;
+        let m = self.world.get::<Mob>(entity)?;
+        let p = &self.game.packs[m.pack];
+        let name = match &p.kind {
+            PackKind::Stone(kind) => self
+                .game
+                .rules
+                .mobs
+                .stone_types
+                .get(kind)
+                .map(|t| t.name.clone()),
+            PackKind::Dummy => Some(self.game.rules.mobs.dummy_name.clone()),
+            _ if m.boss => Some(self.boss_name(m.pack)),
+            _ => None,
+        };
+        let boss_key = if m.boss {
+            p.boss_setup
+                .as_ref()
+                .map(|b| b.key.clone())
+                .unwrap_or_default()
+        } else {
+            String::new()
+        };
+        Some(realm_proto::control::ServerMsg::CreatureInfo {
+            entity: id,
+            boss_key,
+            name: name.unwrap_or_default(),
+            level: m.level,
+            elite: m.elite,
+            boss: m.boss,
+        })
+    }
+
+    /// A Dark Shard under attack calls a wave each time its health drops past
+    /// one of its thresholds; the wave turns on the attacker.
+    pub(super) fn stone_waves(&mut self, stone: Entity, attacker: Entity) {
+        let Some((pack, pos, share)) = self
+            .world
+            .get::<Mob>(stone)
+            .map(|m| (m.pack, m.pos, m.hp / m.max_hp.max(1.0)))
+        else {
+            return;
+        };
+        let PackKind::Stone(kind) = &self.game.packs[pack].kind else {
+            return;
+        };
+        let rules = self.rules();
+        let Some(t) = rules.mobs.stone_types.get(kind) else {
+            return;
+        };
+        // The stone's waves are the next pack (game.rs puts them there).
+        let waves = pack + 1;
+        while self.packs[pack].waves_done < t.waves.len()
+            && share <= t.waves[self.packs[pack].waves_done].ratio
+        {
+            let wave = &t.waves[self.packs[pack].waves_done];
+            self.packs[pack].waves_done += 1;
+            for (species, count, level) in &wave.spawns {
+                for _ in 0..*count {
+                    let a = unit(&mut self.dice_state) * core::f32::consts::TAU;
+                    let (lo, hi) = t.spawn_distance;
+                    let r = lo + unit(&mut self.dice_state) * (hi - lo).max(0.0);
+                    let (x, z) = (pos.x + libm::cosf(a) * r, pos.z + libm::sinf(a) * r);
+                    let at = Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(pos.y), z);
+                    self.summon(waves, species, *level, at, attacker);
+                }
+            }
+            let (wave, of) = (self.packs[pack].waves_done as u32, t.waves.len() as u32);
+            self.notice(
+                Some(pos),
+                "stone_wave",
+                t.name.clone(),
+                String::new(),
+                (wave, of),
+            );
+        }
+    }
+
+    /// A creature of `species` at `level` comes into the summons pack at
+    /// `at` and turns on `target`.
+    fn summon(&mut self, pack: usize, species: &str, level: u32, at: Vec3, target: Entity) {
+        let Some(index) = self.game.species.iter().position(|s| s.id == species) else {
+            return;
+        };
+        let (hp, power) = self.game.stats_at(index, level);
+        let sp = &self.game.species[index];
+        let mob = Mob {
+            pack,
+            species: index as u16,
+            home: at,
+            pos: at,
+            yaw: (xorshift(&mut self.dice_state) & 0xFFFF) as u16,
+            hp,
+            max_hp: hp,
+            level,
+            attack_power: power,
+            attack_range: sp.attack_range,
+            move_speed: sp.move_speed,
+            elite: false,
+            boss: false,
+            enraged: false,
+            pattern_next: 0,
+            mode: MobMode::Chase(target),
+            attack_cd: 0.0,
+            attack: None,
+            attacks_made: 0,
+            thrown: Vec::new(),
+            hit_at: self.tick,
+            unreachable_since: 0,
+            next_scan: 0,
+            next_think: self.tick,
+            died_at: 0,
+            rng: xorshift(&mut self.dice_state) | 1,
+            state: STATE_IDLE,
+            path: Vec::new(),
+            path_goal: at,
+            replan_at: 0,
+            status: super::status::Status::default(),
+        };
+        let entity = self.world.spawn(mob).id();
+        let id = self.new_id(entity);
+        self.world.entity_mut(entity).insert(NetId(id));
+        self.packs[pack].members.push(entity);
+        self.packs[pack].alive += 1;
+        self.packs[pack].anchor = at;
+        self.assist(entity, target);
+    }
+
+    /// Takes a creature out of the world for good (a wave's corpse, or a
+    /// wave left standing when its stone comes back).
+    fn despawn(&mut self, entity: Entity) {
+        if let Some(id) = self.world.get::<NetId>(entity).map(|n| n.0) {
+            self.ids.remove(&id);
+        }
+        self.world.despawn(entity);
+    }
+
+    /// Waves' corpses go once they have lain a while.
+    fn clear_corpses(&mut self) {
+        let tick = self.tick;
+        for pack in 0..self.packs.len() {
+            if !matches!(self.game.packs[pack].kind, PackKind::Summons(_)) {
+                continue;
+            }
+            let gone: Vec<Entity> = self.packs[pack]
+                .members
+                .iter()
+                .copied()
+                .filter(|&e| {
+                    self.world.get::<Mob>(e).is_none_or(|m| {
+                        m.mode == MobMode::Dead && tick > m.died_at + super::CORPSE_TICKS
+                    })
+                })
+                .collect();
+            for e in gone {
+                self.packs[pack].members.retain(|m| *m != e);
+                self.despawn(e);
+            }
         }
     }
 
@@ -825,11 +1096,30 @@ impl Sim {
         if !tick.is_multiple_of(RESPAWN_CHECK_TICKS) {
             return;
         }
+        self.clear_corpses();
         for pack in 0..self.packs.len() {
-            if self.packs[pack].respawn_at.is_none_or(|t| t > tick) {
+            let Some(at) = self.packs[pack].respawn_at else {
+                continue;
+            };
+            if self.game.packs[pack].world_boss
+                && !self.packs[pack].announced
+                && at <= tick + WORLD_BOSS_WARNING
+            {
+                self.packs[pack].announced = true;
+                let name = self.boss_name(pack);
+                let seconds = at.saturating_sub(tick).div_ceil(SIM_HZ);
+                self.notice(None, "boss_soon", name, String::new(), (seconds, 0));
+            }
+            if at > tick {
                 continue;
             }
-            if !self.place_pack(pack, false) {
+            if self.place_pack(pack, false) {
+                if self.game.packs[pack].world_boss {
+                    let name = self.boss_name(pack);
+                    let level = self.game.packs[pack].level;
+                    self.notice(None, "boss_spawned", name, String::new(), (level, 0));
+                }
+            } else {
                 let retry = ticks(self.game.rules.mobs.tuning.respawn_retry_ms.max(1000));
                 let jitter = xorshift(&mut self.dice_state) % retry.max(1);
                 self.packs[pack].respawn_at = Some(tick + retry + jitter);
@@ -878,7 +1168,20 @@ impl Sim {
     /// Stands a pack up on a fresh anchor: members on a ring around it,
     /// full health, elites rolled. Returns false when no spot was free.
     pub(super) fn place_pack(&mut self, pack: usize, initial: bool) -> bool {
+        let kind = self.game.packs[pack].kind.clone();
+        let fixed = match &kind {
+            // A dummy stands on its post; a Dark Shard lands on its site the
+            // first time.
+            PackKind::Dummy => true,
+            PackKind::Stone(_) => initial,
+            _ => false,
+        };
         let anchor = match self.pack_spot(pack, initial) {
+            _ if fixed => {
+                let (x, z) = self.game.packs[pack].center;
+                let y = self.terrain.ground_height(x, z).unwrap_or(0.0);
+                Vec3::new(x, y, z)
+            }
             Some(spot) => spot,
             None if initial => {
                 let (x, z) = self.game.packs[pack].center;
@@ -891,9 +1194,26 @@ impl Sim {
         let elite = rules.mobs.elite;
         let spacing = rules.mobs.tuning.pack_spacing;
         let p = &self.game.packs[pack];
-        let (boss, count) = (p.boss, self.packs[pack].members.len().max(1));
-        let max_hp = self.game.mob_max_hp(p);
-        let attack = self.game.mob_attack(p);
+        let (boss, count, level) = (p.boss, self.packs[pack].members.len().max(1), p.level);
+        let object = self.game.species[p.species].object;
+        let (max_hp, attack) = if object {
+            (self.game.species[p.species].max_hp, 0.0)
+        } else {
+            self.game.stats_at(p.species, level)
+        };
+        let boss_stats = p
+            .boss_setup
+            .as_ref()
+            .and_then(|b| {
+                self.game
+                    .boss_stats(&b.key)
+                    .zip(self.game.rules.mobs.bosses.get(&b.key))
+            })
+            .map(|((hp, power), def)| (hp, power, def.attack_range, def.move_speed));
+        let (range, speed) = {
+            let sp = &self.game.species[p.species];
+            (sp.attack_range, sp.move_speed)
+        };
         let ring = if count > 1 {
             spacing / (2.0 * libm::sinf(core::f32::consts::PI / count as f32))
         } else {
@@ -907,12 +1227,20 @@ impl Sim {
                 anchor.z + libm::sinf(a) * ring,
             );
             let home = Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(anchor.y), z);
-            let is_elite = !boss && unit(&mut self.dice_state) < elite.chance;
-            let (hp, power) = if is_elite {
-                (max_hp * elite.hp_mult, attack * elite.attack_mult)
-            } else {
-                (max_hp, attack)
+            // Bosses and their escorts never roll elite, nor do objects.
+            let is_elite = !boss && !object && unit(&mut self.dice_state) < elite.chance;
+            let is_boss = i == 0 && boss_stats.is_some();
+            let (hp, power, reach, pace) = match boss_stats {
+                Some(b) if is_boss => b,
+                _ if is_elite => (
+                    max_hp * elite.hp_mult,
+                    attack * elite.attack_mult,
+                    range,
+                    speed,
+                ),
+                _ => (max_hp, attack, range, speed),
             };
+            let home = if count == 1 { anchor } else { home };
             let member = self.packs[pack].members[i];
             if let Some(mut m) = self.world.get_mut::<Mob>(member) {
                 m.home = home;
@@ -920,7 +1248,13 @@ impl Sim {
                 m.max_hp = hp;
                 m.hp = hp;
                 m.attack_power = power;
+                m.attack_range = reach;
+                m.move_speed = pace;
+                m.level = level;
                 m.elite = is_elite;
+                m.boss = is_boss;
+                m.enraged = false;
+                m.pattern_next = 0;
                 m.mode = MobMode::Idle;
                 m.state = STATE_IDLE;
                 m.attack = None;
@@ -938,6 +1272,28 @@ impl Sim {
         state.anchor = anchor;
         state.alive = state.members.len() as u32;
         state.respawn_at = None;
+        state.waves_done = 0;
+        state.announced = false;
+        // A Dark Shard back on its feet clears the waves left idle.
+        if matches!(kind, PackKind::Stone(_)) {
+            let waves = pack + 1;
+            let idle: Vec<Entity> = self.packs[waves]
+                .members
+                .iter()
+                .copied()
+                .filter(|&e| {
+                    self.world
+                        .get::<Mob>(e)
+                        .is_none_or(|m| !matches!(m.mode, MobMode::Chase(_)))
+                })
+                .collect();
+            for e in idle {
+                self.packs[waves].members.retain(|m| *m != e);
+                self.despawn(e);
+            }
+            let alive = self.packs[waves].members.len() as u32;
+            self.packs[waves].alive = alive;
+        }
         true
     }
 
@@ -950,9 +1306,11 @@ impl Sim {
             (m.mode != MobMode::Dead).then(|| {
                 (
                     m.pos,
-                    m.attack_power * m.status.strength(tick),
+                    m.attack_power
+                        * m.status.strength(tick)
+                        * if m.enraged { ENRAGE_ATTACK } else { 1.0 },
                     usize::from(m.species),
-                    self.game.packs[m.pack].level,
+                    m.level,
                 )
             })
         }) else {
@@ -964,7 +1322,9 @@ impl Sim {
             let Some(tpos) = self.player_pos.get(&attack.target).copied() else {
                 return;
             };
-            if let Some((spell, speed, range)) = sp.bolt {
+            // A boss fights with its patterns, never with a caster's bolt.
+            let boss = self.world.get::<Mob>(mob).is_some_and(|m| m.boss);
+            if let Some((spell, speed, range)) = sp.bolt.filter(|_| !boss) {
                 let from = pos + Vec3::new(0.0, WAND, 0.0);
                 let aim = tpos + Vec3::new(0.0, CHEST, 0.0);
                 if self.terrain.line_hit(from, aim).is_some() {
@@ -993,12 +1353,16 @@ impl Sim {
                 });
                 return;
             }
+            let reach = self
+                .world
+                .get::<Mob>(mob)
+                .map_or(sp.attack_range, |m| m.attack_range);
             let lunge = if sp.brain.windup_ms > 0 {
-                MELEE_LUNGE * sp.attack_range
+                MELEE_LUNGE * reach
             } else {
                 0.0
             };
-            if planar_distance(pos, tpos) <= sp.attack_range + MELEE_SLACK + lunge
+            if planar_distance(pos, tpos) <= reach + MELEE_SLACK + lunge
                 && self
                     .terrain
                     .line_hit(eye, tpos + Vec3::new(0.0, CHEST, 0.0))
@@ -1120,7 +1484,7 @@ fn begin(
     target: Entity,
     tpos: Vec3,
     tick: u32,
-    cooldown: u16,
+    cooldown: f32,
 ) -> Attack {
     let dir = flat_dir(mob.pos, tpos);
     mob.yaw = yaw_of(dir);
@@ -1142,7 +1506,7 @@ fn begin(
         released: false,
     };
     mob.attack = Some(a);
-    mob.attack_cd = f32::from(cooldown);
+    mob.attack_cd = cooldown;
     mob.state = STATE_ATTACKING;
     a
 }

@@ -20,7 +20,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_client` | GDExtension the Godot client loads: `RealmSession` (joins, steps the 30 Hz prediction, reports own body, others, stats and the map as meshes). |
 | `crates/realm_netem` | UDP proxy that adds delay, jitter and loss in both directions. |
 | `crates/realm_netcheck` | One scripted player through `ClientCore`; fails on any correction (Phase 4 exit). |
-| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`); the old game's approved windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map is still grey collision geometry until the scenes stream in (Phase 6). Art is in LFS. |
+| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`; a boss wears its authored boss body sized by `boss_overrides`), Dark Shards and training dummies their own views (`stone_view.gd`: idle glow, waves, shatter, fall-in; `dummy_view.gd`); the map's boss and stone notices show on the notice band; the old game's approved windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map is still grey collision geometry until the scenes stream in (Phase 6). Art is in LFS. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
 | `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
@@ -37,7 +37,7 @@ cargo run -p realm_server -- selfcheck               # QUIC loopback: TLS, strea
 cargo run -p realm_perfgate -- perf/budgets.toml report.json [--report-only]
 cargo run --release -p realm_simcheck [-- --trace stairs | --bench]   # movement fingerprint / cost
 cargo run --release -p realm_server -- keygen keys            # dev ticket key + TLS cert (keys/ is gitignored)
-cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest | grak | stone_dark | training_dummy
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
 cargo run -p realm_content -- check content/rename_map.toml content/data
@@ -74,7 +74,13 @@ poison and despair players (`sim/afflict.rs`); the holds travel in the owner's
 snapshot as a `Restraint` in the player's own input ticks, so prediction
 replays them exactly; a life counter in the same snapshot marks deaths and
 respawns. The client draws a telegraph as the old game's projected ground mark
-filling toward its release tick against `RealmSession.server_tick()`. Packs come back
+filling toward its release tick against `RealmSession.server_tick()`.
+A pack's boss (`boss_overrides`) cycles its template's attack patterns and
+keeps to its arena; a commander enrages when a pack mate falls; world bosses
+are announced to the map before they come, when they come and when they fall.
+Dark Shards (`monolith_types`) call their waves at 75/50/25 % health and come
+back elsewhere near their site; training dummies never fall. A client asks
+what a creature is with `RealmSession.inspect` (boss name and key, level). Packs come back
 whole on a fresh anchor. Load with fighting creatures:
 
 ```bash
@@ -88,6 +94,7 @@ WASD, Space, Ctrl, right mouse drag, wheel):
 ```bash
 godot --path game -- --server 127.0.0.1:7777 --map grounds
 godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
+godot --headless --path game -- --check 30 --check-target stone_dark   # fights a Dark Shard first (its waves)
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```

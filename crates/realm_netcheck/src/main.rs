@@ -446,6 +446,11 @@ fn main() -> AnyResult<()> {
                         }
                     }
                 }
+                // Creature answers and map notices: the castle has neither.
+                NetEvent::Control(
+                    realm_proto::control::ServerMsg::CreatureInfo { .. }
+                    | realm_proto::control::ServerMsg::Notice { .. },
+                ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }
         }

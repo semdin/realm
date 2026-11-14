@@ -205,7 +205,7 @@ impl Sim {
                 (m.mode != MobMode::Dead)
                     .then_some(())
                     .and(species.brain.aura)
-                    .map(|a| (m.pos, m.attack_power, a, self.game.packs[m.pack].level))
+                    .map(|a| (m.pos, m.attack_power, a, m.level))
             }) else {
                 continue;
             };

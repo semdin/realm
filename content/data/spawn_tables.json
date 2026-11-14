@@ -24462,7 +24462,8 @@
       "name": "Dark Shard",
       "level": 15,
       "loot_table": "monolith",
-      "scene": "res://scenes/entities/monolith/dark_monolith.tscn"
+      "scene": "res://scenes/entities/monolith/dark_monolith.tscn",
+      "roam": 30.0
     },
     "spider": {
       "name": "Webbound Seal Stone",
@@ -24518,8 +24519,16 @@
             }
           ]
         }
-      ]
+      ],
+      "roam": 12.0
     }
   },
-  "_map_note": "Each pack names the map it lives on (added 2026-11-13; the old game told them apart by zone name: caverns_* zones are the Blackweb Caverns)."
+  "_map_note": "Each pack names the map it lives on (added 2026-11-13; the old game told them apart by zone name: caverns_* zones are the Blackweb Caverns).",
+  "_dummy_note": "Training dummies (dummies[]): fixed posts in the training yard. They take blows inside the safe zone, never strike back and never fall: at 0 health they stand up whole.",
+  "dummy_config": {
+    "name": "Training Dummy",
+    "max_hp": 800
+  },
+  "_monolith_roam_note": "roam: a Dark Shard comes back on a free flat dry spot within this many metres of its site.",
+  "_boss_note": "A boss pack's first member is the boss: boss_overrides[boss_key] (or 'commander' for a commander pack, 'matriarch' otherwise) gives its name, health (x pack_tuning.hp_multiplier), attack power and range, speed and extra abilities; its template's attack_style picks the pattern cycle and arena_radius its leash. A commander enrages when a pack mate falls (attack x1.3, speed x1.25, attack cooldown x0.8)."
 }

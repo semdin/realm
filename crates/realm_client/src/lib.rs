@@ -89,6 +89,23 @@ impl RealmContent {
         }
     }
 
+    /// The species id of a snapshot creature kind (the server's order: the
+    /// mark bits are ignored); empty when unknown.
+    #[func]
+    fn species_of_kind(kind: i64) -> GString {
+        let index = (kind as u16 & realm_proto::KIND_SPECIES) as usize;
+        RULES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .and_then(|r| {
+                index
+                    .checked_sub(1)
+                    .and_then(|i| r.mobs.species_order.get(i))
+            })
+            .map_or_else(GString::new, |s| GString::from(s.as_str()))
+    }
+
     /// One table (`looks` for looks.json) as a dictionary or array; nil when
     /// content is not loaded or the table does not exist.
     #[func]
@@ -269,6 +286,9 @@ struct RealmSession {
     ready_at: [f64; 16],
     busy_until: f64,
     skill_results: Vec<(String, bool, String)>,
+    /// Creature answers to `inspect` and map notices, waiting to be taken.
+    creature_info: Vec<ServerMsg>,
+    notices: Vec<ServerMsg>,
     status: String,
     /// The player's character sheet as the server last sent it.
     sheet: Option<CharacterSheet>,
@@ -295,6 +315,8 @@ impl INode for RealmSession {
             ready_at: [0.0; 16],
             busy_until: 0.0,
             skill_results: Vec::new(),
+            creature_info: Vec::new(),
+            notices: Vec::new(),
             status: "idle".to_owned(),
             sheet: None,
             item_results: Vec::new(),
@@ -404,6 +426,12 @@ impl RealmSession {
                 }
                 NetEvent::Control(ServerMsg::SkillResult { spell, ok, reason }) => {
                     self.skill_results.push((spell, ok, reason));
+                }
+                NetEvent::Control(info @ ServerMsg::CreatureInfo { .. }) => {
+                    self.creature_info.push(info);
+                }
+                NetEvent::Control(notice @ ServerMsg::Notice { .. }) => {
+                    self.notices.push(notice);
                 }
                 NetEvent::Control(ServerMsg::ItemResult {
                     op_id,
@@ -642,6 +670,72 @@ impl RealmSession {
         if let Some(net) = self.net.as_ref() {
             net.send_control(&ClientMsg::LearnSkill(spell.to_string()));
         }
+    }
+
+    /// Asks what creature `entity` is; the answer comes through
+    /// `take_creature_info`.
+    #[func]
+    fn inspect(&mut self, entity: i64) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Inspect(entity.max(0) as u32));
+        }
+    }
+
+    /// Answers to `inspect`: `entity`, `boss_key` (boss_overrides key, else
+    /// empty), `name` (a boss's, a Dark Shard's or a dummy's own name; empty:
+    /// the species' name), `level`, `elite`, `boss`.
+    #[func]
+    fn take_creature_info(&mut self) -> VarArray {
+        let mut out = VarArray::new();
+        for msg in self.creature_info.drain(..) {
+            if let ServerMsg::CreatureInfo {
+                entity,
+                boss_key,
+                name,
+                level,
+                elite,
+                boss,
+            } = msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("entity", &i64::from(entity).to_variant());
+                d.set("boss_key", &GString::from(boss_key.as_str()).to_variant());
+                d.set("name", &GString::from(name.as_str()).to_variant());
+                d.set("level", &i64::from(level).to_variant());
+                d.set("elite", &elite.to_variant());
+                d.set("boss", &boss.to_variant());
+                out.push(&d.to_variant());
+            }
+        }
+        out
+    }
+
+    /// What the map announced since the last call: `kind` ("boss_soon",
+    /// "boss_spawned", "boss_slain", "stone_wave", "stone_shattered"),
+    /// `subject` (a name), `actor` (who felled it, may be empty), `value` and
+    /// `of` (seconds to go, the boss's level, the wave of how many).
+    #[func]
+    fn take_notices(&mut self) -> VarArray {
+        let mut out = VarArray::new();
+        for msg in self.notices.drain(..) {
+            if let ServerMsg::Notice {
+                kind,
+                subject,
+                actor,
+                value,
+                of,
+            } = msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("kind", &GString::from(kind.as_str()).to_variant());
+                d.set("subject", &GString::from(subject.as_str()).to_variant());
+                d.set("actor", &GString::from(actor.as_str()).to_variant());
+                d.set("value", &i64::from(value).to_variant());
+                d.set("of", &i64::from(of).to_variant());
+                out.push(&d.to_variant());
+            }
+        }
+        out
     }
 
     /// Answers to skill requests: `spell`, `ok`, `reason`.

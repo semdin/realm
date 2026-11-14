@@ -25,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 9;
+pub const PROTOCOL_VERSION: u16 = 10;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/9";
+pub const ALPN: &[u8] = b"realm/10";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -142,8 +142,12 @@ pub const STATUS_WEAK: u8 = 1 << 7;
 /// A body that cannot act while any of these runs.
 pub const STATUS_LOCKED: u8 = STATUS_STUN | STATUS_FREEZE | STATUS_KNOCKED;
 
-/// `EntityState::kind` bit of an elite creature (kind = species + 1).
+/// `EntityState::kind` of a creature: its species + 1 in the low bits, and
+/// these marks over them.
 pub const KIND_ELITE: u16 = 0x8000;
+pub const KIND_ENRAGED: u16 = 0x4000;
+pub const KIND_BOSS: u16 = 0x2000;
+pub const KIND_SPECIES: u16 = 0x1FFF;
 
 /// Server -> client.
 #[derive(Clone, Debug, PartialEq)]

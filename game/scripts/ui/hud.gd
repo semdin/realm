@@ -16,8 +16,10 @@ const NoticeScript := "res://scripts/view/notice_band.gd"
 ## by a divider.
 const TRAY_DIVIDER := 14.0
 const TARGET_CARD_H := 74.0
-## The target card's name colour for an ordinary creature.
+## The target card's name colour for an ordinary creature, and its health
+## gauge's.
 const TARGET_TINT := Color(1.0, 0.86, 0.80)
+const TARGET_BAR := Color(0.80, 0.09, 0.08)
 ## A hit's hp byte stands this long before the (older) interpolated snapshot
 ## may raise the target card's bar again.
 const HIT_HOLD_SECONDS := 0.5
@@ -37,6 +39,7 @@ var bag_button: Button
 var target_panel: Panel
 var target_name: Label
 var target_rank: Label
+var target_level: Label
 var target_hp_bar: ProgressBar
 var target_hp_text: Label
 var target_portrait: TargetPortrait
@@ -47,6 +50,7 @@ var _hp_stat: StatBar
 var _mana_stat: StatBar
 var _exp_stat: StatBar
 var _target_stat: StatBar
+var _target_flow: GaugeFlow
 var _hit_hold_until := 0.0
 ## The level last shown; a rise plays the level-up sound.
 var _shown_level := 0
@@ -194,6 +198,15 @@ func _build_target_card() -> void:
 	target_name.clip_text = true
 	target_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	target_panel.add_child(target_name)
+	target_level = HudKit.label("", 13, HudKit.PARCHMENT, HudKit.bold(), 3)
+	target_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	target_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	target_level.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	target_level.offset_left = -68
+	target_level.offset_right = -12
+	target_level.offset_top = 6
+	target_level.offset_bottom = 28
+	target_panel.add_child(target_level)
 	target_rank = HudKit.label(I18n.upper(tr("Creature")), 11, Color(1.0, 0.86, 0.80).darkened(0.12), HudKit.bold(), 2)
 	target_rank.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	target_rank.offset_left = left + 1
@@ -201,8 +214,9 @@ func _build_target_card() -> void:
 	target_rank.offset_top = 27
 	target_rank.offset_bottom = 41
 	target_panel.add_child(target_rank)
-	target_hp_bar = _gauge(Color(0.86, 0.13, 0.11), Color(0.80, 0.09, 0.08), 1.0)
+	target_hp_bar = _gauge(Color(0.86, 0.13, 0.11), TARGET_BAR, 1.0)
 	target_hp_bar.max_value = 255
+	_target_flow = GaugeFlow.attach(target_hp_bar, TARGET_BAR)
 	target_hp_bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
 	target_hp_bar.offset_left = left
 	target_hp_bar.offset_right = -12
@@ -213,18 +227,30 @@ func _build_target_card() -> void:
 	target_hp_text = _gauge_label(target_hp_bar, 12, Color(1, 1, 1))
 
 ## Show `id` (a creature named `title`, at hp byte `hp`) on the card, or hide
-## it (id 0). `tint` colours the name and its rank (an elite's gold).
-func set_target(id: int, title := "", hp := 255, tint := TARGET_TINT) -> void:
+## it (id 0). `look` says what kind of target it is (main.gd target_look):
+## `rank` (the line under the name), `level` (0: none), `tint` (the name and
+## rank), `bar` (the gauge) and `icon` (the portrait: a crown for a world boss,
+## the enraged eye, the shard for a Dark Shard).
+func set_target(id: int, title := "", hp := 255, look := {}) -> void:
+	var changed := id != target_id
 	target_id = id
 	target_panel.visible = id != 0
 	if id == 0:
 		return
+	var tint: Color = look.get("tint", TARGET_TINT)
+	var bar: Color = look.get("bar", TARGET_BAR)
 	target_name.text = title
 	target_name.add_theme_color_override("font_color", tint)
+	target_rank.text = I18n.upper(String(look.get("rank", tr("Creature"))))
 	target_rank.add_theme_color_override("font_color", tint.darkened(0.12))
-	_hit_hold_until = 0.0
-	_show_target_health(hp)
-	_target_stat.snap()
+	var level := int(look.get("level", 0))
+	target_level.text = (tr("Lv. %d") % level) if level > 0 else ""
+	_target_flow.set_colour(bar)
+	target_portrait.set_look(UITheme.chrome(String(look.get("icon", "ui_target"))), bar.lerp(tint, 0.35))
+	if changed:
+		_hit_hold_until = 0.0
+		_show_target_health(hp)
+		_target_stat.snap()
 
 ## The snapshot's hp byte (0..255) for the target, every frame.
 func set_target_health(hp: int) -> void:

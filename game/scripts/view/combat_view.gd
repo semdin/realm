@@ -280,7 +280,10 @@ func _hit(event: Dictionary, dir: Vector3) -> void:
 	if not drawn.has(target):
 		return
 	var feet: Vector3 = drawn[target]
-	var contact := SkillFX.body_contact(feet, CHEST, BODY_RADIUS, dir)
+	# a Dark Shard is far wider than a creature: the impact lands on its face
+	var body := _body(target)
+	var radius: Variant = body.get("body_radius") if body != null else null
+	var contact := SkillFX.body_contact(feet, CHEST, float(radius) if radius != null else BODY_RADIUS, dir)
 	if is_instance_valid(_wards.get(target)):
 		(_wards[target] as WardShield).on_hit(contact)
 	if VFXLibrary.has_spell(spell_id) and _delivery(spell_id) != "projectile_aoe":

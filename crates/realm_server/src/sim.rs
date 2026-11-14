@@ -221,9 +221,18 @@ struct Mob {
     yaw: u16,
     hp: f32,
     max_hp: f32,
-    /// Attack power at its level (an elite's raised).
+    /// Its level, attack power (an elite's raised), reach and pace.
+    level: u32,
     attack_power: f32,
+    attack_range: f32,
+    move_speed: f32,
     elite: bool,
+    /// A pack's boss: patterns, its own leash, no ring.
+    boss: bool,
+    /// A commander whose mate fell.
+    enraged: bool,
+    /// The boss pattern it throws next.
+    pattern_next: u32,
     mode: MobMode,
     /// Ticks until the next attack may start (runs slower while slowed).
     attack_cd: f32,
@@ -471,7 +480,18 @@ impl Sim {
             Some(species) => {
                 let packs: Vec<usize> = (0..game.packs.len())
                     .filter(|&i| {
-                        species.is_empty() || game.species[game.packs[i].species].id == species
+                        // A species, a boss key (grak), a Dark Shard body
+                        // (stone_dark) or training_dummy; empty: any
+                        // creature pack.
+                        let p = &game.packs[i];
+                        let creatures = p.kind == crate::game::PackKind::Creatures;
+                        let stone = matches!(
+                            p.kind,
+                            crate::game::PackKind::Stone(_) | crate::game::PackKind::Dummy
+                        );
+                        (creatures && species.is_empty())
+                            || ((creatures || stone) && game.species[p.species].id == species)
+                            || p.boss_setup.as_ref().is_some_and(|b| b.key == species)
                     })
                     .collect();
                 if packs.is_empty() {
@@ -544,8 +564,9 @@ impl Sim {
         for index in 0..self.game.packs.len() {
             let pack = &self.game.packs[index];
             let (count, species) = (pack.count, pack.species);
+            let summons = matches!(pack.kind, crate::game::PackKind::Summons(_));
             let mut members = Vec::new();
-            for _ in 0..count.max(1) {
+            for _ in 0..if summons { 0 } else { count.max(1) } {
                 let mob = Mob {
                     pack: index,
                     species: species as u16,
@@ -554,8 +575,14 @@ impl Sim {
                     yaw: (xorshift(&mut rng) & 0xFFFF) as u16,
                     hp: 1.0,
                     max_hp: 1.0,
+                    level: 1,
                     attack_power: 0.0,
+                    attack_range: 0.0,
+                    move_speed: 0.0,
                     elite: false,
+                    boss: false,
+                    enraged: false,
+                    pattern_next: 0,
                     mode: MobMode::Idle,
                     attack_cd: 0.0,
                     attack: None,
@@ -583,11 +610,18 @@ impl Sim {
                 members,
                 alive: 0,
                 respawn_at: None,
+                waves_done: 0,
+                announced: false,
             });
             self.pack_views.push(Vec::new());
         }
         for index in 0..self.packs.len() {
-            self.place_pack(index, true);
+            if !matches!(
+                self.game.packs[index].kind,
+                crate::game::PackKind::Summons(_)
+            ) {
+                self.place_pack(index, true);
+            }
         }
     }
 
@@ -892,6 +926,12 @@ impl Sim {
                 op,
             } => self.item_op(conn, entity, op_id, revision, &op),
             ClientMsg::LearnSkill(spell) => self.learn_skill(conn, entity, spell),
+            ClientMsg::Inspect(id) => {
+                let Some(info) = self.creature_info(id) else {
+                    return;
+                };
+                self.send_control(conn, &info);
+            }
         }
     }
 
@@ -1201,7 +1241,14 @@ impl Sim {
                 pos: realm_proto::on_grid(m.pos),
                 yaw: m.yaw,
                 state: m.state,
-                kind: (m.species + 1) | if m.elite { realm_proto::KIND_ELITE } else { 0 },
+                kind: (m.species + 1)
+                    | if m.elite { realm_proto::KIND_ELITE } else { 0 }
+                    | if m.enraged {
+                        realm_proto::KIND_ENRAGED
+                    } else {
+                        0
+                    }
+                    | if m.boss { realm_proto::KIND_BOSS } else { 0 },
                 hp: hp_byte(m.hp, m.max_hp),
                 status: if m.mode == MobMode::Dead {
                     0

@@ -100,6 +100,30 @@ pub enum ServerMsg {
         ok: bool,
         reason: String,
     },
+    /// What a creature is (answer to `Inspect`): `name` is a boss's,
+    /// a Dark Shard's or a dummy's own name (empty: the species' name).
+    CreatureInfo {
+        entity: u32,
+        /// A boss's boss_overrides key (its body, scale and name), else empty.
+        boss_key: String,
+        name: String,
+        level: u32,
+        elite: bool,
+        boss: bool,
+    },
+    /// Something the map announces: `kind` ("boss_soon", "boss_spawned",
+    /// "boss_slain", "stone_wave", "stone_shattered") about `subject` (a
+    /// name; the client translates both). `actor` is the character whose
+    /// blow felled it (empty when none did); `value` and `of` are the
+    /// numbers in the line: seconds to go (boss_soon), the boss's level
+    /// (boss_spawned), the wave and how many there are (stone_wave).
+    Notice {
+        kind: String,
+        subject: String,
+        actor: String,
+        value: u32,
+        of: u32,
+    },
 }
 
 /// Client -> server.
@@ -117,6 +141,8 @@ pub enum ClientMsg {
     },
     /// Spend a skill point on `spell` (learn it, or raise it one level).
     LearnSkill(String),
+    /// What is this creature (entity id)?
+    Inspect(u32),
 }
 
 #[derive(Debug, PartialEq, Eq)]

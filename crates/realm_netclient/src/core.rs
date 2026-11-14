@@ -337,11 +337,13 @@ impl ClientCore {
     fn reconcile(&mut self, snapshot: &Snapshot, life_changed: bool) {
         let confirmed = snapshot.last_input_seq;
         // A snapshot that arrives after a newer one (reordered on the way)
-        // confirms nothing new.
-        if self.body.is_some() && confirmed <= self.confirmed {
+        // confirms nothing new. A death, respawn or hold still counts: a
+        // dead body's inputs are used up at once, so the respawn can come
+        // with no new input confirmed.
+        if self.body.is_some() && confirmed <= self.confirmed && !life_changed {
             return;
         }
-        self.confirmed = confirmed;
+        self.confirmed = self.confirmed.max(confirmed);
         let predicted = self
             .history
             .iter()

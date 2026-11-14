@@ -156,6 +156,69 @@ pub struct PackTuning {
     pub respawn_retry_ms: u32,
 }
 
+/// A boss's own numbers (spawn_tables.json boss_overrides).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct BossDef {
+    pub key: String,
+    pub name: String,
+    /// Health before pack_tuning.hp_multiplier.
+    pub hp: f32,
+    pub attack_power: f32,
+    pub attack_range: f32,
+    pub move_speed: f32,
+    pub exp_reward: u32,
+    /// Indices of its extra abilities.
+    pub extras: Vec<u16>,
+}
+
+/// An encounter template (spawn_tables.json templates).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Template {
+    /// Boss pattern style ("troll", "wraith", ...); empty for a plain pack.
+    pub style: String,
+    /// A boss's leash.
+    pub arena_radius: f32,
+}
+
+/// A commander's rage when a pack mate falls.
+pub const ENRAGE_ATTACK: f32 = 1.3;
+pub const ENRAGE_SPEED: f32 = 1.25;
+pub const ENRAGE_COOLDOWN: f32 = 0.8;
+
+/// One wave a Dark Shard calls when its health drops to `ratio`.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Wave {
+    pub ratio: f32,
+    /// (species, count, level).
+    pub spawns: Vec<(String, u32, u32)>,
+}
+
+/// A kind of Dark Shard (spawn_tables.json monolith_types).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StoneType {
+    pub key: String,
+    pub name: String,
+    pub level: u32,
+    pub max_hp: f32,
+    pub exp_reward: u32,
+    pub respawn_ms: u32,
+    pub loot_table: String,
+    /// Waves land this far from the stone (m).
+    pub spawn_distance: (f32, f32),
+    /// It comes back within this far of its site (m).
+    pub roam: f32,
+    pub waves: Vec<Wave>,
+}
+
+/// A Dark Shard's site (spawn_tables.json monoliths).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StoneSite {
+    pub id: u32,
+    pub kind: String,
+    pub map: String,
+    pub pos: [f32; 3],
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct CreatureRules {
     pub abilities: Vec<AbilityDef>,
@@ -166,6 +229,30 @@ pub struct CreatureRules {
     pub boss_extras: BTreeMap<String, Vec<u16>>,
     pub elite: Elite,
     pub tuning: PackTuning,
+    pub bosses: BTreeMap<String, BossDef>,
+    pub templates: BTreeMap<String, Template>,
+    pub stone_types: BTreeMap<String, StoneType>,
+    pub stones: Vec<StoneSite>,
+    /// Training dummy posts on the grounds, its name and health.
+    pub dummies: Vec<[f32; 3]>,
+    pub dummy_name: String,
+    pub dummy_hp: f32,
+    /// Snapshot creature kinds: kind = index here + 1. The species of
+    /// mobs.json sorted by id, then a body per Dark Shard type
+    /// (`stone_<type>`), then `training_dummy`.
+    pub species_order: Vec<String>,
+}
+
+/// The species id of a Dark Shard type's body.
+#[must_use]
+pub fn stone_species(kind: &str) -> String {
+    format!("stone_{kind}")
+}
+
+pub const DUMMY_SPECIES: &str = "training_dummy";
+
+fn point(v: &Value) -> [f32; 3] {
+    [f(&v[0], 0.0), f(&v[1], 0.0), f(&v[2], 0.0)]
 }
 
 fn f(v: &Value, default: f32) -> f32 {
@@ -313,6 +400,104 @@ impl CreatureRules {
             attack_mult: f(&e["attack_mult"], 1.0),
             exp_mult: f(&e["exp_mult"], 1.0),
         };
+        for (key, o) in spawns["boss_overrides"].as_object().into_iter().flatten() {
+            rules.bosses.insert(
+                key.clone(),
+                BossDef {
+                    key: key.clone(),
+                    name: text(&o["name"]),
+                    hp: f(&o["hp"], 1000.0),
+                    attack_power: f(&o["attack_power"], 50.0),
+                    attack_range: f(&o["attack_range"], 4.5),
+                    move_speed: f(&o["move_speed"], 3.0),
+                    exp_reward: o["exp_reward"].as_u64().unwrap_or(0) as u32,
+                    extras: rules.boss_extras.get(key).cloned().unwrap_or_default(),
+                },
+            );
+        }
+        for (key, t) in spawns["templates"].as_object().into_iter().flatten() {
+            rules.templates.insert(
+                key.clone(),
+                Template {
+                    style: text(&t["attack_style"]),
+                    arena_radius: f(&t["arena_radius"], 0.0),
+                },
+            );
+        }
+        for (key, t) in spawns["monolith_types"].as_object().into_iter().flatten() {
+            let mut waves = Vec::new();
+            for w in t["wave_thresholds"].as_array().into_iter().flatten() {
+                let spawns = w["spawns"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .map(|s| {
+                        (
+                            text(&s["mob"]),
+                            s["count"].as_u64().unwrap_or(1) as u32,
+                            s["level"].as_u64().unwrap_or(1) as u32,
+                        )
+                    })
+                    .collect();
+                waves.push(Wave {
+                    ratio: f(&w["ratio"], 0.5),
+                    spawns,
+                });
+            }
+            waves.sort_by(|a, b| b.ratio.total_cmp(&a.ratio));
+            rules.stone_types.insert(
+                key.clone(),
+                StoneType {
+                    key: key.clone(),
+                    name: text(&t["name"]),
+                    level: t["level"].as_u64().unwrap_or(1) as u32,
+                    max_hp: f(&t["max_hp"], 1000.0),
+                    exp_reward: t["exp_reward"].as_u64().unwrap_or(0) as u32,
+                    respawn_ms: t["respawn_ms"].as_u64().unwrap_or(30_000) as u32,
+                    loot_table: text(&t["loot_table"]),
+                    spawn_distance: (
+                        f(&t["spawn_distance_min"], 4.0),
+                        f(&t["spawn_distance_max"], 9.0),
+                    ),
+                    roam: f(&t["roam"], 30.0),
+                    waves,
+                },
+            );
+        }
+        for m in spawns["monoliths"].as_array().into_iter().flatten() {
+            let zone = m["zone"].as_str().unwrap_or("");
+            rules.stones.push(StoneSite {
+                id: m["id"].as_u64().unwrap_or(0) as u32,
+                kind: m["type"].as_str().unwrap_or("dark").to_owned(),
+                // The old game told the caverns apart by zone name.
+                map: if zone.starts_with("caverns") {
+                    "spider_caverns"
+                } else {
+                    "grounds"
+                }
+                .to_owned(),
+                pos: point(&m["pos"]),
+            });
+        }
+        rules.dummies = spawns["dummies"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|d| point(&d["pos"]))
+            .collect();
+        rules.dummy_name = text(&spawns["dummy_config"]["name"]);
+        rules.dummy_hp = f(&spawns["dummy_config"]["max_hp"], 800.0);
+        let mut order: Vec<String> = mobs["mobs"]
+            .as_object()
+            .into_iter()
+            .flatten()
+            .map(|(id, _)| id.clone())
+            .filter(|id| !id.starts_with('_'))
+            .collect();
+        order.sort();
+        order.extend(rules.stone_types.keys().map(|k| stone_species(k)));
+        order.push(DUMMY_SPECIES.to_owned());
+        rules.species_order = order;
         let t = &spawns["pack_tuning"];
         rules.tuning = PackTuning {
             attack_slots: t["attack_slots"].as_u64().unwrap_or(3) as u32,

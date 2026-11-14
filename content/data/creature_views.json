@@ -1,5 +1,5 @@
 {
-  "_about": "How each creature is drawn (the client's CreatureView): its model and scale, the clip set its animations follow (anim_set), the ground speeds its walk and run cycles were authored at (0 = play at 1x), a hover height for fliers, the boss variant's model, and the name label height. Presentation only; the server never reads it.",
+  "_about": "How each creature is drawn (the client's CreatureView): its model and scale, the clip set its animations follow (anim_set), the ground speeds its walk and run cycles were authored at (0 = play at 1x), a hover height for fliers, the boss variant's model, and the name label height. Presentation only; the server never reads it. Objects (\"object\": stone or dummy) are drawn by their own views (StoneView, DummyView): a Dark Shard's model, its glow, the height of its body and label and how tall its sky beam stands; a dummy's label height and the point its painted face turns to.",
   "black_weaver": {
     "anim_set": "spider",
     "walk_speed": 0.0,
@@ -214,5 +214,36 @@
     "scale": 2.4,
     "label_height": 2.8,
     "rig": "web_object"
+  },
+  "stone_dark": {
+    "object": "stone",
+    "model": "res://assets/models/monolith/dark_monolith.glb",
+    "glow": "#59ff73",
+    "body_height": 7.0,
+    "body_radius": 1.5,
+    "label_height": 7.8,
+    "light_height": 3.0,
+    "beam_height": 160.0,
+    "beam_radius": 2.2
+  },
+  "stone_spider": {
+    "object": "stone",
+    "model": "res://assets/models/monolith/spider_stone.glb",
+    "glow": "#b86bff",
+    "body_height": 3.4,
+    "body_radius": 1.0,
+    "label_height": 4.5,
+    "light_height": 2.0,
+    "beam_height": 26.0,
+    "beam_radius": 1.2
+  },
+  "training_dummy": {
+    "object": "dummy",
+    "body_radius": 0.6,
+    "label_height": 2.75,
+    "faces": [
+      78.0,
+      27.0
+    ]
   }
 }

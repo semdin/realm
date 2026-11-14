@@ -169,10 +169,20 @@ impl Sim {
             return 0;
         }
         let species = &self.game.species[usize::from(mob.species)].id;
-        let boss = self.game.packs[mob.pack].boss;
+        let boss = mob.boss;
+        // A Dark Shard takes no holds; a dummy shows them but never moves.
+        let pack_kind = &self.game.packs[mob.pack].kind;
+        if matches!(pack_kind, crate::game::PackKind::Stone(_)) {
+            return 0;
+        }
+        let object = self.game.species[usize::from(mob.species)].object;
         let effect = combat.skill_effect(skill);
         let hold = effect * combat.hold_scale(species);
-        let displace = combat.displace_scale(species, boss);
+        let displace = if object {
+            0.0
+        } else {
+            combat.displace_scale(species, boss)
+        };
         let banished = combat
             .creatures
             .get(species)
@@ -393,7 +403,7 @@ impl Sim {
         mob.hp -= amount;
         let (at, hp) = (mob.pos, super::hp_byte(mob.hp.max(0.0), mob.max_hp));
         if mob.hp <= 0.0 {
-            self.mob_died(victim);
+            self.mob_died(victim, Some(source));
         }
         let (target_id, attacker_id) = (self.net_id_of(victim), self.net_id_of(source));
         self.event(

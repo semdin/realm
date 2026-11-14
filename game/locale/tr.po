@@ -5587,3 +5587,8 @@ msgstr "Önce %s büyüsünü öğren - beceri puanı harcamak için yuvasına t
 msgid "You learned %s!"
 msgstr "%s öğrenildi!"
 
+msgid "the wilds"
+msgstr "vahşi topraklar"
+
+msgid "%s (Lv.%d)\n%d / %d (%d%%)"
+msgstr "%s (Sv.%d)\n%d / %d (%%%d)"

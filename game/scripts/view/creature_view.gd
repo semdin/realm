@@ -53,13 +53,15 @@ const TURN_RATE := 10.0
 ## A stun played on the hit clip (no stun clip of its own) holds the recoil
 ## this far into it, the body reeling, for as long as the stun lasts.
 const STUN_HOLD := 0.4
-## A snapshot creature kind is its species index + 1, with this bit set for an
-## elite (a stronger copy of the same species).
+## A snapshot creature kind: the low 13 bits are its species index + 1
+## (RealmContent.species_of_kind), the marks above them say it rolled elite (a
+## stronger copy of the same species), is enraged or is a boss.
 const ELITE_BIT := 0x8000
-const SPECIES_MASK := 0x7FFF
+const ENRAGED_BIT := 0x4000
+const BOSS_BIT := 0x2000
+const SPECIES_MASK := 0x1FFF
 
 static var _views := {}
-static var _species := []
 
 var species := ""
 var view := {}
@@ -84,24 +86,28 @@ var _anim_speed := 1.0
 var _cc_pace := 1.0
 ## The stun on the hit clip: "" none, "recoil" playing in, "held" at STUN_HOLD.
 var _stun_phase := ""
-## The snapshot kind rolled elite.
+## The snapshot kind rolled elite, is a boss, is enraged (the target card
+## reads these).
 var elite := false
+var is_boss := false
+var enraged := false
+## The body's own scale (the boss body's `boss_scale`), before boss_overrides.
+var _body_scale := 1.0
+## Where a blow lands on the body's side (CombatView), from its middle.
+var body_radius := 0.45
 ## The telegraphed ability playing: {clip, release_at, recovery_at, phase} in
 ## seconds of Time.get_ticks_msec (empty: none).
 var _ability := {}
 
-## Species ids in the server's order: a snapshot's creature kind is its index
-## here plus one (realm_server game.rs sorts species by id).
+## The species of a snapshot creature kind, in the server's own order (the
+## mobs, then the Dark Shard bodies and the training dummy); "" when unknown.
 static func species_for_kind(kind: int) -> String:
-	kind &= SPECIES_MASK
-	if _species.is_empty():
-		var mobs: Variant = RealmContent.table("mobs")
-		if mobs is Dictionary:
-			for id: String in (mobs as Dictionary).get("mobs", {}):
-				if not id.begins_with("_"):
-					_species.append(id)
-			_species.sort()
-	return String(_species[kind - 1]) if kind >= 1 and kind <= _species.size() else ""
+	return String(RealmContent.species_of_kind(kind))
+
+## The view entry a creature kind is drawn from (creature_views.json); an entry
+## with "object" (stone, dummy) is drawn by its own view, not this one.
+static func view_for_kind(kind: int) -> Dictionary:
+	return view_of(species_for_kind(kind))
 
 static func view_of(id: String) -> Dictionary:
 	if _views.is_empty():
@@ -110,24 +116,31 @@ static func view_of(id: String) -> Dictionary:
 			_views = loaded
 	return _views.get(id, {})
 
-## False when the species has no model in this client yet.
+## False when the species has no model in this client yet. A boss (BOSS_BIT)
+## wears its species' authored boss body (`boss_model` at `boss_scale`), not a
+## scaled-up ordinary one; its boss_overrides entry (apply_info) sizes it.
 func setup(kind: int) -> bool:
 	species = species_for_kind(kind)
 	elite = is_elite(kind)
-	view = view_of(species)
-	var path := String(view.get("model", ""))
+	is_boss = kind & BOSS_BIT != 0
+	enraged = kind & ENRAGED_BIT != 0
+	view = view_of(species).duplicate()
+	var path := String(view.get("boss_model", "")) if is_boss else ""
+	if path == "" or not ResourceLoader.exists(path):
+		path = String(view.get("model", ""))
 	if path == "" or not ResourceLoader.exists(path):
 		return false
 	var scene := load(path) as PackedScene
 	if scene == null:
 		return false
 	model = scene.instantiate() as Node3D
-	model.scale = Vector3.ONE * float(view.get("scale", 1.0))
+	_body_scale = float(view.get("boss_scale", 1.0)) if is_boss else float(view.get("scale", 1.0))
+	model.scale = Vector3.ONE * _body_scale
 	model.position.y = float(view.get("offset_y", 0.0)) + float(view.get("hover_height", 0.0))
 	add_child(model)
 	visuals = model
 	# the name label's height (creature_views.json) sits just over the head
-	head_height = maxf(0.0, float(view.get("label_height", 0.0)) - 0.45)
+	head_height = maxf(0.0, float(view.get("label_height", 0.0)) * (_body_scale if is_boss else 1.0) - 0.45)
 	var found := model.find_child("AnimationPlayer", true, false)
 	anim_player = found as AnimationPlayer
 	if anim_player != null:
@@ -139,6 +152,36 @@ func setup(kind: int) -> bool:
 
 static func is_elite(kind: int) -> bool:
 	return kind & ELITE_BIT != 0
+
+## What the server said this creature is (RealmSession.take_creature_info):
+## a boss takes its boss_overrides entry - the whole body scaled by `scale`
+## (on top of the boss body's own), the label (and so the status looks over
+## the head) at `label_y`, and the ground speed its walk cycle is played for.
+func apply_info(info: Dictionary) -> void:
+	var key := String(info.get("boss_key", ""))
+	if key == "" or model == null:
+		return
+	var tables: Variant = RealmContent.table("spawn_tables")
+	var data: Dictionary = (tables as Dictionary).get("boss_overrides", {}).get(key, {}) if tables is Dictionary else {}
+	if data.is_empty():
+		return
+	var size := float(data.get("scale", 1.0))
+	model.scale = Vector3.ONE * _body_scale * size
+	if data.has("label_y"):
+		head_height = maxf(0.0, float(data["label_y"]) * size - 0.45)
+	if data.has("walk_speed"):
+		view["walk_speed"] = float(data["walk_speed"])
+	# A status look already on the body was fitted to its old size.
+	var fx := get_node_or_null("StatusFX")
+	if fx != null:
+		remove_child(fx)
+		fx.queue_free()
+		StatusFX.update(self, status)
+
+## The kind's marks can change while the body lives (a commander enrages when a
+## pack mate falls); only the enrage is read here.
+func set_kind(kind: int) -> void:
+	enraged = kind & ENRAGED_BIT != 0
 
 ## The replicated status (main.gd hands it over when it changes): the look on
 ## the body, and through set_cc_anim_scale the pace of its clips.

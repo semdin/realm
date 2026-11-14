@@ -643,7 +643,9 @@ impl Sim {
         else {
             return 0;
         };
-        if self.protected(mob.pos) || self.protected(attacker_pos) {
+        // Dummies stand in the training yard, inside the protection.
+        let dummy = self.game.packs[mob.pack].kind == crate::game::PackKind::Dummy;
+        if !dummy && (self.protected(mob.pos) || self.protected(attacker_pos)) {
             return 0;
         }
         // Walking home, a creature shrugs off a blow from outside its home
@@ -734,8 +736,12 @@ impl Sim {
         mob.hp -= amount;
         let at = mob.pos;
         let hp_byte = super::hp_byte(mob.hp, mob.max_hp);
+        let object = self.game.species[usize::from(mob.species)].object;
         if mob.hp <= 0.0 {
-            self.mob_died(victim);
+            self.mob_died(victim, Some(attacker));
+        } else if object {
+            flags |= self.apply_status(attacker, victim, spell, amount);
+            self.stone_waves(victim, attacker);
         } else {
             self.provoke(victim, attacker);
             flags |= self.apply_status(attacker, victim, spell, amount);
