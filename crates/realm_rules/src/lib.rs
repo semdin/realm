@@ -7,6 +7,7 @@
 //! change.
 
 pub mod combat;
+pub mod creatures;
 pub mod items;
 pub mod sheet;
 
@@ -93,6 +94,8 @@ pub struct Rules {
     pub looks: LookRules,
     pub item_rules: ItemRules,
     pub combat: CombatRules,
+    /// What creatures do on their own: attacks, abilities, pack tuning.
+    pub mobs: creatures::CreatureRules,
     pub safe_zones: Vec<SafeZone>,
     /// Map -> the ids of its safe zones (maps.json `safe_zones`).
     pub map_zones: BTreeMap<String, Vec<String>>,
@@ -173,6 +176,10 @@ impl Rules {
             looks,
             item_rules: ItemRules::from_content(content)?,
             combat: CombatRules::from_content(content)?,
+            mobs: creatures::CreatureRules::from_json(
+                file(content, "mobs.json")?,
+                file(content, "spawn_tables.json")?,
+            )?,
             safe_zones: Vec::new(),
             map_zones: BTreeMap::new(),
         };

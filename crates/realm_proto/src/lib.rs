@@ -17,7 +17,7 @@ pub mod control;
 pub mod ticket;
 
 use realm_sim::input::MoveInput;
-use realm_sim::movement::Body;
+use realm_sim::movement::{Body, Restraint};
 use realm_sim::{Vec3, WIRE_GRID};
 
 use bits::{BitReader, BitWriter, DecodeError};
@@ -25,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 7;
+pub const PROTOCOL_VERSION: u16 = 8;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/7";
+pub const ALPN: &[u8] = b"realm/8";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -142,6 +142,9 @@ pub const STATUS_WEAK: u8 = 1 << 7;
 /// A body that cannot act while any of these runs.
 pub const STATUS_LOCKED: u8 = STATUS_STUN | STATUS_FREEZE | STATUS_KNOCKED;
 
+/// `EntityState::kind` bit of an elite creature (kind = species + 1).
+pub const KIND_ELITE: u16 = 0x8000;
+
 /// Server -> client.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Snapshot {
@@ -156,6 +159,11 @@ pub struct Snapshot {
     pub own_hp: u8,
     /// The owner's health, maximum health, mana, maximum mana (the bars).
     pub own_vitals: [u32; 4],
+    /// What the server holds the owner's body to (stunned, thrown, webbed),
+    /// so a replay applies it to the same inputs.
+    pub own_restraint: Restraint,
+    /// STATUS_* bits on the owner (what the others see on it).
+    pub own_status: u8,
     /// Every entity in the client's interest set, sorted by id.
     pub entities: EntitySet,
 }
@@ -341,6 +349,14 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
     for v in snapshot.own_vitals {
         w.unsigned(v);
     }
+    let r = snapshot.own_restraint;
+    w.bool(r != Restraint::default());
+    if r != Restraint::default() {
+        for v in [r.lock_from, r.lock_until, r.web_from, r.web_until] {
+            w.unsigned(v);
+        }
+    }
+    w.u8(snapshot.own_status);
 
     let base = baseline.unwrap_or(&[]);
     let next = &snapshot.entities;
@@ -453,6 +469,17 @@ pub fn decode_snapshot<'a>(
     let own = read_body(&mut r)?;
     let own_hp = r.u8()?;
     let own_vitals = [r.unsigned()?, r.unsigned()?, r.unsigned()?, r.unsigned()?];
+    let own_restraint = if r.bool()? {
+        Restraint {
+            lock_from: r.unsigned()?,
+            lock_until: r.unsigned()?,
+            web_from: r.unsigned()?,
+            web_until: r.unsigned()?,
+        }
+    } else {
+        Restraint::default()
+    };
+    let own_status = r.u8()?;
     let base: &[(u32, EntityState)] = if baseline_tick == 0 {
         &[]
     } else {
@@ -573,6 +600,8 @@ pub fn decode_snapshot<'a>(
         own,
         own_hp,
         own_vitals,
+        own_restraint,
+        own_status,
         entities,
     })
 }

@@ -16,7 +16,7 @@ use realm_rules::SpellDef;
 use realm_rules::combat::{Dot as DotSpec, LAUNCH_GRAVITY, airborne_ms};
 use realm_sim::{SIM_DT, Vec3};
 
-use super::{Entity, MobMode, Player, STATE_DEAD, Sim, unit, xorshift};
+use super::{Entity, MobMode, Player, Sim, unit};
 
 /// A running burn or bleed.
 #[derive(Clone, Copy)]
@@ -292,7 +292,7 @@ impl Sim {
         }
         // A hold or a throw breaks the attack it was winding up.
         if interrupted {
-            mob.attack_cd = mob.attack_cd.max(cooldown);
+            mob.attack_cd = mob.attack_cd.max(f32::from(cooldown));
         }
         let ticking = mob.status.ticking();
         self.dice_state = state;
@@ -368,7 +368,6 @@ impl Sim {
     /// One burn or bleed tick: the creature's arcane resistance, no critical
     /// hit, no procs, protection still counts.
     fn dot_mob(&mut self, source: Entity, victim: Entity, raw: f32) {
-        let tick = self.tick;
         let rules = self.rules();
         let Some(mob) = self
             .world
@@ -388,23 +387,14 @@ impl Sim {
             return;
         }
         self.stats.dot_ticks += 1;
-        let (lo, hi) = self.game.mob_respawn_ticks;
         let Some(mut mob) = self.world.get_mut::<super::Mob>(victim) else {
             return;
         };
         mob.hp -= amount;
-        let at = mob.pos;
+        let (at, hp) = (mob.pos, super::hp_byte(mob.hp.max(0.0), mob.max_hp));
         if mob.hp <= 0.0 {
-            mob.hp = 0.0;
-            mob.mode = MobMode::Dead;
-            mob.state = STATE_DEAD;
-            mob.died_at = tick;
-            mob.status = Status::default();
-            let span = hi.saturating_sub(lo).max(1);
-            mob.respawn_at = tick + lo + xorshift(&mut mob.rng) % span;
-            self.stats.kills += 1;
+            self.mob_died(victim);
         }
-        let hp = super::hp_byte(mob.hp, mob.max_hp);
         let (target_id, attacker_id) = (self.net_id_of(victim), self.net_id_of(source));
         self.event(
             at,

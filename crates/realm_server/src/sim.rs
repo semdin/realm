@@ -20,14 +20,16 @@ use realm_proto::control::{self, ClientMsg, ServerMsg};
 use realm_proto::ticket::Ticket;
 use realm_proto::{EntitySet, EntityState, InputBatch, InputFrame, JoinReply, Snapshot};
 use realm_rules::{CharacterSheet, Place};
+use realm_sim::Vec3;
 use realm_sim::movement::{self, Body, MoveParams};
 use realm_sim::nav::{NavQuery, NavScratch};
 use realm_sim::staircase::Staircases;
 use realm_sim::world::World as Terrain;
-use realm_sim::{SIM_DT, Vec3};
 
 use crate::game::Game;
 
+mod afflict;
+mod brain;
 mod combat;
 mod status;
 use crate::store::StoreJob;
@@ -102,6 +104,11 @@ const CORPSE_TICKS: u32 = 60;
 const CHEST: f32 = 1.15;
 /// Most steps a player may run in one tick (catching up after a stall).
 const MAX_BURST: u32 = 4;
+/// Steps a player may have in hand: the ticks it sent nothing for, up to
+/// half a second. A client that stalled sends its catch-up steps in a burst
+/// (FixedStep runs up to 8 in one frame); with this much in hand the server
+/// drains them at MAX_BURST a tick instead of keeping them queued for good.
+const STEP_CREDIT: u32 = 15;
 /// A missing input is given up for lost after this many ticks.
 const LOST_AFTER_TICKS: u32 = 6;
 /// How far an input's own tick may lie from the server's (two seconds).
@@ -155,7 +162,8 @@ struct Player {
     home: Vec3,
     /// Last place the body stood on ground.
     last_ground: Vec3,
-    /// Steps this player may still run (one more per tick, capped).
+    /// Steps this player may still run (one more per tick, up to
+    /// STEP_CREDIT).
     allowance: u32,
     /// Ticks the next input has been missing while later ones wait.
     gap_ticks: u32,
@@ -169,6 +177,26 @@ struct Player {
     /// Last tick this player attacked or was hit (gear changes wait for
     /// peace).
     last_combat: u32,
+    /// What creatures left on it: holds, web, venom, despair.
+    afflictions: afflict::Afflictions,
+    /// The holds as its owner's prediction must apply them.
+    restraint: realm_sim::movement::Restraint,
+}
+
+impl Mob {
+    fn thrown_ready(&self, ability: u16) -> u32 {
+        self.thrown
+            .iter()
+            .find(|(a, _)| *a == ability)
+            .map_or(0, |(_, t)| *t)
+    }
+
+    fn set_thrown_ready(&mut self, ability: u16, tick: u32) {
+        match self.thrown.iter_mut().find(|(a, _)| *a == ability) {
+            Some(slot) => slot.1 = tick,
+            None => self.thrown.push((ability, tick)),
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -189,10 +217,25 @@ struct Mob {
     yaw: u16,
     hp: f32,
     max_hp: f32,
+    /// Attack power at its level (an elite's raised).
+    attack_power: f32,
+    elite: bool,
     mode: MobMode,
-    attack_cd: u16,
+    /// Ticks until the next attack may start (runs slower while slowed).
+    attack_cd: f32,
+    /// The attack under way, from its windup to the end of its recovery.
+    attack: Option<brain::Attack>,
+    /// Plain attacks begun this life (every Nth is an ability).
+    attacks_made: u32,
+    /// Thrown abilities and the tick each is ready again.
+    thrown: Vec<(u16, u32)>,
+    /// Last tick a player's blow landed (the leash stretches after it).
+    hit_at: u32,
+    /// Since when its target has been out of reach (0 = reachable).
+    unreachable_since: u32,
+    /// Next look around for a player (aggressive packs).
+    next_scan: u32,
     next_think: u32,
-    respawn_at: u32,
     died_at: u32,
     rng: u32,
     state: u8,
@@ -263,6 +306,9 @@ pub struct Stats {
     pub holds: u64,
     pub procs: u64,
     pub dot_ticks: u64,
+    /// Creature abilities wound up, and holds they put on players.
+    pub telegraphs: u64,
+    pub player_holds: u64,
 }
 
 struct PendingJoin {
@@ -284,6 +330,17 @@ pub struct Sim {
     ids: HashMap<u32, Entity>,
     next_id: u32,
     bolts: Vec<Bolt>,
+    /// Creature bolts in flight.
+    mob_bolts: Vec<brain::MobBolt>,
+    /// Each pack's anchor, members and respawn clock.
+    packs: Vec<brain::PackState>,
+    /// Per pack, its awake members this tick (the ring and spacing).
+    pack_views: Vec<Vec<brain::MateView>>,
+    touched_packs: Vec<usize>,
+    /// Fighting creatures with an aura, this tick.
+    auras: Vec<Entity>,
+    /// Players with venom running.
+    poisoned: Vec<Entity>,
     /// Creatures with a burn, a bleed or a throw running.
     ticking: Vec<Entity>,
     /// This tick's combat events, where they happened.
@@ -429,6 +486,12 @@ impl Sim {
             ids: HashMap::new(),
             next_id: 1,
             bolts: Vec::new(),
+            mob_bolts: Vec::new(),
+            packs: Vec::new(),
+            pack_views: Vec::new(),
+            touched_packs: Vec::new(),
+            auras: Vec::new(),
+            poisoned: Vec::new(),
             ticking: Vec::new(),
             events: Vec::new(),
             private_events: Vec::new(),
@@ -471,41 +534,56 @@ impl Sim {
         self.terrain.ground_height(x, z).unwrap_or(0.0)
     }
 
+    /// Every pack of the map, standing on its first anchor.
     fn spawn_creatures(&mut self) {
         let mut rng = 0x9E37_79B9_u32;
         for index in 0..self.game.packs.len() {
             let pack = &self.game.packs[index];
-            let (count, center, half_extent, species) =
-                (pack.count, pack.center, pack.half_extent, pack.species);
-            let max_hp = self.game.mob_max_hp(pack);
-            for _ in 0..count {
-                let x = center.0 + (unit(&mut rng) * 2.0 - 1.0) * half_extent.0.max(1.0);
-                let z = center.1 + (unit(&mut rng) * 2.0 - 1.0) * half_extent.1.max(1.0);
-                let home = Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(0.0), z);
+            let (count, species) = (pack.count, pack.species);
+            let mut members = Vec::new();
+            for _ in 0..count.max(1) {
                 let mob = Mob {
                     pack: index,
                     species: species as u16,
-                    home,
-                    pos: home,
+                    home: Vec3::ZERO,
+                    pos: Vec3::ZERO,
                     yaw: (xorshift(&mut rng) & 0xFFFF) as u16,
-                    hp: max_hp,
-                    max_hp,
+                    hp: 1.0,
+                    max_hp: 1.0,
+                    attack_power: 0.0,
+                    elite: false,
                     mode: MobMode::Idle,
-                    attack_cd: 0,
+                    attack_cd: 0.0,
+                    attack: None,
+                    attacks_made: 0,
+                    thrown: Vec::new(),
+                    hit_at: 0,
+                    unreachable_since: 0,
+                    next_scan: 0,
                     next_think: 0,
-                    respawn_at: 0,
                     died_at: 0,
                     rng: xorshift(&mut rng) | 1,
                     state: STATE_IDLE,
                     path: Vec::new(),
-                    path_goal: home,
+                    path_goal: Vec3::ZERO,
                     replan_at: 0,
                     status: status::Status::default(),
                 };
                 let entity = self.world.spawn(mob).id();
                 let id = self.new_id(entity);
                 self.world.entity_mut(entity).insert(NetId(id));
+                members.push(entity);
             }
+            self.packs.push(brain::PackState {
+                anchor: Vec3::ZERO,
+                members,
+                alive: 0,
+                respawn_at: None,
+            });
+            self.pack_views.push(Vec::new());
+        }
+        for index in 0..self.packs.len() {
+            self.place_pack(index, true);
         }
     }
 
@@ -527,7 +605,9 @@ impl Sim {
         self.creatures();
         lap(1, &mut self.stats);
         self.advance_bolts();
+        self.advance_mob_bolts();
         self.advance_status();
+        self.advance_afflictions();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -684,6 +764,8 @@ impl Sim {
             dirty_since: None,
             caster,
             last_combat: 0,
+            afflictions: afflict::Afflictions::default(),
+            restraint: realm_sim::movement::Restraint::default(),
         };
         let entity = self.world.spawn(player).id();
         let id = self.new_id(entity);
@@ -1009,8 +1091,9 @@ impl Sim {
             // input that has not arrived: the body waits for it. A client gets
             // one step per tick on average and a short burst after a stall,
             // so it cannot speed itself up.
-            player.allowance = (player.allowance + 1).min(MAX_BURST);
-            while player.allowance > 0 {
+            player.allowance = (player.allowance + 1).min(STEP_CREDIT);
+            let mut burst = MAX_BURST;
+            while player.allowance > 0 && burst > 0 {
                 let next = player.last_seq + 1;
                 let Some(frame) = player.pending.remove(&next) else {
                     // A gap that stays open while later inputs arrive means those
@@ -1029,6 +1112,7 @@ impl Sim {
                 };
                 player.gap_ticks = 0;
                 player.allowance -= 1;
+                burst -= 1;
                 player.last_seq = next;
                 player.last_frame = frame;
                 let input_tick = frame.tick.clamp(
@@ -1041,7 +1125,8 @@ impl Sim {
                 }
                 let mut body = player.body;
                 self.stairs.carry(&mut body, input_tick);
-                movement::step(&mut body, frame.movement, &self.params, &self.terrain);
+                let params = player.restraint.params(&self.params, input_tick);
+                movement::step(&mut body, frame.movement, &params, &self.terrain);
                 player.body = body;
                 if body.pos.y < self.game.y_min {
                     if self.stats.fallen == 0 {
@@ -1068,257 +1153,6 @@ impl Sim {
         }
     }
 
-    /// Creature brains. Sleeping cells are skipped entirely.
-    fn creatures(&mut self) {
-        let tick = self.tick;
-        // Which cells are awake, and where the players are.
-        self.awake.iter_mut().for_each(|a| *a = false);
-        for cell in &mut self.player_cells {
-            cell.clear();
-        }
-        self.player_pos.clear();
-        let mut players = self.world.query::<(Entity, &Player)>();
-        for (entity, player) in players.iter(&self.world) {
-            if player.dead_until != 0 {
-                continue;
-            }
-            let pos = player.body.pos;
-            self.player_pos.insert(entity, pos);
-            if let Some(cell) = cell_of(pos) {
-                self.player_cells[cell].push((entity, pos));
-            }
-            for cell in cells_around(pos, WAKE_CELLS) {
-                self.awake[cell] = true;
-            }
-        }
-
-        let mut strikes: Vec<(Entity, f32, Entity, u32)> = Vec::new();
-        let mut awake = 0;
-        let mut thinking = 0;
-        let mut paths = 0_u64;
-        let mut path_ms = 0.0_f64;
-        let mut ground_ms = 0.0_f64;
-        let game = &self.game;
-        let terrain = &self.terrain;
-        let nav = &self.nav;
-        let mut scratch = std::mem::take(&mut self.nav_scratch);
-        let player_cells = &self.player_cells;
-        let player_pos = &self.player_pos;
-        let awake_cells = &self.awake;
-        let mut query = self.world.query::<(Entity, &mut Mob)>();
-        for (mob_entity, mut mob) in query.iter_mut(&mut self.world) {
-            if mob.mode == MobMode::Dead {
-                if tick >= mob.respawn_at {
-                    let home = mob.home;
-                    mob.pos = home;
-                    mob.hp = mob.max_hp;
-                    mob.mode = MobMode::Idle;
-                    mob.state = STATE_IDLE;
-                    mob.path.clear();
-                }
-                continue;
-            }
-            let Some(cell) = cell_of(mob.pos) else {
-                continue;
-            };
-            if !awake_cells[cell] {
-                continue;
-            }
-            awake += 1;
-            let pack = &game.packs[mob.pack];
-            let species = &game.species[pack.species];
-
-            // Nearest living player in the 3x3 cells around.
-            let mut nearest: Option<(Entity, Vec3, f32)> = None;
-            for c in cells_around(mob.pos, 1) {
-                for &(entity, pos) in &player_cells[c] {
-                    let d = planar_distance(pos, mob.pos);
-                    if nearest.is_none_or(|n| d < n.2) {
-                        nearest = Some((entity, pos, d));
-                    }
-                }
-            }
-            let nearest_d = nearest.map_or(f32::MAX, |n| n.2);
-            mob.attack_cd = mob.attack_cd.saturating_sub(1);
-            // Held or thrown: no thought, no step, no strike.
-            if mob.status.locked(tick) {
-                mob.state = STATE_IDLE;
-                continue;
-            }
-            let pace = mob.status.speed(tick);
-            let strength = mob.status.strength(tick);
-
-            if tick >= mob.next_think {
-                thinking += 1;
-                let period = if nearest_d < 30.0 {
-                    1
-                } else if nearest_d < 64.0 {
-                    3
-                } else {
-                    15
-                };
-                mob.next_think = tick + period;
-                let leashed = planar_distance(mob.pos, mob.home) > pack.leash;
-                mob.mode = match mob.mode {
-                    MobMode::Chase(_) if leashed => MobMode::Return,
-                    MobMode::Chase(target) => {
-                        // Keep chasing while the target is alive and near.
-                        let alive_near = player_pos
-                            .get(&target)
-                            .is_some_and(|p| planar_distance(*p, mob.pos) < pack.leash);
-                        if alive_near {
-                            MobMode::Chase(target)
-                        } else {
-                            MobMode::Return
-                        }
-                    }
-                    MobMode::Return if planar_distance(mob.pos, mob.home) < 1.0 => MobMode::Idle,
-                    MobMode::Return => MobMode::Return,
-                    MobMode::Idle | MobMode::Wander(_) => match nearest {
-                        Some((entity, _, d)) if d <= game.aggro_radius(pack) => {
-                            MobMode::Chase(entity)
-                        }
-                        _ => {
-                            if matches!(mob.mode, MobMode::Idle) && xorshift(&mut mob.rng) % 100 < 4
-                            {
-                                let a = unit(&mut mob.rng) * core::f32::consts::TAU;
-                                let r = 2.0 + unit(&mut mob.rng) * 5.0;
-                                MobMode::Wander(
-                                    mob.home + Vec3::new(libm::cosf(a) * r, 0.0, libm::sinf(a) * r),
-                                )
-                            } else {
-                                mob.mode
-                            }
-                        }
-                    },
-                    MobMode::Dead => MobMode::Dead,
-                };
-            }
-
-            // Move every tick toward the current goal.
-            let (goal, speed, attack) = match mob.mode {
-                MobMode::Chase(target) => match player_pos.get(&target).copied() {
-                    Some(p) => (Some(p), species.move_speed * pace, Some(target)),
-                    None => (None, 0.0, None),
-                },
-                MobMode::Wander(to) => (Some(to), species.move_speed * 0.35 * pace, None),
-                MobMode::Return => {
-                    mob.hp = mob.max_hp;
-                    (Some(mob.home), species.move_speed * 1.5 * pace, None)
-                }
-                _ => (None, 0.0, None),
-            };
-            mob.state = STATE_IDLE;
-            if let Some(goal) = goal {
-                let to = Vec3::new(goal.x - mob.pos.x, 0.0, goal.z - mob.pos.z);
-                let dist = to.length();
-                let stop = if attack.is_some() {
-                    species.attack_range * 0.8
-                } else {
-                    0.3
-                };
-                if dist > stop {
-                    // Walk the navigation mesh. Close in (a melee chase) the
-                    // creature goes straight at its goal. Further out it plans
-                    // a path when it has none, once a second, or when the goal
-                    // has moved far from what it planned for; in between, the
-                    // path's last corner follows the goal.
-                    if dist < DIRECT_CHASE {
-                        mob.path.clear();
-                        mob.path.push(goal);
-                    } else {
-                        let goal_moved =
-                            planar_distance_sq(goal, mob.path_goal) > REPLAN_DRIFT * REPLAN_DRIFT;
-                        if mob.path.is_empty() || goal_moved || tick >= mob.replan_at {
-                            let t0 = Instant::now();
-                            let planned = nav.path(mob.pos, goal, PATH_NODE_BUDGET, &mut scratch);
-                            path_ms += t0.elapsed().as_secs_f64() * 1000.0;
-                            mob.path = match planned {
-                                Some(mut corners) => {
-                                    corners.reverse();
-                                    corners
-                                }
-                                None => vec![goal],
-                            };
-                            mob.path_goal = goal;
-                            mob.replan_at = tick + 30 + (mob.rng % 10);
-                            paths += 1;
-                        } else if let Some(end) = mob.path.first_mut() {
-                            *end = goal;
-                        }
-                    }
-                    let mut budget = speed * SIM_DT;
-                    while budget > 0.0 {
-                        let Some(&corner) = mob.path.last() else {
-                            break;
-                        };
-                        let leg = Vec3::new(corner.x - mob.pos.x, 0.0, corner.z - mob.pos.z);
-                        let leg_len = leg.length();
-                        let last_leg = mob.path.len() == 1;
-                        let keep = if last_leg { stop.min(leg_len) } else { 0.0 };
-                        if leg_len - keep <= budget {
-                            mob.pos.x += leg.x / leg_len.max(1e-4) * (leg_len - keep);
-                            mob.pos.z += leg.z / leg_len.max(1e-4) * (leg_len - keep);
-                            budget -= leg_len - keep;
-                            if leg_len > 1e-3 {
-                                mob.yaw = yaw_of(leg / leg_len);
-                            }
-                            mob.path.pop();
-                            if last_leg {
-                                break;
-                            }
-                        } else {
-                            mob.pos.x += leg.x / leg_len * budget;
-                            mob.pos.z += leg.z / leg_len * budget;
-                            mob.yaw = yaw_of(leg / leg_len);
-                            budget = 0.0;
-                        }
-                    }
-                    // Height follows the ground every third tick, creatures
-                    // spread over the three (a few centimetres of lag at a
-                    // run; clients smooth it anyway).
-                    if (tick + mob.rng).is_multiple_of(GROUND_EVERY) {
-                        let t_ground = Instant::now();
-                        if let Some(ground) =
-                            terrain.ray_down(mob.pos + Vec3::new(0.0, 1.5, 0.0), 4.0)
-                        {
-                            mob.pos.y = ground.point.y;
-                        }
-                        ground_ms += t_ground.elapsed().as_secs_f64() * 1000.0;
-                    }
-                    mob.state = STATE_MOVING;
-                } else if matches!(mob.mode, MobMode::Wander(_)) {
-                    mob.mode = MobMode::Idle;
-                }
-                if let Some(target) = attack
-                    && dist <= species.attack_range
-                {
-                    mob.yaw = yaw_of(to / dist.max(0.001));
-                    if mob.attack_cd == 0 {
-                        mob.attack_cd = species.attack_cooldown_ticks;
-                        strikes.push((
-                            target,
-                            game.mob_attack(pack) * strength,
-                            mob_entity,
-                            pack.level,
-                        ));
-                    }
-                    mob.state = STATE_ATTACKING;
-                }
-            }
-        }
-        self.stats.awake_mobs = awake;
-        self.stats.thinking_mobs += thinking;
-        self.stats.paths += paths;
-        self.stats.path_ms += path_ms;
-        self.stats.ground_ms += ground_ms;
-        self.nav_scratch = scratch;
-
-        for (target, damage, attacker, level) in strikes {
-            self.hit_player(target, attacker, damage, "melee", level);
-        }
-    }
-
     /// Collects every visible entity's replicated state into rows and files
     /// them by cell.
     fn rebuild_grid(&mut self) {
@@ -1341,8 +1175,7 @@ impl Sim {
                 },
                 kind: 0,
                 hp: hp_byte(p.hp, p.max_hp),
-                // Player holds arrive with creature abilities (5.4).
-                status: 0,
+                status: p.afflictions.bits(tick),
             };
             self.rows.push(Row {
                 id: id.0,
@@ -1360,7 +1193,7 @@ impl Sim {
                 pos: realm_proto::on_grid(m.pos),
                 yaw: m.yaw,
                 state: m.state,
-                kind: m.species + 1,
+                kind: (m.species + 1) | if m.elite { realm_proto::KIND_ELITE } else { 0 },
                 hp: hp_byte(m.hp, m.max_hp),
                 status: if m.mode == MobMode::Dead {
                     0
@@ -1490,6 +1323,8 @@ impl Sim {
                     libm::ceilf(player.caster.mana.max(0.0)) as u32,
                     player.caster.max_mana as u32,
                 ],
+                own_restraint: player.restraint,
+                own_status: player.afflictions.bits(tick),
                 entities: next,
             };
             let bytes = realm_proto::encode_snapshot(&snapshot, baseline.map(|(_, s)| s));

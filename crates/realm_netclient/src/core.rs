@@ -12,7 +12,7 @@ use std::collections::VecDeque;
 
 use realm_proto::{EntitySet, EntityState, InputBatch, InputFrame, Snapshot};
 use realm_sim::input::MoveInput;
-use realm_sim::movement::{self, Body, MoveParams};
+use realm_sim::movement::{self, Body, MoveParams, Restraint};
 use realm_sim::staircase::Staircases;
 use realm_sim::world::World;
 use realm_sim::{SIM_HZ, Vec3};
@@ -84,6 +84,10 @@ pub struct ClientCore {
     /// The newest snapshot said the player is dead: like the server, the
     /// body then ignores its inputs until the respawn.
     dead: bool,
+    /// The newest snapshot's holds on the body (stunned, thrown, webbed),
+    /// and its STATUS_* bits.
+    restraint: Restraint,
+    own_status: u8,
     pub stats: ClientStats,
 }
 
@@ -110,6 +114,8 @@ impl ClientCore {
             own_hp: 255,
             own_vitals: [0; 4],
             dead: false,
+            restraint: Restraint::default(),
+            own_status: 0,
             stats: ClientStats::default(),
         }
     }
@@ -139,7 +145,19 @@ impl ClientCore {
         self.own_vitals
     }
 
+    /// STATUS_* bits on the player's own body.
     #[must_use]
+    pub fn own_status(&self) -> u8 {
+        self.own_status
+    }
+
+    /// Whether the server holds the body still (stunned or thrown) at the
+    /// newest predicted tick: no casts then.
+    #[must_use]
+    pub fn locked(&self) -> bool {
+        self.restraint.locked(self.tick)
+    }
+
     pub fn own_hp(&self) -> u8 {
         self.own_hp
     }
@@ -156,6 +174,7 @@ impl ClientCore {
         world: &mut World,
         stairs: &mut Staircases,
         params: &MoveParams,
+        restraint: &Restraint,
         body: &mut Body,
         frame: &InputFrame,
         dead: bool,
@@ -168,7 +187,12 @@ impl ClientCore {
             stairs.apply(world, frame.tick);
         }
         stairs.carry(body, frame.tick);
-        movement::step(body, frame.movement, params, world);
+        movement::step(
+            body,
+            frame.movement,
+            &restraint.params(params, frame.tick),
+            world,
+        );
     }
 
     /// Runs one client tick with this intent and returns the input packet to
@@ -194,6 +218,7 @@ impl ClientCore {
                     &mut self.world,
                     &mut self.stairs,
                     &self.params,
+                    &self.restraint,
                     body,
                     &frame,
                     self.dead,
@@ -259,15 +284,21 @@ impl ClientCore {
             self.own_vitals = snapshot.own_vitals;
         }
         let was_dead = self.dead;
+        let mut held = false;
         if !self
             .snapshots
             .back()
             .is_some_and(|(t, _)| *t > snapshot.tick)
         {
-            // Only the newest snapshot says whether the player is dead now.
+            // Only the newest snapshot says whether the player is dead now,
+            // and what holds its body.
             self.dead = snapshot.own_hp == 0;
+            held = snapshot.own_restraint != self.restraint
+                && snapshot.own_restraint != Restraint::default();
+            self.restraint = snapshot.own_restraint;
+            self.own_status = snapshot.own_status;
         }
-        self.reconcile(&snapshot, was_dead != self.dead);
+        self.reconcile(&snapshot, was_dead != self.dead || held);
         let pos = self.snapshots.partition_point(|(t, _)| *t < snapshot.tick);
         if self
             .snapshots
@@ -284,8 +315,9 @@ impl ClientCore {
 
     /// The server ran inputs up to `last_input_seq` and its body is
     /// `snapshot.own`: rewind to it and replay the inputs it has not seen.
-    /// `life_changed`: this snapshot is the first to show a death or a
-    /// respawn, so a difference is the server's doing, not a misprediction.
+    /// `life_changed`: this snapshot is the first to show a death, a
+    /// respawn or a new hold on the body, so a difference is the server's
+    /// doing, not a misprediction.
     fn reconcile(&mut self, snapshot: &Snapshot, life_changed: bool) {
         let confirmed = snapshot.last_input_seq;
         // A snapshot that arrives after a newer one (reordered on the way)
@@ -311,6 +343,7 @@ impl ClientCore {
                     &mut self.world,
                     &mut self.stairs,
                     &self.params,
+                    &self.restraint,
                     &mut body,
                     &p.frame,
                     self.dead,
@@ -321,7 +354,9 @@ impl ClientCore {
             self.body = Some(body);
             return;
         };
-        if predicted == Some(snapshot.own) {
+        // A death, a respawn or a new hold changes how the inputs still on
+        // their way run, even when the confirmed one matched: replay them.
+        if predicted == Some(snapshot.own) && !life_changed {
             return;
         }
         let mut body = snapshot.own;
@@ -330,6 +365,7 @@ impl ClientCore {
                 &mut self.world,
                 &mut self.stairs,
                 &self.params,
+                &self.restraint,
                 &mut body,
                 &p.frame,
                 self.dead,
@@ -339,7 +375,9 @@ impl ClientCore {
         }
         let moved = (body.pos - current.pos).length();
         if life_changed {
-            self.stats.server_moves += 1;
+            if body != current {
+                self.stats.server_moves += 1;
+            }
         } else if predicted.is_some() {
             self.stats.corrections += 1;
             self.stats.max_correction = self.stats.max_correction.max(moved);

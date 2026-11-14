@@ -12,7 +12,9 @@
         "attack_power": 22,
         "move_speed": 5.6,
         "attack_range": 2.2,
-        "attack_cooldown": 1.4
+        "attack_cooldown": 1.4,
+        "windup": 0.55,
+        "recovery": 0.5
       },
       "resist": {
         "fire": -1.0,
@@ -164,14 +166,17 @@
         "attack_power": 40,
         "move_speed": 6.0,
         "attack_range": 14.0,
-        "attack_cooldown": 2.0
+        "attack_cooldown": 2.0,
+        "windup": 0.7,
+        "recovery": 0.6
       },
       "resist": {
         "stun": 0.25,
         "arcane": 0.15,
         "ithrel_light": 0.5
       },
-      "loot_table": "dark_wizard"
+      "loot_table": "dark_wizard",
+      "bolt": "stun_bolt"
     },
     "troll_forest": {
       "display": "Forest Troll",
@@ -183,7 +188,9 @@
         "attack_power": 70,
         "move_speed": 6.6,
         "attack_range": 3.8,
-        "attack_cooldown": 2.6
+        "attack_cooldown": 2.6,
+        "windup": 0.75,
+        "recovery": 0.7
       },
       "exp_mult": 2.0,
       "resist": {
@@ -218,7 +225,9 @@
         "attack_power": 95,
         "move_speed": 6.2,
         "attack_range": 4.2,
-        "attack_cooldown": 2.8
+        "attack_cooldown": 2.8,
+        "windup": 0.85,
+        "recovery": 0.75
       },
       "exp_mult": 2.5,
       "resist": {
@@ -271,7 +280,9 @@
         "attack_power": 80,
         "move_speed": 6.5,
         "attack_range": 3.2,
-        "attack_cooldown": 2.0
+        "attack_cooldown": 2.0,
+        "windup": 0.7,
+        "recovery": 0.6
       },
       "exp_mult": 2.0,
       "resist": {
@@ -316,7 +327,9 @@
         "attack_power": 40,
         "move_speed": 7.5,
         "attack_range": 1.8,
-        "attack_cooldown": 1.3
+        "attack_cooldown": 1.3,
+        "windup": 0.5,
+        "recovery": 0.4
       },
       "exp_mult": 0.5,
       "resist": {
@@ -351,7 +364,9 @@
         "attack_power": 75,
         "move_speed": 4.2,
         "attack_range": 3.4,
-        "attack_cooldown": 2.4
+        "attack_cooldown": 2.4,
+        "windup": 1.0,
+        "recovery": 0.8
       },
       "exp_mult": 1.6,
       "resist": {
@@ -388,7 +403,9 @@
         "attack_power": 85,
         "move_speed": 4.0,
         "attack_range": 3.8,
-        "attack_cooldown": 2.4
+        "attack_cooldown": 2.4,
+        "windup": 1.1,
+        "recovery": 0.9
       },
       "exp_mult": 2.0,
       "resist": {
@@ -411,7 +428,9 @@
         "attack_power": 90,
         "move_speed": 0.0,
         "attack_range": 9.0,
-        "attack_cooldown": 2.6
+        "attack_cooldown": 2.6,
+        "windup": 0,
+        "recovery": 0
       },
       "exp_mult": 2.0,
       "resist": {
@@ -440,7 +459,9 @@
         "attack_power": 0,
         "move_speed": 0.0,
         "attack_range": 0.0,
-        "attack_cooldown": 9.0
+        "attack_cooldown": 9.0,
+        "windup": 0,
+        "recovery": 0
       },
       "exp_mult": 0.0,
       "resist": {
@@ -463,7 +484,9 @@
         "attack_power": 140,
         "move_speed": 2.6,
         "attack_range": 7.0,
-        "attack_cooldown": 2.8
+        "attack_cooldown": 2.8,
+        "windup": 0,
+        "recovery": 0
       },
       "exp_mult": 4.0,
       "resist": {
@@ -490,7 +513,9 @@
         "attack_power": 0,
         "move_speed": 0.0,
         "attack_range": 0.0,
-        "attack_cooldown": 9.0
+        "attack_cooldown": 9.0,
+        "windup": 0,
+        "recovery": 0
       },
       "exp_mult": 0.0,
       "resist": {
@@ -509,7 +534,9 @@
         "attack_power": 46,
         "move_speed": 5.6,
         "attack_range": 2.4,
-        "attack_cooldown": 1.5
+        "attack_cooldown": 1.5,
+        "windup": 0.6,
+        "recovery": 0.55
       },
       "exp_mult": 1.4,
       "resist": {
@@ -543,7 +570,9 @@
         "attack_power": 28,
         "move_speed": 4.6,
         "attack_range": 2.0,
-        "attack_cooldown": 1.2
+        "attack_cooldown": 1.2,
+        "windup": 0.4,
+        "recovery": 0.4
       },
       "resist": {
         "arcane": 0.15,
@@ -561,7 +590,9 @@
         "attack_power": 52,
         "move_speed": 4.6,
         "attack_range": 2.3,
-        "attack_cooldown": 1.6
+        "attack_cooldown": 1.6,
+        "windup": 0.6,
+        "recovery": 0.6
       },
       "exp_mult": 1.3,
       "resist": {
@@ -596,13 +627,16 @@
         "attack_power": 30,
         "move_speed": 4.4,
         "attack_range": 13.0,
-        "attack_cooldown": 1.8
+        "attack_cooldown": 1.8,
+        "windup": 0.7,
+        "recovery": 0.6
       },
       "resist": {
         "arcane": 0.3,
         "ithrel_light": 0.5
       },
-      "loot_table": "goblin_teller"
+      "loot_table": "goblin_teller",
+      "bolt": "basic_cast"
     },
     "egg_sac": {
       "display": "Egg Sac",
@@ -614,7 +648,9 @@
         "attack_power": 0,
         "move_speed": 0.0,
         "attack_range": 0.0,
-        "attack_cooldown": 9.0
+        "attack_cooldown": 9.0,
+        "windup": 0,
+        "recovery": 0
       },
       "exp_mult": 0.0,
       "resist": {
@@ -635,7 +671,9 @@
         "attack_power": 0,
         "move_speed": 0.0,
         "attack_range": 0.0,
-        "attack_cooldown": 9.0
+        "attack_cooldown": 9.0,
+        "windup": 0,
+        "recovery": 0
       },
       "exp_mult": 0.0,
       "resist": {
@@ -688,5 +726,6 @@
   "_exp_note": "exp_mult scales the level-based pack experience for creatures that are slower to kill than their level suggests (trolls, pallids).",
   "_abilities_note": "abilities: telegraphed patterns an ordinary creature mixes in (`every` N attacks) or throws at a target out of reach (`min_range`/`max_range` + `cooldown`). at_target centres the area on the target; despair_s stops the victim's regeneration; drain heals the attacker by that share of the damage. aura: while fighting, players within `radius` take attack_power x damage_ratio per regeneration beat and despair. push/lift: shove each victim (m/s away from the attacker, and up) - the pixie's lift. poison {ratio, ticks, interval_ms}: venom on every victim, attack_power x ratio per beat on the burn clock (authority apply_poison). web_s: the victim moves at half speed on foot for that long (apply_web, player.gd WEBBED_FACTOR).",
   "_parts_note": "D1 multi-part creatures: `parts` names the bones a body grows targetable parts on (their species and hit points come from the part's own entry and boss_overrides part_hp). The body is immune while any part stands. `front_guard`: share of a blow from in front (~60 degrees) that a shield-bearer ignores.",
-  "_displace_note": "displace_resist: how much of a throw (Shockwave, Disarm) a creature shrugs off, 1.0 = never moves. Bosses are never thrown. Ability riders on players: stun_s (no casts, no steering), push/lift (thrown: no casts until it lands), web_s (slowed), poison, despair_s."
+  "_displace_note": "displace_resist: how much of a throw (Shockwave, Disarm) a creature shrugs off, 1.0 = never moves. Bosses are never thrown. Ability riders on players: stun_s (no casts, no steering), push/lift (thrown: no casts until it lands), web_s (slowed), poison, despair_s.",
+  "_attack_note": "base.windup/recovery: seconds a plain attack winds up and recovers (absent: melee 0.42/0.35, a bolt caster 0.55/0.5); 0 = never attacks on its own. bolt: the creature is a caster that throws this spell (spells.json) from up to 15 m with a clear line, flat damage, no homing."
 }

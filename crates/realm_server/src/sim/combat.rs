@@ -6,7 +6,7 @@
 //!
 //! The numbers are `realm_rules::combat`; this module only applies them.
 
-use realm_proto::control::{CombatEvent, HIT_CRIT, HIT_FINISHER, HIT_PIERCE};
+use realm_proto::control::{CombatEvent, HIT_CRIT, HIT_EVADE, HIT_FINISHER, HIT_PIERCE};
 use std::sync::Arc;
 
 use realm_rules::{BASIC_SPELL, CastPower, Delivery, Derived, Rules, SpellDef};
@@ -14,8 +14,8 @@ use realm_sim::Vec3;
 use realm_sim::world::World as Terrain;
 
 use super::{
-    CELL, CHEST, ConnId, Entity, GRID_DIM, INTEREST_RADIUS, InputFrame, MobMode, Player,
-    STATE_DEAD, Sim, cell_of, planar_distance, unit, xorshift,
+    CELL, CHEST, ConnId, Entity, GRID_DIM, INTEREST_RADIUS, InputFrame, MobMode, Player, Sim,
+    cell_of, planar_distance, unit,
 };
 
 /// A request this close to its caster's readiness waits instead of being
@@ -143,7 +143,11 @@ impl Sim {
         if player.dead_until != 0 {
             return;
         }
-        let refusal = if player.sheet.level < spell.requires_level {
+        // A held body casts nothing (judged on the input's own tick, as the
+        // owner's prediction does).
+        let refusal = if player.restraint.locked(frame.tick) {
+            Some("held")
+        } else if player.sheet.level < spell.requires_level {
             Some("level")
         } else if rules.combat.skill_level(&player.sheet, &spell.id) == 0 {
             Some("skill_locked")
@@ -642,8 +646,29 @@ impl Sim {
         if self.protected(mob.pos) || self.protected(attacker_pos) {
             return 0;
         }
+        // Walking home, a creature shrugs off a blow from outside its home
+        // ground.
+        if self.evades(victim, attacker_pos) {
+            let at = mob.pos;
+            let hp = super::hp_byte(mob.hp, mob.max_hp);
+            let (target, attacker_id) = (self.net_id_of(victim), self.net_id_of(attacker));
+            self.event(
+                at,
+                CombatEvent::Hit {
+                    target,
+                    attacker: attacker_id,
+                    spell: spell.index,
+                    amount: 0,
+                    flags: flags | HIT_EVADE,
+                    hp,
+                },
+            );
+            return 0;
+        }
+        let (mob_pos, mob_yaw) = (mob.pos, mob.yaw);
         let rules = self.rules();
         let combat = &rules.combat;
+        let mob_species = mob.species;
         let species = &self.game.species[usize::from(mob.species)].id;
         let Some(caster) = self.world.get::<Player>(attacker).map(|p| {
             (
@@ -677,6 +702,20 @@ impl Sim {
         if bonus > 0.0 {
             amount = (amount * (1.0 + bonus / 100.0)).round();
         }
+        // A shield-bearer ignores part of a blow from in front of it.
+        let guard = self.game.species[usize::from(mob_species)]
+            .brain
+            .front_guard;
+        if guard > 0.0 && flags & HIT_PIERCE == 0 {
+            let a = f32::from(mob_yaw) * (core::f32::consts::TAU / 65_536.0);
+            let ahead = Vec3::new(-libm::sinf(a), 0.0, -libm::cosf(a));
+            let to_attacker =
+                Vec3::new(attacker_pos.x - mob_pos.x, 0.0, attacker_pos.z - mob_pos.z)
+                    .normalize_or_zero();
+            if ahead.dot(to_attacker) >= 0.5 {
+                amount = (amount * (1.0 - guard)).round();
+            }
+        }
         let chance = combat.crit_chance(crit_bonus, flags & HIT_FINISHER != 0);
         if amount > 0.0 && chance > 0.0 && unit(&mut state) * 100.0 < chance {
             amount = (amount * combat.crit_multiplier).round();
@@ -689,7 +728,6 @@ impl Sim {
         if amount <= 0.0 {
             return 0;
         }
-        let (lo, hi) = self.game.mob_respawn_ticks;
         let Some(mut mob) = self.world.get_mut::<super::Mob>(victim) else {
             return 0;
         };
@@ -697,19 +735,9 @@ impl Sim {
         let at = mob.pos;
         let hp_byte = super::hp_byte(mob.hp, mob.max_hp);
         if mob.hp <= 0.0 {
-            mob.hp = 0.0;
-            mob.mode = MobMode::Dead;
-            mob.state = STATE_DEAD;
-            mob.died_at = tick;
-            let span = hi.saturating_sub(lo).max(1);
-            mob.respawn_at = tick + lo + xorshift(&mut mob.rng) % span;
-            mob.status = super::status::Status::default();
-            self.stats.kills += 1;
-        } else if !matches!(mob.mode, MobMode::Chase(_)) {
-            mob.mode = MobMode::Chase(attacker);
-            mob.next_think = tick;
-        }
-        if mob.mode != MobMode::Dead {
+            self.mob_died(victim);
+        } else {
+            self.provoke(victim, attacker);
             flags |= self.apply_status(attacker, victim, spell, amount);
         }
         self.stats.hits += 1;
@@ -806,8 +834,26 @@ impl Sim {
                     .get(&self.game.species[usize::from(m.species)].id)
             })
             .is_some_and(|c| c.mana_first);
+        self.wound_player(victim, attacker, amount, reflect_share, mana_first)
+    }
+
+    /// Damage that got through: mana first for the soul-drinkers, then
+    /// health, death, reflection back at a creature, the hit event.
+    pub(super) fn wound_player(
+        &mut self,
+        victim: Entity,
+        attacker: Entity,
+        amount: f32,
+        reflect_share: f32,
+        mana_first: bool,
+    ) -> u32 {
+        let tick = self.tick;
         let respawn = u32::from(self.game.respawn_ticks);
-        let Some(mut player) = self.world.get_mut::<Player>(victim) else {
+        let Some(mut player) = self
+            .world
+            .get_mut::<Player>(victim)
+            .filter(|p| p.dead_until == 0)
+        else {
             return 0;
         };
         let mut to_hp = amount;
@@ -825,6 +871,8 @@ impl Sim {
             player.dead_until = tick + respawn;
             player.caster.cast = None;
             player.caster.queued = None;
+            player.afflictions = super::afflict::Afflictions::default();
+            player.restraint = Default::default();
             self.stats.player_deaths += 1;
         }
         let hp_byte = super::hp_byte(player.hp, player.max_hp);
@@ -857,11 +905,13 @@ impl Sim {
         if !self.tick.is_multiple_of(REGEN_TICKS) {
             return;
         }
+        let tick = self.tick;
         let dt = REGEN_TICKS as f32 / realm_sim::SIM_HZ as f32;
         let combat = &self.game.rules.combat;
         let mut query = self.world.query::<&mut Player>();
         for mut player in query.iter_mut(&mut self.world) {
-            if player.dead_until != 0 {
+            // Despair stops natural regeneration.
+            if player.dead_until != 0 || player.afflictions.despair_until > tick {
                 continue;
             }
             let (hp_rate, mana_rate) = combat.regen(&player.sheet.house);
@@ -871,6 +921,7 @@ impl Sim {
             let c = &mut player.caster;
             c.mana = (c.mana + mana * dt).min(c.max_mana);
         }
+        self.chill();
     }
 
     /// Hands this tick's combat events to the clients near them (and refusals

@@ -529,6 +529,10 @@ impl RealmSession {
         else {
             return false;
         };
+        // A held body casts nothing; the server would refuse it.
+        if self.core.as_ref().is_some_and(ClientCore::locked) {
+            return false;
+        }
         let now = self.local_ticks();
         let ready = self.ready_at[usize::from(index)].max(self.busy_until);
         if ready - now > 0.25 * f64::from(realm_sim::SIM_HZ) {
@@ -655,8 +659,12 @@ impl RealmSession {
     }
 
     /// Combat events since the last call, each a dictionary with `kind`
-    /// ("cast_started", "cast_released", "burst", "hit", "cast_refused") and
-    /// its fields; spells are named by id.
+    /// ("cast_started", "cast_released", "burst", "hit", "cast_refused",
+    /// "telegraph", "telegraph_cancelled") and its fields; spells are named
+    /// by id. A telegraph carries its creature ability whole: `ability`
+    /// (key), `clip`, `fx`, `flight`, `impact_fx`, `shape` ("area" or
+    /// "cone"), `radius`, `range`, `half_angle`, `center`, `yaw`,
+    /// `release_tick`, `recovery_tick`.
     #[func]
     fn take_combat_events(&mut self) -> VarArray {
         use realm_proto::control::CombatEvent;
@@ -724,6 +732,48 @@ impl RealmSession {
                     d.set("spell", &name(spell).to_variant());
                     d.set("reason", &GString::from(reason.as_str()).to_variant());
                 }
+                CombatEvent::Telegraph {
+                    caster,
+                    ability,
+                    center,
+                    yaw,
+                    release_tick,
+                    recovery_tick,
+                } => {
+                    let Some(ab) = self.rules.as_ref().and_then(|r| r.mobs.ability(ability)) else {
+                        continue;
+                    };
+                    use realm_rules::creatures::Shape;
+                    d.set("kind", "telegraph");
+                    d.set("caster", &i64::from(caster).to_variant());
+                    d.set("ability", &GString::from(ab.key.as_str()).to_variant());
+                    d.set("clip", &GString::from(ab.clip.as_str()).to_variant());
+                    d.set("fx", &GString::from(ab.fx.as_str()).to_variant());
+                    d.set("flight", &GString::from(ab.flight.as_str()).to_variant());
+                    d.set(
+                        "impact_fx",
+                        &GString::from(ab.impact_fx.as_str()).to_variant(),
+                    );
+                    match ab.shape {
+                        Shape::Area { radius, .. } => {
+                            d.set("shape", "area");
+                            d.set("radius", &radius.to_variant());
+                        }
+                        Shape::Cone { range, half_angle } => {
+                            d.set("shape", "cone");
+                            d.set("range", &range.to_variant());
+                            d.set("half_angle", &half_angle.to_variant());
+                        }
+                    }
+                    d.set("center", &v3(center).to_variant());
+                    d.set("yaw", &yaw.to_variant());
+                    d.set("release_tick", &i64::from(release_tick).to_variant());
+                    d.set("recovery_tick", &i64::from(recovery_tick).to_variant());
+                }
+                CombatEvent::TelegraphCancelled { caster } => {
+                    d.set("kind", "telegraph_cancelled");
+                    d.set("caster", &i64::from(caster).to_variant());
+                }
             }
             out.push(&d.to_variant());
         }
@@ -750,8 +800,9 @@ impl RealmSession {
 
     /// What the view needs to pose the player's body: `position` (drawn
     /// between ticks), `velocity`, `on_floor`, `swimming`, `mounted`,
-    /// `air_seconds` and `yaw` (the steering yaw, radians). Empty before the
-    /// first snapshot.
+    /// `air_seconds`, `yaw` (the steering yaw, radians), `status` (STATUS_*
+    /// bits) and `held` (stunned or thrown: no steering, no casts). Empty
+    /// before the first snapshot.
     #[func]
     fn own_body(&self) -> VarDictionary {
         let mut out = VarDictionary::new();
@@ -777,6 +828,8 @@ impl RealmSession {
             &(f32::from(body.air_ticks) / realm_sim::SIM_HZ as f32).to_variant(),
         );
         out.set("yaw", &self.intent.yaw_radians().to_variant());
+        out.set("status", &i64::from(core.own_status()).to_variant());
+        out.set("held", &core.locked().to_variant());
         out
     }
 

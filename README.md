@@ -64,6 +64,21 @@ creature it hit and reach every client as the entity's status byte
 (`STATUS_*` in realm_proto); the server's stats line counts holds, procs and
 burn/bleed ticks.
 
+Creatures think on the server (`sim/brain.rs`): aggressive packs attack a
+player they see, reactive ones answer a blow; the last hitter is the target and
+pack mates join; the leash runs from the pack's anchor; attacks wind up and
+land on a release tick; every Nth attack is a telegraphed ability (a
+`telegraph` combat event carries its shape and release tick), a target out of
+reach can draw a thrown one, casters throw bolts. Abilities stun, throw, web,
+poison and despair players (`sim/afflict.rs`); the holds travel in the owner's
+snapshot as a `Restraint`, so prediction replays them exactly. Packs come back
+whole on a fresh anchor. Load with fighting creatures:
+
+```bash
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs
+cargo run --release -p realm_bots -- --count 500 --seconds 90
+```
+
 The client (needs `cargo build --release -p realm_client` and a running server;
 WASD, Space, Ctrl, right mouse drag, wheel):
 

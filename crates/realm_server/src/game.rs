@@ -13,6 +13,10 @@ pub struct Species {
     pub move_speed: f32,
     pub attack_range: f32,
     pub attack_cooldown_ticks: u16,
+    /// Its own fighting (realm_rules creatures): timings, abilities, aura.
+    pub brain: realm_rules::creatures::Brain,
+    /// A caster's bolt: spell index, speed (m/s), range (m).
+    pub bolt: Option<(u8, f32, f32)>,
 }
 
 pub struct Pack {
@@ -24,6 +28,15 @@ pub struct Pack {
     pub center: (f32, f32),
     pub half_extent: (f32, f32),
     pub leash: f32,
+    /// Aggressive packs attack a player who comes near; reactive ones only
+    /// answer a blow.
+    pub aggressive: bool,
+    /// Pack mates this close to a creature that turns on a player join in.
+    pub assist_radius: f32,
+    /// No respawn while a player stands this close to the new anchor.
+    pub clear_radius: f32,
+    /// The whole pack comes back this long after its last member falls.
+    pub respawn_ticks: (u32, u32),
 }
 
 pub struct Game {
@@ -40,7 +53,6 @@ pub struct Game {
     /// Bottom of the map's height band: a body below it fell out of the map.
     pub y_min: f32,
     pub respawn_ticks: u16,
-    pub mob_respawn_ticks: (u32, u32),
     hp_multiplier: f32,
     attack_multiplier: f32,
     strength: (f32, f32, f32),
@@ -71,12 +83,24 @@ impl Game {
         let maps = get("maps.json")?;
         let loot = get("loot_tables.json")?;
 
+        let rules = realm_rules::Rules::from_content(content)?;
         let mut species = Vec::new();
         for (id, def) in mobs["mobs"].as_object().into_iter().flatten() {
             if id.starts_with('_') {
                 continue;
             }
             let base = &def["base"];
+            let brain = rules.mobs.brain(id).cloned().unwrap_or_default();
+            let bolt = match &brain.bolt {
+                Some(spell) => {
+                    let s = rules
+                        .combat
+                        .spell(spell)
+                        .ok_or_else(|| format!("content: {id} throws unknown spell '{spell}'"))?;
+                    Some((s.index, s.projectile_speed, s.range))
+                }
+                None => None,
+            };
             species.push(Species {
                 id: id.clone(),
                 max_hp: num(&base["max_hp"], &format!("{id} max_hp"))?,
@@ -87,6 +111,8 @@ impl Game {
                     &base["attack_cooldown"],
                     &format!("{id} attack_cooldown"),
                 )?),
+                brain,
+                bolt,
             });
         }
         species.sort_by(|a, b| a.id.cmp(&b.id));
@@ -104,14 +130,35 @@ impl Game {
                 ));
             };
             let area = &pack["area"];
+            let boss = pack["boss"].as_bool().unwrap_or(false);
+            let (lo, hi) = match pack["respawn_s"].as_array() {
+                Some(range) => (
+                    num(&range[0], "pack respawn_s")? * 1000.0,
+                    num(&range[1], "pack respawn_s")? * 1000.0,
+                ),
+                None if boss => (
+                    num(&loot["respawn_ms"]["pack_boss_min"], "respawn")?,
+                    num(&loot["respawn_ms"]["pack_boss_max"], "respawn")?,
+                ),
+                None => (
+                    num(&loot["respawn_ms"]["pack_normal_min"], "respawn")?,
+                    num(&loot["respawn_ms"]["pack_normal_max"], "respawn")?,
+                ),
+            };
             packs.push(Pack {
                 species: species_index,
                 level: pack["level"].as_u64().unwrap_or(1) as u32,
                 count: pack["count"].as_u64().unwrap_or(1) as u32,
-                boss: pack["boss"].as_bool().unwrap_or(false),
+                boss,
                 center: (num(&area[0], "pack area")?, num(&area[1], "pack area")?),
                 half_extent: (num(&area[2], "pack area")?, num(&area[3], "pack area")?),
                 leash: pack["leash_distance"].as_f64().unwrap_or(40.0) as f32,
+                aggressive: pack["aggro_mode"].as_str() == Some("aggressive"),
+                assist_radius: pack["assist_radius"].as_f64().unwrap_or(16.0) as f32,
+                clear_radius: pack["clear_radius"]
+                    .as_f64()
+                    .map_or(rules.mobs.tuning.respawn_clear_radius, |r| r as f32),
+                respawn_ticks: (u32::from(ticks(lo / 1000.0)), u32::from(ticks(hi / 1000.0))),
             });
         }
 
@@ -125,10 +172,9 @@ impl Game {
                 .and_then(|o| o.values().next())
                 .ok_or_else(|| format!("map {map}: no spawn points"))?
         };
-        let respawn = &loot["respawn_ms"];
         Ok(Self {
             map: map.to_owned(),
-            rules: std::sync::Arc::new(realm_rules::Rules::from_content(content)?),
+            rules: std::sync::Arc::new(rules),
             houses: content
                 .file("houses.json")
                 .and_then(|h| h.as_object())
@@ -143,10 +189,6 @@ impl Game {
                 num(&spawn[2], "spawn")?,
             ),
             respawn_ticks: ticks(num(&combat["death"]["respawn_ms"], "death.respawn_ms")? / 1000.0),
-            mob_respawn_ticks: (
-                u32::from(ticks(num(&respawn["mob_normal_min"], "respawn")? / 1000.0)),
-                u32::from(ticks(num(&respawn["mob_normal_max"], "respawn")? / 1000.0)),
-            ),
             hp_multiplier: num(&tuning["hp_multiplier"], "pack_tuning.hp_multiplier")?,
             attack_multiplier: num(
                 &tuning["attack_multiplier"],

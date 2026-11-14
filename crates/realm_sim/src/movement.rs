@@ -87,6 +87,63 @@ impl Default for MoveParams {
     }
 }
 
+/// A webbed body walks at this share of its speed.
+pub const WEB_FACTOR: f32 = 0.5;
+
+/// What the server holds a player's body to, as input ticks: locked (stunned
+/// or thrown: no steering, no jump) and webbed (slower on foot). Sent to the
+/// owner with every snapshot, so a replay applies it to exactly the inputs
+/// the server did.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Restraint {
+    pub lock_from: u32,
+    pub lock_until: u32,
+    pub web_from: u32,
+    pub web_until: u32,
+}
+
+impl Restraint {
+    #[must_use]
+    pub fn locked(&self, tick: u32) -> bool {
+        self.lock_from <= tick && tick < self.lock_until
+    }
+
+    #[must_use]
+    pub fn webbed(&self, tick: u32) -> bool {
+        self.web_from <= tick && tick < self.web_until
+    }
+
+    /// Locks from `now` (or keeps an earlier start of a lock still running)
+    /// until at least `until`.
+    pub fn lock(&mut self, now: u32, until: u32) {
+        if self.lock_until <= now {
+            self.lock_from = now;
+        }
+        self.lock_until = self.lock_until.max(until);
+    }
+
+    pub fn web(&mut self, now: u32, until: u32) {
+        if self.web_until <= now {
+            self.web_from = now;
+        }
+        self.web_until = self.web_until.max(until);
+    }
+
+    /// `base` as it applies to the input of `tick`.
+    #[must_use]
+    pub fn params(&self, base: &MoveParams, tick: u32) -> MoveParams {
+        let mut p = *base;
+        if self.locked(tick) {
+            p.can_steer = false;
+            p.can_jump = false;
+        }
+        if self.webbed(tick) {
+            p.walk_speed *= WEB_FACTOR;
+        }
+        p
+    }
+}
+
 /// Everything about a moving body that the next tick depends on. Replicated to
 /// its owner whole, so a rewind resumes from the server's exact state.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

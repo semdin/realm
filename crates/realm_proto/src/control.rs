@@ -46,6 +46,21 @@ pub enum CombatEvent {
     },
     /// The player's own request was refused (cooldown, no mana, ...).
     CastRefused { spell: u8, reason: String },
+    /// A creature winds up a telegraphed ability (realm_rules creature
+    /// ability `ability`): its shape lands on `center`, facing `yaw`
+    /// (radians, the creature's facing), on `release_tick`; the creature
+    /// recovers until `recovery_tick`.
+    Telegraph {
+        caster: u32,
+        ability: u16,
+        center: [f32; 3],
+        yaw: f32,
+        release_tick: u32,
+        recovery_tick: u32,
+    },
+    /// A telegraph was broken off before it landed (the creature was held,
+    /// thrown, or gave up).
+    TelegraphCancelled { caster: u32 },
 }
 
 /// Hit flags: what the hit was, and what a control enchantment added to it.
@@ -55,6 +70,8 @@ pub const HIT_PIERCE: u8 = 4;
 pub const HIT_STUN: u8 = 8;
 pub const HIT_SLOW: u8 = 16;
 pub const HIT_BURN: u8 = 32;
+/// A creature walking home shrugged the blow off.
+pub const HIT_EVADE: u8 = 64;
 use serde::{Deserialize, Serialize};
 
 /// Largest frame either side accepts; a peer sending more is closed.
