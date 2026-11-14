@@ -24,6 +24,11 @@ extends Node3D
 ##                                                    hands in q001, wears the cloak (q002), hits
 ##                                                    a training dummy 5 times (q003), claiming
 ##                                                    each; fails unless all three are claimed
+##   [--check-workshop]                               the check opens Kestrin's workshop (O), puts
+##                                                    the wand on the anvil, refines it, imbues and
+##                                                    reweaves it (WorkshopCheck); with q012 open it
+##                                                    first talks to Kestrin and opens the workshop
+##                                                    from his dialogue, and claims q012 / q013
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
@@ -31,7 +36,7 @@ extends Node3D
 ## A right-click on a loot chest (within 7 m) opens it; Z takes everything from
 ## the nearest chest within 6 m. Tab cycles the nearest living creatures, Esc
 ## closes a window or drops the target, I opens the bag, C the character
-## window, J the quest log; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
+## window, J the quest log, O Kestrin's workshop (anywhere); the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
 ## The map's NPCs (npcs.json) stand on the ground under their place: F talks
 ## to the nearest within TALK_KEY_REACH, a click on one talks from within the
 ## server's talk radius (less a little), and the dialogue card, the tracker,
@@ -62,6 +67,8 @@ const InventoryScript := "res://scripts/ui/inventory_arcane.gd"
 const FeedbackScript := "res://scripts/ui/combat_feedback.gd"
 const LootScript := "res://scripts/ui/loot_window.gd"
 const CharacterScript := "res://scripts/ui/character_window.gd"
+const WorkshopScript := "res://scripts/ui/workshop_window.gd"
+const WorkshopCheckScript := "res://scripts/systems/workshop_check.gd"
 const ChestViewScript := "res://scripts/view/chest_view.gd"
 ## Entity kind of a player in snapshots (creatures carry their species index
 ## + 1 in the low bits, CreatureView ELITE_BIT / ENRAGED_BIT / BOSS_BIT above).
@@ -137,6 +144,9 @@ var heroes := {}
 var sheet_view: PlayerSheet
 var hud: Control
 var inventory: Control
+## Kestrin's workshop (O), docked beside the bag; it finds the bag and the HUD
+## as its siblings.
+var workshop: Control
 ## Toasts, the level-up moment and the death panel (CombatFeedback).
 var feedback: Control
 var loot_window: Control
@@ -383,6 +393,8 @@ func _build_ui() -> void:
 	inventory.prepare(sheet_view)
 	if _arg("--open-bag", "") != "":
 		inventory.open_for_player(sheet_view)
+	workshop = load(WorkshopScript).new()
+	root.add_child(workshop)
 	character_window = load(CharacterScript).new()
 	character_window.setup(session)
 	root.add_child(character_window)
@@ -398,6 +410,11 @@ func _build_ui() -> void:
 	root.add_child(feedback)
 	feedback.setup(session, hud, player)
 	_build_quest_ui(root)
+	if OS.get_cmdline_user_args().has("--check-workshop"):
+		var check: Node = load(WorkshopCheckScript).new()
+		check.name = "WorkshopCheck"
+		check.game = self
+		add_child(check)
 
 ## The quest log's view and windows: the tracker on the left edge, the NPC
 ## dialogue card, the log (J) and, over every window, the quest scroll.
@@ -611,6 +628,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				character_window.toggle()
 			KEY_J:
 				quest_log.toggle()
+			KEY_O:
+				workshop.toggle(sheet_view)
 			KEY_F:
 				if built:
 					talk_to(_npc_near(TALK_KEY_REACH))
@@ -627,6 +646,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					loot_window.close()
 				elif character_window.visible:
 					character_window.card.close()
+				elif workshop.visible:
+					workshop.hide()
 				elif inventory.visible:
 					inventory.hide()
 				elif dialogue.visible:

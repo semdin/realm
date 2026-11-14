@@ -5598,3 +5598,6 @@ msgstr "SEVİYE %d!"
 
 msgid "%s: a wave of creatures answers its call! (Wave %d/%d)"
 msgstr "%s: çağrısına bir yaratık dalgası karşılık veriyor! (Dalga %d/%d)"
+
+msgid "The enchantments were rewoven."
+msgstr "Efsunlar yeniden atıldı."

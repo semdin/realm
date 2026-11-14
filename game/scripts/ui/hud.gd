@@ -73,9 +73,15 @@ func setup(realm_session: Node, player_sheet: PlayerSheet, open_bag: Callable) -
 	_build_gauges()
 	_build_tray(open_bag)
 	_build_target_card()
+	# The notice band draws above every window (the bag, the workshop, the
+	# log): a window left open must not hide what just happened.
+	var notice_layer := CanvasLayer.new()
+	notice_layer.name = "NoticeLayer"
+	notice_layer.layer = 6
+	add_child(notice_layer)
 	notices = load(NoticeScript).new()
 	notices.name = "Notices"
-	add_child(notices)
+	notice_layer.add_child(notices)
 	get_viewport().size_changed.connect(_layout)
 	_layout()
 

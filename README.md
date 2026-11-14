@@ -105,6 +105,7 @@ godot --headless --path game -- --check 15        # joins, walks, prints, exits 
 godot --headless --path game -- --check 30 --check-target stone_dark   # fights a Dark Shard first (its waves)
 godot --headless --path game -- --check 180 --character 9 --check-rise here   # loots chests, spends a status point, rises where it fell
 godot --headless --path game -- --check-quests --character 11   # the first chapter: talks to Master Teral Venn, wears the cloak, hits a dummy; claims q001-q003
+godot --headless --path game -- --check-workshop --character 900002   # O opens Kestrin's workshop: refines, imbues and reweaves the wand (prepared character)
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```

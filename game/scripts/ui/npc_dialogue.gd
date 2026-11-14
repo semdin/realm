@@ -268,6 +268,7 @@ func _build_options() -> void:
 			continue
 		var icon := UITheme.icon_rect(String(SERVICE_ICONS.get(service, "ui_interact")), 22.0)
 		var row := _option(icon, I18n.t(String(spec.get("label", service))), String(spec.get("key", "")), "")
+		row.name = "Service_" + service
 		row.pressed.connect(func():
 			close()
 			service_chosen.emit(service))

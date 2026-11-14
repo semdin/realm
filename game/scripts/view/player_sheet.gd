@@ -117,6 +117,26 @@ func submit(operation: String, slot: String, entry: Dictionary = {}, cell := -1)
 			return session.destroy_item(from) if from >= 0 else 0
 	return 0
 
+## The workshop: refine the bag entry `entry` one step (+N). Returns the
+## request id (0 when nothing was sent).
+func refine(entry: Dictionary) -> int:
+	var at := int(entry.get("cell", -1))
+	return session.refine_item(at) if at >= 0 else 0
+
+## The workshop: use the first bag stack of the scroll `scroll_id` (imbue or
+## reweave) on the bag entry `entry`. Returns the request id (0 when nothing
+## was sent: no such scroll, or no target cell).
+func enchant(scroll_id: String, entry: Dictionary) -> int:
+	var at := int(entry.get("cell", -1))
+	for held: Dictionary in inventory:
+		if String(held.id) == scroll_id and at >= 0:
+			return session.enchant_item(int(held.cell), at)
+	return 0
+
+## The sheet's revision (bumped by every change the server makes).
+func revision() -> int:
+	return _revision
+
 ## Derived stats now and after moving `from` to `to` (see
 ## RealmSession.preview_move).
 func derived() -> Dictionary:
