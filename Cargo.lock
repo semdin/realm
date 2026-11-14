@@ -1412,6 +1412,7 @@ name = "realm_coord"
 version = "0.1.0"
 dependencies = [
  "realm_proto",
+ "realm_rules",
  "tokio",
 ]
 
@@ -1437,6 +1438,7 @@ dependencies = [
  "realm_proto",
  "realm_rules",
  "realm_sim",
+ "serde_json",
 ]
 
 [[package]]

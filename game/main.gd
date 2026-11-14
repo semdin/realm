@@ -46,6 +46,18 @@ extends Node3D
 ##                                                    (DuelCheck)
 ##   [--duel-guest NAME]                              this client challenges NAME to a duel and
 ##                                                    stands (the second client for --check-duel)
+##   [--check-travel]                                 the check walks through the castle door and
+##                                                    back, takes the Hearth Pavilion's hearth to
+##                                                    Orvell Square and mounts and dismounts the
+##                                                    broom there (TravelCheck; it carries on across
+##                                                    the scene reload a map change makes)
+##   [--capture-dir build/captures/travel]            where TravelCheck saves its PNG frames
+##
+## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
+## a Waylink; Shift mounts or dismounts the broom. A trip to another map
+## rebuilds this scene for it: `map_name` is then the trip's map and the
+## session joins with RealmSession.start_travel (the loading screen stays up
+## across the reload until the new map is drawn).
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
@@ -96,6 +108,7 @@ const WorkshopScript := "res://scripts/ui/workshop_window.gd"
 const WorkshopCheckScript := "res://scripts/systems/workshop_check.gd"
 const SocialCheckScript := "res://scripts/systems/social_check.gd"
 const DuelCheckScript := "res://scripts/systems/duel_check.gd"
+const TravelCheckScript := "res://scripts/systems/travel_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -106,6 +119,10 @@ const ChestViewScript := "res://scripts/view/chest_view.gd"
 ## Entity kind of a player in snapshots (creatures carry their species index
 ## + 1 in the low bits, CreatureView ELITE_BIT / ENRAGED_BIT / BOSS_BIT above).
 const KIND_PLAYER := 0
+## A player's snapshot state: the pose in the low four bits, and this bit while
+## it rides its broom (realm_proto STATE_MOUNTED).
+const STATE_POSE_MASK := 15
+const STATE_MOUNTED_BIT := 16
 ## An elite's name on the target card (the old game's elite label colour).
 const ELITE_NAME_COLOR := Color(1.0, 0.9, 0.35)
 ## The target card per kind of target (the old game's colours and icons):
@@ -171,6 +188,13 @@ const QUEST_REASONS := {
 
 var session: Node
 var player: Node3D
+## The map this scene shows: `--map` (default grounds), or the map a trip
+## brought the player to (RealmSession.pending_travel_map).
+var map_name := "grounds"
+## Doors, hearths, Waylinks, the broom key and the loading flow (MapTravel).
+var travel: MapTravel
+## `--check-travel`: the travel check.
+var travel_check: Node = null
 ## Other players' heroes by entity id.
 var heroes := {}
 ## Other players' names by entity id, as the server said them (asked when a
@@ -351,6 +375,8 @@ func _ready() -> void:
 		printerr("realm: the realm_client extension did not load (cargo build --release -p realm_client)")
 		get_tree().quit(2)
 		return
+	var trip_map := String(ClassDB.class_call_static("RealmSession", "pending_travel_map"))
+	map_name = trip_map if trip_map != "" else _arg("--map", "grounds")
 	if not ClassDB.class_call_static("RealmContent", "load", _arg("--content", root.path_join("content/data"))):
 		printerr("realm: content/data could not be read")
 		get_tree().quit(1)
@@ -360,14 +386,22 @@ func _ready() -> void:
 		house_color = Color.html(String(houses["velkar"].get("primary_color", "#d9661c")))
 	session = ClassDB.instantiate("RealmSession")
 	add_child(session)
-	var ok: bool = session.start_dev(_arg("--server", "127.0.0.1:7777"), _arg("--keys", root.path_join("keys")),
-		_arg("--content", root.path_join("content/data")), _arg("--maps", root.path_join("world/maps")),
-		_arg("--map", "grounds"), int(_arg("--character", "0")))
+	var ok: bool
+	if trip_map != "":
+		# a trip brought the player here: join with its ticket
+		ok = session.start_travel(_arg("--keys", root.path_join("keys")), _arg("--content", root.path_join("content/data")),
+			_arg("--maps", root.path_join("world/maps")))
+	else:
+		ok = session.start_dev(_arg("--server", "127.0.0.1:7777"), _arg("--keys", root.path_join("keys")),
+			_arg("--content", root.path_join("content/data")), _arg("--maps", root.path_join("world/maps")),
+			map_name, int(_arg("--character", "0")))
 	if not ok:
 		printerr("realm: ", session.status())
 		get_tree().quit(1)
 		return
 	_build_view()
+	if trip_map != "":
+		travel.begin_arrival()
 
 func _build_view() -> void:
 	var sun := DirectionalLight3D.new()
@@ -451,6 +485,14 @@ func _build_ui() -> void:
 	root.add_child(feedback)
 	feedback.setup(session, hud, player)
 	_build_quest_ui(root)
+	travel = MapTravel.new()
+	add_child(travel)
+	travel.setup(self, map_name, root)
+	if OS.get_cmdline_user_args().has("--check-travel"):
+		travel_check = load(TravelCheckScript).new()
+		travel_check.name = "TravelCheck"
+		travel_check.game = self
+		add_child(travel_check)
 	if OS.get_cmdline_user_args().has("--check-workshop"):
 		var check: Node = load(WorkshopCheckScript).new()
 		check.name = "WorkshopCheck"
@@ -462,7 +504,7 @@ func _build_ui() -> void:
 ## the tracker down when they grow; the player menu measures from the
 ## player's body. `--check-social` / `--social-guest` add their check.
 func _build_social_ui() -> void:
-	hud.party_frames.map_name = _arg("--map", "grounds")
+	hud.party_frames.map_name = map_name
 	hud.party_frames.rows_changed.connect(_on_party_rows)
 	hud.player_menu.player = player
 	hud.duel_view.player = player
@@ -558,6 +600,20 @@ func _apply_sheet_look(sheet: Dictionary) -> void:
 	_shown_look = look.duplicate()
 	HeroAppearance.apply_look(player.body, Looks.clean_look(look))
 
+## The player's hero rides the broom its sheet wears (its model and speed).
+func _apply_sheet_broom(sheet: Dictionary) -> void:
+	var worn: Dictionary = (sheet["equipment"] as Dictionary).get("broom", {})
+	var id := String(worn.get("id", ""))
+	player.set_broom_item(id)
+	if id != "":
+		player.mounted_speed = float(ItemRules.item(id).get("mount_speed", player.mounted_speed))
+
+## A trip to another map rebuilds the scene: the old session goes with it.
+func before_reload() -> void:
+	set_process(false)
+	if travel_check != null:
+		travel_check.before_reload()
+
 func _new_hero() -> Node3D:
 	var hero: Node3D = load(HeroViewScript).new()
 	add_child(hero)
@@ -594,6 +650,7 @@ func _build_map() -> void:
 		add_child(node)
 	built = true
 	_spawn_npcs()
+	travel.on_map_built()
 
 ## ------------------------------------------------------------------- NPCs
 
@@ -602,7 +659,7 @@ func _spawn_npcs() -> void:
 	var table: Variant = RealmContent.table("npcs")
 	if not (table is Dictionary):
 		return
-	var map := _arg("--map", "grounds")
+	var map := map_name
 	var all: Dictionary = (table as Dictionary).get("npcs", {})
 	for id: String in all:
 		var data: Dictionary = all[id]
@@ -706,8 +763,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_O:
 				workshop.toggle(sheet_view)
 			KEY_F:
-				if built:
+				if built and not travel.interact():
 					talk_to(_npc_near(TALK_KEY_REACH))
+			KEY_SHIFT:
+				if built and not hud.chat.is_open():
+					travel.toggle_ride()
 			KEY_Z:
 				take_nearest_chest()
 			KEY_TAB:
@@ -1038,6 +1098,10 @@ func _show_game_events() -> void:
 			# the frame each message lands on (a --write-movie capture's index)
 			print("realm check event: frame %d %s" % [Engine.get_frames_drawn(), event["kind"]])
 		match String(event["kind"]):
+			"travel_result", "departing", "travel", "arrived", "waylink":
+				travel.on_event(event)
+				if travel_check != null:
+					travel_check.on_event(event)
 			"reward":
 				check_exp += int(event["exp"])
 				check_oril += int(event["oril"])
@@ -1682,7 +1746,7 @@ func _process(delta: float) -> void:
 	if status != "joined":
 		if readout != null:
 			readout.text = "realm: " + status
-		if status.begins_with("refused") or status.begins_with("closed"):
+		if (status.begins_with("refused") or status.begins_with("closed")) and not travel.leaving:
 			printerr("realm: ", status)
 			get_tree().quit(1)
 		return
@@ -1713,16 +1777,24 @@ func _process(delta: float) -> void:
 			jump = false
 	elif duel_check != null and duel_check.walk_intent() > 0.0:
 		forward = duel_check.walk_intent()
+	elif travel_check != null:
+		forward = travel_check.walk_intent()
+		strafe = _check_sidestep(forward > 0.0)
+		jump = travel_check.jump_intent()
 	elif not hud.chat.is_open():
 		# while the chat has the keys, typing does not walk
 		strafe = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
 		forward = float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S))
 		jump = Input.is_physical_key_pressed(KEY_SPACE)
-	session.set_intent(strafe, forward, cam_yaw, jump, Input.is_physical_key_pressed(KEY_CTRL) and not hud.chat.is_open())
+	var descend: bool = Input.is_physical_key_pressed(KEY_CTRL) and not hud.chat.is_open()
+	if travel_check != null:
+		descend = travel_check.descend_intent()
+	session.set_intent(strafe, forward, cam_yaw, jump, descend)
 
 	var own: Dictionary = session.own_body()
 	var me: Vector3 = own.get("position", Vector3.ZERO)
 	if not own.is_empty():
+		player.is_mounted = bool(own.get("mounted", false))
 		player.drive_own(own, delta)
 		player.set_status(int(own.get("status", 0)))
 		check_own_statuses |= int(own.get("status", 0))
@@ -1763,9 +1835,12 @@ func _process(delta: float) -> void:
 				heroes[ids[i]] = _new_hero()
 				# Who it is: name, house, level (the player menu, the card).
 				session.inspect(ids[i])
+			# the state byte: the pose in the low bits, STATE_MOUNTED_BIT
+			# while it rides its broom
+			heroes[ids[i]].is_mounted = states[i] & STATE_MOUNTED_BIT != 0
 			heroes[ids[i]].drive_remote(positions[i], delta)
 			heroes[ids[i]].set_status(statuses[i])
-			heroes[ids[i]].set_dead(states[i] == CreatureView.STATE_DEAD)
+			heroes[ids[i]].set_dead(states[i] & STATE_POSE_MASK == CreatureView.STATE_DEAD)
 			continue
 		var species_kind := kinds[i] & CreatureView.SPECIES_MASK
 		if not no_model.has(species_kind):
@@ -1823,6 +1898,7 @@ func _process(delta: float) -> void:
 	_show_notices()
 	_show_game_events()
 	_show_chat()
+	travel.tick(delta)
 
 	var stats: Dictionary = session.stats()
 	readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d
@@ -1845,6 +1921,7 @@ bag: %s" % [
 			sheet["max_mana"], sheet["oril"], (sheet["equipment"] as Dictionary).get("main_hand", {}).get("id", "-"),
 			", ".join(items)]
 		_apply_sheet_look(sheet)
+		_apply_sheet_broom(sheet)
 
 	if check_quests:
 		var now := Time.get_ticks_msec() / 1000.0

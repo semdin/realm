@@ -7,13 +7,16 @@
 //!       ticket.pub.
 //!   realm_server serve [--map grounds] [--bind 0.0.0.0:7777] [--keys keys]
 //!                      [--content content/data] [--maps world/maps]
-//!                      [--characters <dir>]
+//!                      [--characters <dir>] [--coord <addr>] [--public <addr>]
 //!                      [--dev-spawn-near-packs | --dev-spawn-near <species>]
 //!       Runs one map at 30 Hz and prints a status line every 5 seconds. The
 //!       dev options spawn players next to a creature pack (of one species).
 //!       `--characters` keeps character records as JSON files there; without
 //!       it nothing persists (every join is a new character). Ctrl+C,
-//!       SIGTERM or Ctrl+Break saves everyone and stops.
+//!       SIGTERM or Ctrl+Break saves everyone and stops. `--coord` links
+//!       it to the coordinator (travel, chat and parties across maps);
+//!       `--public` is the address clients reach it at (default: the bind
+//!       address, 0.0.0.0 read as 127.0.0.1).
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -87,6 +90,8 @@ struct Options {
     characters: Option<PathBuf>,
     /// The coordinator's address (None: run alone).
     coord: Option<String>,
+    /// Where clients reach this server (told to travellers).
+    public: Option<String>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -99,6 +104,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         dev_spawn_near: None,
         characters: None,
         coord: None,
+        public: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -117,6 +123,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--dev-spawn-near" => o.dev_spawn_near = Some(value()?),
             "--characters" => o.characters = Some(PathBuf::from(value()?)),
             "--coord" => o.coord = Some(value()?),
+            "--public" => o.public = Some(value()?),
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -189,10 +196,17 @@ fn serve(args: &[String]) -> AnyResult<()> {
             .map_err(|_| "coord.key must be 32 bytes")?;
         let (coord_tx, coord_rx) = tokio::sync::mpsc::unbounded_channel();
         sim.set_coord(coord_tx);
+        let public = o
+            .public
+            .clone()
+            .unwrap_or_else(|| o.bind.replace("0.0.0.0", "127.0.0.1"));
+        let capacity = content_capacity(&content, &o.map);
         runtime.spawn(coord::link(
             addr,
             coord_key,
             o.map.clone(),
+            public,
+            capacity,
             coord_rx,
             tx.clone(),
         ));
@@ -242,6 +256,14 @@ fn serve(args: &[String]) -> AnyResult<()> {
             deadline = now + period;
         }
     }
+}
+
+/// How many players `map` holds at most (maps.json `capacity`).
+fn content_capacity(content: &Content, map: &str) -> u16 {
+    content
+        .file("maps.json")
+        .and_then(|m| m["maps"][map]["capacity"].as_u64())
+        .map_or(64, |c| c.min(u64::from(u16::MAX)) as u16)
 }
 
 /// Resolves when the server is asked to stop: Ctrl+C anywhere, SIGTERM on

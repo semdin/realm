@@ -245,13 +245,9 @@ impl Sim {
         if tick.is_multiple_of(RESTRAINT_FORGET_TICKS) {
             let mut q = self.world.query::<&mut Player>();
             for mut p in q.iter_mut(&mut self.world) {
-                let r = p.restraint;
-                let input = p.last_input_tick;
-                if r != Default::default()
-                    && r.lock_until + RESTRAINT_FORGET_TICKS < input
-                    && r.web_until + RESTRAINT_FORGET_TICKS < input
-                {
-                    p.restraint = Default::default();
+                let before = p.last_input_tick.saturating_sub(RESTRAINT_FORGET_TICKS);
+                if p.restraint != Default::default() {
+                    p.restraint.forget_before(before);
                 }
             }
         }

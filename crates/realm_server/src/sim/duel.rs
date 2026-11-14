@@ -323,6 +323,13 @@ impl Sim {
         self.sync_duel(i);
     }
 
+    /// `player` leaves the map in a duel: it fled.
+    pub(super) fn flee_duel(&mut self, player: Entity) {
+        if let Some(i) = self.duels.duel_of(player) {
+            self.knock_out(i, player, "fled", "");
+        }
+    }
+
     /// The duel as `player` sees it.
     fn duel_view(&self, i: usize, player: Entity) -> DuelView {
         let d = &self.duels.duels[i];
@@ -568,6 +575,9 @@ impl Sim {
         let beaten = p.hp - amount < 1.0;
         p.hp = (p.hp - amount).max(1.0);
         p.last_combat = tick;
+        if amount > 0.0 {
+            p.last_hurt = tick;
+        }
         let (at, hp) = (p.body.pos, super::hp_byte(p.hp, p.max_hp));
         if let Some(mut a) = self.world.get_mut::<Player>(attacker) {
             a.last_combat = tick;

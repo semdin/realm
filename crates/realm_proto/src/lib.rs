@@ -26,10 +26,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 15;
+pub const PROTOCOL_VERSION: u16 = 16;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/15";
+pub const ALPN: &[u8] = b"realm/16";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -130,6 +130,10 @@ pub struct EntityState {
     /// Crowd control and damage over time on the body (STATUS_* bits).
     pub status: u8,
 }
+
+/// A player's `EntityState::state` carries this bit while it rides its
+/// broom (the low bits are the pose: idle, moving, attacking, dead).
+pub const STATE_MOUNTED: u8 = 1 << 4;
 
 /// Status bits (`EntityState::status`).
 pub const STATUS_STUN: u8 = 1 << 0;
@@ -365,10 +369,18 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
     let r = snapshot.own_restraint;
     w.bool(r != Restraint::default());
     if r != Restraint::default() {
-        for v in [r.lock_from, r.lock_until, r.web_from, r.web_until] {
+        for v in [
+            r.lock_from,
+            r.lock_until,
+            r.web_from,
+            r.web_until,
+            r.ride_from,
+            r.ride_until,
+        ] {
             w.unsigned(v);
         }
         w.u8(r.web_pct);
+        w.unsigned(u32::from(r.ride_speed));
     }
     w.u8(snapshot.own_status);
     w.u8(snapshot.own_life);
@@ -490,7 +502,10 @@ pub fn decode_snapshot<'a>(
             lock_until: r.unsigned()?,
             web_from: r.unsigned()?,
             web_until: r.unsigned()?,
+            ride_from: r.unsigned()?,
+            ride_until: r.unsigned()?,
             web_pct: r.u8()?,
+            ride_speed: u16::try_from(r.unsigned()?).map_err(|_| DecodeError("ride speed"))?,
         }
     } else {
         Restraint::default()

@@ -26,7 +26,7 @@ const VITALS_TICKS: u32 = SIM_HZ;
 
 impl Sim {
     /// Sends to the coordinator; false when there is none.
-    fn coord_send(&self, msg: MapMsg) -> bool {
+    pub(super) fn coord_send(&self, msg: MapMsg) -> bool {
         self.coord_up
             && self
                 .coord_tx
@@ -137,7 +137,7 @@ impl Sim {
     }
 
     /// The character's entity on this map.
-    fn player_of(&self, character: u64) -> Option<(ConnId, Entity)> {
+    pub(super) fn player_of(&self, character: u64) -> Option<(ConnId, Entity)> {
         self.clients
             .iter()
             .find(|(_, c)| c.character == character)
@@ -194,6 +194,26 @@ impl Sim {
                     self.send_control(conn, &ServerMsg::Party(view));
                 }
             }
+            CoordMsg::Admit {
+                conn,
+                character,
+                sheet,
+                arrival,
+            } => self.claim_answered(conn, character, sheet, arrival),
+            CoordMsg::Refuse { conn, reason } => self.claim_refused(conn, reason),
+            CoordMsg::Evict { character } => self.evict(character),
+            CoordMsg::Reserved {
+                character,
+                ok,
+                reason,
+            } => self.reserved(character, ok, &reason),
+            CoordMsg::Travel {
+                character,
+                map,
+                address,
+                ticket,
+            } => self.deliver_ticket(character, map, address, ticket),
+            CoordMsg::Maps(maps) => self.open_maps = maps,
         }
     }
 
@@ -204,11 +224,14 @@ impl Sim {
         for e in entities {
             self.announce(e);
         }
+        self.resend_departures();
     }
 
     /// The coordinator went away: parties are unknown until it is back.
     pub(super) fn coord_link_down(&mut self) {
         self.coord_up = false;
+        self.open_maps.clear();
+        self.coord_lost();
         let conns: Vec<(ConnId, Entity)> =
             self.clients.iter().map(|(k, c)| (*k, c.entity)).collect();
         for (conn, e) in conns {
@@ -233,10 +256,6 @@ impl Sim {
                 level: p.sheet.level,
             });
         }
-    }
-
-    pub(super) fn announce_gone(&self, character: u64) {
-        self.coord_send(MapMsg::Offline { character });
     }
 
     /// Party members' frames: health, mana, level, death, once a second.

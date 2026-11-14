@@ -62,6 +62,10 @@ var party_frames: HudParty
 var invites: HudInvites
 var player_menu: HudPlayerMenu
 var duel_view: HudDuel
+## The travel windows (MapTravel builds them beside the HUD): the Hearth
+## window, and the Waylink picker the bag opens on an Old Boot.
+var hearthway: Control
+var waylink: Control
 ## The target card's "Invite to Party" (another player not in the party), and
 ## the name it invites.
 var invite_button: Button

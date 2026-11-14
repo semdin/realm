@@ -9,6 +9,10 @@ class_name HeroView
 ## (StatusFX): stunned or frozen it plays the stun loop, thrown the fall loop,
 ## frozen its pose is held and slowed its clips play at the slowed pace.
 ## Fallen it lies in the death pose until it rises with the Revive clip.
+## Mounted (`is_mounted`, from the own body or a remote's snapshot state) it
+## sits on its broom (BroomRig, the rider's hands solved onto the shaft by
+## BroomGripModifier) and plays the broom clips; holding a Waylink it kneels
+## with a hand on the boot (the Waylink_Place clip held).
 
 ## A short hop or a step down keeps the light airborne pose; past this long
 ## in the air, or falling faster than HARD_FALL_SPEED, the body flails.
@@ -48,6 +52,16 @@ var anim: HeroAnimation
 var velocity := Vector3.ZERO
 var is_mounted := false
 var mounted_speed := 14.0
+## The broom it rides (CloakDeformer reads its grip and tail sockets) and the
+## pose layer that puts the rider's hands on it.
+var broom: BroomRig
+var broom_grip: BroomGripModifier
+## 0 on foot .. 1 seated (follows `is_mounted` over about a third of a second).
+var mount_blend := 0.0
+var _was_mounted := false
+var _flight_time := 0.0
+## The broom item whose model it rides (the own sheet's; others the default).
+var broom_item := ""
 var is_local_player := false
 var facing := 0.0
 var _airborne := false
@@ -105,6 +119,29 @@ func setup(house_color: Color, look: Dictionary = {}) -> void:
 		anim.name = "HeroAnimation"
 		add_child(anim)
 		anim.setup(player, skeleton, self)
+	_setup_broom(skeleton)
+
+## The broom rig rides on the body (hidden until mounted) and the grip layer
+## joins the skeleton after the cast layer, so the grip wins the arms within
+## the same modifier pass.
+func _setup_broom(skeleton: Skeleton3D) -> void:
+	broom = BroomRig.new()
+	body.add_child(broom)
+	broom.use_item(broom_item)
+	broom.visible = false
+	if skeleton != null:
+		broom_grip = BroomGripModifier.new()
+		broom_grip.name = "BroomGripModifier"
+		skeleton.add_child(broom_grip)
+		broom_grip.setup(broom)
+
+## Ride the model of broom item `item_id` (the sheet's `broom` slot).
+func set_broom_item(item_id: String) -> void:
+	if item_id == broom_item:
+		return
+	broom_item = item_id
+	if broom != null:
+		broom.use_item(item_id)
 
 ## The replicated status (main.gd hands it over when it changes).
 func set_status(bits: int) -> void:
@@ -225,6 +262,7 @@ func drive_remote(drawn: Vector3, delta: float) -> void:
 func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_seconds: float, delta: float) -> void:
 	position = at
 	self.velocity = velocity
+	_update_mount(velocity, delta)
 	if _cc_pace <= 0.0:
 		# frozen solid: the pose and the facing it was caught in are held
 		return
@@ -251,6 +289,11 @@ func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_s
 	if status & (StatusFX.STATUS_STUN | StatusFX.STATUS_FREEZE):
 		anim.set_locomotion("stun", "Stun_Loop")
 		return
+	if is_mounted:
+		_peak_fall = 0.0   # a fall ended on the broom lands nowhere
+		_airborne = false
+		anim.set_locomotion("broom", _broom_clip(velocity))
+		return
 	if swimming:
 		anim.set_locomotion("swim_idle" if flat.length() < 0.5 else "swim", "Idle" if flat.length() < 0.5 else "Running_A")
 		return
@@ -274,3 +317,113 @@ func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_s
 	var left := Vector3(cos(facing), 0.0, -sin(facing))
 	var motion := Vector3(velocity.x, 0.0, velocity.z)
 	anim.set_ground_motion(Vector2(motion.dot(left), motion.dot(forward)))
+
+## ------------------------------------------------------------------ broom
+
+## The mount follows `is_mounted`: the get-on and get-off clips at the edges,
+## the broom shown while the blend is up, the seat under the hips, the hands
+## on the shaft (faded in as the leg swings over), the wand stowed, and the
+## body lifted onto the saddle with a slow bob and a lean into speed.
+func _update_mount(velocity: Vector3, delta: float) -> void:
+	if is_mounted != _was_mounted:
+		_was_mounted = is_mounted
+		if anim != null and not dead:
+			anim.play_oneshot("Mount_Broom" if is_mounted else "Dismount_Broom")
+		if broom != null:
+			broom.set_flying(is_mounted)
+	_flight_time += delta
+	mount_blend = move_toward(mount_blend, 1.0 if is_mounted else 0.0, delta * 3.2)
+	if broom_grip != null:
+		var grip_target := mount_blend
+		if anim != null and anim.has_oneshot():
+			if anim.oneshot_clip == "Mount_Broom":
+				var elapsed := anim.clip_length("Mount_Broom") - anim.oneshot_left
+				grip_target = mount_blend * smoothstep(0.25, 0.5, elapsed)
+			else:
+				grip_target = 0.0
+		broom_grip.target_weight = grip_target
+	if body == null:
+		return
+	var wand: Node3D = null
+	if mount_blend > 0.0 or _wand_hidden:
+		wand = body.find_child("EquippedWand", true, false) as Node3D
+	if wand != null:
+		wand.visible = mount_blend < 0.5
+		_wand_hidden = mount_blend >= 0.5
+	if broom != null:
+		broom.visible = mount_blend > 0.01
+		if broom.visible:
+			_seat_broom()
+	body.position.y = mount_blend * (0.34 + sin(_flight_time * 3.0) * 0.05)
+	var speed_ratio := Vector2(velocity.x, velocity.z).length() / maxf(1.0, mounted_speed)
+	body.rotation.x = lerpf(body.rotation.x, -0.2 * speed_ratio * mount_blend, minf(1.0, delta * 5.0))
+
+var _wand_hidden := false
+
+## The single mount convention: the broom's SeatSocket under the hips.
+func _seat_broom() -> void:
+	var skeleton := HeroAppearance._skeleton(body)
+	if skeleton == null:
+		return
+	var hips := skeleton.find_bone("Hips")
+	if hips < 0:
+		return
+	var hips_at := skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
+	broom.scale = Vector3.ONE / body.scale
+	broom.rotation = Vector3.ZERO
+	broom.position = body.to_local(hips_at) - broom.basis * broom.seat_local()
+
+## The broom clip for the rider's motion (climbing, diving, cruising, seated).
+func _broom_clip(velocity: Vector3) -> String:
+	var flat := Vector2(velocity.x, velocity.z).length()
+	if velocity.y > 1.5:
+		return "Broom_Climb"
+	if velocity.y < -1.5:
+		return "Broom_Dive"
+	if flat > mounted_speed * 0.6:
+		return "Broom_Cruise"
+	if flat > 1.0:
+		return "Broom_Accelerate"
+	return "Broom_Seated_Idle"
+
+## ---------------------------------------------------------------- Waylink
+
+## WaylinkViews: the owner sets the boot down (the Place clip).
+func waylink_place(boot_at: Vector3) -> void:
+	if anim == null or dead:
+		return
+	_face_point(boot_at)
+	anim.play_oneshot("Waylink_Place")
+
+## The body holds on: it kneels with a hand on the boot (the Place clip held
+## once the hand is down) until it lets go.
+const WAYLINK_HOLD_AT := 1.45
+var kneeling := false
+var _kneel_generation := 0
+
+func waylink_kneel(boot_at: Vector3) -> void:
+	if anim == null or dead:
+		return
+	_kneel_generation += 1
+	var generation := _kneel_generation
+	_face_point(boot_at)
+	kneeling = true
+	if anim.oneshot_clip != "Waylink_Place":
+		anim.play_oneshot("Waylink_Place")
+	await get_tree().create_timer(WAYLINK_HOLD_AT).timeout
+	if generation == _kneel_generation and is_instance_valid(self) and kneeling and anim != null:
+		anim.hold_oneshot()
+
+## The body lets go (moved away, the Waylink fired or fizzled).
+func waylink_release() -> void:
+	if not kneeling:
+		return
+	_kneel_generation += 1
+	kneeling = false
+	if anim != null:
+		anim.cancel_oneshot()
+
+func _face_point(point: Vector3) -> void:
+	var flat := Vector2(point.x - position.x, point.z - position.z)
+	if flat.length() > 0.2:
+		_turn_to = atan2(flat.x, flat.y)

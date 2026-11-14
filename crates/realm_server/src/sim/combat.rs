@@ -929,6 +929,9 @@ impl Sim {
         }
         player.hp -= to_hp;
         player.last_combat = tick;
+        if to_hp > 0.0 {
+            player.last_hurt = tick;
+        }
         let at = player.body.pos;
         let died = player.hp <= 0.0;
         if died {
@@ -939,6 +942,8 @@ impl Sim {
             player.caster.queued = None;
             player.afflictions = super::afflict::Afflictions::default();
             player.restraint = Default::default();
+            // Off the broom where it fell (the old game left the dead mounted).
+            player.body.mounted = false;
             player.life = player.life.wrapping_add(1);
             self.stats.player_deaths += 1;
         }

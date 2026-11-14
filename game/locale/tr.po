@@ -1738,6 +1738,12 @@ msgstr "1 tutam Ocak Tozu"
 msgid "Requires level %d (you are %d)"
 msgstr "Seviye %d gerekir (sen %d seviyesindesin)"
 
+msgid "Stand at the hearth to buy."
+msgstr "Satın almak için ocağın başında dur."
+
+msgid "Your level is too low for that destination."
+msgstr "Bu varış noktası için seviyen çok düşük."
+
 msgid "Travel"
 msgstr "Yolculuk Et"
 
@@ -5694,3 +5700,6 @@ msgstr "Bilinmeyen komut. Şunları dene: /p, /invite <isim>, /accept, /decline,
 
 msgid "Parties are not available right now."
 msgstr "Gruplar şu anda kullanılamıyor."
+
+msgid "Way to %s"
+msgstr "Geçit: %s"

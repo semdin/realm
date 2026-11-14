@@ -130,6 +130,24 @@ jobs:
           ./target/release/realm_netcheck --social
           kill %1 %2 %3 || true
 
+      - name: Travel between maps
+        if: matrix.os == 'ubuntu-26.04'
+        # Two map servers and the coordinator sharing one character store: a
+        # door each way, a hearth refused by level, a hearth on one map and to
+        # the other, the broom (mount, climb, no landing in the air, get off),
+        # a Waylink, and a second login taking the character from the castle.
+        # The sheet must arrive whole every time, the prediction never
+        # corrected.
+        run: |
+          mkdir -p build/travelcheck
+          ./target/release/realm_coord > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --characters build/travelcheck > server_a.log 2>&1 &
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 --characters build/travelcheck > server_b.log 2>&1 &
+          sleep 8
+          ./target/release/realm_netcheck --travel --characters build/travelcheck
+          kill %1 %2 %3 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

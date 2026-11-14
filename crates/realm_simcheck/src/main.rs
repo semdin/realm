@@ -293,6 +293,10 @@ fn main() {
     for scenario in scenarios() {
         let mut body = Body::at(scenario.start);
         body.mounted = scenario.mounted;
+        let params = MoveParams {
+            riding: scenario.mounted,
+            ..params
+        };
         let mut print = Fingerprint::new();
         let mut tick = 0_u32;
         let tracing = trace.as_deref() == Some(scenario.name);
@@ -427,6 +431,10 @@ fn bench(world: &World) {
         for _ in 0..50 {
             let mut body = Body::at(scenario.start);
             body.mounted = scenario.mounted;
+            let params = MoveParams {
+                riding: scenario.mounted,
+                ..params
+            };
             for segment in &scenario.segments {
                 let n = libm::roundf(segment.seconds * SIM_HZ as f32) as u32;
                 for _ in 0..n {
@@ -455,6 +463,9 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
             web_from: tick + 2,
             web_until: tick + 90,
             web_pct: 50,
+            ride_from: tick + 5,
+            ride_until: u32::MAX,
+            ride_speed: 1300,
         },
         own_status: realm_proto::STATUS_STUN | realm_proto::STATUS_POISON,
         own_life: 3,

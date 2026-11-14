@@ -198,19 +198,25 @@ impl Sim {
             let a = (xorshift(&mut self.dice_state) % 628) as f32 / 100.0;
             let d = (xorshift(&mut self.dice_state) % 200) as f32 / 100.0 - 1.0;
             let at = pos + Vec3::new(libm::cosf(a) * d, 0.3, libm::sinf(a) * d);
-            let rare = loot.items.iter().any(|i| !i.bonuses.is_empty());
-            let chest = self
-                .world
-                .spawn(Chest {
-                    pos: at,
-                    slots: loot.items.into_iter().map(Some).collect(),
-                    rare,
-                    expires: tick + CHEST_TICKS,
-                })
-                .id();
-            let id = self.new_id(chest);
-            self.world.entity_mut(chest).insert(NetId(id));
+            self.drop_chest(at, loot.items);
         }
+    }
+
+    /// A chest of `items` at `at` (rare when one carries bonuses).
+    pub(super) fn drop_chest(&mut self, at: Vec3, items: Vec<Item>) {
+        let tick = self.tick;
+        let rare = items.iter().any(|i| !i.bonuses.is_empty());
+        let chest = self
+            .world
+            .spawn(Chest {
+                pos: at,
+                slots: items.into_iter().map(Some).collect(),
+                rare,
+                expires: tick + CHEST_TICKS,
+            })
+            .id();
+        let id = self.new_id(chest);
+        self.world.entity_mut(chest).insert(NetId(id));
     }
 
     /// The earners and their party members who share the kill: on this map,

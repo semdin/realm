@@ -13,6 +13,7 @@ pub mod loot;
 pub mod progress;
 pub mod quests;
 pub mod sheet;
+pub mod travel;
 
 use std::collections::BTreeMap;
 
@@ -105,6 +106,8 @@ pub struct Rules {
     pub loot: loot::LootRules,
     /// The quest chain, its places and the NPCs who give it.
     pub quests: quests::QuestRules,
+    /// Doors, the Hearthway, cabinets, passages, the Waylink, flight.
+    pub travel: travel::TravelRules,
     pub safe_zones: Vec<SafeZone>,
     /// Map -> the ids of its safe zones (maps.json `safe_zones`).
     pub map_zones: BTreeMap<String, Vec<String>>,
@@ -200,6 +203,7 @@ impl Rules {
                 file(content, "mobs.json")?,
                 file(content, "spawn_tables.json")?,
             )?,
+            travel: travel::TravelRules::from_content(content)?,
             safe_zones: Vec::new(),
             map_zones: BTreeMap::new(),
         };

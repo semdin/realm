@@ -30,6 +30,8 @@ pub const SWIM_ACCEL: f32 = 18.0;
 pub const COAST_DECEL_FACTOR: f32 = 12.0;
 
 pub const MOUNTED_VERTICAL_SPEED: f32 = 7.0;
+/// Getting on the broom lifts the body this fast.
+pub const MOUNT_KICK: f32 = 3.0;
 pub const MOUNTED_VERTICAL_ACCEL: f32 = 18.0;
 /// The broom holds itself this high over the ground when not climbing.
 pub const HOVER_CLEARANCE: f32 = 1.45;
@@ -73,6 +75,9 @@ pub struct MoveParams {
     /// False while stunned, thrown or committed to an attack.
     pub can_steer: bool,
     pub can_jump: bool,
+    /// On the broom: the body mounts when this turns on and gets off when
+    /// it turns off.
+    pub riding: bool,
 }
 
 impl Default for MoveParams {
@@ -83,6 +88,7 @@ impl Default for MoveParams {
             swim_speed: SWIM_SPEED,
             can_steer: true,
             can_jump: true,
+            riding: false,
         }
     }
 }
@@ -91,9 +97,9 @@ impl Default for MoveParams {
 pub const WEB_FACTOR: f32 = 0.5;
 
 /// What the server holds a player's body to, as input ticks: locked (stunned
-/// or thrown: no steering, no jump) and webbed (slower on foot). Sent to the
-/// owner with every snapshot, so a replay applies it to exactly the inputs
-/// the server did.
+/// or thrown: no steering, no jump), webbed (slower on foot) and riding (on
+/// the broom, at `ride_speed` cm/s). Sent to the owner with every snapshot,
+/// so a replay applies it to exactly the inputs the server did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Restraint {
     pub lock_from: u32,
@@ -103,6 +109,10 @@ pub struct Restraint {
     /// The slowed body's share of its speed, percent (a creature's web is
     /// WEB_FACTOR; a spell's slow its own factor).
     pub web_pct: u8,
+    pub ride_from: u32,
+    pub ride_until: u32,
+    /// The broom's speed, centimetres per second.
+    pub ride_speed: u16,
 }
 
 impl Restraint {
@@ -114,6 +124,39 @@ impl Restraint {
     #[must_use]
     pub fn webbed(&self, tick: u32) -> bool {
         self.web_from <= tick && tick < self.web_until
+    }
+
+    #[must_use]
+    pub fn riding(&self, tick: u32) -> bool {
+        self.ride_from <= tick && tick < self.ride_until
+    }
+
+    /// Rides from `now` at `speed` m/s until told to stop.
+    pub fn mount(&mut self, now: u32, speed: f32) {
+        self.ride_from = now;
+        self.ride_until = u32::MAX;
+        self.ride_speed = (speed * 100.0).round().clamp(1.0, f32::from(u16::MAX)) as u16;
+    }
+
+    /// Off the broom from `now` (nothing when not riding by then).
+    pub fn dismount(&mut self, now: u32) {
+        if self.ride_until > now {
+            self.ride_until = now.max(self.ride_from);
+        }
+    }
+
+    /// Forgets holds and rides that ended before `now` (snapshots stop
+    /// carrying them).
+    pub fn forget_before(&mut self, now: u32) {
+        if self.lock_until <= now {
+            (self.lock_from, self.lock_until) = (0, 0);
+        }
+        if self.web_until <= now {
+            (self.web_from, self.web_until, self.web_pct) = (0, 0, 0);
+        }
+        if self.ride_until <= now {
+            (self.ride_from, self.ride_until, self.ride_speed) = (0, 0, 0);
+        }
     }
 
     /// Locks from `now` (or keeps an earlier start of a lock still running)
@@ -147,6 +190,10 @@ impl Restraint {
         }
         if self.webbed(tick) {
             p.walk_speed *= f32::from(self.web_pct.clamp(1, 100)) / 100.0;
+        }
+        p.riding = self.riding(tick);
+        if p.riding {
+            p.mounted_speed = f32::from(self.ride_speed) / 100.0;
         }
         p
     }
@@ -212,6 +259,14 @@ pub fn step(body: &mut Body, input: MoveInput, params: &MoveParams, world: &Worl
             break;
         }
         body.pos += push + push.normalize_or_zero() * SKIN;
+    }
+
+    if params.riding != body.mounted {
+        body.mounted = params.riding;
+        if body.mounted {
+            body.vel.y = body.vel.y.max(MOUNT_KICK);
+            body.on_floor = false;
+        }
     }
 
     let surface = world.water_surface_at(body.pos.x, body.pos.z);

@@ -53,6 +53,9 @@ impl RealmInfo {
 static CONTENT: Mutex<Option<Content>> = Mutex::new(None);
 /// The typed rules built from it (item numbers for tooltips).
 static RULES: Mutex<Option<Rules>> = Mutex::new(None);
+/// A trip to another map: (map, address, ticket), kept while the scene is
+/// rebuilt for it (`RealmSession.start_travel` takes it).
+static PENDING_TRAVEL: Mutex<Option<(String, String, Vec<u8>)>> = Mutex::new(None);
 
 /// The game's content tables for scripts: the same files, loaded and hashed
 /// by the same Rust code as the server's, handed out as dictionaries.
@@ -455,6 +458,27 @@ impl RealmSession {
                     | ServerMsg::DuelInvite { .. }
                     | ServerMsg::Duel(_)),
                 ) => self.game_events.push(event),
+                NetEvent::Control(
+                    event @ (ServerMsg::TravelResult { .. }
+                    | ServerMsg::Departing { .. }
+                    | ServerMsg::Arrived { .. }
+                    | ServerMsg::Waylink(_)),
+                ) => self.game_events.push(event),
+                NetEvent::Control(ServerMsg::Travel {
+                    map,
+                    address,
+                    ticket,
+                }) => {
+                    *PENDING_TRAVEL
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                        Some((map.clone(), address, ticket));
+                    self.game_events.push(ServerMsg::Travel {
+                        map,
+                        address: String::new(),
+                        ticket: Vec::new(),
+                    });
+                }
                 NetEvent::Control(line @ ServerMsg::Chat { .. }) => {
                     self.chat.push(line);
                     // A client that never takes its chat keeps the newest.
@@ -548,6 +572,96 @@ impl RealmSession {
                 self.status = format!("closed: {e}");
                 false
             }
+        }
+    }
+
+    /// The map a trip is taking the player to, once its ticket came; empty
+    /// when none. The scene is rebuilt for it, then `start_travel` joins.
+    #[func]
+    fn pending_travel_map() -> GString {
+        PENDING_TRAVEL
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .map_or_else(GString::new, |(map, _, _)| GString::from(map.as_str()))
+    }
+
+    /// Joins the map of the pending trip with its ticket (the trusted
+    /// certificate from `keys_dir`, content and the map pack loaded as for
+    /// `start_dev`). False (and `status`) when there is none or it fails.
+    #[func]
+    fn start_travel(&mut self, keys_dir: GString, content_dir: GString, maps_dir: GString) -> bool {
+        let pending = PENDING_TRAVEL
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .take();
+        let result = (|| -> Result<(), String> {
+            let (map, address, ticket) = pending.ok_or("no trip is pending")?;
+            self.load(&content_dir.to_string(), &maps_dir.to_string(), &map)?;
+            let keys = PathBuf::from(keys_dir.to_string());
+            let cert =
+                std::fs::read(keys.join("tls.crt.der")).map_err(|e| format!("tls.crt.der: {e}"))?;
+            let addr: SocketAddr = address
+                .parse()
+                .map_err(|e| format!("server address {address}: {e}"))?;
+            self.net = Some(NetHandle::connect(addr, "localhost", cert, ticket)?);
+            self.status = "connecting".to_owned();
+            Ok(())
+        })();
+        match result {
+            Ok(()) => true,
+            Err(e) => {
+                self.status = format!("closed: {e}");
+                false
+            }
+        }
+    }
+
+    /// Go through the door `id` (maps.json portals) the player stands in.
+    #[func]
+    fn door(&mut self, id: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Door(id.to_string()));
+        }
+    }
+
+    /// Travel from node `from` (where the player stands): a hearth to the
+    /// hearth `to`; a cabinet or passage to its twin (`to` empty).
+    #[func]
+    fn travel(&mut self, from: GString, to: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Travel {
+                from: from.to_string(),
+                to: to.to_string(),
+            });
+        }
+    }
+
+    /// Mount (true) or get off (false) the broom; the answer comes as a
+    /// "travel_result" game event (what "ride").
+    #[func]
+    fn ride(&mut self, on: bool) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Ride(on));
+        }
+    }
+
+    /// Set a Waylink boot down for destination node `dest`.
+    #[func]
+    fn waylink_place(&mut self, dest: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::WaylinkPlace(dest.to_string()));
+        }
+    }
+
+    /// Hold on to (or let go of) Waylink `id`.
+    #[func]
+    fn waylink_hold(&mut self, id: i64, hold: bool) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::WaylinkHold {
+                id: id as u32,
+                hold,
+            });
         }
     }
 
@@ -912,6 +1026,46 @@ impl RealmSession {
                     d.set("from", &GString::from(from.as_str()).to_variant());
                     d.set("group", &group.to_variant());
                     d.set("size", &i64::from(size).to_variant());
+                }
+                ServerMsg::TravelResult { what, ok, reason } => {
+                    d.set("kind", "travel_result");
+                    d.set("what", &GString::from(what.as_str()).to_variant());
+                    d.set("ok", &ok.to_variant());
+                    d.set("reason", &GString::from(reason.as_str()).to_variant());
+                }
+                ServerMsg::Departing { map, label, kind } => {
+                    d.set("kind", "departing");
+                    d.set("map", &GString::from(map.as_str()).to_variant());
+                    d.set("label", &GString::from(label.as_str()).to_variant());
+                    d.set("trip", &GString::from(kind.as_str()).to_variant());
+                }
+                ServerMsg::Travel { map, .. } => {
+                    d.set("kind", "travel");
+                    d.set("map", &GString::from(map.as_str()).to_variant());
+                }
+                ServerMsg::Arrived { kind } => {
+                    d.set("kind", "arrived");
+                    d.set("trip", &GString::from(kind.as_str()).to_variant());
+                }
+                ServerMsg::Waylink(w) => {
+                    d.set("kind", "waylink");
+                    d.set("id", &i64::from(w.id).to_variant());
+                    d.set("phase", &i64::from(w.phase).to_variant());
+                    d.set(
+                        "pos",
+                        &Vector3::new(w.pos[0], w.pos[1], w.pos[2]).to_variant(),
+                    );
+                    d.set("dest", &GString::from(w.dest.as_str()).to_variant());
+                    d.set("label", &GString::from(w.label.as_str()).to_variant());
+                    d.set("owner", &i64::from(w.owner).to_variant());
+                    d.set(
+                        "owner_name",
+                        &GString::from(w.owner_name.as_str()).to_variant(),
+                    );
+                    d.set("fires_tick", &i64::from(w.fires_tick).to_variant());
+                    let holders: PackedInt32Array = w.holders.iter().map(|e| *e as i32).collect();
+                    d.set("holders", &holders.to_variant());
+                    d.set("radius", &w.radius.to_variant());
                 }
                 ServerMsg::Duel(v) => {
                     d.set("kind", "duel");

@@ -4,7 +4,20 @@
 //! over one TCP stream each way, framed like the control stream (a u32
 //! length, then postcard), after a hello that proves the map server holds the shared
 //! coordinator key.
+//!
+//! The coordinator also owns where every character is, so one character is
+//! never in two worlds. A map server asks before it admits anyone
+//! (`Claim`); the coordinator answers `Admit` (with the sheet when it holds
+//! the newest one) or `Refuse`. A character on another map is first taken
+//! out there (`Evict`). A map that lets a character go saves it, waits for
+//! the save to land, and only then hands the sheet over (`Release`): to the
+//! next claimant, or, when the character travels, held for the destination
+//! map, with a fresh ticket for the client to join there (`Travel`). A
+//! traveller first gets a seat on the destination (`Reserve`), so a full or
+//! closed map is refused while the traveller still stands where it was.
 
+use realm_rules::CharacterSheet;
+use realm_rules::travel::Arrival;
 use serde::{Deserialize, Serialize};
 
 /// Chat channels (`ServerMsg::Chat`).
@@ -72,12 +85,37 @@ pub enum PartyCmd {
 }
 
 /// Map server -> coordinator.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MapMsg {
-    /// First frame: the shared key and the map this server holds.
+    /// First frame: the shared key, the map this server holds, the address
+    /// clients reach it at and how many players it holds at most.
     Hello {
         key: [u8; 32],
         map: String,
+        address: String,
+        capacity: u16,
+    },
+    /// May `character` travel to `map`? Holds a seat there for a while.
+    Reserve {
+        character: u64,
+        map: String,
+    },
+    /// Connection `conn` brings a ticket for `character`: may it play here?
+    Claim {
+        conn: u64,
+        character: u64,
+    },
+    /// `character` left this map and its save has landed: here is the
+    /// sheet. `arrival`: it travels there (it holds a seat).
+    Release {
+        character: u64,
+        account: u64,
+        sheet: Box<CharacterSheet>,
+        arrival: Option<Arrival>,
+    },
+    /// An `Evict` named a character this map does not hold.
+    Gone {
+        character: u64,
     },
     /// A character came onto this map (or this server reconnected).
     Online {
@@ -85,9 +123,6 @@ pub enum MapMsg {
         name: String,
         house: String,
         level: u16,
-    },
-    Offline {
-        character: u64,
     },
     /// What a party member's frame shows (sent while it is in a party).
     Vitals {
@@ -116,8 +151,42 @@ pub enum MapMsg {
 }
 
 /// Coordinator -> map server.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CoordMsg {
+    /// Connection `conn` may bring `character` in: with `sheet` when the
+    /// coordinator holds the newest one (else the map loads it), and where
+    /// it lands when it travelled here.
+    Admit {
+        conn: u64,
+        character: u64,
+        sheet: Option<Box<CharacterSheet>>,
+        arrival: Option<Arrival>,
+    },
+    Refuse {
+        conn: u64,
+        reason: String,
+    },
+    /// The answer to `Reserve` (reason: map_unavailable, map_full).
+    Reserved {
+        character: u64,
+        ok: bool,
+        reason: String,
+    },
+    /// Another login wants `character`: take it out of the world and
+    /// release it.
+    Evict {
+        character: u64,
+    },
+    /// `character`, released to travel, joins `map` at `address` with
+    /// `ticket`; tell its client.
+    Travel {
+        character: u64,
+        map: String,
+        address: String,
+        ticket: Vec<u8>,
+    },
+    /// The maps open right now (sent whenever one comes or goes).
+    Maps(Vec<String>),
     /// A line for one character on this map.
     Line {
         to: u64,
@@ -132,9 +201,15 @@ pub enum CoordMsg {
         text: String,
     },
     /// `to` is invited into `from`'s party.
-    Invite { to: u64, from: String },
+    Invite {
+        to: u64,
+        from: String,
+    },
     /// `to`'s party as it now stands (empty: not in one).
-    Party { to: u64, view: PartyView },
+    Party {
+        to: u64,
+        view: PartyView,
+    },
 }
 
 pub fn encode_map(msg: &MapMsg) -> Vec<u8> {

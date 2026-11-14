@@ -8,6 +8,7 @@ publish.workspace = true
 
 [dependencies]
 realm_proto.workspace = true
+realm_rules.workspace = true
 tokio.workspace = true
 
 [lints]

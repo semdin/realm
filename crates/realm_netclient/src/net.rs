@@ -33,6 +33,8 @@ pub struct NetHandle {
     shutdown: Option<tokio::sync::oneshot::Sender<()>>,
     done: Option<tokio::sync::oneshot::Receiver<()>>,
     runtime: tokio::runtime::Runtime,
+    /// `Closed` was handed out.
+    ended: std::sync::atomic::AtomicBool,
 }
 
 /// How long dropping the handle waits for the server to hear the goodbye.
@@ -184,6 +186,7 @@ impl NetHandle {
             shutdown: Some(shutdown),
             done: Some(done),
             runtime,
+            ended: std::sync::atomic::AtomicBool::new(false),
         })
     }
 
@@ -197,15 +200,23 @@ impl NetHandle {
         let _ = self.control.send(control::encode_client(msg));
     }
 
-    /// The next event, if one is waiting.
+    /// The next event, if one is waiting. The connection's end comes once
+    /// (`Closed`); after it, nothing.
     pub fn poll(&self) -> Option<NetEvent> {
-        match self.events.try_recv() {
-            Ok(event) => Some(event),
-            Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => {
-                Some(NetEvent::Closed("network thread ended".to_owned()))
-            }
+        if self.ended.load(std::sync::atomic::Ordering::Relaxed) {
+            return None;
         }
+        let event = match self.events.try_recv() {
+            Ok(event) => event,
+            Err(TryRecvError::Empty) => return None,
+            // The network thread always says Closed before it ends; one
+            // that died without saying it is closed all the same.
+            Err(TryRecvError::Disconnected) => NetEvent::Closed("network thread ended".to_owned()),
+        };
+        if matches!(event, NetEvent::Closed(_)) {
+            self.ended.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+        Some(event)
     }
 }
 

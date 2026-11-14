@@ -5,6 +5,14 @@
 //! connect to it and prove they hold keys/coord.key; players never do. A map
 //! server that reconnects tells it again who is on its map.
 //!
+//! It owns every character's seat: on one map, or in transit with its
+//! sheet. A map admits nobody it has not claimed; a character playing
+//! elsewhere is evicted there first, and the newest sheet always goes with
+//! the seat, so one character is never in two worlds and nothing it carries
+//! can be in two places. A traveller's map saves it, releases it with the
+//! save landed, and the coordinator signs it a ticket (keys/ticket.key) for
+//! the destination, where a seat was reserved before it left.
+//!
 //! Parties follow the old game's PartyBook (five at most, an invitation
 //! lasts 30 s, the first member leads when the leader leaves, a party of one
 //! dissolves) with its three faults fixed: a kick tells everyone, the
@@ -18,11 +26,15 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use realm_proto::SigningKey;
 use realm_proto::control::FrameReader;
 use realm_proto::coord::{
     CHANNEL_PARTY, CHANNEL_SHOUT, CHANNEL_SYSTEM, CoordMsg, MapMsg, PARTY_MAX, PartyCmd,
     PartyMember, PartyView, decode_map, encode_coord,
 };
+use realm_proto::ticket::Ticket;
+use realm_rules::CharacterSheet;
+use realm_rules::travel::Arrival;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, mpsc};
@@ -31,6 +43,44 @@ type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// An invitation stays open this long.
 const INVITE_TTL: Duration = Duration::from_secs(30);
+/// A reserved seat waits this long for its traveller to leave.
+const RESERVE_TTL: Duration = Duration::from_secs(20);
+/// A traveller's sheet is held this long for it to arrive (or log in again
+/// anywhere); after that the stored copy serves.
+const TRANSIT_TTL: Duration = Duration::from_secs(15 * 60);
+/// A travel ticket is good this long.
+const TICKET_SECONDS: u64 = 60;
+
+/// One map server.
+struct Link {
+    map: String,
+    address: String,
+    capacity: u16,
+    tx: mpsc::UnboundedSender<CoordMsg>,
+}
+
+/// Where a character is.
+enum Seat {
+    /// In the world of `link` (or being admitted there). `claim`: a login
+    /// on another map waiting for this one to let it go.
+    On {
+        link: u64,
+        claim: Option<(u64, u64)>,
+    },
+    /// Released to travel: its sheet waits for the destination's claim.
+    Transit {
+        sheet: Box<CharacterSheet>,
+        arrival: Arrival,
+        since: Instant,
+    },
+}
+
+/// A seat held on `map` for a traveller.
+struct Reservation {
+    map: String,
+    address: String,
+    expires: Instant,
+}
 
 struct Online {
     name: String,
@@ -59,7 +109,11 @@ struct Invite {
 
 #[derive(Default)]
 struct Book {
-    links: HashMap<u64, (String, mpsc::UnboundedSender<CoordMsg>)>,
+    links: HashMap<u64, Link>,
+    seats: HashMap<u64, Seat>,
+    reservations: HashMap<u64, Reservation>,
+    /// Signs travel tickets (None: nobody may travel between maps).
+    ticket_key: Option<SigningKey>,
     online: HashMap<u64, Online>,
     by_name: HashMap<String, u64>,
     parties: HashMap<u64, Party>,
@@ -72,11 +126,201 @@ struct Book {
 
 impl Book {
     fn send(&self, character: u64, msg: CoordMsg) {
-        if let Some(link) = self.online.get(&character).map(|o| o.link)
-            && let Some((_, tx)) = self.links.get(&link)
-        {
-            let _ = tx.send(msg);
+        if let Some(link) = self.online.get(&character).map(|o| o.link) {
+            self.to_link(link, msg);
         }
+    }
+
+    fn to_link(&self, link: u64, msg: CoordMsg) {
+        if let Some(l) = self.links.get(&link) {
+            let _ = l.tx.send(msg);
+        }
+    }
+
+    fn map_of(&self, link: u64) -> String {
+        self.links
+            .get(&link)
+            .map(|l| l.map.clone())
+            .unwrap_or_default()
+    }
+
+    /// Tells every map which maps are open.
+    fn maps_changed(&self) {
+        let mut maps: Vec<String> = self.links.values().map(|l| l.map.clone()).collect();
+        maps.sort();
+        maps.dedup();
+        for l in self.links.values() {
+            let _ = l.tx.send(CoordMsg::Maps(maps.clone()));
+        }
+    }
+
+    /// Lets `conn` on `link` bring `character` in, with the newest sheet
+    /// when there is one; the seat moves there.
+    fn admit(
+        &mut self,
+        link: u64,
+        conn: u64,
+        character: u64,
+        sheet: Option<Box<CharacterSheet>>,
+        arrival: Option<Arrival>,
+    ) {
+        self.reservations.remove(&character);
+        self.seats.insert(character, Seat::On { link, claim: None });
+        let map = self.map_of(link);
+        let arrival = arrival.filter(|a| a.map == map);
+        self.to_link(
+            link,
+            CoordMsg::Admit {
+                conn,
+                character,
+                sheet,
+                arrival,
+            },
+        );
+    }
+
+    fn refuse(&self, (link, conn): (u64, u64)) {
+        self.to_link(
+            link,
+            CoordMsg::Refuse {
+                conn,
+                reason: "logged in elsewhere".to_owned(),
+            },
+        );
+    }
+
+    /// A login for `character` on `link`.
+    fn claim(&mut self, link: u64, conn: u64, character: u64) {
+        match self.seats.remove(&character) {
+            None => self.admit(link, conn, character, None, None),
+            Some(Seat::Transit { sheet, arrival, .. }) => {
+                self.admit(link, conn, character, Some(sheet), Some(arrival));
+            }
+            Some(Seat::On { link: here, claim })
+                if here == link || !self.links.contains_key(&here) =>
+            {
+                if let Some(waiting) = claim {
+                    self.refuse(waiting);
+                }
+                // The same map takes over its own player (or the old map is
+                // gone and holds nothing).
+                self.admit(link, conn, character, None, None);
+            }
+            Some(Seat::On { link: here, claim }) => {
+                if let Some(waiting) = claim {
+                    self.refuse(waiting);
+                }
+                self.seats.insert(
+                    character,
+                    Seat::On {
+                        link: here,
+                        claim: Some((link, conn)),
+                    },
+                );
+                self.to_link(here, CoordMsg::Evict { character });
+            }
+        }
+    }
+
+    /// `link` let `character` go with its save landed.
+    fn release(
+        &mut self,
+        link: u64,
+        account: u64,
+        character: u64,
+        sheet: Box<CharacterSheet>,
+        arrival: Option<Arrival>,
+    ) {
+        let claim = match self.seats.get(&character) {
+            Some(Seat::On { link: here, claim }) if *here == link => *claim,
+            // Not this map's to give (a newer seat exists).
+            _ => return,
+        };
+        if let Some((l, c)) = claim {
+            // A waiting login gets it, wherever it was going.
+            self.admit(l, c, character, Some(sheet), arrival);
+            return;
+        }
+        let Some(arrival) = arrival else {
+            self.seats.remove(&character);
+            self.offline(character);
+            return;
+        };
+        let address = self
+            .reservations
+            .get(&character)
+            .map(|r| r.address.clone())
+            .or_else(|| {
+                self.links
+                    .values()
+                    .find(|l| l.map == arrival.map)
+                    .map(|l| l.address.clone())
+            });
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_secs());
+        let ticket = match (&self.ticket_key, &address) {
+            (Some(key), Some(_)) => Ticket::new(account, character, now + TICKET_SECONDS)
+                .ok()
+                .map(|t| t.sign(key)),
+            _ => None,
+        };
+        let map = arrival.map.clone();
+        self.seats.insert(
+            character,
+            Seat::Transit {
+                sheet,
+                arrival,
+                since: Instant::now(),
+            },
+        );
+        match (ticket, address) {
+            (Some(ticket), Some(address)) => self.to_link(
+                link,
+                CoordMsg::Travel {
+                    character,
+                    map,
+                    address,
+                    ticket,
+                },
+            ),
+            _ => eprintln!(
+                "[coord] character {character} cannot travel to {map}: no ticket key or no such map"
+            ),
+        }
+    }
+
+    /// A seat on `map` for `character`, if it is open and has room.
+    fn reserve(&mut self, character: u64, map: &str) -> Result<(), &'static str> {
+        if self.ticket_key.is_none() {
+            return Err("map_unavailable");
+        }
+        let Some((&target, link)) = self.links.iter().find(|(_, l)| l.map == map) else {
+            return Err("map_unavailable");
+        };
+        let seated = self
+            .seats
+            .values()
+            .filter(|s| matches!(s, Seat::On { link, .. } if *link == target))
+            .count();
+        let held = self
+            .reservations
+            .iter()
+            .filter(|(c, r)| **c != character && r.map == map)
+            .count();
+        if seated + held >= usize::from(link.capacity) {
+            return Err("map_full");
+        }
+        let address = link.address.clone();
+        self.reservations.insert(
+            character,
+            Reservation {
+                map: map.to_owned(),
+                address,
+                expires: Instant::now() + RESERVE_TTL,
+            },
+        );
+        Ok(())
     }
 
     fn tell(&self, character: u64, text: impl Into<String>) {
@@ -374,17 +618,47 @@ impl Book {
     fn handle(&mut self, link: u64, msg: MapMsg) {
         match msg {
             MapMsg::Hello { .. } => {}
+            MapMsg::Claim { conn, character } => self.claim(link, conn, character),
+            MapMsg::Release {
+                character,
+                account,
+                sheet,
+                arrival,
+            } => self.release(link, account, character, sheet, arrival),
+            MapMsg::Gone { character } => {
+                if let Some(Seat::On { link: here, claim }) = self.seats.get(&character)
+                    && *here == link
+                {
+                    match *claim {
+                        Some((l, c)) => self.admit(l, c, character, None, None),
+                        None => {
+                            self.seats.remove(&character);
+                        }
+                    }
+                }
+            }
+            MapMsg::Reserve { character, map } => {
+                let answer = self.reserve(character, &map);
+                self.to_link(
+                    link,
+                    CoordMsg::Reserved {
+                        character,
+                        ok: answer.is_ok(),
+                        reason: answer.err().unwrap_or("").to_owned(),
+                    },
+                );
+            }
             MapMsg::Online {
                 character,
                 name,
                 house,
                 level,
             } => {
-                let map = self
-                    .links
-                    .get(&link)
-                    .map(|(m, _)| m.clone())
-                    .unwrap_or_default();
+                // A map that reconnected says again who it holds.
+                self.seats
+                    .entry(character)
+                    .or_insert(Seat::On { link, claim: None });
+                let map = self.map_of(link);
                 // A character known on another map is moving: keep its party.
                 let prev = self.online.remove(&character);
                 self.by_name.insert(name.to_lowercase(), character);
@@ -409,13 +683,6 @@ impl Book {
                     self.refresh_party(p);
                 }
             }
-            MapMsg::Offline { character } => {
-                // Only the map that holds it may take it offline (a move
-                // to another map came first).
-                if self.online.get(&character).is_some_and(|o| o.link == link) {
-                    self.offline(character);
-                }
-            }
             MapMsg::Vitals {
                 character,
                 level,
@@ -435,8 +702,8 @@ impl Book {
             }
             MapMsg::Shout { from, text } => {
                 let name = self.name(from);
-                for (_, tx) in self.links.values() {
-                    let _ = tx.send(CoordMsg::Broadcast {
+                for l in self.links.values() {
+                    let _ = l.tx.send(CoordMsg::Broadcast {
                         channel: CHANNEL_SHOUT,
                         from: name.clone(),
                         text: text.clone(),
@@ -469,22 +736,52 @@ impl Book {
         }
     }
 
-    /// A map server went away: everyone it held goes offline.
+    /// A map server went away: everyone it held goes offline (its saves
+    /// are what they stored); a login waiting on it gets its seat.
+    /// Travellers in transit keep their party.
     fn drop_link(&mut self, link: u64) {
         self.links.remove(&link);
+        let seated: Vec<(u64, Option<(u64, u64)>)> = self
+            .seats
+            .iter()
+            .filter_map(|(c, s)| match s {
+                Seat::On { link: l, claim } if *l == link => Some((*c, *claim)),
+                _ => None,
+            })
+            .collect();
+        for (c, claim) in seated {
+            self.seats.remove(&c);
+            if let Some((l, conn)) = claim {
+                self.admit(l, conn, c, None, None);
+            }
+        }
         let gone: Vec<u64> = self
             .online
             .iter()
-            .filter(|(_, o)| o.link == link)
+            .filter(|(c, o)| o.link == link && !self.seats.contains_key(c))
             .map(|(c, _)| *c)
             .collect();
         for c in gone {
             self.offline(c);
         }
+        self.maps_changed();
     }
 
     fn sweep(&mut self) {
         let now = Instant::now();
+        self.reservations.retain(|_, r| now < r.expires);
+        let stale: Vec<u64> = self
+            .seats
+            .iter()
+            .filter(|(_, s)| {
+                matches!(s, Seat::Transit { since, .. } if now.duration_since(*since) > TRANSIT_TTL)
+            })
+            .map(|(c, _)| *c)
+            .collect();
+        for c in stale {
+            self.seats.remove(&c);
+            self.offline(c);
+        }
         let expired: Vec<(u64, u64)> = self
             .invites
             .iter()
@@ -537,15 +834,33 @@ async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>)
         }
         reader.push(&chunk[..n]);
     };
-    let MapMsg::Hello { key: theirs, map } = hello else {
+    let MapMsg::Hello {
+        key: theirs,
+        map,
+        address,
+        capacity,
+    } = hello
+    else {
         return Err("first frame is not a hello".into());
     };
     if theirs != key {
         return Err("wrong coordinator key".into());
     }
-    println!("[coord] map server {id} holds {map}");
+    println!("[coord] map server {id} holds {map} at {address}");
     let (tx, mut rx) = mpsc::unbounded_channel::<CoordMsg>();
-    book.lock().await.links.insert(id, (map.clone(), tx));
+    {
+        let mut b = book.lock().await;
+        b.links.insert(
+            id,
+            Link {
+                map: map.clone(),
+                address,
+                capacity,
+                tx,
+            },
+        );
+        b.maps_changed();
+    }
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
             if write.write_all(&encode_coord(&msg)).await.is_err() {
@@ -580,8 +895,24 @@ async fn main() -> AnyResult<()> {
         .try_into()
         .map_err(|_| "coord.key must be 32 bytes")?;
     let listener = TcpListener::bind(o.bind).await?;
-    println!("[coord] listening on {}", o.bind);
-    let book = Arc::new(Mutex::new(Book::default()));
+    // The login service's key: travellers get their next ticket here.
+    let ticket_key = std::fs::read(o.keys.join("ticket.key"))
+        .ok()
+        .and_then(|b| <[u8; 32]>::try_from(b).ok())
+        .map(|b| SigningKey::from_bytes(&b));
+    println!(
+        "[coord] listening on {}{}",
+        o.bind,
+        if ticket_key.is_some() {
+            ""
+        } else {
+            " (no ticket.key: travel between maps is closed)"
+        }
+    );
+    let book = Arc::new(Mutex::new(Book {
+        ticket_key,
+        ..Book::default()
+    }));
     {
         let book = book.clone();
         tokio::spawn(async move {

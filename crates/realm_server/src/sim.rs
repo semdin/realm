@@ -36,6 +36,7 @@ mod quests;
 mod rewards;
 mod social;
 mod status;
+mod travel;
 use crate::store::StoreJob;
 use combat::{Bolt, Caster};
 use realm_proto::control::CombatEvent;
@@ -201,6 +202,10 @@ struct Player {
     afflictions: afflict::Afflictions,
     /// The holds as its owner's prediction must apply them.
     restraint: realm_sim::movement::Restraint,
+    /// Last tick it lost health (the broom waits for peace).
+    last_hurt: u32,
+    /// A trip to another map waiting for its seat.
+    trip: Option<travel::PendingTrip>,
 }
 
 impl Mob {
@@ -293,6 +298,7 @@ struct Client {
     entity: Entity,
     net_id: u32,
     character: u64,
+    account: u64,
     outbox: tokio::sync::mpsc::Sender<Bytes>,
     control: tokio::sync::mpsc::Sender<Bytes>,
     view: View,
@@ -349,6 +355,10 @@ struct PendingJoin {
     outbox: tokio::sync::mpsc::Sender<Bytes>,
     control: tokio::sync::mpsc::Sender<Bytes>,
     reply: tokio::sync::oneshot::Sender<JoinReply>,
+    /// Where it lands, when it travelled here.
+    arrival: Option<realm_rules::travel::Arrival>,
+    /// Waiting for the store (not the coordinator).
+    loading: bool,
 }
 
 pub const SECTION_NAMES: [&str; 5] = ["players", "creatures", "projectiles", "grid", "snapshots"];
@@ -406,6 +416,12 @@ pub struct Sim {
     coord_up: bool,
     /// Duel challenges and duels on this map.
     duels: duel::DuelBook,
+    /// Characters leaving this server: saved, waiting to be released.
+    departing: HashMap<u64, travel::Departing>,
+    /// Maps the coordinator says are open.
+    open_maps: Vec<String>,
+    waylinks: Vec<travel::Waylink>,
+    next_waylink: u32,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -559,6 +575,10 @@ impl Sim {
             coord_tx: None,
             coord_up: false,
             duels: duel::DuelBook::default(),
+            departing: HashMap::new(),
+            open_maps: Vec::new(),
+            waylinks: Vec::new(),
+            next_waylink: 0,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -689,6 +709,9 @@ impl Sim {
         self.quest_visits();
         self.party_vitals();
         self.tick_duels();
+        self.advance_waylinks();
+        self.expire_trips();
+        self.sweep_departing();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -712,30 +735,15 @@ impl Sim {
                 control,
                 reply,
             } => {
-                let character = ticket.character;
                 let join = PendingJoin {
                     ticket,
                     outbox,
                     control,
                     reply,
+                    arrival: None,
+                    loading: false,
                 };
-                // The same character already playing: the newest login takes
-                // over with the sheet as it is in the world right now (the
-                // old connection closes when its channels are dropped).
-                let playing = self
-                    .clients
-                    .iter()
-                    .find(|(_, c)| c.character == character)
-                    .map(|(&old, _)| old);
-                if let Some(old) = playing {
-                    let sheet = self.remove_player(old);
-                    self.admit(conn, join, sheet);
-                } else if let Some(sheet) = self.unsaved.get(&character).cloned() {
-                    self.admit(conn, join, Some(sheet));
-                } else {
-                    self.pending.insert(conn, join);
-                    let _ = self.store.send(StoreJob::Load { conn, character });
-                }
+                self.join(conn, join);
             }
             NetEvent::Loaded { conn, result } => {
                 let Some(join) = self.pending.remove(&conn) else {
@@ -762,6 +770,7 @@ impl Sim {
                 {
                     self.unsaved.remove(&character);
                 }
+                self.departure_saved(character, revision);
             }
             NetEvent::Control { conn, msg } => self.control(conn, msg),
             NetEvent::Input { conn, batch } => {
@@ -791,16 +800,62 @@ impl Sim {
             }
             NetEvent::Leave { conn } => {
                 self.pending.remove(&conn);
-                let character = self.clients.get(&conn).map(|c| c.character);
-                self.remove_player(conn);
-                if let Some(character) = character {
-                    self.announce_gone(character);
+                if self.clients.contains_key(&conn) {
+                    self.leave_world(conn, None);
+                } else {
+                    self.departed_conn_closed(conn);
                 }
             }
             NetEvent::Coord(msg) => self.coord_event(msg),
             NetEvent::CoordUp => self.coord_link_up(),
             NetEvent::CoordDown => self.coord_link_down(),
         }
+    }
+
+    /// A login this server may admit (the coordinator's `sheet`, if it sent
+    /// one): the same character playing here hands over its live sheet, a
+    /// save on its way serves before the store, else the store loads it.
+    fn join_here(&mut self, conn: ConnId, mut join: PendingJoin, sheet: Option<CharacterSheet>) {
+        let character = join.ticket.character;
+        // A departure from here already released is over: its old
+        // connection (if still open) ends, the newest login plays.
+        self.departing.remove(&character);
+        // The same character already playing: the newest login takes over
+        // with the sheet as it is in the world right now (the old
+        // connection closes when its channels are dropped).
+        let playing = self
+            .clients
+            .iter()
+            .find(|(_, c)| c.character == character)
+            .map(|(&old, _)| old);
+        if let Some(old) = playing {
+            let live = self.remove_player(old);
+            return self.admit(conn, join, sheet.or(live));
+        }
+        if sheet.is_some() {
+            return self.admit(conn, join, sheet);
+        }
+        if let Some(sheet) = self.unsaved.get(&character).cloned() {
+            return self.admit(conn, join, Some(sheet));
+        }
+        // An older login of the same character still loading loses to this
+        // one (two loads would admit the character twice).
+        let older: Vec<ConnId> = self
+            .pending
+            .iter()
+            .filter(|(c, j)| **c != conn && j.loading && j.ticket.character == character)
+            .map(|(c, _)| *c)
+            .collect();
+        for c in older {
+            if let Some(old) = self.pending.remove(&c) {
+                let _ = old
+                    .reply
+                    .send(JoinReply::Refused("logged in elsewhere".to_owned()));
+            }
+        }
+        join.loading = true;
+        self.pending.insert(conn, join);
+        let _ = self.store.send(StoreJob::Load { conn, character });
     }
 
     /// Puts a joining player in the world with its sheet (a new character
@@ -826,7 +881,9 @@ impl Sim {
             .place
             .as_ref()
             .filter(|p| p.map == self.game.map)
-            .map(|p| Vec3::new(p.pos[0], p.pos[1], p.pos[2]));
+            .map(|p| self.settle(Vec3::new(p.pos[0], p.pos[1], p.pos[2])));
+        let arrival = join.arrival.clone();
+        let landed = arrival.as_ref().map(|a| self.land(&a.landing));
         let derived = self.game.rules.derived(&sheet);
         let max_hp = derived.max_hp.max(1) as f32;
         let caster = Caster::new(sheet.mana as f32, derived);
@@ -834,7 +891,10 @@ impl Sim {
         let (start, hp) = if sheet.hp == 0 {
             (home, max_hp)
         } else {
-            (saved_here.unwrap_or(home), (sheet.hp as f32).min(max_hp))
+            (
+                landed.or(saved_here).unwrap_or(home),
+                (sheet.hp as f32).min(max_hp),
+            )
         };
         let player = Player {
             body: Body::at(start),
@@ -859,6 +919,8 @@ impl Sim {
             last_combat: 0,
             afflictions: afflict::Afflictions::default(),
             restraint: realm_sim::movement::Restraint::default(),
+            last_hurt: 0,
+            trip: None,
         };
         let entity = self.world.spawn(player).id();
         let id = self.new_id(entity);
@@ -875,6 +937,7 @@ impl Sim {
                 entity,
                 net_id: id,
                 character,
+                account: join.ticket.account,
                 outbox: join.outbox,
                 control: join.control,
                 view,
@@ -890,20 +953,35 @@ impl Sim {
             content_hash: self.content_hash,
         });
         self.send_sheet(conn);
+        if let Some(arrival) = &arrival {
+            self.arrived(conn, entity, arrival);
+        }
     }
 
     /// Takes a player out of the world and saves its sheet; returns the
     /// sheet. Dropping the client's channels closes its connection if it is
     /// still open (a newer login took over).
     fn remove_player(&mut self, conn: ConnId) -> Option<CharacterSheet> {
+        self.take_out(conn, None).map(|(_, sheet)| sheet)
+    }
+
+    /// Takes a player out of the world and saves its sheet (with `place`
+    /// instead of where it stands, for a traveller); returns its client and
+    /// sheet.
+    fn take_out(
+        &mut self,
+        conn: ConnId,
+        place: Option<realm_rules::Place>,
+    ) -> Option<(Client, CharacterSheet)> {
         let client = self.clients.remove(&conn)?;
-        let sheet = self.sheet_of(client.entity);
+        let mut sheet = self.sheet_of(client.entity)?;
+        if place.is_some() {
+            sheet.place = place;
+        }
         self.ids.remove(&client.net_id);
         self.world.despawn(client.entity);
-        if let Some(sheet) = &sheet {
-            self.save(sheet.clone());
-        }
-        sheet
+        self.save(sheet.clone());
+        Some((client, sheet))
     }
 
     /// The player's sheet with its live position and hp written back.
@@ -942,9 +1020,7 @@ impl Sim {
             .is_err()
         {
             eprintln!("[net] connection {conn}: control queue full, closing");
-            let character = client.character;
-            self.remove_player(conn);
-            self.announce_gone(character);
+            self.leave_world(conn, None);
         }
     }
 
@@ -989,6 +1065,11 @@ impl Sim {
             ClientMsg::Talk(name) => self.talk(entity, &name),
             ClientMsg::ClaimQuest(id) => self.claim_quest(conn, entity, id),
             ClientMsg::Chat(text) => self.chat(conn, entity, &text),
+            ClientMsg::Door(id) => self.request_door(conn, entity, &id),
+            ClientMsg::Travel { from, to } => self.request_node_trip(conn, entity, &from, &to),
+            ClientMsg::Ride(on) => self.request_ride(conn, entity, on),
+            ClientMsg::WaylinkPlace(dest) => self.place_waylink(conn, entity, &dest),
+            ClientMsg::WaylinkHold { id, hold } => self.hold_waylink(conn, entity, id, hold),
             ClientMsg::Inspect(id) => {
                 let player = self
                     .ids
@@ -1312,6 +1393,10 @@ impl Sim {
                     STATE_MOVING
                 } else {
                     STATE_IDLE
+                } | if p.body.mounted {
+                    realm_proto::STATE_MOUNTED
+                } else {
+                    0
                 },
                 kind: 0,
                 hp: hp_byte(p.hp, p.max_hp),

@@ -2,6 +2,7 @@
 //!                [--content content/data] [--maps world/maps] [--seconds 60]
 //!                [--character 900001]
 //! realm_netcheck --social [--server A --map A --server-b B --map-b B]   (see social.rs)
+//! realm_netcheck --travel --characters <dir>                           (see travel.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -11,6 +12,7 @@
 //! there was any (Phase 4 exit: none at 200 ms and 2% loss).
 
 mod social;
+mod travel;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -199,6 +201,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--duel") {
         return social::duel(&args);
+    }
+    if args.iter().any(|a| a == "--travel") {
+        return travel::run(&args);
     }
     let server: SocketAddr = arg(&args, "--server", "127.0.0.1:7800").parse()?;
     let keys = PathBuf::from(arg(&args, "--keys", "keys"));
@@ -474,7 +479,12 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Party(_)
                     | realm_proto::control::ServerMsg::PlayerInfo { .. }
                     | realm_proto::control::ServerMsg::DuelInvite { .. }
-                    | realm_proto::control::ServerMsg::Duel(_),
+                    | realm_proto::control::ServerMsg::Duel(_)
+                    | realm_proto::control::ServerMsg::TravelResult { .. }
+                    | realm_proto::control::ServerMsg::Departing { .. }
+                    | realm_proto::control::ServerMsg::Travel { .. }
+                    | realm_proto::control::ServerMsg::Arrived { .. }
+                    | realm_proto::control::ServerMsg::Waylink(_),
                 ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }

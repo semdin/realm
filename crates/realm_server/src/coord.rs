@@ -21,6 +21,8 @@ pub async fn link(
     addr: String,
     key: [u8; 32],
     map: String,
+    address: String,
+    capacity: u16,
     mut outgoing: UnboundedReceiver<MapMsg>,
     sim: Sender<NetEvent>,
 ) {
@@ -45,6 +47,8 @@ pub async fn link(
             .write_all(&encode_map(&MapMsg::Hello {
                 key,
                 map: map.clone(),
+                address: address.clone(),
+                capacity,
             }))
             .await
             .is_err()

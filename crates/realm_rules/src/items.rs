@@ -869,6 +869,24 @@ fn take_cell(sheet: &mut CharacterSheet, cell: u8) -> Result<Item, &'static str>
     get(sheet, Cell::Bag(cell))?.take().ok_or("item_missing")
 }
 
+/// How many of item `id` (plain, tier 0) the bag holds.
+#[must_use]
+pub fn count_items(sheet: &CharacterSheet, id: &str) -> u32 {
+    sheet
+        .bag
+        .iter()
+        .flatten()
+        .filter(|i| i.id == id && i.tier == 0)
+        .map(|i| i.amount)
+        .sum()
+}
+
+/// Takes `amount` of item `id` (plain, tier 0) from the bag. All or
+/// nothing ("item_missing").
+pub fn take_items(sheet: &mut CharacterSheet, id: &str, amount: u32) -> Result<(), &'static str> {
+    take_amount(sheet, id, 0, amount, None)
+}
+
 /// Removes `amount` of a stackable (id, tier) from the bag, from `first`
 /// before any other cell. All or nothing.
 fn take_amount(

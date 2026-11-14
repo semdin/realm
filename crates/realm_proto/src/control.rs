@@ -140,6 +140,34 @@ pub enum ServerMsg {
     DuelInvite { from: String, group: bool, size: u8 },
     /// The player's duel as it stands, or how it ended (`duel` 0).
     Duel(DuelView),
+    /// A travel request was refused, or a broom request answered. `what`:
+    /// door, hearthway, cabinet, passage, waylink, ride; `reason` a word
+    /// (out_of_range, in_combat, level_too_low, mounted, no_item,
+    /// map_full, map_unavailable, ... ; "mounted"/"dismounted" when a ride
+    /// request worked).
+    TravelResult {
+        what: String,
+        ok: bool,
+        reason: String,
+    },
+    /// The player is leaving for `map` (`label`: where to; `kind`: door,
+    /// hearthway, ...). A trip on this map follows at once; to another map
+    /// `Travel` follows.
+    Departing {
+        map: String,
+        label: String,
+        kind: String,
+    },
+    /// Join `map` at `address` with `ticket` (this connection ends).
+    Travel {
+        map: String,
+        address: String,
+        ticket: Vec<u8>,
+    },
+    /// The player was set down here by a trip of `kind`.
+    Arrived { kind: String },
+    /// A Waylink of the player's party.
+    Waylink(WaylinkView),
     /// The answer to `ClaimQuest` ("claimed", "not_ready", "bag_full").
     QuestResult {
         quest: String,
@@ -252,6 +280,34 @@ pub enum ClientMsg {
     ClaimQuest(String),
     /// A chat line or a /command, as typed.
     Chat(String),
+    /// Go through the door (maps.json portal id) the player stands in.
+    Door(String),
+    /// Travel from the node the player stands at (`from`): a hearth to the
+    /// hearth `to`, a cabinet or passage to its twin (`to` unused).
+    Travel { from: String, to: String },
+    /// Mount the broom (true) or get off it (false).
+    Ride(bool),
+    /// Set a Waylink boot down for `dest` (a travel node).
+    WaylinkPlace(String),
+    /// Hold on to (or let go of) the Waylink `id`.
+    WaylinkHold { id: u32, hold: bool },
+}
+
+/// A Waylink boot as its party sees it. `phase` 0 set down (counting down
+/// to `fires_tick`, a server tick), 1 fired, 2 gone (fizzled, or it left
+/// the viewer's party). `holders` are entities.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct WaylinkView {
+    pub id: u32,
+    pub phase: u8,
+    pub pos: [f32; 3],
+    pub dest: String,
+    pub label: String,
+    pub owner: u32,
+    pub owner_name: String,
+    pub fires_tick: u32,
+    pub holders: Vec<u32>,
+    pub radius: f32,
 }
 
 #[derive(Debug, PartialEq, Eq)]
