@@ -89,6 +89,15 @@ pub struct Place {
     pub yaw: f32,
 }
 
+/// Where a character stands in the quest chain: counts of quests begun,
+/// quests finished and waiting to be claimed, quests claimed.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuestLog {
+    pub progress: Vec<(String, u32)>,
+    pub ready: Vec<String>,
+    pub done: Vec<String>,
+}
+
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct CharacterSheet {
     pub id: u64,
@@ -116,6 +125,12 @@ pub struct CharacterSheet {
     /// Attribute points spent (combat.json attributes: vit, int, str, dex).
     #[serde(default)]
     pub attributes: Vec<(String, u8)>,
+    /// The quest log.
+    #[serde(default)]
+    pub quests: QuestLog,
+    /// House standing (quest rewards only).
+    #[serde(default)]
+    pub house_rep: u32,
     /// Bumped by every change; a save older than the stored one is refused.
     pub revision: u64,
 }

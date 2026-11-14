@@ -47,7 +47,7 @@ pub(super) struct Credit {
 }
 
 impl Sim {
-    fn conn_of(&self, entity: Entity) -> Option<ConnId> {
+    pub(super) fn conn_of(&self, entity: Entity) -> Option<ConnId> {
         self.clients
             .iter()
             .find(|(_, c)| c.entity == entity)
@@ -104,6 +104,14 @@ impl Sim {
         let killer = credit.last().map(|c| c.player);
         if let Some(mut m) = self.world.get_mut::<Mob>(mob) {
             m.credit.clear();
+        }
+        let species_id = self.game.species[species].id.clone();
+        for &player in &earners {
+            if stone {
+                self.quest_event(player, "monolith", "", false);
+            } else {
+                self.quest_event(player, "kill", &species_id, boss);
+            }
         }
         for player in earners {
             let Some((player_level, bonus)) = self
@@ -217,6 +225,7 @@ impl Sim {
                     oril,
                     items: Vec::new(),
                     levels,
+                    rep: 0,
                 },
             );
         }
@@ -357,6 +366,7 @@ impl Sim {
                     oril: 0,
                     items: taken.clone(),
                     levels: 0,
+                    rep: 0,
                 },
             );
         }

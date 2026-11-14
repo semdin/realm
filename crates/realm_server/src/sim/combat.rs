@@ -731,6 +731,9 @@ impl Sim {
             return 0;
         }
         self.note_credit(victim, attacker);
+        if dummy {
+            self.quest_event(attacker, "dummy", "", false);
+        }
         let Some(mut mob) = self.world.get_mut::<super::Mob>(victim) else {
             return 0;
         };

@@ -31,6 +31,7 @@ use crate::game::Game;
 mod afflict;
 mod brain;
 mod combat;
+mod quests;
 mod rewards;
 mod status;
 use crate::store::StoreJob;
@@ -657,6 +658,7 @@ impl Sim {
         self.advance_status();
         self.advance_afflictions();
         self.sweep_chests();
+        self.quest_visits();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -942,6 +944,8 @@ impl Sim {
             ClientMsg::TakeLoot { chest, slot } => self.take_loot(conn, entity, chest, slot),
             ClientMsg::Respawn { here } => self.request_respawn(entity, here),
             ClientMsg::SpendAttribute(stat) => self.spend_attribute(conn, entity, stat),
+            ClientMsg::Talk(name) => self.talk(entity, &name),
+            ClientMsg::ClaimQuest(id) => self.claim_quest(conn, entity, id),
             ClientMsg::Inspect(id) => {
                 let Some(info) = self.creature_info(id) else {
                     return;
@@ -1033,6 +1037,20 @@ impl Sim {
             Ok(done) => (true, done.reason, done.amount),
             Err(reason) => (false, reason, 0),
         };
+        // Quest events: what the operation did, and to which slot.
+        let quest = match (ok, reason, op) {
+            (
+                true,
+                "equipped",
+                realm_rules::ItemOp::Move {
+                    to: realm_rules::Cell::Worn(slot),
+                    ..
+                },
+            ) => Some(("equip", slot.name().to_owned())),
+            (true, "refined", _) => Some(("refine", String::new())),
+            (true, "enchanted", _) => Some(("enchant", String::new())),
+            _ => None,
+        };
         if ok {
             let derived = self.game.rules.derived(&sheet);
             let max_hp = derived.max_hp.max(1) as f32;
@@ -1058,6 +1076,9 @@ impl Sim {
                 amount,
             },
         );
+        if let Some((kind, target)) = quest {
+            self.quest_event(entity, kind, &target, false);
+        }
         if ok || reason == "stale" {
             self.send_sheet(conn);
         }

@@ -19,6 +19,11 @@ extends Node3D
 ##                                                    Revive Here, or waiting for the server's
 ##                                                    own return to town
 ##   [--open-character 1]                             start with the character window open
+##   [--check-quests]                                 the check walks the first chapter instead
+##                                                    of fighting: talks to Master Teral Venn and
+##                                                    hands in q001, wears the cloak (q002), hits
+##                                                    a training dummy 5 times (q003), claiming
+##                                                    each; fails unless all three are claimed
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
@@ -26,7 +31,11 @@ extends Node3D
 ## A right-click on a loot chest (within 7 m) opens it; Z takes everything from
 ## the nearest chest within 6 m. Tab cycles the nearest living creatures, Esc
 ## closes a window or drops the target, I opens the bag, C the character
-## window; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
+## window, J the quest log; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
+## The map's NPCs (npcs.json) stand on the ground under their place: F talks
+## to the nearest within TALK_KEY_REACH, a click on one talks from within the
+## server's talk radius (less a little), and the dialogue card, the tracker,
+## the quest log and the quest scroll show the server's quest log.
 ## The check mode also fights: it targets the nearest creature, learns and casts
 ## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
 ## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
@@ -83,6 +92,42 @@ const PICKUP_REACH := 6.0
 const CHECK_LOOT_REACH := 3.5
 const CHECK_LOOT_SHOW := 1.5
 const HELD_NOTICE_SECONDS := 0.8
+const NpcViewScript := "res://scripts/view/npc_view.gd"
+const QuestManagerScript := "res://scripts/systems/quest_manager.gd"
+const DialogueScript := "res://scripts/ui/npc_dialogue.gd"
+const TrackerScript := "res://scripts/ui/hud_tracker.gd"
+const QuestLogScript := "res://scripts/ui/hud_quest_log.gd"
+const QuestScrollScript := "res://scripts/ui/hud_quest_scroll.gd"
+## F talks to the nearest NPC this close; a click talks from within the
+## server's talk radius less this margin (latency).
+const TALK_KEY_REACH := 4.0
+const TALK_CLICK_MARGIN := 0.5
+## `--check-quests`: how long it may take at most, how near it walks to an NPC
+## and to a dummy, how long each window stays up for a capture, and how long
+## it stands after the last claim (the toasts).
+const CHECK_QUESTS_SECONDS := 240.0
+const CHECK_NPC_REACH := 2.6
+## The way into the training yard round the walls south-east of the
+## courtyard: its fence is a solid slab on the north and south sides (a bolt
+## cast over it strikes its top), the west side is open between posts. The
+## last point is where the dummies face (creature_views.json
+## `training_dummy.faces`).
+const CHECK_YARD_ROUTE := [Vector2(40, 52), Vector2(62, 38), Vector2(60, 27), Vector2(78, 27)]
+const CHECK_WAYPOINT_REACH := 1.5
+const CHECK_SHOW := 2.0
+const CHECK_LINGER := 4.0
+const CHECK_WALK_REPORT := 5.0
+## Less ground than this in CHECK_STALL_SECONDS of walking is a stall; the
+## sidestep then lasts CHECK_SIDESTEP_SECONDS.
+const CHECK_STALL_METRES := 0.6
+const CHECK_STALL_SECONDS := 1.0
+const CHECK_SIDESTEP_SECONDS := 1.2
+## What a refused quest claim says (the server's reason).
+# i18n-begin
+const QUEST_REASONS := {
+	"bag_full": "No room in your bag for the quest reward. Make space, then claim it again.",
+}
+# i18n-end
 
 var session: Node
 var player: Node3D
@@ -96,6 +141,15 @@ var inventory: Control
 var feedback: Control
 var loot_window: Control
 var character_window: Control
+## The quest log as the interface sees it (QuestManager), and its windows: the
+## NPC dialogue card, the tracker, the log (J) and the quest scroll.
+var quests: QuestManager
+var dialogue: NpcDialogue
+var tracker: HudTracker
+var quest_log: HudQuestLog
+var quest_scroll: HudQuestScroll
+## The map's NPCs (NpcView), drawn once the map is in.
+var npcs: Array = []
 ## Loot chests on the ground by entity id (ChestView).
 var chests := {}
 ## Casts, bolts, impacts, bursts, wards and damage numbers.
@@ -192,6 +246,35 @@ var check_attribute_results := {}
 var check_stones := {}
 var check_dummies := {}
 var built := false
+## `--check-quests`: the check walks the first chapter (see _check_quest_walk):
+## the step it is on and since when, the talks it opened, the quests the server
+## paid and the claim answers by reason, and when it finished.
+var check_quests := false
+var check_quest_step := "start"
+var check_step_since := 0.0
+var check_talks := 0
+var check_claimed: Array = []
+var check_quest_results := {}
+var check_quest_done_at := 0.0
+var check_equip_sent := false
+var check_dummy_id := 0
+var check_dummy_casts := 0
+var check_route_next := 0
+## Casts the server refused, by reason.
+var check_refusals := {}
+var check_page_wait := 0.0
+var check_tracker_pressed := false
+var check_verdict_given := false
+## When the walk last said where it is (every CHECK_WALK_REPORT seconds).
+var check_walk_said := 0.0
+## A walk that stops gaining ground (a trunk, a post square in its way)
+## sidesteps for a while: where it last measured, when, and the sidestep
+## (strafe direction and until when).
+var check_walk_from := Vector3.INF
+var check_walk_at := 0.0
+var check_strafe := 0.0
+var check_strafe_until := 0.0
+var check_strafe_side := 1.0
 ## When the next "you are stunned" notice may show.
 var _held_notice_at := 0.0
 
@@ -210,6 +293,9 @@ func _ready() -> void:
 	if rotation_arg != "":
 		check_spells = rotation_arg.split(",", false)
 	check_rise = _arg("--check-rise", check_rise)
+	check_quests = OS.get_cmdline_user_args().has("--check-quests")
+	if check_quests and check_seconds <= 0.0:
+		check_seconds = CHECK_QUESTS_SECONDS
 	if not ClassDB.class_exists("RealmSession"):
 		printerr("realm: the realm_client extension did not load (cargo build --release -p realm_client)")
 		get_tree().quit(2)
@@ -311,6 +397,55 @@ func _build_ui() -> void:
 	feedback.name = "CombatFeedback"
 	root.add_child(feedback)
 	feedback.setup(session, hud, player)
+	_build_quest_ui(root)
+
+## The quest log's view and windows: the tracker on the left edge, the NPC
+## dialogue card, the log (J) and, over every window, the quest scroll.
+func _build_quest_ui(root: Control) -> void:
+	quests = load(QuestManagerScript).new()
+	quests.name = "Quests"
+	add_child(quests)
+	quests.setup(session, sheet_view)
+	quests.quest_updated.connect(_update_npc_arrows)
+	tracker = load(TrackerScript).new()
+	tracker.quests = quests
+	root.add_child(tracker)
+	root.move_child(tracker, hud.get_index() + 1)
+	dialogue = load(DialogueScript).new()
+	dialogue.quests = quests
+	dialogue.can_serve = _can_serve
+	root.add_child(dialogue)
+	quest_log = load(QuestLogScript).new()
+	quest_log.quests = quests
+	root.add_child(quest_log)
+	quest_scroll = load(QuestScrollScript).new()
+	quest_scroll.quests = quests
+	root.add_child(quest_scroll)
+	quest_log.open_scroll = func(id: String): quest_scroll.open(id)
+	tracker.quest_opened.connect(func(id: String): quest_scroll.open(id))
+	tracker.log_opened.connect(quest_log.toggle)
+	dialogue.quest_chosen.connect(func(id: String): quest_scroll.open(id))
+	dialogue.service_chosen.connect(_open_service)
+
+## A service an NPC offers (npcs.json `services`) opens its window: the
+## workshop is the "WorkshopUI" window beside the bag.
+func _service_window(service: String) -> Control:
+	var root := hud.get_parent()
+	match service:
+		"workshop":
+			return root.get_node_or_null("WorkshopUI") as Control
+	return null
+
+func _can_serve(service: String) -> bool:
+	return _service_window(service) != null
+
+func _open_service(service: String) -> void:
+	var window := _service_window(service)
+	if window != null:
+		if window.has_method("open_for_player"):
+			window.open_for_player(sheet_view)
+		else:
+			window.show()
 
 func toggle_inventory() -> void:
 	if inventory.visible:
@@ -366,6 +501,106 @@ func _build_map() -> void:
 		node.material_override = stone
 		add_child(node)
 	built = true
+	_spawn_npcs()
+
+## ------------------------------------------------------------------- NPCs
+
+## The NPCs of this map (npcs.json `map`), each on the ground under its place.
+func _spawn_npcs() -> void:
+	var table: Variant = RealmContent.table("npcs")
+	if not (table is Dictionary):
+		return
+	var map := _arg("--map", "grounds")
+	var all: Dictionary = (table as Dictionary).get("npcs", {})
+	for id: String in all:
+		var data: Dictionary = all[id]
+		if String(data.get("map", "")) != map:
+			continue
+		var at: Array = data.get("pos", [0.0, 0.0])
+		var npc: NpcView = load(NpcViewScript).new()
+		add_child(npc)
+		npc.setup(id, data)
+		npc.position = _ground_under(float(at[0]), float(at[1]))
+		npcs.append(npc)
+	_update_npc_arrows()
+
+## The map's surface under (x, z): the first collider a ray from the sky
+## meets (a creature passing under it is looked through).
+func _ground_under(x: float, z: float) -> Vector3:
+	var from := Vector3(x, 1500.0, z)
+	for attempt in 4:
+		var hit: Dictionary = session.pick(from, Vector3.DOWN, 3000.0)
+		if hit.is_empty():
+			break
+		var point: Vector3 = hit["point"]
+		if int(hit["entity"]) == 0:
+			return point
+		from = point - Vector3(0, 2.5, 0)
+	return Vector3(x, 0.0, z)
+
+## The gold arrow over every NPC an open talk quest names.
+func _update_npc_arrows() -> void:
+	for npc: NpcView in npcs:
+		npc.set_wanted(quests.npc_wants_talk(npc.npc_name))
+
+## The nearest NPC within `reach` (ground distance) of the player, or null.
+func _npc_near(reach: float) -> NpcView:
+	var me: Vector3 = session.own_position()
+	var best: NpcView = null
+	var best_distance := reach
+	for npc: NpcView in npcs:
+		var distance := Vector2(npc.position.x - me.x, npc.position.z - me.z).length()
+		if distance < best_distance:
+			best_distance = distance
+			best = npc
+	return best
+
+## The NPC under the screen point `at` when no wall stands between: [npc,
+## distance along the ray], or [] when there is none.
+func _npc_at(at: Vector2) -> Array:
+	var origin := camera.project_ray_origin(at)
+	var dir := camera.project_ray_normal(at)
+	var best: NpcView = null
+	var best_t := PICK_REACH
+	for npc: NpcView in npcs:
+		var t := npc.ray_distance(origin, dir)
+		if t < best_t:
+			best_t = t
+			best = npc
+	if best == null:
+		return []
+	var hit := pick_at(at)
+	if not hit.is_empty() and origin.distance_to(hit["point"]) < best_t:
+		return []
+	return [best, best_t]
+
+## A click on an NPC: within the talk radius (less a little) its dialogue
+## opens, farther away a notice says to come closer. True when the cursor was
+## on an NPC, so the click does nothing else.
+func click_npc(at: Vector2) -> bool:
+	var found := _npc_at(at)
+	if found.is_empty():
+		return false
+	var npc: NpcView = found[0]
+	var me: Vector3 = session.own_position()
+	if Vector2(npc.position.x - me.x, npc.position.z - me.z).length() <= quests.talk_radius() - TALK_CLICK_MARGIN:
+		talk_to(npc)
+	else:
+		hud.show_notice(tr("Come closer to talk."), "info")
+	return true
+
+## Talk to `npc`: its dialogue card opens (F again on the same NPC turns the
+## page) and the server hears of it (talk quests within its radius count).
+func talk_to(npc: NpcView) -> void:
+	if npc == null or feedback.is_dead():
+		return
+	if dialogue.is_open_for(npc):
+		dialogue.advance()
+		return
+	dialogue.open(npc, player)
+	npc.talk()
+	session.talk(npc.npc_name)
+	check_talks += 1
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -374,17 +609,28 @@ func _unhandled_input(event: InputEvent) -> void:
 				toggle_inventory()
 			KEY_C:
 				character_window.toggle()
+			KEY_J:
+				quest_log.toggle()
+			KEY_F:
+				if built:
+					talk_to(_npc_near(TALK_KEY_REACH))
 			KEY_Z:
 				take_nearest_chest()
 			KEY_TAB:
 				cycle_target()
 			KEY_ESCAPE:
-				if loot_window.visible:
+				if quest_scroll.is_open():
+					quest_scroll.close()
+				elif quest_log.visible:
+					quest_log.close()
+				elif loot_window.visible:
 					loot_window.close()
 				elif character_window.visible:
 					character_window.card.close()
 				elif inventory.visible:
 					inventory.hide()
+				elif dialogue.visible:
+					dialogue.close()
 				else:
 					select_target(0)
 		return
@@ -394,10 +640,10 @@ func _unhandled_input(event: InputEvent) -> void:
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		if event.pressed:
 			_right_pressed_at = event.position
-		elif built and event.position.distance_to(_right_pressed_at) < CLICK_SLOP:
+		elif built and event.position.distance_to(_right_pressed_at) < CLICK_SLOP and not click_npc(event.position):
 			right_click_world(event.position)
 	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT and built:
+		if event.button_index == MOUSE_BUTTON_LEFT and built and not click_npc(event.position):
 			click_world(event.position)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			cam_distance = maxf(2.0, cam_distance * 0.9)
@@ -576,7 +822,9 @@ func _show_combat() -> void:
 				if int(event["caster"]) == own:
 					check_bursts += 1
 			"cast_refused":
-				_say_refusal(String(event["spell"]), String(event["reason"]))
+				var refused := String(event["reason"])
+				check_refusals[refused] = int(check_refusals.get(refused, 0)) + 1
+				_say_refusal(String(event["spell"]), refused)
 
 ## ------------------------------------------------------ creatures and the map
 
@@ -622,8 +870,8 @@ func _take_creature_info() -> void:
 
 ## The kill loop's messages: a kill's reward (the toasts, the level-up moment),
 ## a chest's cells and the answers to takes (the chest window), a death (the
-## death panel) and the answer to a status point (the character window). The
-## check counts them.
+## death panel), the answer to a status point (the character window) and to a
+## quest claim (a refusal on the notice band). The check counts them.
 func _show_game_events() -> void:
 	for event: Dictionary in session.take_game_events():
 		if check_seconds > 0.0:
@@ -663,6 +911,13 @@ func _show_game_events() -> void:
 					# fell while the request was on its way: the check asks again
 					check_spend_sent = false
 				character_window.on_result(event)
+			"quest_result":
+				var why := String(event["reason"])
+				check_quest_results[why] = int(check_quest_results.get(why, 0)) + 1
+				if bool(event["ok"]):
+					check_claimed.append(String(event["quest"]))
+				elif QUEST_REASONS.has(why):
+					hud.show_notice(I18n.t(String(QUEST_REASONS[why])), "warn")
 
 ## ------------------------------------------------------------- loot chests
 
@@ -991,6 +1246,204 @@ static func _status_names(bits: int) -> String:
 			names.append(String(pair[1]))
 	return "+".join(names) if not names.is_empty() else "none"
 
+## ------------------------------------------------------ the quest check
+
+## `--check-quests`: the first chapter the way a player walks it, one step at a
+## time, each window left up for CHECK_SHOW so a capture sees it:
+##   to_npc   walk to Master Teral Venn (his gold arrow) and press F: the
+##            dialogue card opens and the server hears the talk (q001)
+##   talk     turn the pages until q001 is ready, then its "Hand in" row
+##   scroll1  the quest scroll; its gold seal claims q001 (the cloak)
+##   equip    the bag opens and the cloak goes on (q002)
+##   claim2   the ready tracker row claims q002, then the log (J) shows
+##   to_dummy walk into the training yard (CHECK_YARD_ROUTE) and target
+##            the nearest dummy
+##   hit      basic casts until q003 is ready; its log card opens the scroll
+##   scroll3  the seal claims q003; the check stands a little, then ends
+## Returns whether to walk forward this frame (cam_yaw steers).
+func _check_quest_walk(_delta: float) -> bool:
+	var now := Time.get_ticks_msec() / 1000.0
+	var held := now - check_step_since
+	var me: Vector3 = session.own_position()
+	match check_quest_step:
+		"start":
+			if sheet_view.data.has("quests") and not npcs.is_empty():
+				_check_step("to_npc")
+		"to_npc":
+			var npc := _npc_named("Master Teral Venn")
+			if npc == null:
+				return false
+			var flat := Vector2(npc.position.x - me.x, npc.position.z - me.z)
+			cam_yaw = atan2(-flat.x, -flat.y)
+			if flat.length() > CHECK_NPC_REACH:
+				return true
+			if held > 0.5:
+				talk_to(_npc_near(TALK_KEY_REACH))
+				_check_step("talk")
+		"talk":
+			check_page_wait -= _delta
+			if check_page_wait <= 0.0:
+				check_page_wait = 1.0
+				dialogue.advance()
+			if quests.is_ready("q001") and held > CHECK_SHOW * 2.0:
+				for row: Dictionary in dialogue.quest_rows:
+					if String(row["id"]) == "q001":
+						(row["button"] as Button).pressed.emit()
+						_check_step("scroll1")
+		"scroll1":
+			if held > CHECK_SHOW and quest_scroll.can_claim():
+				quest_scroll.press_claim()
+				_check_step("claim1")
+		"claim1":
+			if check_claimed.has("q001") and held > 0.5:
+				inventory.open_for_player(sheet_view)
+				_check_step("equip")
+		"equip":
+			if not check_equip_sent and held > 1.0:
+				for entry: Dictionary in sheet_view.inventory:
+					if String(entry["id"]) == "cloak_wool":
+						check_equip_sent = sheet_view.submit("equip", "chest", entry) != 0
+						break
+			if quests.is_ready("q002") and held > CHECK_SHOW:
+				inventory.hide()
+				_check_step("claim2")
+		"claim2":
+			if held > CHECK_SHOW and not check_tracker_pressed:
+				check_tracker_pressed = true
+				for i in HudTracker.MAX_ROWS:
+					if tracker.row_id(i) == "q002":
+						tracker._rows[i].pressed.emit()
+						break
+			if check_claimed.has("q002") and held > CHECK_SHOW + 0.5:
+				quest_log.open()
+				_check_step("log")
+		"log":
+			if held > CHECK_SHOW * 1.5:
+				quest_log.close()
+				_check_step("to_dummy")
+		"to_dummy":
+			if check_route_next < CHECK_YARD_ROUTE.size():
+				var point: Vector2 = CHECK_YARD_ROUTE[check_route_next]
+				var flat := Vector2(point.x - me.x, point.y - me.z)
+				if flat.length() <= CHECK_WAYPOINT_REACH:
+					check_route_next += 1
+					print("realm check quests: waypoint %d at %s" % [check_route_next, me.snapped(Vector3(0.1, 0.1, 0.1))])
+					return check_route_next < CHECK_YARD_ROUTE.size()
+				else:
+					cam_yaw = atan2(-flat.x, -flat.y)
+					_check_say_walk(me, Vector3(point.x, me.y, point.y))
+					return true
+			_check_nearest_dummy()
+			if check_dummy_id != 0:
+				select_target(check_dummy_id)
+				_check_step("hit")
+		"hit":
+			if drawn.has(check_dummy_id):
+				var at: Vector3 = drawn[check_dummy_id]
+				cam_yaw = atan2(-(at.x - me.x), -(at.z - me.z))
+			if quests.is_ready("q003"):
+				if held > 1.0:
+					quest_log.open()
+					quest_log.open_scroll.call("q003")
+					_check_step("scroll3")
+			else:
+				check_cast_wait -= _delta
+				if check_cast_wait <= 0.0:
+					check_cast_wait = CHECK_CAST_SECONDS
+					if target != check_dummy_id:
+						select_target(check_dummy_id)
+					check_dummy_casts += 1
+					cast_spell("basic_cast")
+		"scroll3":
+			if held > CHECK_SHOW and quest_scroll.can_claim():
+				quest_scroll.press_claim()
+				quest_log.close()
+				_check_step("claim3")
+		"claim3":
+			if check_claimed.has("q003"):
+				check_quest_done_at = now
+				_check_step("done")
+	return false
+
+## The check's sidestep: walking without gaining CHECK_STALL_METRES in
+## CHECK_STALL_SECONDS strafes (alternating sides) for CHECK_SIDESTEP_SECONDS
+## while it keeps walking forward, which slides it round what is in the way.
+func _check_sidestep(walking: bool) -> float:
+	var now := Time.get_ticks_msec() / 1000.0
+	var me: Vector3 = session.own_position()
+	if not walking:
+		check_walk_from = Vector3.INF
+		return 0.0
+	if now < check_strafe_until:
+		return check_strafe
+	if check_walk_from == Vector3.INF:
+		check_walk_from = me
+		check_walk_at = now
+	elif now - check_walk_at >= CHECK_STALL_SECONDS:
+		if Vector2(me.x - check_walk_from.x, me.z - check_walk_from.z).length() < CHECK_STALL_METRES:
+			check_strafe = check_strafe_side
+			check_strafe_side = -check_strafe_side
+			check_strafe_until = now + CHECK_SIDESTEP_SECONDS
+			print("realm check quests: stalled at %s, sidestepping" % me.snapped(Vector3(0.1, 0.1, 0.1)))
+		check_walk_from = me
+		check_walk_at = now
+	return 0.0
+
+## Where the walk is, now and then (a walk that stalls shows where).
+func _check_say_walk(me: Vector3, goal: Vector3) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now - check_walk_said >= CHECK_WALK_REPORT:
+		check_walk_said = now
+		print("realm check quests: walking at %s, %.1f m to %s" % [me.snapped(Vector3(0.1, 0.1, 0.1)),
+			Vector2(goal.x - me.x, goal.z - me.z).length(), goal.snapped(Vector3(0.1, 0.1, 0.1))])
+
+func _check_step(step: String) -> void:
+	print("realm check quests: frame %d step %s at %s" % [Engine.get_frames_drawn(), step,
+		(session.own_position() as Vector3).snapped(Vector3(0.1, 0.1, 0.1))])
+	check_quest_step = step
+	check_step_since = Time.get_ticks_msec() / 1000.0
+
+func _npc_named(npc_name: String) -> NpcView:
+	for npc: NpcView in npcs:
+		if npc.npc_name == npc_name:
+			return npc
+	return null
+
+## The training dummy nearest the player among those in view becomes
+## check_dummy_id (q003's target).
+func _check_nearest_dummy() -> void:
+	var me: Vector3 = session.own_position()
+	var best_distance := INF
+	for id: int in check_dummies:
+		if beasts.has(id) and beasts[id] is DummyView and drawn.has(id):
+			var distance := me.distance_to(drawn[id])
+			if distance < best_distance:
+				best_distance = distance
+				check_dummy_id = id
+
+## The quest check's verdict: the quests the server paid, the house standing,
+## and the connection; it passes with q001-q003 claimed and no correction.
+func _check_quests_verdict(stats: Dictionary, sheet: Dictionary) -> void:
+	if check_verdict_given:
+		return
+	check_verdict_given = true
+	var wanted := ["q001", "q002", "q003"]
+	var missing := wanted.filter(func(id): return not check_claimed.has(id))
+	print("realm check quests: claimed [%s], missing [%s] | house %s rep %d, rank %d %s (%d..%d) | done %s | open log [%s]" % [
+			", ".join(check_claimed), ", ".join(missing), sheet.get("house", "-"), int(sheet.get("house_rep", 0)),
+			int(sheet.get("house_rank", 0)), sheet.get("house_title", ""), int(sheet.get("rank_from", 0)), int(sheet.get("rank_to", -1)),
+			", ".join(sheet.get("quests_done", [])),
+			", ".join((sheet.get("quests", []) as Array).map(func(q): return "%s %s %d/%d" % [q["id"], q["state"], q["progress"], q["count"]]))],
+		" | step %s, %d talks, %d claims sent, results [%s], %d dummy casts (%d started, refused [%s]), %d own hits" % [
+			check_quest_step, check_talks, quests.claims_sent, _counts(check_quest_results), check_dummy_casts, check_casts,
+			_counts(check_refusals), check_hits],
+		" | level %d, +%d exp, +%d oril, %d toasts, last \"%s\", wears %s" % [int(sheet.get("level", 0)), check_exp, check_oril,
+			feedback.toasts_shown, feedback.last_toast, (sheet.get("equipment", {}) as Dictionary).get("chest", {}).get("id", "-")],
+		" | corrections %d (max %.3f m), snapshots %d" % [int(stats.get("corrections", 0)), float(stats.get("max_correction", 0.0)),
+			int(stats.get("snapshots", 0))])
+	var passed := missing.is_empty() and int(stats.get("corrections", 0)) == 0 and int(stats.get("snapshots", 0)) > 0
+	get_tree().quit(0 if passed else 1)
+
 func _process(delta: float) -> void:
 	if session == null:
 		return
@@ -1008,7 +1461,11 @@ func _process(delta: float) -> void:
 	var strafe := 0.0
 	var forward := 0.0
 	var jump := false
-	if check_seconds > 0.0:
+	if check_quests:
+		var walking := _check_quest_walk(delta)
+		forward = 1.0 if walking else 0.0
+		strafe = _check_sidestep(walking)
+	elif check_seconds > 0.0:
 		# Walks (and hops) for the first third, then stands and fights.
 		var walking := Time.get_ticks_msec() / 1000.0 - check_started < check_seconds / 3.0 or target == 0
 		forward = 1.0 if walking else 0.0
@@ -1119,7 +1576,7 @@ func _process(delta: float) -> void:
 				table.erase(id)
 	_take_creature_info()
 	_follow_target()
-	if check_seconds > 0.0:
+	if check_seconds > 0.0 and not check_quests:
 		_check_kill_loop()
 		if not feedback.is_dead():
 			_check_fight(delta)
@@ -1150,7 +1607,11 @@ bag: %s" % [
 			", ".join(items)]
 		_apply_sheet_look(sheet)
 
-	if check_seconds > 0.0 and Time.get_ticks_msec() / 1000.0 - check_started > check_seconds:
+	if check_quests:
+		var now := Time.get_ticks_msec() / 1000.0
+		if now - check_started > check_seconds or (check_quest_done_at > 0.0 and now - check_quest_done_at > CHECK_LINGER):
+			_check_quests_verdict(stats, sheet)
+	elif check_seconds > 0.0 and Time.get_ticks_msec() / 1000.0 - check_started > check_seconds:
 		print("realm check: ", readout.text.replace("
 ", " | "),
 			" | fight: %d own casts started, %d own hits, %d own bursts, target hp %d/255" % [check_casts, check_hits, check_bursts, check_hp],

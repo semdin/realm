@@ -198,6 +198,18 @@ impl Catalog {
             });
         }
 
+        let npcs = file("npcs.json", &mut errors);
+        let npc_names: Vec<String> = entries(&npcs["npcs"])
+            .into_iter()
+            .filter_map(|(_, n)| n["name"].as_str().map(str::to_owned))
+            .collect();
+        for (id, npc) in entries(&npcs["npcs"]) {
+            if let Some(map) = npc["map"].as_str() {
+                cat.check(&mut errors, cat.maps.contains(map), || {
+                    format!("npc {id}: map '{map}'")
+                });
+            }
+        }
         let quests = file("quests.json", &mut errors);
         cat.quest_places = keys(&quests["places"]);
         cat.quests = array(&quests["chain"])
@@ -212,12 +224,17 @@ impl Catalog {
                 "visit" => cat.quest_places.contains(target),
                 "enter_map" => cat.maps.contains(target),
                 "dungeon" => cat.dungeons.contains(target),
-                "talk" => !target.is_empty(),
+                "talk" => npc_names.iter().any(|n| n == target),
                 _ => true,
             };
             cat.check(&mut errors, ok, || {
                 format!("quest {id}: {kind} target '{target}'")
             });
+            if let Some(giver) = quest["giver"].as_str() {
+                cat.check(&mut errors, npc_names.iter().any(|n| n == giver), || {
+                    format!("quest {id}: giver '{giver}' is no NPC")
+                });
+            }
             for reward in array(&quest["reward_items"]) {
                 let item = reward
                     .as_str()

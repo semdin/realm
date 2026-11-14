@@ -11,6 +11,7 @@ pub mod creatures;
 pub mod items;
 pub mod loot;
 pub mod progress;
+pub mod quests;
 pub mod sheet;
 
 use std::collections::BTreeMap;
@@ -21,7 +22,7 @@ use serde_json::Value;
 
 pub use combat::{BASIC_SPELL, CastPower, CombatRules, Delivery, SpellDef};
 pub use items::{Cell, Derived, Dice, Done, ItemContext, ItemOp, ItemRules, ItemStats};
-pub use sheet::{BAG_SLOTS, Bonus, CharacterSheet, Item, MAX_STACK, Place, Slot};
+pub use sheet::{BAG_SLOTS, Bonus, CharacterSheet, Item, MAX_STACK, Place, QuestLog, Slot};
 
 /// Item facts the rules need (`items.json`).
 #[derive(Clone, Debug, Default)]
@@ -102,6 +103,8 @@ pub struct Rules {
     pub progress: progress::ProgressRules,
     /// What kills drop.
     pub loot: loot::LootRules,
+    /// The quest chain, its places and the NPCs who give it.
+    pub quests: quests::QuestRules,
     pub safe_zones: Vec<SafeZone>,
     /// Map -> the ids of its safe zones (maps.json `safe_zones`).
     pub map_zones: BTreeMap<String, Vec<String>>,
@@ -188,6 +191,11 @@ impl Rules {
                 file(content, "spawn_tables.json")?,
             ),
             loot: loot::LootRules::from_json(file(content, "loot_tables.json")?),
+            quests: quests::QuestRules::from_json(
+                file(content, "quests.json")?,
+                file(content, "npcs.json")?,
+                &combat,
+            ),
             mobs: creatures::CreatureRules::from_json(
                 file(content, "mobs.json")?,
                 file(content, "spawn_tables.json")?,
@@ -302,6 +310,8 @@ impl Rules {
             place: None,
             skills: Vec::new(),
             attributes: Vec::new(),
+            quests: QuestLog::default(),
+            house_rep: 0,
             revision: 1,
         };
         for (slot, item) in &self.starter.equipment {

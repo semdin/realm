@@ -20,7 +20,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_client` | GDExtension the Godot client loads: `RealmSession` (joins, steps the 30 Hz prediction, reports own body, others, stats and the map as meshes). |
 | `crates/realm_netem` | UDP proxy that adds delay, jitter and loss in both directions. |
 | `crates/realm_netcheck` | One scripted player through `ClientCore`; fails on any correction (Phase 4 exit). |
-| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`; a boss wears its authored boss body sized by `boss_overrides`), Dark Shards and training dummies their own views (`stone_view.gd`: idle glow, waves, shatter, fall-in; `dummy_view.gd`); the map's boss and stone notices show on the notice band; the old game's approved windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map is still grey collision geometry until the scenes stream in (Phase 6). Art is in LFS. |
+| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`; a boss wears its authored boss body sized by `boss_overrides`), Dark Shards and training dummies their own views (`stone_view.gd`: idle glow, waves, shatter, fall-in; `dummy_view.gd`); the map's boss and stone notices show on the notice band; the old game's approved windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map's NPCs (`content/data/npcs.json`, `scripts/view/npc_view.gd`) stand on the ground under their place, and the quest log the server keeps shows on the dialogue card, the tracker, the quest log (J) and the quest scroll (`scripts/systems/quest_manager.gd`); the map is still grey collision geometry until the scenes stream in (Phase 6). Art is in LFS. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
 | `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
@@ -104,6 +104,7 @@ godot --path game -- --server 127.0.0.1:7777 --map grounds
 godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
 godot --headless --path game -- --check 30 --check-target stone_dark   # fights a Dark Shard first (its waves)
 godot --headless --path game -- --check 180 --character 9 --check-rise here   # loots chests, spends a status point, rises where it fell
+godot --headless --path game -- --check-quests --character 11   # the first chapter: talks to Master Teral Venn, wears the cloak, hits a dummy; claims q001-q003
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```

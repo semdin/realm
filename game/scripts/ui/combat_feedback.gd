@@ -1,7 +1,7 @@
 extends Control
 class_name CombatFeedback
 
-## The kill loop on screen: the loot / experience / level toasts, the level-up
+## The kill loop on screen: the loot / experience / level / reputation toasts, the level-up
 ## moment, and a clear death / rise state with the death choice.
 ##
 ## Everything here is driven by the server's game events (main.gd hands them
@@ -15,6 +15,8 @@ const TOASTS_MAX := 6
 ## control deck rather than to a fixed y.
 const TOAST_H := 120.0
 const TOAST_SECONDS := 4.0
+## House reputation's colour (the toast and the words over the hero).
+const REP_COLOUR := Color(1.0, 0.78, 0.35)
 
 var session: Node
 var hud: Control
@@ -234,10 +236,18 @@ func press_rise(here: bool) -> void:
 ## ------------------------------------------------------------ loot and xp
 
 ## The server's "reward": a kill's experience, the killer's oril, items taken
-## from a chest.
+## from a chest, a claimed quest's pay (house reputation with it: a toast with
+## the crest and the words over the hero).
 func on_reward(event: Dictionary) -> void:
 	var exp := int(event.get("exp", 0))
 	var oril := int(event.get("oril", 0))
+	var rep := int(event.get("rep", 0))
+	if rep > 0:
+		var house := String(session.sheet().get("house", ""))
+		var text := tr("+%d %s Reputation") % [rep, HudQuestScroll.house_name(house)]
+		toast(text, REP_COLOUR, "house_" + house)
+		if is_instance_valid(player):
+			FloatingText.spawn(player.get_parent(), player.global_position + Vector3(0, 2.6, 0), text, REP_COLOUR, 1.1)
 	if exp > 0:
 		toast(tr("+%d EXP") % exp, Color(0.5, 1.0, 0.6), "stat_exp")
 	if oril > 0:

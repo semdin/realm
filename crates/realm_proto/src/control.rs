@@ -111,13 +111,20 @@ pub enum ServerMsg {
         elite: bool,
         boss: bool,
     },
-    /// What a kill paid this player: experience, oril (the killer's), items
-    /// taken from a chest, and the levels it gained.
+    /// What a kill or a quest paid this player: experience, oril, items
+    /// (from a chest or a quest), the levels it gained, house reputation.
     Reward {
         exp: u64,
         oril: u64,
         items: Vec<(String, u32)>,
         levels: u16,
+        rep: u32,
+    },
+    /// The answer to `ClaimQuest` ("claimed", "not_ready", "bag_full").
+    QuestResult {
+        quest: String,
+        ok: bool,
+        reason: String,
     },
     /// A chest's cells (answer to `OpenChest`, and after every take): an
     /// emptied cell stays as None.
@@ -186,6 +193,10 @@ pub enum ClientMsg {
     Respawn { here: bool },
     /// Spend an attribute point (vit, int, str, dex).
     SpendAttribute(String),
+    /// The player talked to this NPC (npcs.json `name`).
+    Talk(String),
+    /// Claim a quest that is ready.
+    ClaimQuest(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]

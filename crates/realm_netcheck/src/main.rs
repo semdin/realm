@@ -455,7 +455,8 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Chest { .. }
                     | realm_proto::control::ServerMsg::LootResult { .. }
                     | realm_proto::control::ServerMsg::Death { .. }
-                    | realm_proto::control::ServerMsg::AttributeResult { .. },
+                    | realm_proto::control::ServerMsg::AttributeResult { .. }
+                    | realm_proto::control::ServerMsg::QuestResult { .. },
                 ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }

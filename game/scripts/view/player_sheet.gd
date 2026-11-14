@@ -29,6 +29,10 @@ var inventory: Array = []
 var equipment: Dictionary = {}
 ## Bag cell -> entry (empty cells absent).
 var cells: Dictionary = {}
+## The whole sheet as the session last reported it (RealmSession.sheet: the
+## quest log, house standing and the rest), for readers that want more than
+## the windows' shape.
+var data: Dictionary = {}
 var _slot_names: PackedStringArray
 var _revision := -1
 
@@ -47,6 +51,7 @@ func _process(_delta: float) -> void:
 
 func _read(sheet: Dictionary) -> void:
 	_revision = int(sheet.get("revision", 0))
+	data = sheet
 	player_name = String(sheet.get("name", ""))
 	level = int(sheet.get("level", 1))
 	oril = int(sheet.get("oril", 0))

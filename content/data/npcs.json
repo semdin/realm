@@ -1,0 +1,130 @@
+{
+  "_comment": "Who stands on the maps and talks (the old game's game_world._setup_npcs). `name` is what quests name as giver and talk target; `dialogue` pages are English source strings (the client translates them); `robe` tints the robe and the dialogue medallion; `body` is a custom model (else the robed wizard); `services` opens a window from the dialogue (`workshop` = the wandmaker's refine and imbue). The server range-checks a talk against `pos` (quests.json talk_radius).",
+  "npcs": {
+    "teral_venn": {
+      "name": "Master Teral Venn",
+      "role": "Master of Kaf Castle",
+      "map": "grounds",
+      "pos": [
+        -12.0,
+        72.0
+      ],
+      "robe": [
+        0.2,
+        0.25,
+        0.5
+      ],
+      "dialogue": [
+        "Ah, a new student! Beneath the lake lies Kaf's shard of the World-Star Ithrel - this castle was raised to guard it.",
+        "Black Weavers infest the Raven Woods to the west. Drowned Ones haunt its edge, past Borin's hut.",
+        "Someone - the old records say the Ash Priest - drags darkened shards out of the Void. They fall in the western forests, from the Forest Edge past Borin's hut to Bandit Woods in the north-west. Close by, you will see their green light.",
+        "From level 5 the Trial Hall is open: it stands on the east terrace, south of the castle road. Press F at its glowing door."
+      ]
+    },
+    "kestrin": {
+      "name": "Kestrin",
+      "role": "Wandmaker",
+      "map": "grounds",
+      "pos": [
+        647.1,
+        -147.39
+      ],
+      "yaw": 1.32,
+      "robe": [
+        0.45,
+        0.3,
+        0.15
+      ],
+      "dialogue": [
+        "A wand is only as good as its maker... and the Oril behind it!",
+        "My forge is here on Orvell square, but press O anywhere to open my workshop. Bring Velkar Ash, Dragon Sinew, Night Steed Hair.",
+        "+4 glows blue, +7 crackles gold, +9 burns with starfire!"
+      ],
+      "services": [
+        {
+          "id": "workshop",
+          "label": "Open the workshop",
+          "key": "O"
+        }
+      ]
+    },
+    "bessa_tull": {
+      "name": "Bessa Tull",
+      "role": "Landlady of the Red Lantern",
+      "map": "grounds",
+      "pos": [
+        684.0,
+        -174.0
+      ],
+      "robe": [
+        0.5,
+        0.15,
+        0.2
+      ],
+      "dialogue": [
+        "Welcome to Orvell, dearie! Rest here - the village square is safe.",
+        "Buy Healing Draughts before heading to the Raven Woods. Trust me."
+      ]
+    },
+    "borin": {
+      "name": "Borin",
+      "role": "Forest Keeper",
+      "map": "grounds",
+      "pos": [
+        -278.0,
+        -11.0
+      ],
+      "robe": [
+        0.25,
+        0.3,
+        0.15
+      ],
+      "body": {
+        "model": "res://assets/models/characters/borin.glb",
+        "scale": 1.0,
+        "height": 2.72,
+        "radius": 0.55
+      },
+      "dialogue": [
+        "Don't go into that forest alone, friend... brave, though!",
+        "Drowned Ones fear fire - burn 'em with Flame Wave. Stun Bolt stuns 'em cold."
+      ]
+    },
+    "emrel_sav": {
+      "name": "Archivist Emrel Sav",
+      "role": "Librarian",
+      "map": "grounds",
+      "pos": [
+        -13.0,
+        22.0
+      ],
+      "robe": [
+        0.2,
+        0.15,
+        0.3
+      ],
+      "dialogue": [
+        "The library is inside, past the great doors. Mind the books.",
+        "The Feast Hall is through the entrance hall. The classrooms are across the hall."
+      ]
+    },
+    "kaelen_rook": {
+      "name": "Flight Master Kaelen Rook",
+      "role": "Flight & Duelling Master",
+      "map": "grounds",
+      "pos": [
+        22.0,
+        20.0
+      ],
+      "robe": [
+        0.1,
+        0.24,
+        0.4
+      ],
+      "dialogue": [
+        "Welcome! Stun Bolt interrupts, Flame Wave burns, and Disarm weakens attacks.",
+        "Practise in the training yard beside the landing pad, then pull a pack together. Watch the boss's warning circle."
+      ]
+    }
+  }
+}

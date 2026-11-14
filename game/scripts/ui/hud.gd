@@ -2,7 +2,8 @@ extends Control
 
 ## The in-game HUD: the unit frame with the health and mana gauges (top-left),
 ## the target card (top centre), the action bar with the bag on one taskbar
-## plate and the experience band along the bottom edge, and the notice band.
+## plate and the experience band along the bottom edge, and the notice band;
+## the unit frame also carries the house standing, and a rank-up is a notice.
 ## Windows find this node as their sibling "HUD" and call `show_notice`.
 ##
 ## It only draws: health and mana come from the newest snapshot
@@ -53,6 +54,9 @@ var _exp_stat: StatBar
 var _target_stat: StatBar
 var _target_flow: GaugeFlow
 var _hit_hold_until := 0.0
+## The house rank last shown; 0 until the first sheet, so a load is not a
+## rank-up.
+var _house_rank := 0
 
 func _init() -> void:
 	name = "HUD"
@@ -291,6 +295,21 @@ func _process(_delta: float) -> void:
 	exp_label.text = tr("Level %d   ·   %d / %d EXP   ·   %.1f%%") % [level, earned, needed, pct]
 	unit_frame.set_identity(String(data["name"]), String(data["house"]), level)
 	unit_frame.set_oril(int(data["oril"]))
+	_apply_house_standing(data)
+
+## House standing (quest reputation): the unit frame shows rank and progress, a
+## rise past a threshold gets a notice and the level-up chime.
+func _apply_house_standing(data: Dictionary) -> void:
+	if not data.has("house_rank"):
+		return
+	var rank := int(data["house_rank"])
+	var title := String(data.get("house_title", ""))
+	unit_frame.set_house_standing(rank, title, int(data.get("house_rep", 0)), int(data.get("rank_from", 0)),
+		int(data.get("rank_to", -1)))
+	if _house_rank > 0 and rank > _house_rank:
+		show_notice(tr("%s Rank %d · %s") % [HudQuestScroll.house_name(String(data["house"])), rank, I18n.t(title)], "good")
+		AudioManager.play_levelup()
+	_house_rank = rank
 
 ## ------------------------------------------------------------------ layout
 

@@ -3,7 +3,8 @@ class_name HudUnitFrame
 
 ## The player's unit frame, top-left: a round portrait medallion (house crest in
 ## a gold ring) with the level badge under it, the name and house beside it, the
-## purse under the gauges, on a plate that fades out to the right. The HP and
+## purse under the gauges with the house standing (rank, title and a thin
+## reputation bar) beside it, on a plate that fades out to the right. The HP and
 ## mana gauges are the HUD's own bars; this control draws the frame around them
 ## and says where they go (`gauge_rect`).
 
@@ -14,6 +15,13 @@ var house := ""
 var level := 1
 var crest: Texture2D = null
 var oril := -1
+## House standing from the sheet: rank (0 = not known yet), its title, the
+## reputation and the rank's span (`rank_to` -1 at the top rank).
+var house_rank := 0
+var house_title := ""
+var house_rep := 0
+var rank_from := 0
+var rank_to := -1
 var _house_name := ""
 var _house_colour := HudKit.TEXT
 var _coin: Texture2D = null
@@ -47,6 +55,16 @@ func set_identity(p_name: String, p_house: String, p_level: int) -> void:
 		_house_name = I18n.t(String(data.get("name", house.capitalize())))
 		_house_colour = Color.html(String(data["primary_color"])).lightened(0.35) if data.has("primary_color") else HudKit.TEXT
 	level = p_level
+	queue_redraw()
+
+func set_house_standing(rank: int, title: String, rep: int, from: int, to: int) -> void:
+	if rank == house_rank and title == house_title and rep == house_rep and from == rank_from and to == rank_to:
+		return
+	house_rank = rank
+	house_title = title
+	house_rep = rep
+	rank_from = from
+	rank_to = to
 	queue_redraw()
 
 ## Where the gauges go, in this control's coordinates.
@@ -105,6 +123,8 @@ func _draw() -> void:
 		var hp := Vector2(size.x - hw - 14, 33)
 		draw_string_outline(hf, hp, _house_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.9))
 		draw_string(hf, hp, _house_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, _house_colour)
+		if house_rank > 0:
+			_draw_house_standing(_house_colour)
 	# Purse, under the gauges.
 	if oril >= 0:
 		var text := thousands(oril)
@@ -114,6 +134,20 @@ func _draw() -> void:
 			draw_texture_rect(_coin, Rect2(Vector2(MEDALLION + 14, 87), Vector2(16, 16)), false)
 		draw_string_outline(gf, gp, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 3, Color(0, 0, 0, 0.9))
 		draw_string(gf, gp, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, HudKit.GOLD_LT)
+
+## Rank title and a thin reputation bar, right-aligned on the purse line.
+func _draw_house_standing(colour: Color) -> void:
+	var text := tr("Rank %d · %s") % [house_rank, I18n.t(house_title)]
+	var f := HudKit.bold()
+	var w := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	var right := size.x - 14
+	var p := Vector2(right - w, 98)
+	draw_string_outline(f, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 3, Color(0, 0, 0, 0.9))
+	draw_string(f, p, text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, colour)
+	var pct := 1.0 if rank_to < 0 else clampf(float(house_rep - rank_from) / maxf(1.0, float(rank_to - rank_from)), 0.0, 1.0)
+	var bar := Rect2(Vector2(right - w, 102), Vector2(w, 3))
+	draw_rect(bar, Color(0, 0, 0, 0.6))
+	draw_rect(Rect2(bar.position, Vector2(bar.size.x * pct, bar.size.y)), colour)
 
 static func thousands(v: int) -> String:
 	var s := str(absi(v))

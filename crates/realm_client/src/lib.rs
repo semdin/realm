@@ -441,7 +441,8 @@ impl RealmSession {
                     | ServerMsg::Chest { .. }
                     | ServerMsg::LootResult { .. }
                     | ServerMsg::Death { .. }
-                    | ServerMsg::AttributeResult { .. }),
+                    | ServerMsg::AttributeResult { .. }
+                    | ServerMsg::QuestResult { .. }),
                 ) => self.game_events.push(event),
                 NetEvent::Control(ServerMsg::ItemResult {
                     op_id,
@@ -710,6 +711,23 @@ impl RealmSession {
         }
     }
 
+    /// Tells the server the player talked to NPC `name` (npcs.json); talk
+    /// quests naming it count when the player stands within reach.
+    #[func]
+    fn talk(&mut self, name: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Talk(name.to_string()));
+        }
+    }
+
+    /// Claims a ready quest; the answer is a "quest_result" game event.
+    #[func]
+    fn claim_quest(&mut self, id: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::ClaimQuest(id.to_string()));
+        }
+    }
+
     /// Spends an attribute point (vit, int, str, dex).
     #[func]
     fn spend_attribute(&mut self, stat: GString) {
@@ -719,11 +737,13 @@ impl RealmSession {
     }
 
     /// The kill loop's messages since the last call, each with `kind`:
-    /// - "reward": `exp`, `oril`, `items` ([{id, amount}]), `levels`
+    /// - "reward": `exp`, `oril`, `items` ([{id, amount}]), `levels`, `rep`
     /// - "chest": `chest`, `slots` (item dictionaries, null for an empty cell)
     /// - "loot_result": `chest`, `ok`, `reason`
     /// - "death": `ready_tick`, `auto_tick` (server ticks), `killer`
     /// - "attribute_result": `stat`, `ok`, `reason`
+    /// - "quest_result": `quest`, `ok`, `reason` ("claimed", "not_ready",
+    ///   "bag_full")
     #[func]
     fn take_game_events(&mut self) -> VarArray {
         let mut out = VarArray::new();
@@ -735,7 +755,9 @@ impl RealmSession {
                     oril,
                     items,
                     levels,
+                    rep,
                 } => {
+                    d.set("rep", &i64::from(rep).to_variant());
                     d.set("kind", "reward");
                     d.set("exp", &(exp as i64).to_variant());
                     d.set("oril", &(oril as i64).to_variant());
@@ -777,6 +799,12 @@ impl RealmSession {
                     d.set("ready_tick", &i64::from(ready_tick).to_variant());
                     d.set("auto_tick", &i64::from(auto_tick).to_variant());
                     d.set("killer", &i64::from(killer).to_variant());
+                }
+                ServerMsg::QuestResult { quest, ok, reason } => {
+                    d.set("kind", "quest_result");
+                    d.set("quest", &GString::from(quest.as_str()).to_variant());
+                    d.set("ok", &ok.to_variant());
+                    d.set("reason", &GString::from(reason.as_str()).to_variant());
                 }
                 ServerMsg::AttributeResult { stat, ok, reason } => {
                     d.set("kind", "attribute_result");
@@ -1105,7 +1133,11 @@ impl RealmSession {
     /// `hp`, `mana`, `max_hp`, `max_mana`, `oril`, `bag` (40 cells: an item
     /// dictionary or null), `equipment` (slot name -> item dictionary),
     /// `look`, `exp_next` (experience the level takes), `attributes` (stat
-    /// -> points spent), `attribute_points` and `skill_points` (unspent).
+    /// -> points spent), `attribute_points` and `skill_points` (unspent),
+    /// `house_rep`, `house_rank`, `house_title`, `rank_from` / `rank_to` (the
+    /// rank's reputation span; `rank_to` -1 at the top) and `quests`: the log
+    /// in chain order, ready first, each {`id`, `state` ("ready" or "open"),
+    /// `progress`, `count`} (the quest's text is in quests.json).
     /// An item is `id`, `amount`, `tier`, `uid` and `bonuses` (stat ->
     /// value). Empty before the server has sent it.
     #[func]
@@ -1173,6 +1205,65 @@ impl RealmSession {
             attributes.set(stat.as_str(), &i64::from(*points).to_variant());
         }
         out.set("attributes", &attributes.to_variant());
+        if let Some(r) = self.rules.as_ref() {
+            let q = &r.quests;
+            let rank = q.rank(sheet.house_rep);
+            out.set("house_rep", &i64::from(sheet.house_rep).to_variant());
+            out.set("house_rank", &i64::from(rank).to_variant());
+            out.set(
+                "house_title",
+                &GString::from(
+                    q.rank_titles
+                        .get(usize::from(rank).saturating_sub(1))
+                        .map_or("", String::as_str),
+                )
+                .to_variant(),
+            );
+            let from = q
+                .rank_thresholds
+                .get(usize::from(rank).saturating_sub(1))
+                .copied()
+                .unwrap_or(0);
+            let to = q
+                .rank_thresholds
+                .get(usize::from(rank))
+                .map_or(-1, |t| i64::from(*t));
+            out.set("rank_from", &i64::from(from).to_variant());
+            out.set("rank_to", &to.to_variant());
+            let mut log = VarArray::new();
+            let mut entry = |id: &str, state: &str, progress: u32, count: u32| {
+                let mut d = VarDictionary::new();
+                d.set("id", &GString::from(id).to_variant());
+                d.set("state", &GString::from(state).to_variant());
+                d.set("progress", &i64::from(progress).to_variant());
+                d.set("count", &i64::from(count).to_variant());
+                log.push(&d.to_variant());
+            };
+            for quest in &q.chain {
+                if sheet.quests.ready.contains(&quest.id) {
+                    entry(&quest.id, "ready", quest.count, quest.count);
+                }
+            }
+            for quest in &q.chain {
+                if q.is_open(sheet, quest) {
+                    let n = sheet
+                        .quests
+                        .progress
+                        .iter()
+                        .find(|(id, _)| *id == quest.id)
+                        .map_or(0, |(_, n)| *n);
+                    entry(&quest.id, "open", n, quest.count);
+                }
+            }
+            out.set("quests", &log.to_variant());
+            let done: VarArray = sheet
+                .quests
+                .done
+                .iter()
+                .map(|id| GString::from(id.as_str()).to_variant())
+                .collect();
+            out.set("quests_done", &done.to_variant());
+        }
         out
     }
 
