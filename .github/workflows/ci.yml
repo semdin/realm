@@ -116,6 +116,20 @@ jobs:
           ./target/release/realm_netcheck --server 127.0.0.1:7800 --map castle_interior --seconds 30
           kill %1 %2 || true
 
+      - name: Chat and parties across maps
+        if: matrix.os == 'ubuntu-26.04'
+        # Two map servers linked by the coordinator: an invitation, a party
+        # spanning both maps, a party line, a shout, a plain line that stays
+        # on its map, a leave.
+        run: |
+          ./target/release/realm_coord > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 > server_a.log 2>&1 &
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 > server_b.log 2>&1 &
+          sleep 4
+          ./target/release/realm_netcheck --social
+          kill %1 %2 %3 || true
+
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: simcheck-${{ matrix.os }}

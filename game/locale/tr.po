@@ -5601,3 +5601,54 @@ msgstr "%s: çağrısına bir yaratık dalgası karşılık veriyor! (Dalga %d/%
 
 msgid "The enchantments were rewoven."
 msgstr "Efsunlar yeniden atıldı."
+
+msgid "%s declined your party invitation."
+msgstr "%s grup davetini reddetti."
+
+msgid "%s is not online."
+msgstr "%s çevrimiçi değil."
+
+msgid "%s is already in a party."
+msgstr "%s zaten bir grupta."
+
+msgid "%s joined the party."
+msgstr "%s gruba katıldı."
+
+msgid "%s is not in your party."
+msgstr "%s senin grubunda değil."
+
+msgid "Your party invitation to %s expired."
+msgstr "%s için gönderdiğin grup davetinin süresi doldu."
+
+msgid "You declined the party invitation."
+msgstr "Grup davetini reddettin."
+
+msgid "You have no party invitation."
+msgstr "Bekleyen bir grup davetin yok."
+
+msgid "Only the party leader can invite."
+msgstr "Yalnızca grup lideri davet edebilir."
+
+msgid "Your party is full."
+msgstr "Grubun dolu."
+
+msgid "The invitation is no longer valid."
+msgstr "Bu davet artık geçerli değil."
+
+msgid "You are already in a party."
+msgstr "Zaten bir gruptasın."
+
+msgid "That party is full."
+msgstr "O grup dolu."
+
+msgid "You were removed from the party."
+msgstr "Gruptan çıkarıldın."
+
+msgid "Shouting reaches no one right now."
+msgstr "Şu anda sesini kimse duyamıyor."
+
+msgid "Unknown command. Try: /p, /invite <name>, /accept, /decline, /leave, /kick <name>, /promote <name>, !shout"
+msgstr "Bilinmeyen komut. Şunları dene: /p, /invite <isim>, /accept, /decline, /leave, /kick <isim>, /promote <isim>, !bağırış"
+
+msgid "Parties are not available right now."
+msgstr "Gruplar şu anda kullanılamıyor."

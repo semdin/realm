@@ -1408,6 +1408,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "realm_coord"
+version = "0.1.0"
+dependencies = [
+ "realm_proto",
+ "tokio",
+]
+
+[[package]]
 name = "realm_data"
 version = "0.1.0"
 dependencies = [

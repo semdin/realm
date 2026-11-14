@@ -120,6 +120,19 @@ pub enum ServerMsg {
         levels: u16,
         rep: u32,
     },
+    /// A chat line (coord CHANNEL_*): `from` is the speaker's name (empty
+    /// for a system line), `speaker` its entity when it stands on this map
+    /// (a speech bubble), else 0.
+    Chat {
+        channel: u8,
+        from: String,
+        text: String,
+        speaker: u32,
+    },
+    /// `from` invites the player into its party (`/accept`, `/decline`).
+    PartyInvite { from: String },
+    /// The player's party as it now stands (party 0: none).
+    Party(crate::coord::PartyView),
     /// The answer to `ClaimQuest` ("claimed", "not_ready", "bag_full").
     QuestResult {
         quest: String,
@@ -153,6 +166,14 @@ pub enum ServerMsg {
         ok: bool,
         reason: String,
     },
+    /// Who a player is (answer to `Inspect` on a player's entity).
+    PlayerInfo {
+        entity: u32,
+        character: u64,
+        name: String,
+        house: String,
+        level: u16,
+    },
     /// Something the map announces: `kind` ("boss_soon", "boss_spawned",
     /// "boss_slain", "stone_wave", "stone_shattered") about `subject` (a
     /// name; the client translates both). `actor` is the character whose
@@ -183,7 +204,7 @@ pub enum ClientMsg {
     },
     /// Spend a skill point on `spell` (learn it, or raise it one level).
     LearnSkill(String),
-    /// What is this creature (entity id)?
+    /// What is this creature or player (entity id)?
     Inspect(u32),
     /// Show a chest's cells (within reach).
     OpenChest(u32),
@@ -197,6 +218,8 @@ pub enum ClientMsg {
     Talk(String),
     /// Claim a quest that is ready.
     ClaimQuest(String),
+    /// A chat line or a /command, as typed.
+    Chat(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]

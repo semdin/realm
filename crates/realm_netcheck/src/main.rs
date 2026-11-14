@@ -1,6 +1,7 @@
 //! realm_netcheck --server 127.0.0.1:7800 [--keys keys] [--map grounds]
 //!                [--content content/data] [--maps world/maps] [--seconds 60]
 //!                [--character 900001]
+//! realm_netcheck --social [--server A --map A --server-b B --map-b B]   (see social.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -8,6 +9,8 @@
 //! game client does it; a reconciliation that moves the player is a
 //! correction the player would see as a snap back. Exits with an error if
 //! there was any (Phase 4 exit: none at 200 ms and 2% loss).
+
+mod social;
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -188,6 +191,12 @@ fn intent(tick: u32) -> MoveInput {
 
 fn main() -> AnyResult<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|a| a == "--social") {
+        return social::run(&args);
+    }
+    if args.iter().any(|a| a == "--social-partner") {
+        return social::partner(&args);
+    }
     let server: SocketAddr = arg(&args, "--server", "127.0.0.1:7800").parse()?;
     let keys = PathBuf::from(arg(&args, "--keys", "keys"));
     let map = arg(&args, "--map", "grounds");
@@ -456,7 +465,11 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::LootResult { .. }
                     | realm_proto::control::ServerMsg::Death { .. }
                     | realm_proto::control::ServerMsg::AttributeResult { .. }
-                    | realm_proto::control::ServerMsg::QuestResult { .. },
+                    | realm_proto::control::ServerMsg::QuestResult { .. }
+                    | realm_proto::control::ServerMsg::Chat { .. }
+                    | realm_proto::control::ServerMsg::PartyInvite { .. }
+                    | realm_proto::control::ServerMsg::Party(_)
+                    | realm_proto::control::ServerMsg::PlayerInfo { .. },
                 ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }

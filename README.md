@@ -21,6 +21,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_netem` | UDP proxy that adds delay, jitter and loss in both directions. |
 | `crates/realm_netcheck` | One scripted player through `ClientCore`; fails on any correction (Phase 4 exit). |
 | `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`; a boss wears its authored boss body sized by `boss_overrides`), Dark Shards and training dummies their own views (`stone_view.gd`: idle glow, waves, shatter, fall-in; `dummy_view.gd`); the map's boss and stone notices show on the notice band; the old game's approved windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map's NPCs (`content/data/npcs.json`, `scripts/view/npc_view.gd`) stand on the ground under their place, and the quest log the server keeps shows on the dialogue card, the tracker, the quest log (J) and the quest scroll (`scripts/systems/quest_manager.gd`); the map is still grey collision geometry until the scenes stream in (Phase 6). Art is in LFS. |
+| `crates/realm_coord` | The coordinator: who is online on which map, the parties, shouts and party lines across maps. Map servers link to it with `--coord` and keys/coord.key; players never do. Without it a map server still runs (local chat only). |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
 | `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
@@ -39,6 +40,9 @@ cargo run --release -p realm_simcheck [-- --trace stairs | --bench]   # movement
 cargo run --release -p realm_server -- keygen keys            # dev ticket key + TLS cert (keys/ is gitignored)
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest | grak | stone_dark | training_dummy
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
+cargo run --release -p realm_coord                      # coordinator: chat, parties across maps (127.0.0.1:7900, keys/coord.key)
+cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900   # a map server linked to it
+cargo run --release -p realm_netcheck -- --social       # two players on two maps: invite, party, party line, shout, local stays local
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data
@@ -106,6 +110,8 @@ godot --headless --path game -- --check 30 --check-target stone_dark   # fights 
 godot --headless --path game -- --check 180 --character 9 --check-rise here   # loots chests, spends a status point, rises where it fell
 godot --headless --path game -- --check-quests --character 11   # the first chapter: talks to Master Teral Venn, wears the cloak, hits a dummy; claims q001-q003
 godot --headless --path game -- --check-workshop --character 900002   # O opens Kestrin's workshop: refines, imbues and reweaves the wand (prepared character)
+godot --headless --path game -- --check-social --character 900107   # with realm_coord, the map server --coord 127.0.0.1:7900 and realm_netcheck --social-partner: local line + bubble, /invite, party frame, party line and shout, /leave
+godot --headless --path game -- --social-guest "Wanderer 107" --character 900108   # a second client that says a local line and invites; the check then takes --check-invite-from "Wanderer 108" (card, player menu, accept)
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```

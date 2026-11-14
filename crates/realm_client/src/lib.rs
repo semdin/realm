@@ -291,6 +291,10 @@ struct RealmSession {
     notices: Vec<ServerMsg>,
     /// Rewards, chests, loot answers, deaths, attribute answers.
     game_events: Vec<ServerMsg>,
+    /// Chat lines waiting to be taken.
+    chat: Vec<ServerMsg>,
+    /// The party as the server last said.
+    party: realm_proto::coord::PartyView,
     status: String,
     /// The player's character sheet as the server last sent it.
     sheet: Option<CharacterSheet>,
@@ -320,6 +324,8 @@ impl INode for RealmSession {
             creature_info: Vec::new(),
             notices: Vec::new(),
             game_events: Vec::new(),
+            chat: Vec::new(),
+            party: realm_proto::coord::PartyView::default(),
             status: "idle".to_owned(),
             sheet: None,
             item_results: Vec::new(),
@@ -430,7 +436,9 @@ impl RealmSession {
                 NetEvent::Control(ServerMsg::SkillResult { spell, ok, reason }) => {
                     self.skill_results.push((spell, ok, reason));
                 }
-                NetEvent::Control(info @ ServerMsg::CreatureInfo { .. }) => {
+                NetEvent::Control(
+                    info @ (ServerMsg::CreatureInfo { .. } | ServerMsg::PlayerInfo { .. }),
+                ) => {
                     self.creature_info.push(info);
                 }
                 NetEvent::Control(notice @ ServerMsg::Notice { .. }) => {
@@ -442,8 +450,20 @@ impl RealmSession {
                     | ServerMsg::LootResult { .. }
                     | ServerMsg::Death { .. }
                     | ServerMsg::AttributeResult { .. }
-                    | ServerMsg::QuestResult { .. }),
+                    | ServerMsg::QuestResult { .. }
+                    | ServerMsg::PartyInvite { .. }),
                 ) => self.game_events.push(event),
+                NetEvent::Control(line @ ServerMsg::Chat { .. }) => {
+                    self.chat.push(line);
+                    // A client that never takes its chat keeps the newest.
+                    if self.chat.len() > 300 {
+                        self.chat.remove(0);
+                    }
+                }
+                NetEvent::Control(ServerMsg::Party(view)) => {
+                    self.party = view;
+                    self.game_events.push(ServerMsg::Party(self.party.clone()));
+                }
                 NetEvent::Control(ServerMsg::ItemResult {
                     op_id,
                     ok,
@@ -720,6 +740,75 @@ impl RealmSession {
         }
     }
 
+    /// Sends a chat line or a /command as typed (`!` shouts, `/p` speaks to
+    /// the party, `/invite <name>`, `/accept`, `/decline`, `/leave`,
+    /// `/kick <name>`, `/promote <name>`).
+    #[func]
+    fn send_chat(&mut self, text: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Chat(text.to_string()));
+        }
+    }
+
+    /// Chat lines since the last call: `channel` (0 local, 1 shout, 2 party,
+    /// 3 system), `from` (the speaker's name; empty for a system line),
+    /// `text`, `speaker` (its entity when it stands on this map, for a
+    /// speech bubble; else 0). System lines are English source strings.
+    #[func]
+    fn take_chat(&mut self) -> VarArray {
+        let mut out = VarArray::new();
+        for msg in self.chat.drain(..) {
+            if let ServerMsg::Chat {
+                channel,
+                from,
+                text,
+                speaker,
+            } = msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("channel", &i64::from(channel).to_variant());
+                d.set("from", &GString::from(from.as_str()).to_variant());
+                d.set("text", &GString::from(text.as_str()).to_variant());
+                d.set("speaker", &i64::from(speaker).to_variant());
+                out.push(&d.to_variant());
+            }
+        }
+        out
+    }
+
+    /// The player's party: `party` (0: none), `leader` (character id), `me`
+    /// (the player's character id) and `members`, each {`character`,
+    /// `name`, `house`, `level`, `hp`, `max_hp`, `mana`, `max_mana`, `map`,
+    /// `dead`}.
+    #[func]
+    fn party(&self) -> VarDictionary {
+        let mut d = VarDictionary::new();
+        let v = &self.party;
+        d.set("party", &(v.party as i64).to_variant());
+        d.set("leader", &(v.leader as i64).to_variant());
+        d.set(
+            "me",
+            &self.sheet.as_ref().map_or(0, |s| s.id as i64).to_variant(),
+        );
+        let mut members = VarArray::new();
+        for m in &v.members {
+            let mut e = VarDictionary::new();
+            e.set("character", &(m.character as i64).to_variant());
+            e.set("name", &GString::from(m.name.as_str()).to_variant());
+            e.set("house", &GString::from(m.house.as_str()).to_variant());
+            e.set("level", &i64::from(m.level).to_variant());
+            e.set("hp", &i64::from(m.hp).to_variant());
+            e.set("max_hp", &i64::from(m.max_hp).to_variant());
+            e.set("mana", &i64::from(m.mana).to_variant());
+            e.set("max_mana", &i64::from(m.max_mana).to_variant());
+            e.set("map", &GString::from(m.map.as_str()).to_variant());
+            e.set("dead", &m.dead.to_variant());
+            members.push(&e.to_variant());
+        }
+        d.set("members", &members.to_variant());
+        d
+    }
+
     /// Claims a ready quest; the answer is a "quest_result" game event.
     #[func]
     fn claim_quest(&mut self, id: GString) {
@@ -744,6 +833,8 @@ impl RealmSession {
     /// - "attribute_result": `stat`, `ok`, `reason`
     /// - "quest_result": `quest`, `ok`, `reason` ("claimed", "not_ready",
     ///   "bag_full")
+    /// - "party_invite": `from` (answer with `/accept` or `/decline`)
+    /// - "party": the party changed (read it with `party()`)
     #[func]
     fn take_game_events(&mut self) -> VarArray {
         let mut out = VarArray::new();
@@ -800,6 +891,13 @@ impl RealmSession {
                     d.set("auto_tick", &i64::from(auto_tick).to_variant());
                     d.set("killer", &i64::from(killer).to_variant());
                 }
+                ServerMsg::PartyInvite { from } => {
+                    d.set("kind", "party_invite");
+                    d.set("from", &GString::from(from.as_str()).to_variant());
+                }
+                ServerMsg::Party(_) => {
+                    d.set("kind", "party");
+                }
                 ServerMsg::QuestResult { quest, ok, reason } => {
                     d.set("kind", "quest_result");
                     d.set("quest", &GString::from(quest.as_str()).to_variant());
@@ -828,13 +926,32 @@ impl RealmSession {
         }
     }
 
-    /// Answers to `inspect`: `entity`, `boss_key` (boss_overrides key, else
+    /// Answers to `inspect`. A player: `entity`, `player` (true),
+    /// `character`, `name`, `house`, `level`. A creature: `entity`, `boss_key` (boss_overrides key, else
     /// empty), `name` (a boss's, a Dark Shard's or a dummy's own name; empty:
     /// the species' name), `level`, `elite`, `boss`.
     #[func]
     fn take_creature_info(&mut self) -> VarArray {
         let mut out = VarArray::new();
         for msg in self.creature_info.drain(..) {
+            if let ServerMsg::PlayerInfo {
+                entity,
+                character,
+                name,
+                house,
+                level,
+            } = &msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("entity", &i64::from(*entity).to_variant());
+                d.set("player", &true.to_variant());
+                d.set("character", &(*character as i64).to_variant());
+                d.set("name", &GString::from(name.as_str()).to_variant());
+                d.set("house", &GString::from(house.as_str()).to_variant());
+                d.set("level", &i64::from(*level).to_variant());
+                out.push(&d.to_variant());
+                continue;
+            }
             if let ServerMsg::CreatureInfo {
                 entity,
                 boss_key,

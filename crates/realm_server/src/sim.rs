@@ -33,6 +33,7 @@ mod brain;
 mod combat;
 mod quests;
 mod rewards;
+mod social;
 mod status;
 use crate::store::StoreJob;
 use combat::{Bolt, Caster};
@@ -71,6 +72,11 @@ pub enum NetEvent {
     Leave {
         conn: ConnId,
     },
+    /// The coordinator sent something.
+    Coord(realm_proto::coord::CoordMsg),
+    /// The link to the coordinator came up, or went down.
+    CoordUp,
+    CoordDown,
 }
 
 /// Every player is saved once in this many ticks (30 s), spread over them.
@@ -173,6 +179,10 @@ struct Player {
     last_input_tick: u32,
     /// Deaths and respawns so far (wrapping), for the owner's snapshots.
     life: u8,
+    /// The next tick this player may chat.
+    chat_ready: u32,
+    /// Its party as the coordinator last said.
+    party: realm_proto::coord::PartyView,
     /// A dead player may rise from this tick (`dead_until` is when it goes
     /// to town by itself).
     respawn_ready: u32,
@@ -390,6 +400,9 @@ pub struct Sim {
     /// join reads it instead of the store's older copy.
     unsaved: HashMap<u64, CharacterSheet>,
     store: crossbeam_channel::Sender<StoreJob>,
+    /// To the coordinator (None: running alone), and whether it is linked.
+    coord_tx: Option<tokio::sync::mpsc::UnboundedSender<realm_proto::coord::MapMsg>>,
+    coord_up: bool,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -540,12 +553,23 @@ impl Sim {
             dice_state: getrandom::u32().unwrap_or(0x2545_F491) | 1,
             pending: HashMap::new(),
             unsaved: HashMap::new(),
+            coord_tx: None,
+            coord_up: false,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
         };
         sim.spawn_creatures();
         Ok(sim)
+    }
+
+    /// Links this server to the coordinator (the link task reports through
+    /// NetEvent::CoordUp / CoordDown).
+    pub fn set_coord(
+        &mut self,
+        tx: tokio::sync::mpsc::UnboundedSender<realm_proto::coord::MapMsg>,
+    ) {
+        self.coord_tx = Some(tx);
     }
 
     pub fn creature_count(&self) -> usize {
@@ -659,6 +683,7 @@ impl Sim {
         self.advance_afflictions();
         self.sweep_chests();
         self.quest_visits();
+        self.party_vitals();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -761,8 +786,15 @@ impl Sim {
             }
             NetEvent::Leave { conn } => {
                 self.pending.remove(&conn);
+                let character = self.clients.get(&conn).map(|c| c.character);
                 self.remove_player(conn);
+                if let Some(character) = character {
+                    self.announce_gone(character);
+                }
             }
+            NetEvent::Coord(msg) => self.coord_event(msg),
+            NetEvent::CoordUp => self.coord_link_up(),
+            NetEvent::CoordDown => self.coord_link_down(),
         }
     }
 
@@ -813,6 +845,8 @@ impl Sim {
             gap_ticks: 0,
             last_input_tick: self.tick,
             life: 0,
+            chat_ready: 0,
+            party: realm_proto::coord::PartyView::default(),
             respawn_ready: 0,
             sheet,
             dirty_since: None,
@@ -844,6 +878,7 @@ impl Sim {
                 events: Vec::new(),
             },
         );
+        self.announce(entity);
         let _ = join.reply.send(JoinReply::Accepted {
             entity: id,
             tick: self.tick,
@@ -902,7 +937,9 @@ impl Sim {
             .is_err()
         {
             eprintln!("[net] connection {conn}: control queue full, closing");
+            let character = client.character;
             self.remove_player(conn);
+            self.announce_gone(character);
         }
     }
 
@@ -946,8 +983,20 @@ impl Sim {
             ClientMsg::SpendAttribute(stat) => self.spend_attribute(conn, entity, stat),
             ClientMsg::Talk(name) => self.talk(entity, &name),
             ClientMsg::ClaimQuest(id) => self.claim_quest(conn, entity, id),
+            ClientMsg::Chat(text) => self.chat(conn, entity, &text),
             ClientMsg::Inspect(id) => {
-                let Some(info) = self.creature_info(id) else {
+                let player = self
+                    .ids
+                    .get(&id)
+                    .and_then(|e| self.world.get::<Player>(*e))
+                    .map(|p| ServerMsg::PlayerInfo {
+                        entity: id,
+                        character: p.sheet.id,
+                        name: p.sheet.name.clone(),
+                        house: p.sheet.house.clone(),
+                        level: p.sheet.level,
+                    });
+                let Some(info) = player.or_else(|| self.creature_info(id)) else {
                     return;
                 };
                 self.send_control(conn, &info);

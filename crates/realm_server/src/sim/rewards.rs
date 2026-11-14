@@ -19,6 +19,12 @@ use realm_sim::{SIM_HZ, Vec3};
 use super::{ConnId, Entity, Mob, NetId, Player, ServerDice, Sim, planar_distance, xorshift};
 use crate::game::PackKind;
 
+/// Party members this close to a kill share it (3D).
+const SHARE_RADIUS: f32 = 40.0;
+/// A party member more than this many levels below the highest sharer
+/// does not share.
+const SHARE_LEVEL_SPREAD: u16 = 15;
+const PARTY_BONUS_CAP: f64 = 0.4;
 /// Hits older than this at the kill earn nothing (old KILL_CREDIT_MS).
 const CREDIT_TICKS: u32 = 10 * SIM_HZ;
 /// A creature remembers at most this many hits.
@@ -105,6 +111,7 @@ impl Sim {
         if let Some(mut m) = self.world.get_mut::<Mob>(mob) {
             m.credit.clear();
         }
+        let earners = self.with_party(earners, pos);
         let species_id = self.game.species[species].id.clone();
         for &player in &earners {
             if stone {
@@ -113,11 +120,11 @@ impl Sim {
                 self.quest_event(player, "kill", &species_id, boss);
             }
         }
-        for player in earners {
-            let Some((player_level, bonus)) = self
+        for &player in &earners {
+            let Some((player_level, bonus, party)) = self
                 .world
                 .get::<Player>(player)
-                .map(|p| (p.sheet.level, p.caster.stat("exp_bonus")))
+                .map(|p| (p.sheet.level, p.caster.stat("exp_bonus"), p.party.party))
             else {
                 continue;
             };
@@ -125,7 +132,22 @@ impl Sim {
                 f64::from(exp_reward)
             } else {
                 let gap = rules.progress.gap(level, player_level);
-                (f64::from(exp_reward) * f64::from(gap.exp)).round()
+                // A party earns more together: +10 % per member who shares,
+                // at most +40 %.
+                let sharing = if party == 0 {
+                    1
+                } else {
+                    earners
+                        .iter()
+                        .filter(|e| {
+                            self.world
+                                .get::<Player>(**e)
+                                .is_some_and(|q| q.party.party == party)
+                        })
+                        .count()
+                };
+                let together = 1.0 + (0.1 * (sharing as f64 - 1.0)).min(PARTY_BONUS_CAP);
+                ((f64::from(exp_reward) * f64::from(gap.exp)).round() * together).round()
             };
             let exp = (base * (1.0 + f64::from(bonus) / 100.0)).round() as u64;
             self.pay(player, exp, 0);
@@ -189,6 +211,46 @@ impl Sim {
             let id = self.new_id(chest);
             self.world.entity_mut(chest).insert(NetId(id));
         }
+    }
+
+    /// The earners and their party members who share the kill: on this map,
+    /// alive, near it, out of protection, within the level spread.
+    fn with_party(&self, earners: Vec<Entity>, at: Vec3) -> Vec<Entity> {
+        let mut out = earners;
+        let mut candidates: Vec<u64> = Vec::new();
+        for e in &out {
+            if let Some(p) = self.world.get::<Player>(*e) {
+                candidates.extend(p.party.members.iter().map(|m| m.character));
+            }
+        }
+        let top = out
+            .iter()
+            .filter_map(|e| self.world.get::<Player>(*e).map(|p| p.sheet.level))
+            .max()
+            .unwrap_or(1);
+        for character in candidates {
+            let Some(entity) = self
+                .clients
+                .values()
+                .find(|c| c.character == character)
+                .map(|c| c.entity)
+            else {
+                continue;
+            };
+            if out.contains(&entity) {
+                continue;
+            }
+            let ok = self.world.get::<Player>(entity).is_some_and(|p| {
+                p.dead_until == 0
+                    && (p.body.pos - at).length() <= SHARE_RADIUS
+                    && !self.protected(p.body.pos)
+                    && p.sheet.level + SHARE_LEVEL_SPREAD >= top
+            });
+            if ok {
+                out.push(entity);
+            }
+        }
+        out
     }
 
     /// Pays a player experience and oril: levels gained refill health and

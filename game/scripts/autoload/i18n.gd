@@ -127,6 +127,14 @@ func mob_name(text: String) -> String:
 
 # i18n-begin
 const COMPOSED := [
+	# the realm coordinator (parties)
+	"%s declined your party invitation.",
+	"%s is not online.",
+	"%s is already in a party.",
+	"Party invitation sent to %s.",
+	"%s joined the party.",
+	"%s is not in your party.",
+	"Your party invitation to %s expired.",
 	"%s is now a GA.",
 	"%s is no longer a GA.",
 	"GAs: %s",
@@ -152,6 +160,18 @@ const COMPOSED := [
 ]
 ## Fixed server lines, listed so the catalogue carries them.
 const SERVER_LINES := [
+	# the realm map server and coordinator (chat, parties)
+	"You declined the party invitation.",
+	"You have no party invitation.",
+	"Only the party leader can invite.",
+	"Your party is full.",
+	"The invitation is no longer valid.",
+	"You are already in a party.",
+	"That party is full.",
+	"You were removed from the party.",
+	"Shouting reaches no one right now.",
+	"Unknown command. Try: /p, /invite <name>, /accept, /decline, /leave, /kick <name>, /promote <name>, !shout",
+	"Parties are not available right now.",
 	"Rain started.",
 	"Rain stopped.",
 	"Only a GA can use /ga.",

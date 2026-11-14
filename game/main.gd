@@ -29,6 +29,15 @@ extends Node3D
 ##                                                    reweaves it (WorkshopCheck); with q012 open it
 ##                                                    first talks to Kestrin and opens the workshop
 ##                                                    from his dialogue, and claims q012 / q013
+##   [--check-social]                                 the check says a local line (its bubble),
+##                                                    invites the scripted partner, sees the party
+##                                                    and its frame, hears the partner's party line
+##                                                    and shout, and leaves (SocialCheck); with
+##                                                    --check-invite-from NAME it then answers
+##                                                    NAME's invitation card and opens the player
+##                                                    menu on NAME
+##   [--social-guest NAME]                            this client says a local line and invites
+##                                                    NAME (the second client for --check-social)
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
@@ -41,6 +50,12 @@ extends Node3D
 ## to the nearest within TALK_KEY_REACH, a click on one talks from within the
 ## server's talk radius (less a little), and the dialogue card, the tracker,
 ## the quest log and the quest scroll show the server's quest log.
+## Enter opens the chat (HudChat; Enter sends, Esc lets go); a local line rises
+## over its speaker's head (SpeechBubble). An invitation shows its card, the
+## party its frames. A right-click on another player within HudPlayerMenu.RANGE
+## opens the player menu, a left-click puts it on the target card with "Invite
+## to Party"; both need the player's name, which the client learns only from
+## that player's own local chat line (the snapshot carries no names).
 ## The check mode also fights: it targets the nearest creature, learns and casts
 ## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
 ## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
@@ -69,6 +84,10 @@ const LootScript := "res://scripts/ui/loot_window.gd"
 const CharacterScript := "res://scripts/ui/character_window.gd"
 const WorkshopScript := "res://scripts/ui/workshop_window.gd"
 const WorkshopCheckScript := "res://scripts/systems/workshop_check.gd"
+const SocialCheckScript := "res://scripts/systems/social_check.gd"
+## Another player on the target card (the old game's colours).
+const PLAYER_TINT := Color(0.62, 0.84, 1.0)
+const PLAYER_BAR := Color(0.24, 0.62, 0.30)
 const ChestViewScript := "res://scripts/view/chest_view.gd"
 ## Entity kind of a player in snapshots (creatures carry their species index
 ## + 1 in the low bits, CreatureView ELITE_BIT / ENRAGED_BIT / BOSS_BIT above).
@@ -140,6 +159,12 @@ var session: Node
 var player: Node3D
 ## Other players' heroes by entity id.
 var heroes := {}
+## Other players' names by entity id, as the server said them (asked when a
+## hero comes into view; a local chat line carries its speaker's entity too).
+## Forgotten when the player leaves view.
+var player_names := {}
+## Other players' {name, house, level, character} by entity id (Inspect).
+var player_infos := {}
 ## The player's sheet for the windows, the HUD and the windows.
 var sheet_view: PlayerSheet
 var hud: Control
@@ -415,6 +440,31 @@ func _build_ui() -> void:
 		check.name = "WorkshopCheck"
 		check.game = self
 		add_child(check)
+	_build_social_ui()
+
+## The social pieces the HUD holds: the party frames know this map and push
+## the tracker down when they grow; the player menu measures from the
+## player's body. `--check-social` / `--social-guest` add their check.
+func _build_social_ui() -> void:
+	hud.party_frames.map_name = _arg("--map", "grounds")
+	hud.party_frames.rows_changed.connect(_on_party_rows)
+	hud.player_menu.player = player
+	var guest := _arg("--social-guest", "")
+	if OS.get_cmdline_user_args().has("--check-social") or guest != "":
+		var check: Node = load(SocialCheckScript).new()
+		check.name = "SocialCheck"
+		check.game = self
+		check.guest_of = guest
+		check.invite_from = _arg("--check-invite-from", "")
+		add_child(check)
+
+## The tracker sits on the left edge above the middle; a party of five would
+## run into it, so it moves below the last row.
+func _on_party_rows(bottom: float) -> void:
+	var middle := get_viewport().get_visible_rect().size.y * 0.5
+	var top := maxf(HudTracker.AT.y, bottom + 10.0 - middle)
+	tracker.offset_top = top
+	tracker.offset_bottom = top + 10.0
 
 ## The quest log's view and windows: the tracker on the left edge, the NPC
 ## dialogue card, the log (J) and, over every window, the quest scroll.
@@ -637,6 +687,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				take_nearest_chest()
 			KEY_TAB:
 				cycle_target()
+			KEY_ENTER, KEY_KP_ENTER:
+				hud.chat.open()
 			KEY_ESCAPE:
 				if quest_scroll.is_open():
 					quest_scroll.close()
@@ -690,6 +742,8 @@ func click_world(at: Vector2) -> void:
 	if _creature_index(entity) >= 0:
 		select_target(entity)
 		cast_spell("basic_cast")
+	elif heroes.has(entity) and not player_identity(entity).is_empty():
+		select_target(entity)
 	elif not _held_refusal():
 		session.cast("basic_cast", 0, hit["point"])
 
@@ -698,7 +752,7 @@ func click_world(at: Vector2) -> void:
 func cast_spell(spell: String) -> void:
 	if _held_refusal():
 		return
-	if target != 0 and drawn.has(target):
+	if target != 0 and drawn.has(target) and _creature_index(target) >= 0:
 		session.cast(spell, target, (drawn[target] as Vector3) + Vector3(0, CHEST, 0))
 		return
 	var hit := pick_at(get_viewport().get_mouse_position())
@@ -718,7 +772,12 @@ func _creature_index(id: int) -> int:
 
 ## Show creature `id` on the target card (0 clears the target) and ask the
 ## server what it is (its own name and its level come back as creature info).
+## Another player whose name the client knows shows as itself.
 func select_target(id: int) -> void:
+	if _player_index(id) >= 0 and not player_identity(id).is_empty():
+		target = id
+		_show_player_card()
+		return
 	var i := _creature_index(id)
 	target = id if i >= 0 else 0
 	if target == 0:
@@ -781,6 +840,32 @@ func _show_target_card(i: int) -> void:
 ## The kind the target card was drawn for (an enrage redraws it).
 var _target_kind := -1
 
+## The index of player `id` in this frame's snapshot, -1 when it is not one.
+func _player_index(id: int) -> int:
+	if id == 0 or others.is_empty():
+		return -1
+	var i := (others["ids"] as PackedInt32Array).find(id)
+	return i if i >= 0 and (others["kinds"] as PackedInt32Array)[i] == KIND_PLAYER else -1
+
+## The target card for another player: its name, its house (and "Party" when
+## it is in the party) and level as far as the client knows them, and "Invite
+## to Party" while it is not in the party.
+func _show_player_card() -> void:
+	var who := player_identity(target)
+	var i := _player_index(target)
+	if who.is_empty() or i < 0:
+		select_target(0)
+		return
+	var who_name := String(who["name"])
+	var in_party: bool = hud.party_frames.shown_members().any(func(m): return String(m["name"]) == who_name)
+	var house := String(who["house"])
+	var rank := HudQuestScroll.house_name(house) if house != "" else ""
+	if in_party:
+		rank = tr("%s · Party") % rank
+	_target_kind = KIND_PLAYER
+	hud.set_target(target, who_name, (others["hp"] as PackedInt32Array)[i], {"rank": rank, "level": int(who["level"]),
+		"tint": PLAYER_TINT, "bar": PLAYER_BAR, "icon": "ui_target", "invite": "" if in_party else who_name})
+
 ## Living creatures within `reach` of the player, nearest first.
 func _creatures_near(reach: float) -> Array:
 	var me: Vector3 = drawn.get(session.own_entity(), Vector3.ZERO)
@@ -806,6 +891,10 @@ func cycle_target() -> void:
 ## The target card follows the snapshot; a dead or vanished target is dropped.
 func _follow_target() -> void:
 	if target == 0:
+		return
+	var p := _player_index(target)
+	if p >= 0 and not player_identity(target).is_empty():
+		hud.set_target_health((others["hp"] as PackedInt32Array)[p])
 		return
 	var i := _creature_index(target)
 	if i < 0:
@@ -875,6 +964,10 @@ func _new_beast(id: int, kind: int) -> Node3D:
 func _take_creature_info() -> void:
 	for info: Dictionary in session.take_creature_info():
 		var id := int(info["entity"])
+		if bool(info.get("player", false)):
+			player_infos[id] = info
+			player_names[id] = String(info["name"])
+			continue
 		infos[id] = info
 		check_infos += 1
 		var beast: Node = beasts.get(id)
@@ -932,6 +1025,12 @@ func _show_game_events() -> void:
 					# fell while the request was on its way: the check asks again
 					check_spend_sent = false
 				character_window.on_result(event)
+			"party_invite":
+				hud.invites.push("party", String(event["from"]))
+			"party":
+				hud.party_frames.show_party(session.party())
+				if _player_index(target) >= 0:
+					_show_player_card()
 			"quest_result":
 				var why := String(event["reason"])
 				check_quest_results[why] = int(check_quest_results.get(why, 0)) + 1
@@ -939,6 +1038,34 @@ func _show_game_events() -> void:
 					check_claimed.append(String(event["quest"]))
 				elif QUEST_REASONS.has(why):
 					hud.show_notice(I18n.t(String(QUEST_REASONS[why])), "warn")
+
+## ------------------------------------------------------------------ chat
+
+## The frame's chat lines into the log; a local line also rises over its
+## speaker's head and names that player for the menu and the target card.
+func _show_chat() -> void:
+	var own := int(session.own_entity())
+	for line: Dictionary in session.take_chat():
+		var channel := int(line["channel"])
+		var from := String(line["from"])
+		var text := String(line["text"])
+		var speaker := int(line["speaker"])
+		hud.chat.add_line(channel, from, text, _house_of(from))
+		if channel != HudChat.LOCAL or speaker == 0:
+			continue
+		if speaker != own:
+			player_names[speaker] = from
+		var body: Node3D = player if speaker == own else heroes.get(speaker)
+		if body != null:
+			SpeechBubble.say(body, text)
+
+## A speaker's house when the client knows it (the player, a party member),
+## else empty.
+func _house_of(who: String) -> String:
+	var sheet: Dictionary = session.sheet()
+	if not sheet.is_empty() and String(sheet["name"]) == who:
+		return String(sheet["house"])
+	return String(hud.party_frames.member_named(who).get("house", ""))
 
 ## ------------------------------------------------------------- loot chests
 
@@ -961,11 +1088,37 @@ func _chest_distance(id: int) -> float:
 	var me: Vector3 = session.own_position()
 	return Vector2(chest.position.x - me.x, chest.position.z - me.z).length()
 
-## A right click on the world: a chest under the cursor opens.
+## A right click on the world: a chest under the cursor opens, another
+## player gets the player menu.
 func right_click_world(at: Vector2) -> void:
 	var hit := pick_at(at)
-	if not hit.is_empty() and chests.has(int(hit["entity"])):
-		open_chest_window(int(hit["entity"]))
+	if hit.is_empty():
+		return
+	var entity := int(hit["entity"])
+	if chests.has(entity):
+		open_chest_window(entity)
+	elif heroes.has(entity):
+		open_player_menu(entity, at)
+
+## The player menu on player `id` at screen point `at`: within
+## HudPlayerMenu.RANGE of the player's body (the range that keeps it open),
+## and only when the client knows that player's name.
+func open_player_menu(id: int, at: Vector2) -> void:
+	var who := player_identity(id)
+	if heroes.has(id) and not who.is_empty():
+		hud.player_menu.open(heroes[id], who, at)
+
+## What the client knows of player `id`: {name, level, house} from the
+## server's answer when it came into view (a party member's frame is newer
+## for its level), or {} before that answer.
+func player_identity(id: int) -> Dictionary:
+	var who := String(player_names.get(id, ""))
+	if who == "":
+		return {}
+	var info: Dictionary = player_infos.get(id, {})
+	var member: Dictionary = hud.party_frames.member_named(who)
+	return {"name": who, "level": int(member.get("level", info.get("level", 0))),
+		"house": String(member.get("house", info.get("house", "")))}
 
 ## The chest window on chest `id`, when the player stands close enough.
 func open_chest_window(id: int) -> void:
@@ -1501,11 +1654,12 @@ func _process(delta: float) -> void:
 			cam_yaw = toward
 			forward = 1.0
 			jump = false
-	else:
+	elif not hud.chat.is_open():
+		# while the chat has the keys, typing does not walk
 		strafe = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
 		forward = float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S))
 		jump = Input.is_physical_key_pressed(KEY_SPACE)
-	session.set_intent(strafe, forward, cam_yaw, jump, Input.is_physical_key_pressed(KEY_CTRL))
+	session.set_intent(strafe, forward, cam_yaw, jump, Input.is_physical_key_pressed(KEY_CTRL) and not hud.chat.is_open())
 
 	var own: Dictionary = session.own_body()
 	var me: Vector3 = own.get("position", Vector3.ZERO)
@@ -1548,6 +1702,8 @@ func _process(delta: float) -> void:
 			seen[ids[i]] = true
 			if not heroes.has(ids[i]):
 				heroes[ids[i]] = _new_hero()
+				# Who it is: name, house, level (the player menu, the card).
+				session.inspect(ids[i])
 			heroes[ids[i]].drive_remote(positions[i], delta)
 			heroes[ids[i]].set_status(statuses[i])
 			heroes[ids[i]].set_dead(states[i] == CreatureView.STATE_DEAD)
@@ -1595,6 +1751,8 @@ func _process(delta: float) -> void:
 			if not seen.has(id):
 				table[id].queue_free()
 				table.erase(id)
+				player_names.erase(id)
+				player_infos.erase(id)
 	_take_creature_info()
 	_follow_target()
 	if check_seconds > 0.0 and not check_quests:
@@ -1605,6 +1763,7 @@ func _process(delta: float) -> void:
 	_show_combat()
 	_show_notices()
 	_show_game_events()
+	_show_chat()
 
 	var stats: Dictionary = session.stats()
 	readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d

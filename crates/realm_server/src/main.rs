@@ -17,6 +17,7 @@
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
+mod coord;
 mod game;
 mod net;
 mod selfcheck;
@@ -63,8 +64,12 @@ fn keygen(dir: &Path) -> AnyResult<()> {
         rcgen::generate_simple_self_signed(vec!["localhost".to_owned(), "realm-dev".to_owned()])?;
     std::fs::write(dir.join("tls.crt.der"), cert.cert.der())?;
     std::fs::write(dir.join("tls.key.der"), cert.signing_key.serialize_der())?;
+    // The key map servers prove to the coordinator.
+    let mut coord = [0_u8; 32];
+    getrandom::fill(&mut coord).map_err(|e| format!("random: {e}"))?;
+    std::fs::write(dir.join("coord.key"), coord)?;
     println!(
-        "wrote ticket.key, ticket.pub, tls.crt.der, tls.key.der to {}",
+        "wrote ticket.key, ticket.pub, tls.crt.der, tls.key.der, coord.key to {}",
         dir.display()
     );
     Ok(())
@@ -80,6 +85,8 @@ struct Options {
     /// of that species.
     dev_spawn_near: Option<String>,
     characters: Option<PathBuf>,
+    /// The coordinator's address (None: run alone).
+    coord: Option<String>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -91,6 +98,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         content: PathBuf::from("content/data"),
         dev_spawn_near: None,
         characters: None,
+        coord: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -108,6 +116,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--dev-spawn-near-packs" => o.dev_spawn_near = Some(String::new()),
             "--dev-spawn-near" => o.dev_spawn_near = Some(value()?),
             "--characters" => o.characters = Some(PathBuf::from(value()?)),
+            "--coord" => o.coord = Some(value()?),
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -174,6 +183,20 @@ fn serve(args: &[String]) -> AnyResult<()> {
         let _guard = runtime.enter();
         net::endpoint(&o.bind, cert, tls_key)?
     };
+    if let Some(addr) = o.coord.clone() {
+        let coord_key: [u8; 32] = std::fs::read(o.keys.join("coord.key"))?
+            .try_into()
+            .map_err(|_| "coord.key must be 32 bytes")?;
+        let (coord_tx, coord_rx) = tokio::sync::mpsc::unbounded_channel();
+        sim.set_coord(coord_tx);
+        runtime.spawn(coord::link(
+            addr,
+            coord_key,
+            o.map.clone(),
+            coord_rx,
+            tx.clone(),
+        ));
+    }
     runtime.spawn(net::accept_loop(endpoint, tx, key));
     let stopping = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     {

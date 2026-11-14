@@ -4,13 +4,19 @@ extends Control
 ## the target card (top centre), the action bar with the bag on one taskbar
 ## plate and the experience band along the bottom edge, and the notice band;
 ## the unit frame also carries the house standing, and a rank-up is a notice.
+## The social pieces live here too: the chat log bottom-left (HudChat), the
+## party frames under the unit frame (HudParty), and over every window the
+## invitation cards (HudInvites) and the right-click player menu
+## (HudPlayerMenu).
 ## Windows find this node as their sibling "HUD" and call `show_notice`.
 ##
 ## It only draws: health and mana come from the newest snapshot
 ## (RealmSession.vitals), name, level, experience and purse from the character
 ## sheet (PlayerSheet; the experience a level takes is the sheet's
 ## `exp_next`), the target's health from the snapshot hp byte or, when
-## a hit lands, from the hit itself.
+## a hit lands, from the hit itself. Another player on the target card (one
+## whose name the client knows) offers "Invite to Party", which sends the same
+## `/invite Name` the chat takes; the server's own reply says it was sent.
 
 const NoticeScript := "res://scripts/view/notice_band.gd"
 
@@ -25,6 +31,10 @@ const TARGET_BAR := Color(0.80, 0.09, 0.08)
 ## A hit's hp byte stands this long before the (older) interpolated snapshot
 ## may raise the target card's bar again.
 const HIT_HOLD_SECONDS := 0.5
+const ChatScript := "res://scripts/ui/hud_chat.gd"
+const PartyScript := "res://scripts/ui/hud_party.gd"
+const InvitesScript := "res://scripts/ui/hud_invites.gd"
+const PlayerMenuScript := "res://scripts/ui/hud_player_menu.gd"
 
 var session: Node
 var sheet: PlayerSheet
@@ -45,6 +55,14 @@ var target_level: Label
 var target_hp_bar: ProgressBar
 var target_hp_text: Label
 var target_portrait: TargetPortrait
+var chat: HudChat
+var party_frames: HudParty
+var invites: HudInvites
+var player_menu: HudPlayerMenu
+## The target card's "Invite to Party" (another player not in the party), and
+## the name it invites.
+var invite_button: Button
+var _invite_name := ""
 ## The entity the target card shows (0 = none).
 var target_id := 0
 var _status: VBoxContainer
@@ -73,6 +91,7 @@ func setup(realm_session: Node, player_sheet: PlayerSheet, open_bag: Callable) -
 	_build_gauges()
 	_build_tray(open_bag)
 	_build_target_card()
+	_build_social()
 	# The notice band draws above every window (the bag, the workshop, the
 	# log): a window left open must not hide what just happened.
 	var notice_layer := CanvasLayer.new()
@@ -177,6 +196,31 @@ func _style_menu_cell(button: Button, icon_id: String, px: float) -> void:
 	button.add_theme_color_override("icon_hover_color", Color(1.12, 1.08, 0.98))
 	button.add_theme_color_override("icon_pressed_color", Color(0.85, 0.85, 0.85))
 
+## ------------------------------------------------------------------ social
+
+## The chat log and the party frames on the HUD; the invitation cards and the
+## player menu on their own layer above every window (an open bag must not
+## hide an invitation).
+func _build_social() -> void:
+	chat = load(ChatScript).new()
+	chat.session = session
+	add_child(chat)
+	chat.focus_changed.connect(func(_open: bool): _layout())
+	chat.add_system_line(tr("Party: /invite Name, /leave, /p text for party chat."))
+	party_frames = load(PartyScript).new()
+	add_child(party_frames)
+	var popups := CanvasLayer.new()
+	popups.name = "PopupLayer"
+	popups.layer = 6
+	add_child(popups)
+	invites = load(InvitesScript).new()
+	invites.session = session
+	popups.add_child(invites)
+	player_menu = load(PlayerMenuScript).new()
+	player_menu.session = session
+	player_menu.party_frames = party_frames
+	popups.add_child(player_menu)
+
 ## ------------------------------------------------------------- target card
 
 ## The target card: a round portrait on the left; the name and the rank line;
@@ -234,16 +278,37 @@ func _build_target_card() -> void:
 	target_panel.add_child(target_hp_bar)
 	_target_stat = StatBar.new().attach(self, target_hp_bar)
 	target_hp_text = _gauge_label(target_hp_bar, 12, Color(1, 1, 1))
+	invite_button = HudKit.button(tr("Invite to Party"), 13)
+	invite_button.name = "InviteToParty"
+	invite_button.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	invite_button.offset_left = -150
+	invite_button.offset_right = -8
+	invite_button.offset_top = 6
+	invite_button.offset_bottom = 34
+	invite_button.visible = false
+	invite_button.pressed.connect(_on_invite_pressed)
+	target_panel.add_child(invite_button)
+
+## The target card's invitation: the chat command, nothing more (the server
+## answers with "Party invitation sent to ..." or why not).
+func _on_invite_pressed() -> void:
+	if _invite_name == "":
+		return
+	session.send_chat("/invite %s" % _invite_name)
+	invite_button.visible = false
 
 ## Show `id` (a creature named `title`, at hp byte `hp`) on the card, or hide
 ## it (id 0). `look` says what kind of target it is (main.gd target_look):
 ## `rank` (the line under the name), `level` (0: none), `tint` (the name and
 ## rank), `bar` (the gauge) and `icon` (the portrait: a crown for a world boss,
-## the enraged eye, the shard for a Dark Shard).
+## the enraged eye, the shard for a Dark Shard); `invite`, another player's
+## name, shows "Invite to Party".
 func set_target(id: int, title := "", hp := 255, look := {}) -> void:
 	var changed := id != target_id
 	target_id = id
 	target_panel.visible = id != 0
+	_invite_name = String(look.get("invite", "")) if id != 0 else ""
+	invite_button.visible = _invite_name != ""
 	if id == 0:
 		return
 	var tint: Color = look.get("tint", TARGET_TINT)
@@ -321,7 +386,8 @@ func _apply_house_standing(data: Dictionary) -> void:
 
 ## Everything placed for the current canvas: unit frame and gauges top-left,
 ## the target card top centre, the taskbar centred on the spells above the
-## experience band (sliding left near the right edge).
+## experience band (sliding left near the right edge), the chat bottom-left
+## (taller while it is open).
 func _layout() -> void:
 	var canvas := get_viewport().get_visible_rect().size
 	var compact := canvas.x < 1000 or canvas.y < 560
@@ -344,6 +410,15 @@ func _layout() -> void:
 	action_bar.tray_dividers = [bw + TRAY_DIVIDER * 0.5]
 	action_bar.queue_redraw()
 	_place(bag_button, Vector2(0.5, 1.0), Vector2(left + bw + TRAY_DIVIDER, bar_y), Vector2(slot, slot))
+	# Chat, bottom-left; it stands on the taskbar when the two would meet.
+	var tray_top := 14.0 + 12.0 + slot + HudActionBar.PLATE_TOP
+	var tray_left := canvas.x * 0.5 + left - HudActionBar.PLATE_PAD
+	var chat_w := 280.0 if compact else 360.0
+	var chat_h := (170.0 if compact else 240.0) if chat.is_open() else (110.0 if compact else 170.0)
+	var chat_bottom := 14.0 + 14.0
+	if tray_left < 12.0 + chat_w + 8.0:
+		chat_bottom = tray_top + 8.0
+	_place(chat, Vector2(0.0, 1.0), Vector2(12, -chat_bottom - chat_h), Vector2(chat_w, chat_h))
 	var card_w := 300.0 if compact else 360.0
 	_place(target_panel, Vector2(0.5, 0.0), Vector2(-card_w * 0.5, 10), Vector2(card_w, TARGET_CARD_H))
 
