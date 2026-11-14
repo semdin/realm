@@ -172,6 +172,48 @@ msgstr "Düello reddedildi."
 msgid "You are not in a duel."
 msgstr "Bir düelloda değilsin."
 
+msgid "That player is not here."
+msgstr "Bu oyuncu burada değil."
+
+msgid "Only a party leader can call a group duel."
+msgstr "Grup düellosunu yalnızca bir grup lideri başlatabilir."
+
+msgid "A group duel needs another party."
+msgstr "Grup düellosu için başka bir grup gerekir."
+
+msgid "Their party leader is not here."
+msgstr "Onların grup lideri burada değil."
+
+msgid "The dead do not duel."
+msgstr "Ölüler düello yapmaz."
+
+msgid "Too far away to challenge."
+msgstr "Teklif etmek için çok uzaktasın."
+
+msgid "Challenge sent."
+msgstr "Düello teklifi gönderildi."
+
+msgid "You have no duel challenge."
+msgstr "Bekleyen bir düello teklifin yok."
+
+msgid "The challenge expired."
+msgstr "Teklifin süresi doldu."
+
+msgid "The challenger is gone."
+msgstr "Teklifi yapan oyuncu gitti."
+
+msgid "The challenger is too far away."
+msgstr "Teklifi yapan oyuncu çok uzakta."
+
+msgid "Both must still lead different parties."
+msgstr "İkiniz de hâlâ farklı grupların lideri olmalısınız."
+
+msgid "The duel has not begun."
+msgstr "Düello henüz başlamadı."
+
+msgid "Unknown command. Try: /p, /invite <name>, /accept, /decline, /leave, /kick <name>, /promote <name>, /duel <name>, /gduel <name>, /daccept, /ddecline, /yield, !shout"
+msgstr "Bilinmeyen komut. Şunları dene: /p, /invite <isim>, /accept, /decline, /leave, /kick <isim>, /promote <isim>, /duel <isim>, /gduel <isim>, /daccept, /ddecline, /yield, !bağırış"
+
 msgid "Too far"
 msgstr "Çok uzak"
 

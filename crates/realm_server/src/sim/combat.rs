@@ -269,7 +269,7 @@ impl Sim {
         self.stats.casts += 1;
         let caster_id = self.net_id_of(caster);
         let target_id = target.map_or(0, |t| self.net_id_of(t));
-        let shown_aim = target.and_then(|t| self.mob_chest(t)).unwrap_or(aim);
+        let shown_aim = target.and_then(|t| self.chest_of(t)).unwrap_or(aim);
         self.event(
             at,
             CombatEvent::CastStarted {
@@ -282,11 +282,15 @@ impl Sim {
         );
     }
 
-    fn mob_chest(&self, mob: Entity) -> Option<Vec3> {
+    /// Where a living creature's or player's chest is.
+    fn chest_of(&self, entity: Entity) -> Option<Vec3> {
+        if let Some(m) = self.world.get::<super::Mob>(entity) {
+            return (m.mode != MobMode::Dead).then(|| m.pos + Vec3::new(0.0, CHEST, 0.0));
+        }
         self.world
-            .get::<super::Mob>(mob)
-            .filter(|m| m.mode != MobMode::Dead)
-            .map(|m| m.pos + Vec3::new(0.0, CHEST, 0.0))
+            .get::<Player>(entity)
+            .filter(|p| p.dead_until == 0)
+            .map(|p| p.body.pos + Vec3::new(0.0, CHEST, 0.0))
     }
 
     /// The creature the cast is aimed at: the one the client named when it is
@@ -295,20 +299,29 @@ impl Sim {
         let origin = self.world.get::<Player>(caster)?.body.pos;
         if hint != 0
             && let Some(&entity) = self.ids.get(&hint)
-            && let Some(mob) = self.world.get::<super::Mob>(entity)
-            && mob.mode != MobMode::Dead
-            && planar_distance(mob.pos, aim) <= AIM_HINT_SLACK
-            && !self.protected(mob.pos)
-            && !self.protected(origin)
         {
-            return Some(entity);
+            if let Some(mob) = self.world.get::<super::Mob>(entity)
+                && mob.mode != MobMode::Dead
+                && planar_distance(mob.pos, aim) <= AIM_HINT_SLACK
+                && !self.protected(mob.pos)
+                && !self.protected(origin)
+            {
+                return Some(entity);
+            }
+            // A duel foe: protection does not hold in a duel.
+            if self.foes(caster, entity)
+                && let Some(p) = self.world.get::<Player>(entity)
+                && planar_distance(p.body.pos, aim) <= AIM_HINT_SLACK
+            {
+                return Some(entity);
+            }
         }
         let mut best: Option<(f32, Entity)> = None;
-        self.mobs_near(aim, AIM_TARGET_RADIUS + 2.0, |entity, mob| {
-            let d = planar_distance(mob.pos, aim);
+        self.targets_near(caster, aim, AIM_TARGET_RADIUS + 2.0, |entity, pos| {
+            let d = planar_distance(pos, aim);
             if d <= AIM_TARGET_RADIUS
-                && aim.y >= mob.pos.y - 0.6
-                && aim.y <= mob.pos.y + 3.0
+                && aim.y >= pos.y - 0.6
+                && aim.y <= pos.y + 3.0
                 && best.is_none_or(|(b, _)| d < b)
             {
                 best = Some((d, entity));
@@ -317,16 +330,25 @@ impl Sim {
         best.map(|(_, e)| e).filter(|e| {
             self.world
                 .get::<super::Mob>(*e)
-                .is_some_and(|m| !self.protected(m.pos))
+                .is_none_or(|m| !self.protected(m.pos))
         })
     }
 
     /// Calls `f` for every living creature within `radius` of `at` (the
     /// replication grid of the previous tick finds them).
-    fn mobs_near(&self, at: Vec3, radius: f32, mut f: impl FnMut(Entity, &super::Mob)) {
+    /// What `attacker`'s spells may hit near `at`: living creatures, and its
+    /// duel foes still standing. The callback gets the body's feet.
+    fn targets_near(
+        &self,
+        attacker: Entity,
+        at: Vec3,
+        radius: f32,
+        mut f: impl FnMut(Entity, Vec3),
+    ) {
         let reach = (radius / CELL).ceil() as i32;
         let Some(center) = cell_of(at) else { return };
         let (cx, cz) = ((center % GRID_DIM) as i32, (center / GRID_DIM) as i32);
+        let near = (radius + 1.0) * (radius + 1.0);
         for dz in -reach..=reach {
             for dx in -reach..=reach {
                 let (x, z) = (cx + dx, cz + dz);
@@ -335,14 +357,22 @@ impl Sim {
                 }
                 for &row in &self.cells[z as usize * GRID_DIM + x as usize] {
                     let row = &self.rows[row as usize];
-                    if row.is_player {
-                        continue;
-                    }
-                    if let Some(mob) = self.world.get::<super::Mob>(row.entity)
-                        && mob.mode != MobMode::Dead
-                        && (mob.pos - at).length_squared() <= (radius + 1.0) * (radius + 1.0)
-                    {
-                        f(row.entity, mob);
+                    let pos = if row.is_player {
+                        if !self.foes(attacker, row.entity) {
+                            continue;
+                        }
+                        match self.world.get::<Player>(row.entity) {
+                            Some(p) => p.body.pos,
+                            None => continue,
+                        }
+                    } else {
+                        match self.world.get::<super::Mob>(row.entity) {
+                            Some(m) if m.mode != MobMode::Dead => m.pos,
+                            _ => continue,
+                        }
+                    };
+                    if (pos - at).length_squared() <= near {
+                        f(row.entity, pos);
                     }
                 }
             }
@@ -416,7 +446,7 @@ impl Sim {
         };
         let origin = pos + Vec3::new(0.0, WAND_HEIGHT, 0.0);
         // Re-aim from where the caster stands now (it moved during the windup).
-        let aim_at = target.and_then(|t| self.mob_chest(t)).unwrap_or(aim);
+        let aim_at = target.and_then(|t| self.chest_of(t)).unwrap_or(aim);
         let mut dir = (aim_at - origin).normalize_or_zero();
         if dir == Vec3::ZERO {
             dir = Vec3::new(0.0, 0.0, -1.0);
@@ -449,8 +479,8 @@ impl Sim {
             Delivery::Cone => {
                 let half = (spell.cone_angle * 0.5).to_radians().cos();
                 let mut victims = Vec::new();
-                self.mobs_near(origin, spell.range, |entity, mob| {
-                    let offset = mob.pos + Vec3::new(0.0, 1.0, 0.0) - origin;
+                self.targets_near(caster, origin, spell.range, |entity, pos| {
+                    let offset = pos + Vec3::new(0.0, 1.0, 0.0) - origin;
                     let d = offset.length();
                     if d <= spell.range && (d < 0.01 || dir.dot(offset / d) >= half) {
                         victims.push(entity);
@@ -458,7 +488,7 @@ impl Sim {
                 });
                 for victim in victims {
                     if self.line_clear(origin, victim) {
-                        self.hit_mob(
+                        self.hit(
                             caster,
                             victim,
                             damage,
@@ -484,8 +514,8 @@ impl Sim {
         }
     }
 
-    fn line_clear(&self, from: Vec3, mob: Entity) -> bool {
-        self.mob_chest(mob)
+    fn line_clear(&self, from: Vec3, target: Entity) -> bool {
+        self.chest_of(target)
             .is_some_and(|chest| self.terrain.line_hit(from, chest).is_none())
     }
 
@@ -501,7 +531,7 @@ impl Sim {
                 continue;
             };
             let aoe = spell.delivery == Delivery::ProjectileAoe;
-            let homing_to = bolt.target.and_then(|t| self.mob_chest(t));
+            let homing_to = bolt.target.and_then(|t| self.chest_of(t));
             if let Some(chest) = homing_to {
                 let to = chest - bolt.pos;
                 if to.length_squared() > 1.0e-4 {
@@ -520,7 +550,7 @@ impl Sim {
             }
             let wall = blocked(&self.terrain, bolt.pos, to, homing_to.is_some());
             let end = wall.map_or(to, |f| bolt.pos + (to - bolt.pos) * f);
-            if let Some((victim, at)) = self.brushed(bolt.pos, end) {
+            if let Some((victim, at)) = self.brushed(bolt.owner, bolt.pos, end) {
                 self.impact(&bolt, spell, Some(victim), at, aoe);
                 continue;
             }
@@ -538,7 +568,7 @@ impl Sim {
 
     /// The first creature whose upright body the segment passes within
     /// ASSIST_RADIUS of, and where.
-    fn brushed(&self, from: Vec3, to: Vec3) -> Option<(Entity, Vec3)> {
+    fn brushed(&self, owner: Entity, from: Vec3, to: Vec3) -> Option<(Entity, Vec3)> {
         let seg = to - from;
         let flat = Vec3::new(seg.x, 0.0, seg.z);
         let flat_len_sq = flat.length_squared();
@@ -548,13 +578,13 @@ impl Sim {
         let middle = from + seg * 0.5;
         let reach = seg.length() * 0.5 + ASSIST_RADIUS + 1.5;
         let mut best: Option<(f32, Entity, Vec3)> = None;
-        self.mobs_near(middle, reach, |entity, mob| {
-            let rel = Vec3::new(mob.pos.x - from.x, 0.0, mob.pos.z - from.z);
+        self.targets_near(owner, middle, reach, |entity, pos| {
+            let rel = Vec3::new(pos.x - from.x, 0.0, pos.z - from.z);
             let t = (rel.dot(flat) / flat_len_sq).clamp(0.0, 1.0);
             let point = from + seg * t;
-            if planar_distance(point, mob.pos) <= ASSIST_RADIUS
-                && point.y >= mob.pos.y - 0.4
-                && point.y <= mob.pos.y + 2.6
+            if planar_distance(point, pos) <= ASSIST_RADIUS
+                && point.y >= pos.y - 0.4
+                && point.y <= pos.y + 2.6
                 && best.is_none_or(|(b, _, _)| t < b)
             {
                 best = Some((t, entity, point));
@@ -584,8 +614,8 @@ impl Sim {
                 },
             );
             let mut victims = Vec::new();
-            self.mobs_near(at, spell.radius, |entity, mob| {
-                let d = (mob.pos + Vec3::new(0.0, 1.0, 0.0) - at).length();
+            self.targets_near(bolt.owner, at, spell.radius, |entity, pos| {
+                let d = (pos + Vec3::new(0.0, 1.0, 0.0) - at).length();
                 if d <= spell.radius {
                     victims.push((entity, d));
                 }
@@ -597,7 +627,7 @@ impl Sim {
                 }
                 let share =
                     realm_rules::combat::CombatRules::falloff(d, spell.radius, spell.falloff_floor);
-                landed |= self.hit_mob(
+                landed |= self.hit(
                     bolt.owner,
                     entity,
                     (bolt.damage * share).trunc(),
@@ -606,7 +636,7 @@ impl Sim {
                 ) > 0;
             }
         } else if let Some(victim) = victim {
-            landed = self.hit_mob(bolt.owner, victim, bolt.damage, spell, flags) > 0;
+            landed = self.hit(bolt.owner, victim, bolt.damage, spell, flags) > 0;
         }
         // A basic attack that hits nothing breaks the chain.
         if spell.id == BASIC_SPELL
@@ -614,6 +644,24 @@ impl Sim {
             && let Some(mut player) = self.world.get_mut::<Player>(bolt.owner)
         {
             player.caster.combo = 0;
+        }
+    }
+
+    /// A player's spell lands on `victim`: a creature, or a duel foe.
+    fn hit(
+        &mut self,
+        attacker: Entity,
+        victim: Entity,
+        raw: f32,
+        spell: &SpellDef,
+        flags: u8,
+    ) -> u32 {
+        if self.world.get::<super::Mob>(victim).is_some() {
+            self.hit_mob(attacker, victim, raw, spell, flags)
+        } else if self.foes(attacker, victim) {
+            self.hit_duelist(attacker, victim, raw, spell, flags)
+        } else {
+            0
         }
     }
 
@@ -684,6 +732,11 @@ impl Sim {
             return 0;
         };
         let (pierce_chance, crit_bonus, monster_damage, life_steal, mana_steal) = caster;
+        let raw = raw
+            * self
+                .world
+                .get::<Player>(attacker)
+                .map_or(1.0, |p| p.afflictions.strength(tick));
         let mut state = self.dice_state;
         let mut amount = (raw * combat.resist_factor(species, &spell.element)).round();
         if pierce_chance > 0.0 && unit(&mut state) * 100.0 < pierce_chance {

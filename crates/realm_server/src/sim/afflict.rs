@@ -6,7 +6,10 @@
 //! with the player's next input (input ticks, not server ticks: a client's
 //! labels may run a little behind or ahead of the server's clock).
 
-use realm_proto::{STATUS_KNOCKED, STATUS_POISON, STATUS_SLOW, STATUS_STUN};
+use realm_proto::{
+    STATUS_BLEED, STATUS_BURN, STATUS_FREEZE, STATUS_KNOCKED, STATUS_POISON, STATUS_SLOW,
+    STATUS_STUN, STATUS_WEAK,
+};
 use realm_rules::creatures::{Riders, shove_lock_ms};
 use realm_sim::{SIM_HZ, Vec3};
 
@@ -38,12 +41,39 @@ pub(super) struct Afflictions {
     pub web_until: u32,
     pub despair_until: u32,
     pub venom: Option<Venom>,
+    /// A duel foe's spells: frozen, burning, bleeding, weakened.
+    pub freeze_until: u32,
+    pub burn: Option<Venom>,
+    pub bleed: Option<Venom>,
+    pub weak_until: u32,
+    pub weak_factor: f32,
 }
 
 impl Afflictions {
+    /// Outgoing damage multiplier (weakened by a duel foe's spell).
+    pub fn strength(&self, tick: u32) -> f32 {
+        if tick < self.weak_until {
+            self.weak_factor
+        } else {
+            1.0
+        }
+    }
+
     /// The STATUS_* bits other clients see on this player.
     pub fn bits(&self, tick: u32) -> u8 {
         let mut bits = 0;
+        if self.freeze_until > tick {
+            bits |= STATUS_FREEZE;
+        }
+        if self.burn.is_some_and(|v| v.until > tick) {
+            bits |= STATUS_BURN;
+        }
+        if self.bleed.is_some_and(|v| v.until > tick) {
+            bits |= STATUS_BLEED;
+        }
+        if self.weak_until > tick {
+            bits |= STATUS_WEAK;
+        }
         if self.stun_until > tick {
             bits |= STATUS_STUN;
         }
@@ -109,7 +139,11 @@ impl Sim {
         }
         if riders.web_ms > 0 && !slow_immune {
             p.afflictions.web_until = p.afflictions.web_until.max(tick + ticks(riders.web_ms));
-            p.restraint.web(now, now + ticks(riders.web_ms));
+            p.restraint.web(
+                now,
+                now + ticks(riders.web_ms),
+                (realm_sim::movement::WEB_FACTOR * 100.0) as u8,
+            );
         }
         if riders.despair_ms > 0 {
             p.afflictions.despair_until = p
@@ -145,39 +179,68 @@ impl Sim {
         }
     }
 
-    /// Venom ticks on its own clock; the dead and the cured leave the list.
+    /// Venom, burns and bleeds tick on their own clocks; the dead and the
+    /// cured leave the list. A duel foe's burn or bleed ends when its caster
+    /// is no longer a foe (the duel ended, it left), so it can never kill.
     /// Expired holds are forgotten so snapshots stop carrying them.
     pub(super) fn advance_afflictions(&mut self) {
         let tick = self.tick;
-        let mut doses: Vec<(Entity, Entity, f32)> = Vec::new();
+        // (victim, source, damage, duel dot)
+        let mut doses: Vec<(Entity, Entity, f32, bool)> = Vec::new();
         let mut list = std::mem::take(&mut self.poisoned);
+        let foes: Vec<(Entity, Entity)> = list
+            .iter()
+            .filter_map(|&v| {
+                let p = self.world.get::<Player>(v)?;
+                let sources = [p.afflictions.burn, p.afflictions.bleed];
+                Some(sources.into_iter().flatten().map(move |d| (v, d.source)))
+            })
+            .flatten()
+            .filter(|(v, s)| self.foes(*s, *v))
+            .collect();
         list.retain(|&player| {
             let Some(mut p) = self.world.get_mut::<Player>(player) else {
                 return false;
             };
             if p.dead_until != 0 {
                 p.afflictions.venom = None;
+                p.afflictions.burn = None;
+                p.afflictions.bleed = None;
                 return false;
             }
-            let Some(mut venom) = p.afflictions.venom else {
-                return false;
-            };
-            if tick > venom.until {
-                p.afflictions.venom = None;
-                return false;
+            let a = &mut p.afflictions;
+            for (slot, duel) in [
+                (&mut a.venom, false),
+                (&mut a.burn, true),
+                (&mut a.bleed, true),
+            ] {
+                let Some(mut dot) = *slot else { continue };
+                if tick > dot.until || (duel && !foes.contains(&(player, dot.source))) {
+                    *slot = None;
+                    continue;
+                }
+                if tick >= dot.next {
+                    dot.next = tick + dot.interval;
+                    doses.push((player, dot.source, dot.damage, duel));
+                }
+                *slot = Some(dot);
             }
-            if tick >= venom.next {
-                venom.next = tick + venom.interval;
-                doses.push((player, venom.source, venom.damage));
-            }
-            p.afflictions.venom = Some(venom);
-            true
+            a.venom.is_some() || a.burn.is_some() || a.bleed.is_some()
         });
         list.append(&mut self.poisoned);
         self.poisoned = list;
-        // Venom is not armour's business: it bites flat.
-        for (player, source, damage) in doses {
-            self.wound_player(player, source, damage, 0.0, false, u8::MAX);
+        for (player, source, damage, duel) in doses {
+            if duel {
+                let by = self
+                    .world
+                    .get::<Player>(source)
+                    .map(|p| p.sheet.name.clone())
+                    .unwrap_or_default();
+                self.duel_wound(player, source, damage, u8::MAX, 0, &by);
+            } else {
+                // Venom is not armour's business: it bites flat.
+                self.wound_player(player, source, damage, 0.0, false, u8::MAX);
+            }
         }
         if tick.is_multiple_of(RESTRAINT_FORGET_TICKS) {
             let mut q = self.world.query::<&mut Player>();

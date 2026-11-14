@@ -43,6 +43,7 @@ cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777
 cargo run --release -p realm_coord                      # coordinator: chat, parties across maps (127.0.0.1:7900, keys/coord.key)
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900   # a map server linked to it
 cargo run --release -p realm_netcheck -- --social       # two players on two maps: invite, party, party line, shout, local stays local
+cargo run --release -p realm_netcheck -- --duel         # two players on one map: challenge, accept, fight to 1 health, result
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data

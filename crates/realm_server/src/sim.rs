@@ -31,6 +31,7 @@ use crate::game::Game;
 mod afflict;
 mod brain;
 mod combat;
+mod duel;
 mod quests;
 mod rewards;
 mod social;
@@ -403,6 +404,8 @@ pub struct Sim {
     /// To the coordinator (None: running alone), and whether it is linked.
     coord_tx: Option<tokio::sync::mpsc::UnboundedSender<realm_proto::coord::MapMsg>>,
     coord_up: bool,
+    /// Duel challenges and duels on this map.
+    duels: duel::DuelBook,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -555,6 +558,7 @@ impl Sim {
             unsaved: HashMap::new(),
             coord_tx: None,
             coord_up: false,
+            duels: duel::DuelBook::default(),
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -684,6 +688,7 @@ impl Sim {
         self.sweep_chests();
         self.quest_visits();
         self.party_vitals();
+        self.tick_duels();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();

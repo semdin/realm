@@ -62,7 +62,7 @@ impl Sim {
             return;
         }
         if text.starts_with('/') {
-            return self.command(conn, character, &text);
+            return self.command(conn, player, character, &text);
         }
         if let Some(rest) = text.strip_prefix('!') {
             let rest = clean_chat(rest);
@@ -98,9 +98,12 @@ impl Sim {
         }
     }
 
-    fn command(&mut self, conn: ConnId, character: u64, text: &str) {
+    fn command(&mut self, conn: ConnId, player: Entity, character: u64, text: &str) {
         let (word, rest) = text.split_once(' ').unwrap_or((text, ""));
         let rest = rest.trim();
+        if self.duel_command(conn, player, &word.to_lowercase(), rest) {
+            return;
+        }
         let party = |cmd: PartyCmd| MapMsg::Party {
             from: character,
             cmd,
@@ -124,7 +127,7 @@ impl Sim {
             _ => {
                 return self.system_line(
                     conn,
-                    "Unknown command. Try: /p, /invite <name>, /accept, /decline, /leave, /kick <name>, /promote <name>, !shout",
+                    "Unknown command. Try: /p, /invite <name>, /accept, /decline, /leave, /kick <name>, /promote <name>, /duel <name>, /gduel <name>, /daccept, /ddecline, /yield, !shout",
                 );
             }
         };

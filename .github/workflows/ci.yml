@@ -130,6 +130,16 @@ jobs:
           ./target/release/realm_netcheck --social
           kill %1 %2 %3 || true
 
+      - name: Duel to one health
+        if: matrix.os == 'ubuntu-26.04'
+        # A challenge, an accept, the countdown, a fight that ends with the
+        # beaten duelist on 1 health and the result told to both.
+        run: |
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 > server.log 2>&1 &
+          sleep 2
+          ./target/release/realm_netcheck --duel
+          kill %1 || true
+
       - uses: actions/upload-artifact@v7.0.2
         with:
           name: simcheck-${{ matrix.os }}

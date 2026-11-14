@@ -26,10 +26,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 14;
+pub const PROTOCOL_VERSION: u16 = 15;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/14";
+pub const ALPN: &[u8] = b"realm/15";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -368,6 +368,7 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
         for v in [r.lock_from, r.lock_until, r.web_from, r.web_until] {
             w.unsigned(v);
         }
+        w.u8(r.web_pct);
     }
     w.u8(snapshot.own_status);
     w.u8(snapshot.own_life);
@@ -489,6 +490,7 @@ pub fn decode_snapshot<'a>(
             lock_until: r.unsigned()?,
             web_from: r.unsigned()?,
             web_until: r.unsigned()?,
+            web_pct: r.u8()?,
         }
     } else {
         Restraint::default()

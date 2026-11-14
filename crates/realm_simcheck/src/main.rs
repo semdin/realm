@@ -454,6 +454,7 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
             lock_until: tick + 30,
             web_from: tick + 2,
             web_until: tick + 90,
+            web_pct: 50,
         },
         own_status: realm_proto::STATUS_STUN | realm_proto::STATUS_POISON,
         own_life: 3,

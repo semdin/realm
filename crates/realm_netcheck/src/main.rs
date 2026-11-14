@@ -197,6 +197,9 @@ fn main() -> AnyResult<()> {
     if args.iter().any(|a| a == "--social-partner") {
         return social::partner(&args);
     }
+    if args.iter().any(|a| a == "--duel") {
+        return social::duel(&args);
+    }
     let server: SocketAddr = arg(&args, "--server", "127.0.0.1:7800").parse()?;
     let keys = PathBuf::from(arg(&args, "--keys", "keys"));
     let map = arg(&args, "--map", "grounds");
@@ -469,7 +472,9 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Chat { .. }
                     | realm_proto::control::ServerMsg::PartyInvite { .. }
                     | realm_proto::control::ServerMsg::Party(_)
-                    | realm_proto::control::ServerMsg::PlayerInfo { .. },
+                    | realm_proto::control::ServerMsg::PlayerInfo { .. }
+                    | realm_proto::control::ServerMsg::DuelInvite { .. }
+                    | realm_proto::control::ServerMsg::Duel(_),
                 ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }

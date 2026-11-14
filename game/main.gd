@@ -38,6 +38,14 @@ extends Node3D
 ##                                                    menu on NAME
 ##   [--social-guest NAME]                            this client says a local line and invites
 ##                                                    NAME (the second client for --check-social)
+##   [--check-duel]                                   the check answers a duel challenge on its
+##                                                    card, opens the player menu on the
+##                                                    challenger, sees the countdown, the arena and
+##                                                    the plaque, Tabs to the foe and casts until
+##                                                    it is out, and sees the Victory banner
+##                                                    (DuelCheck)
+##   [--duel-guest NAME]                              this client challenges NAME to a duel and
+##                                                    stands (the second client for --check-duel)
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
@@ -53,9 +61,11 @@ extends Node3D
 ## Enter opens the chat (HudChat; Enter sends, Esc lets go); a local line rises
 ## over its speaker's head (SpeechBubble). An invitation shows its card, the
 ## party its frames. A right-click on another player within HudPlayerMenu.RANGE
-## opens the player menu, a left-click puts it on the target card with "Invite
-## to Party"; both need the player's name, which the client learns only from
-## that player's own local chat line (the snapshot carries no names).
+## opens the player menu (invite, duel, group duel), a left-click puts it on
+## the target card with "Invite to Party"; both need the player's name, which
+## the client learns from the server's answer when the player comes into view.
+## In a duel (HudDuel) a standing foe is a target like a creature: Tab takes
+## it, a left-click on it casts, and spells aim at it.
 ## The check mode also fights: it targets the nearest creature, learns and casts
 ## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
 ## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
@@ -85,9 +95,13 @@ const CharacterScript := "res://scripts/ui/character_window.gd"
 const WorkshopScript := "res://scripts/ui/workshop_window.gd"
 const WorkshopCheckScript := "res://scripts/systems/workshop_check.gd"
 const SocialCheckScript := "res://scripts/systems/social_check.gd"
+const DuelCheckScript := "res://scripts/systems/duel_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
+## A standing duel foe on the target card.
+const DUEL_FOE_TINT := Color(1.0, 0.56, 0.48)
+const DUEL_FOE_BAR := Color(0.80, 0.12, 0.10)
 const ChestViewScript := "res://scripts/view/chest_view.gd"
 ## Entity kind of a player in snapshots (creatures carry their species index
 ## + 1 in the low bits, CreatureView ELITE_BIT / ENRAGED_BIT / BOSS_BIT above).
@@ -281,6 +295,8 @@ var check_attribute_results := {}
 var check_stones := {}
 var check_dummies := {}
 var built := false
+## `--check-duel` / `--duel-guest`: the duel check, told of every combat event.
+var duel_check: Node = null
 ## `--check-quests`: the check walks the first chapter (see _check_quest_walk):
 ## the step it is on and since when, the talks it opened, the quests the server
 ## paid and the claim answers by reason, and when it finished.
@@ -449,6 +465,15 @@ func _build_social_ui() -> void:
 	hud.party_frames.map_name = _arg("--map", "grounds")
 	hud.party_frames.rows_changed.connect(_on_party_rows)
 	hud.player_menu.player = player
+	hud.duel_view.player = player
+	hud.duel_view.heroes = heroes
+	var duel_guest := _arg("--duel-guest", "")
+	if OS.get_cmdline_user_args().has("--check-duel") or duel_guest != "":
+		duel_check = load(DuelCheckScript).new()
+		duel_check.name = "DuelCheck"
+		duel_check.game = self
+		duel_check.guest_of = duel_guest
+		add_child(duel_check)
 	var guest := _arg("--social-guest", "")
 	if OS.get_cmdline_user_args().has("--check-social") or guest != "":
 		var check: Node = load(SocialCheckScript).new()
@@ -732,14 +757,15 @@ var _right_pressed_at := Vector2.ZERO
 func pick_at(at: Vector2) -> Dictionary:
 	return session.pick(camera.project_ray_origin(at), camera.project_ray_normal(at), PICK_REACH)
 
-## A left click on the world: a creature under the cursor becomes the target
-## and takes the basic cast; otherwise the basic cast goes to the point there.
+## A left click on the world: a creature (or a standing duel foe) under the
+## cursor becomes the target and takes the basic cast; another player becomes
+## the target; otherwise the basic cast goes to the point there.
 func click_world(at: Vector2) -> void:
 	var hit := pick_at(at)
 	if hit.is_empty():
 		return
 	var entity := int(hit["entity"])
-	if _creature_index(entity) >= 0:
+	if _creature_index(entity) >= 0 or is_duel_foe(entity):
 		select_target(entity)
 		cast_spell("basic_cast")
 	elif heroes.has(entity) and not player_identity(entity).is_empty():
@@ -747,17 +773,22 @@ func click_world(at: Vector2) -> void:
 	elif not _held_refusal():
 		session.cast("basic_cast", 0, hit["point"])
 
-## Casts `spell` at the target's chest, or with no target at the point under
-## the cursor.
+## Casts `spell` at the target's chest (a creature, or a standing duel foe), or
+## with no such target at the point under the cursor.
 func cast_spell(spell: String) -> void:
 	if _held_refusal():
 		return
-	if target != 0 and drawn.has(target) and _creature_index(target) >= 0:
+	if target != 0 and drawn.has(target) and (_creature_index(target) >= 0 or is_duel_foe(target)):
 		session.cast(spell, target, (drawn[target] as Vector3) + Vector3(0, CHEST, 0))
 		return
 	var hit := pick_at(get_viewport().get_mouse_position())
 	if not hit.is_empty():
 		session.cast(spell, 0, hit["point"])
+
+## Player `id` is a standing foe in the local player's duel (a target for
+## spells, Tab and clicks like a creature).
+func is_duel_foe(id: int) -> bool:
+	return hud != null and hud.duel_view.is_foe(id) and _player_index(id) >= 0
 
 ## The index of living creature `id` in this frame's snapshot, -1 when it is
 ## not one (a player, a dead creature, gone).
@@ -837,8 +868,10 @@ func _show_target_card(i: int) -> void:
 	_target_kind = kind
 	hud.set_target(target, title, (others["hp"] as PackedInt32Array)[i], look)
 
-## The kind the target card was drawn for (an enrage redraws it).
+## The kind the target card was drawn for (an enrage redraws it), and whether
+## a player was drawn as a duel foe (the duel's turns redraw it).
 var _target_kind := -1
+var _target_foe := false
 
 ## The index of player `id` in this frame's snapshot, -1 when it is not one.
 func _player_index(id: int) -> int:
@@ -860,19 +893,27 @@ func _show_player_card() -> void:
 	var in_party: bool = hud.party_frames.shown_members().any(func(m): return String(m["name"]) == who_name)
 	var house := String(who["house"])
 	var rank := HudQuestScroll.house_name(house) if house != "" else ""
+	var look := {"level": int(who["level"]), "tint": PLAYER_TINT, "bar": PLAYER_BAR, "icon": "ui_target",
+		"invite": "" if in_party else who_name}
 	if in_party:
 		rank = tr("%s · Party") % rank
+	_target_foe = is_duel_foe(target)
+	if _target_foe:
+		rank = tr("%s · Duel opponent") % rank
+		look["tint"] = DUEL_FOE_TINT
+		look["bar"] = DUEL_FOE_BAR
+	look["rank"] = rank
 	_target_kind = KIND_PLAYER
-	hud.set_target(target, who_name, (others["hp"] as PackedInt32Array)[i], {"rank": rank, "level": int(who["level"]),
-		"tint": PLAYER_TINT, "bar": PLAYER_BAR, "icon": "ui_target", "invite": "" if in_party else who_name})
+	hud.set_target(target, who_name, (others["hp"] as PackedInt32Array)[i], look)
 
-## Living creatures within `reach` of the player, nearest first.
+## Living creatures and standing duel foes within `reach` of the player,
+## nearest first.
 func _creatures_near(reach: float) -> Array:
 	var me: Vector3 = drawn.get(session.own_entity(), Vector3.ZERO)
 	var near: Array = []
 	var ids: PackedInt32Array = others.get("ids", PackedInt32Array())
 	for i in ids.size():
-		if _creature_index(ids[i]) < 0:
+		if _creature_index(ids[i]) < 0 and not is_duel_foe(ids[i]):
 			continue
 		var distance := me.distance_to((others["positions"] as PackedVector3Array)[i])
 		if distance <= reach:
@@ -880,7 +921,8 @@ func _creatures_near(reach: float) -> Array:
 	near.sort_custom(func(a, b): return a[0] < b[0])
 	return near.map(func(pair): return pair[1])
 
-## Tab: the next of the nearest living creatures, from the current target.
+## Tab: the next of the nearest living creatures and standing duel foes, from
+## the current target.
 func cycle_target() -> void:
 	var near := _creatures_near(TAB_RANGE)
 	if near.is_empty():
@@ -894,6 +936,8 @@ func _follow_target() -> void:
 		return
 	var p := _player_index(target)
 	if p >= 0 and not player_identity(target).is_empty():
+		if is_duel_foe(target) != _target_foe:
+			_show_player_card()
 		hud.set_target_health((others["hp"] as PackedInt32Array)[p])
 		return
 	var i := _creature_index(target)
@@ -912,6 +956,8 @@ func _show_combat() -> void:
 	combat.drawn = drawn
 	for event: Dictionary in session.take_combat_events():
 		combat.show_event(event)
+		if duel_check != null:
+			duel_check.on_combat(event)
 		match String(event["kind"]):
 			"hit":
 				hud.on_hit(event)
@@ -1027,6 +1073,17 @@ func _show_game_events() -> void:
 				character_window.on_result(event)
 			"party_invite":
 				hud.invites.push("party", String(event["from"]))
+			"duel_invite":
+				hud.invites.push("group_duel" if bool(event["group"]) else "duel", String(event["from"]),
+					int(event["size"]))
+			"duel":
+				# The duel names its sides: the player menu and the target card know them.
+				for side: String in ["allies", "foes"]:
+					for who: Dictionary in event.get(side, []):
+						var id := int(who["entity"])
+						if id != int(session.own_entity()) and not player_names.has(id):
+							player_names[id] = String(who["name"])
+				hud.duel_view.on_event(event)
 			"party":
 				hud.party_frames.show_party(session.party())
 				if _player_index(target) >= 0:
@@ -1654,6 +1711,8 @@ func _process(delta: float) -> void:
 			cam_yaw = toward
 			forward = 1.0
 			jump = false
+	elif duel_check != null and duel_check.walk_intent() > 0.0:
+		forward = duel_check.walk_intent()
 	elif not hud.chat.is_open():
 		# while the chat has the keys, typing does not walk
 		strafe = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))

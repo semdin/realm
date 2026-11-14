@@ -117,6 +117,46 @@ func set_status(bits: int) -> void:
 	status = bits
 	StatusFX.update(self, bits)
 
+## Duel marks (HudDuel sets them on the local player's foes): the foe's name
+## over its head, red while it stands, grey once it is beaten; none clears it.
+const DUEL_NONE := 0
+const DUEL_FOE := 1
+const DUEL_OUT := 2
+const DUEL_FOE_TINT := Color(1.0, 0.36, 0.30)
+const DUEL_OUT_TINT := Color(0.62, 0.58, 0.56)
+## Over the crown, fixed size on screen like the NPC plates (a foe across the
+## arena still reads).
+const DUEL_MARK_HEIGHT := 2.3
+const DUEL_MARK_PIXEL := 0.0009
+var duel_mark := DUEL_NONE
+var _duel_label: Label3D
+
+func set_duel_mark(mark: int, who := "") -> void:
+	if who != "" and _duel_label == null:
+		_duel_label = Label3D.new()
+		_duel_label.name = "DuelMark"
+		_duel_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_duel_label.double_sided = false
+		_duel_label.fixed_size = true
+		_duel_label.pixel_size = DUEL_MARK_PIXEL
+		_duel_label.font = HudKit.bold()
+		_duel_label.font_size = 34
+		_duel_label.outline_size = 10
+		_duel_label.outline_modulate = Color(0.04, 0.03, 0.02, 0.88)
+		# Over the body, under the damage numbers (FloatingText, priority 0)
+		# that rise through it.
+		_duel_label.no_depth_test = true
+		_duel_label.render_priority = -1
+		_duel_label.outline_render_priority = -2
+		_duel_label.position.y = DUEL_MARK_HEIGHT
+		add_child(_duel_label)
+	if _duel_label != null and who != "":
+		_duel_label.text = who
+	duel_mark = mark
+	if _duel_label != null:
+		_duel_label.visible = mark != DUEL_NONE
+		_duel_label.modulate = DUEL_OUT_TINT if mark == DUEL_OUT else DUEL_FOE_TINT
+
 ## Fallen or risen. A fall drops the cast and lies down in Death_A; a rise
 ## plays Revive over the standing pose.
 func set_dead(on: bool) -> void:

@@ -100,6 +100,9 @@ pub struct Restraint {
     pub lock_until: u32,
     pub web_from: u32,
     pub web_until: u32,
+    /// The slowed body's share of its speed, percent (a creature's web is
+    /// WEB_FACTOR; a spell's slow its own factor).
+    pub web_pct: u8,
 }
 
 impl Restraint {
@@ -122,9 +125,14 @@ impl Restraint {
         self.lock_until = self.lock_until.max(until);
     }
 
-    pub fn web(&mut self, now: u32, until: u32) {
+    /// Slows to `pct` percent from `now` until at least `until` (a running
+    /// slow keeps the stronger of the two).
+    pub fn web(&mut self, now: u32, until: u32, pct: u8) {
         if self.web_until <= now {
             self.web_from = now;
+            self.web_pct = pct;
+        } else {
+            self.web_pct = self.web_pct.min(pct);
         }
         self.web_until = self.web_until.max(until);
     }
@@ -138,7 +146,7 @@ impl Restraint {
             p.can_jump = false;
         }
         if self.webbed(tick) {
-            p.walk_speed *= WEB_FACTOR;
+            p.walk_speed *= f32::from(self.web_pct.clamp(1, 100)) / 100.0;
         }
         p
     }

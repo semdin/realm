@@ -2,23 +2,28 @@ extends Control
 class_name HudInvites
 
 ## Invitation cards, top centre (the old game's approved card): a party
-## invitation names who asked, runs a timer bar down over the coordinator's
-## answer window (TTL_S) and answers with the same chat commands the player can
-## type (`/accept`, `/decline`), so a card is a thin shortcut over the server's
-## own flow. Cards are wide, framed in the invitation's colour, slide in with a
-## chime and pulse until answered; a new invitation of the same kind replaces
-## the old one.
+## invitation, a duel challenge or a group duel challenge names who asked,
+## runs a timer bar down over the server's answer window (TTL_S) and answers
+## with the same chat commands the player can type (`/accept` and `/decline`
+## for a party, `/daccept` and `/ddecline` for a duel), so a card is a thin
+## shortcut over the server's own flow. Cards are wide, framed in the
+## invitation's colour, slide in with a chime and pulse until answered; a new
+## invitation of the same kind replaces the old one.
 
 const CARD_W := 404.0
-## The coordinator's INVITE_TTL.
+## The coordinator's INVITE_TTL and the map server's duel REQUEST_TICKS.
 const TTL_S := 30.0
 const MAX_CARDS := 3
 const ACCENTS := {
 	"party": Color(0.46, 0.74, 1.0),
+	"duel": Color(1.0, 0.40, 0.32),
+	"group_duel": Color(1.0, 0.58, 0.24),
 }
 ## What each answer sends: [accept, decline].
 const ANSWERS := {
 	"party": ["/accept", "/decline"],
+	"duel": ["/daccept", "/ddecline"],
+	"group_duel": ["/daccept", "/ddecline"],
 }
 
 var session: Node
@@ -43,13 +48,14 @@ func _process(_delta: float) -> void:
 	_stack.position = Vector2(roundf((area.x - CARD_W) * 0.5), roundf(maxf(150.0, area.y * 0.2)))
 	_stack.size = Vector2(CARD_W, 0.0)
 
-## Show the card for `kind` from `from_name` (replacing one of the same kind).
-func push(kind: String, from_name: String) -> InviteCard:
+## Show the card for `kind` from `from_name` (replacing one of the same kind);
+## `party_size` is a group duel's head count.
+func push(kind: String, from_name: String, party_size := 1) -> InviteCard:
 	for card in _stack.get_children():
 		if card is InviteCard and (card as InviteCard).kind == kind:
 			card.queue_free()
 	var card := InviteCard.new()
-	card.setup(kind, from_name, ACCENTS.get(kind, HudKit.GOLD))
+	card.setup(kind, from_name, party_size, ACCENTS.get(kind, HudKit.GOLD))
 	card.answered.connect(_on_answered)
 	_stack.add_child(card)
 	_stack.move_child(card, 0)
@@ -86,7 +92,7 @@ class InviteCard extends PanelContainer:
 	var _bar: TimerBar
 	var _born_ms := 0
 
-	func setup(p_kind: String, p_from: String, accent: Color) -> void:
+	func setup(p_kind: String, p_from: String, party_size: int, accent: Color) -> void:
 		kind = p_kind
 		from_name = p_from
 		_accent = accent
@@ -117,6 +123,7 @@ class InviteCard extends PanelContainer:
 		head.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		column.add_child(head)
 		var emblem := InviteEmblem.new()
+		emblem.kind = kind
 		emblem.accent = accent
 		head.add_child(emblem)
 		var words := VBoxContainer.new()
@@ -125,7 +132,7 @@ class InviteCard extends PanelContainer:
 		words.alignment = BoxContainer.ALIGNMENT_CENTER
 		words.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		head.add_child(words)
-		words.add_child(HudKit.label(I18n.upper(tr("Party Invitation")), 15, accent.lerp(HudKit.GOLD_HI, 0.35), HudKit.title(), 4))
+		words.add_child(HudKit.label(I18n.upper(_title()), 15, accent.lerp(HudKit.GOLD_HI, 0.35), HudKit.title(), 4))
 		var body := RichTextLabel.new()
 		body.bbcode_enabled = true
 		body.fit_content = true
@@ -139,8 +146,7 @@ class InviteCard extends PanelContainer:
 		body.add_theme_color_override("default_color", HudKit.PARCHMENT)
 		body.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.85))
 		body.add_theme_constant_override("outline_size", UITheme.outline_for(16, 3))
-		var who := "[b][color=#%s]%s[/color][/b]" % [HudKit.GOLD_HI.to_html(false), from_name.replace("[", "[lb]")]
-		body.text = tr("%s invites you to join their party.") % who
+		body.text = _sentence(p_from, party_size)
 		words.add_child(body)
 
 		_bar = TimerBar.new()
@@ -157,6 +163,23 @@ class InviteCard extends PanelContainer:
 		var no := _answer_button(tr("Decline"), Color(0.86, 0.30, 0.26))
 		no.pressed.connect(func(): answer(false))
 		row.add_child(no)
+
+	func _title() -> String:
+		match kind:
+			"duel":
+				return tr("Duel Challenge")
+			"group_duel":
+				return tr("Group Duel Challenge")
+		return tr("Party Invitation")
+
+	func _sentence(who_name: String, party_size: int) -> String:
+		var who := "[b][color=#%s]%s[/color][/b]" % [HudKit.GOLD_HI.to_html(false), who_name.replace("[", "[lb]")]
+		match kind:
+			"duel":
+				return tr("%s challenges you to a duel.") % who
+			"group_duel":
+				return tr("%s challenges your party to a group duel (%d players).") % [who, party_size]
+		return tr("%s invites you to join their party.") % who
 
 	func _answer_button(text: String, tint: Color) -> Button:
 		var b := Button.new()
@@ -249,9 +272,11 @@ class TimerBar extends Control:
 		draw_rect(Rect2(Vector2.ZERO, Vector2(fill.size.x, 1.0)), tint.lightened(0.35))
 
 
-## The card's medallion: a dark disc in a coloured ring with three figures (a
-## party). Drawn in code like the rest of the HUD kit.
+## The card's medallion: a dark disc in a coloured ring with the invitation's
+## glyph - three figures for a party, crossed wands for a duel (with figures
+## behind them for a group duel). Drawn in code like the rest of the HUD kit.
 class InviteEmblem extends Control:
+	var kind := "party"
 	var accent := HudKit.GOLD
 
 	func _init() -> void:
@@ -267,10 +292,24 @@ class InviteEmblem extends Control:
 		draw_arc(c, r, 0.0, TAU, 48, accent.lerp(HudKit.GOLD, 0.35), 2.0, true)
 		draw_arc(c, r - 4.0, 0.0, TAU, 48, Color(HudKit.GOLD.r, HudKit.GOLD.g, HudKit.GOLD.b, 0.35), 1.0, true)
 		var ink := accent.lerp(HudKit.GOLD_HI, 0.45)
-		_figure(c + Vector2(-10, 3), 0.8, ink.darkened(0.25))
-		_figure(c + Vector2(10, 3), 0.8, ink.darkened(0.25))
-		_figure(c + Vector2(0, 0), 1.0, ink)
+		if kind == "party":
+			_figure(c + Vector2(-10, 3), 0.8, ink.darkened(0.25))
+			_figure(c + Vector2(10, 3), 0.8, ink.darkened(0.25))
+			_figure(c + Vector2(0, 0), 1.0, ink)
+			return
+		if kind == "group_duel":
+			_figure(c + Vector2(-12, 6), 0.65, ink.darkened(0.45))
+			_figure(c + Vector2(12, 6), 0.65, ink.darkened(0.45))
+		_wand(c + Vector2(-12, 12), c + Vector2(11, -11), ink)
+		_wand(c + Vector2(12, 12), c + Vector2(-11, -11), ink)
+		draw_circle(c + Vector2(0, -15), 2.2, Color(1.0, 0.95, 0.8))
 
 	func _figure(at: Vector2, s: float, col: Color) -> void:
 		draw_circle(at + Vector2(0, -7) * s, 4.6 * s, col)
 		draw_arc(at + Vector2(0, 9) * s, 9.0 * s, PI, TAU, 18, col, 4.0 * s, true)
+
+	func _wand(from: Vector2, to: Vector2, col: Color) -> void:
+		draw_line(from, to, Color(0, 0, 0, 0.6), 5.0, true)
+		draw_line(from, to, col, 3.0, true)
+		draw_line(from, from.lerp(to, 0.28), col.darkened(0.35), 4.2, true)   # the grip
+		draw_circle(to, 2.4, col.lightened(0.4))

@@ -3,10 +3,12 @@ class_name HudPlayerMenu
 
 ## The menu a right click on another player opens at the cursor (the old
 ## game's approved menu): a header with the player's name and, when the
-## client knows them, `Lv. N · House`, then the entries. Each entry sends the
-## chat command the player could type (`/invite Name`); the server checks
-## everything again and answers in the chat. An entry that cannot apply stays
-## listed but dimmed, with the reason under it.
+## client knows them, `Lv. N · House`, then the entries: invite to the party,
+## challenge to a duel, call a group duel. Each entry sends the chat command
+## the player could type (`/invite Name`, `/duel Name`, `/gduel Name`); the
+## server checks everything again and answers in the chat. An entry that cannot
+## apply stays listed but dimmed, with the reason under it, so the options are
+## always discoverable.
 ##
 ## It opens on a player within RANGE of the player's own body and closes beyond
 ## the same RANGE, so the reach that opens it and the reach that keeps it agree;
@@ -16,12 +18,15 @@ class_name HudPlayerMenu
 const RANGE := 40.0
 const MENU_W := 238.0
 const PARTY_ACCENT := Color(0.46, 0.74, 1.0)
+const DUEL_ACCENT := Color(1.0, 0.40, 0.32)
+const GROUP_ACCENT := Color(1.0, 0.58, 0.24)
 
 var session: Node
-## The player's own body (the range) and the party frames (who is in the
-## party).
+## The player's own body (the range), the party frames (who is in the party,
+## who leads it) and the duel view (whether the player is in a duel).
 var player: Node3D
 var party_frames: HudParty
+var duel_view: HudDuel
 ## The player the menu is open on: its body and its name.
 var target: Node3D
 var target_name := ""
@@ -76,6 +81,18 @@ func open(body: Node3D, who: Dictionary, at: Vector2) -> void:
 	var in_mine := party_frames != null and party_frames.shown_members().any(func(m): return String(m["name"]) == target_name)
 	_column.add_child(_entry(tr("Invite to Party"), PARTY_ACCENT, "/invite %s" % target_name,
 		tr("Already in your party.") if in_mine else ""))
+	var in_duel := duel_view != null and duel_view.active()
+	var duel_hint := tr("You are already in a duel.") if in_duel else ""
+	_column.add_child(_entry(tr("Challenge to Duel"), DUEL_ACCENT, "/duel %s" % target_name, duel_hint))
+	var group_hint := duel_hint
+	if group_hint == "":
+		if party_frames == null or not party_frames.in_party():
+			group_hint = tr("You need a party.")
+		elif not party_frames.is_leader():
+			group_hint = tr("Only the party leader can call it.")
+		elif in_mine:
+			group_hint = tr("They are in your party.")
+	_column.add_child(_entry(tr("Group Duel"), GROUP_ACCENT, "/gduel %s" % target_name, group_hint))
 	visible = true
 	_panel.reset_size()
 	_corner = at + Vector2(10, 6)

@@ -72,6 +72,8 @@ pub const HIT_SLOW: u8 = 16;
 pub const HIT_BURN: u8 = 32;
 /// A creature walking home shrugged the blow off.
 pub const HIT_EVADE: u8 = 64;
+/// A ward sent the bolt back at its caster (the hit is on the caster).
+pub const HIT_REFLECTED: u8 = 128;
 use serde::{Deserialize, Serialize};
 
 /// Largest frame either side accepts; a peer sending more is closed.
@@ -133,6 +135,11 @@ pub enum ServerMsg {
     PartyInvite { from: String },
     /// The player's party as it now stands (party 0: none).
     Party(crate::coord::PartyView),
+    /// `from` challenges the player (`group`: party against party, `size`
+    /// players on that side); answer with `/daccept` or `/ddecline`.
+    DuelInvite { from: String, group: bool, size: u8 },
+    /// The player's duel as it stands, or how it ended (`duel` 0).
+    Duel(DuelView),
     /// The answer to `ClaimQuest` ("claimed", "not_ready", "bag_full").
     QuestResult {
         quest: String,
@@ -187,6 +194,31 @@ pub enum ServerMsg {
         value: u32,
         of: u32,
     },
+}
+
+/// A duel as one duelist sees it. Running: `duel`, `group`, `phase` (0
+/// countdown, 1 fight), `fight_tick` / `end_tick` (server ticks), the arena
+/// (`center`, `radius`), `allies` and `foes` (entity, name), who is `out`.
+/// Ended (`duel` 0): `result` ("won", "lost", "draw"), `reason` ("defeat",
+/// "fled", "left", "died", "yield", "timeout"), `last` (the last one out),
+/// `by` (who beat them). Declined: `declined_by`.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct DuelView {
+    pub duel: u32,
+    pub group: bool,
+    pub phase: u8,
+    pub fight_tick: u32,
+    pub end_tick: u32,
+    pub center: [f32; 3],
+    pub radius: f32,
+    pub allies: Vec<(u32, String)>,
+    pub foes: Vec<(u32, String)>,
+    pub out: Vec<u32>,
+    pub result: String,
+    pub reason: String,
+    pub last: String,
+    pub by: String,
+    pub declined_by: String,
 }
 
 /// Client -> server.

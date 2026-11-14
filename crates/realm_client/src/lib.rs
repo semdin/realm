@@ -451,7 +451,9 @@ impl RealmSession {
                     | ServerMsg::Death { .. }
                     | ServerMsg::AttributeResult { .. }
                     | ServerMsg::QuestResult { .. }
-                    | ServerMsg::PartyInvite { .. }),
+                    | ServerMsg::PartyInvite { .. }
+                    | ServerMsg::DuelInvite { .. }
+                    | ServerMsg::Duel(_)),
                 ) => self.game_events.push(event),
                 NetEvent::Control(line @ ServerMsg::Chat { .. }) => {
                     self.chat.push(line);
@@ -835,6 +837,13 @@ impl RealmSession {
     ///   "bag_full")
     /// - "party_invite": `from` (answer with `/accept` or `/decline`)
     /// - "party": the party changed (read it with `party()`)
+    /// - "duel_invite": `from`, `group`, `size` (answer `/daccept`,
+    ///   `/ddecline`)
+    /// - "duel": `duel` (0 when it ended), `group`, `phase` (0 countdown, 1
+    ///   fight), `fight_tick`, `end_tick` (server ticks), `center`, `radius`,
+    ///   `allies` / `foes` ([{entity, name}]), `out` (entities), and when it
+    ///   ended `result` (won, lost, draw), `reason`, `last`, `by`; a declined
+    ///   challenge carries `declined_by`
     #[func]
     fn take_game_events(&mut self) -> VarArray {
         let mut out = VarArray::new();
@@ -897,6 +906,48 @@ impl RealmSession {
                 }
                 ServerMsg::Party(_) => {
                     d.set("kind", "party");
+                }
+                ServerMsg::DuelInvite { from, group, size } => {
+                    d.set("kind", "duel_invite");
+                    d.set("from", &GString::from(from.as_str()).to_variant());
+                    d.set("group", &group.to_variant());
+                    d.set("size", &i64::from(size).to_variant());
+                }
+                ServerMsg::Duel(v) => {
+                    d.set("kind", "duel");
+                    d.set("duel", &i64::from(v.duel).to_variant());
+                    d.set("group", &v.group.to_variant());
+                    d.set("phase", &i64::from(v.phase).to_variant());
+                    d.set("fight_tick", &i64::from(v.fight_tick).to_variant());
+                    d.set("end_tick", &i64::from(v.end_tick).to_variant());
+                    d.set(
+                        "center",
+                        &Vector3::new(v.center[0], v.center[1], v.center[2]).to_variant(),
+                    );
+                    d.set("radius", &v.radius.to_variant());
+                    let side = |list: &Vec<(u32, String)>| {
+                        let mut a = VarArray::new();
+                        for (id, name) in list {
+                            let mut e = VarDictionary::new();
+                            e.set("entity", &i64::from(*id).to_variant());
+                            e.set("name", &GString::from(name.as_str()).to_variant());
+                            a.push(&e.to_variant());
+                        }
+                        a
+                    };
+                    d.set("allies", &side(&v.allies).to_variant());
+                    d.set("foes", &side(&v.foes).to_variant());
+                    let out: PackedInt32Array = v.out.iter().map(|e| *e as i32).collect();
+                    d.set("out", &out.to_variant());
+                    for (key, value) in [
+                        ("result", &v.result),
+                        ("reason", &v.reason),
+                        ("last", &v.last),
+                        ("by", &v.by),
+                        ("declined_by", &v.declined_by),
+                    ] {
+                        d.set(key, &GString::from(value.as_str()).to_variant());
+                    }
                 }
                 ServerMsg::QuestResult { quest, ok, reason } => {
                     d.set("kind", "quest_result");

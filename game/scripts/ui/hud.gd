@@ -5,9 +5,10 @@ extends Control
 ## plate and the experience band along the bottom edge, and the notice band;
 ## the unit frame also carries the house standing, and a rank-up is a notice.
 ## The social pieces live here too: the chat log bottom-left (HudChat), the
-## party frames under the unit frame (HudParty), and over every window the
-## invitation cards (HudInvites) and the right-click player menu
-## (HudPlayerMenu).
+## party frames under the unit frame (HudParty), the local player's duel
+## (HudDuel: countdown, plaque, arena, result), and over every window the
+## invitation cards and duel challenges (HudInvites) and the right-click
+## player menu (HudPlayerMenu).
 ## Windows find this node as their sibling "HUD" and call `show_notice`.
 ##
 ## It only draws: health and mana come from the newest snapshot
@@ -35,6 +36,7 @@ const ChatScript := "res://scripts/ui/hud_chat.gd"
 const PartyScript := "res://scripts/ui/hud_party.gd"
 const InvitesScript := "res://scripts/ui/hud_invites.gd"
 const PlayerMenuScript := "res://scripts/ui/hud_player_menu.gd"
+const DuelScript := "res://scripts/ui/hud_duel.gd"
 
 var session: Node
 var sheet: PlayerSheet
@@ -59,6 +61,7 @@ var chat: HudChat
 var party_frames: HudParty
 var invites: HudInvites
 var player_menu: HudPlayerMenu
+var duel_view: HudDuel
 ## The target card's "Invite to Party" (another player not in the party), and
 ## the name it invites.
 var invite_button: Button
@@ -207,8 +210,13 @@ func _build_social() -> void:
 	add_child(chat)
 	chat.focus_changed.connect(func(_open: bool): _layout())
 	chat.add_system_line(tr("Party: /invite Name, /leave, /p text for party chat."))
+	chat.add_system_line(tr("Duel: right-click a player, or /duel Name (/gduel Name for parties, /yield to give up)."))
 	party_frames = load(PartyScript).new()
 	add_child(party_frames)
+	duel_view = load(DuelScript).new()
+	duel_view.session = session
+	duel_view.chat_sink = chat.add_system_line
+	add_child(duel_view)
 	var popups := CanvasLayer.new()
 	popups.name = "PopupLayer"
 	popups.layer = 6
@@ -219,6 +227,7 @@ func _build_social() -> void:
 	player_menu = load(PlayerMenuScript).new()
 	player_menu.session = session
 	player_menu.party_frames = party_frames
+	player_menu.duel_view = duel_view
 	popups.add_child(player_menu)
 
 ## ------------------------------------------------------------- target card
