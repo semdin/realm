@@ -3,6 +3,7 @@
 //!                [--character 900001]
 //! realm_netcheck --social [--server A --map A --server-b B --map-b B]   (see social.rs)
 //! realm_netcheck --travel --characters <dir>                           (see travel.rs)
+//! realm_netcheck --dungeon --characters <dir>                          (see dungeon.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -11,6 +12,7 @@
 //! correction the player would see as a snap back. Exits with an error if
 //! there was any (Phase 4 exit: none at 200 ms and 2% loss).
 
+mod dungeon;
 mod social;
 mod travel;
 
@@ -205,6 +207,9 @@ fn main() -> AnyResult<()> {
     if args.iter().any(|a| a == "--travel") {
         return travel::run(&args);
     }
+    if args.iter().any(|a| a == "--dungeon") {
+        return dungeon::run(&args);
+    }
     let server: SocketAddr = arg(&args, "--server", "127.0.0.1:7800").parse()?;
     let keys = PathBuf::from(arg(&args, "--keys", "keys"));
     let map = arg(&args, "--map", "grounds");
@@ -276,6 +281,7 @@ fn main() -> AnyResult<()> {
                     entity,
                     tick,
                     content_hash,
+                    ..
                 } => {
                     if content_hash
                         .iter()
@@ -484,7 +490,9 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Departing { .. }
                     | realm_proto::control::ServerMsg::Travel { .. }
                     | realm_proto::control::ServerMsg::Arrived { .. }
-                    | realm_proto::control::ServerMsg::Waylink(_),
+                    | realm_proto::control::ServerMsg::Waylink(_)
+                    | realm_proto::control::ServerMsg::Dungeon(_)
+                    | realm_proto::control::ServerMsg::Gate { .. },
                 ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }

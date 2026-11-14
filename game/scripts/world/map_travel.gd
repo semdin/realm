@@ -7,7 +7,9 @@ class_name MapTravel
 ##   * Doors (maps.json `portals` of this map): the body is tested against each
 ##     trigger every frame; standing in one shows "Press F - Enter <map>", F
 ##     asks RealmSession.door. Mounted, the door is refused here (the server
-##     refuses it too).
+##     refuses it too). A door into an instanced map is a dungeon's gate: F
+##     opens its gate window (MapDungeon). Inside a dungeon copy the doors'
+##     triggers stand at the copy's offset (RealmSession.copy_offset).
 ##   * Hearths, Twinned Cabinets and passages (travel.json `nodes` of this
 ##     map, drawn by TravelNodes): within a node's radius its prompt shows. F
 ##     at a hearth opens the Hearth window (HudHearthway), whose Travel plays
@@ -171,11 +173,12 @@ func tick(_delta: float) -> void:
 		_set_prompt("")
 		return
 	var me: Vector3 = game.session.own_position()
+	# a dungeon copy's doors stand at its offset (content is at the map's own
+	# coordinates)
+	var local: Vector3 = me - (game.session.copy_offset() as Vector3)
 	active_portal = {}
 	for portal: Dictionary in TravelData.portals(map_name):
-		if TravelData.instanced(String(portal.get("to_map", ""))):
-			continue   # a dungeon's door is its gate (a later slice)
-		if _portal_contains(portal, me):
+		if _portal_contains(portal, local):
 			active_portal = portal
 			break
 	active_node = ""
@@ -186,7 +189,9 @@ func tick(_delta: float) -> void:
 		active_node = nodes.node_at(me)
 	var text := ""
 	if not active_portal.is_empty():
-		if mounted():
+		if _is_gate(active_portal):
+			text = tr("Press %s - %s") % [PROMPT_KEY, tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
+		elif mounted():
 			text = tr("Mounted - the castle door is closed to broom flight. Dismount to enter.")
 		else:
 			text = tr("Press %s - %s") % [PROMPT_KEY, tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
@@ -201,7 +206,18 @@ func tick(_delta: float) -> void:
 			hearthway.close()
 		else:
 			text = ""
+	# So does a dungeon's gate window; it closes when the body leaves the gate.
+	var gate: HudDungeon = game.dungeon.gate_window
+	if gate.visible:
+		if String(active_portal.get("id", "")) != gate.portal_id:
+			gate.close()
+		else:
+			text = ""
 	_set_prompt(text)
+
+## A door into an instanced map from outside one: a dungeon's gate.
+func _is_gate(portal: Dictionary) -> bool:
+	return TravelData.instanced(String(portal.get("to_map", ""))) and not TravelData.instanced(map_name)
 
 func _set_prompt(text: String) -> void:
 	prompt = text
@@ -232,6 +248,9 @@ func interact() -> bool:
 	if leaving or nodes == null:
 		return false
 	if not active_portal.is_empty():
+		if _is_gate(active_portal):
+			game.dungeon.open_gate(String(active_portal.get("id", "")))
+			return true
 		if mounted():
 			_refuse(tr("Dismount before entering - the broom cannot fly inside the castle."))
 			return true
@@ -324,6 +343,7 @@ func _leave(to_map: String) -> void:
 	leaving = true
 	hearthway.close()
 	waylink_window.close()
+	game.dungeon.gate_window.close()
 	var screen := MapLoadingScreen.shared(get_tree())
 	await screen.open(_loading_title(to_map), _loading_text(to_map))
 	screen.set_progress(10.0, tr("Leaving %s…") % _place_name(map_name))

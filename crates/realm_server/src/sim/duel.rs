@@ -323,6 +323,11 @@ impl Sim {
         self.sync_duel(i);
     }
 
+    /// Whether `player` is in a duel (counting down or fighting).
+    pub(super) fn duels_has(&self, player: Entity) -> bool {
+        self.duels.duel_of(player).is_some()
+    }
+
     /// `player` leaves the map in a duel: it fled.
     pub(super) fn flee_duel(&mut self, player: Entity) {
         if let Some(i) = self.duels.duel_of(player) {

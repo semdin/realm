@@ -298,6 +298,8 @@ struct RealmSession {
     chat: Vec<ServerMsg>,
     /// The party as the server last said.
     party: realm_proto::coord::PartyView,
+    /// The dungeon copy this connection plays in (0: none).
+    copy: u8,
     status: String,
     /// The player's character sheet as the server last sent it.
     sheet: Option<CharacterSheet>,
@@ -329,6 +331,7 @@ impl INode for RealmSession {
             game_events: Vec::new(),
             chat: Vec::new(),
             party: realm_proto::coord::PartyView::default(),
+            copy: 0,
             status: "idle".to_owned(),
             sheet: None,
             item_results: Vec::new(),
@@ -405,6 +408,7 @@ impl RealmSession {
                     entity,
                     tick,
                     content_hash,
+                    copy,
                 } => {
                     let (Some(content), Some(pack)) = (self.content.as_ref(), self.pack.as_ref())
                     else {
@@ -416,12 +420,28 @@ impl RealmSession {
                         self.net = None;
                         return;
                     }
-                    match (pack.world(), realm_data::staircases(content, pack)) {
-                        (Ok(world), Ok(stairs)) => {
-                            self.core = Some(ClientCore::new(world, stairs, entity, tick));
+                    // A dungeon copy stands at its own offset, with its gates.
+                    let offset = realm_rules::dungeons::copy_offset(copy);
+                    let offset = realm_sim::Vec3::new(offset[0], offset[1], offset[2]);
+                    let world = if copy == 0 {
+                        pack.world()
+                    } else {
+                        pack.world_copies(&[offset])
+                    };
+                    let gates = pack.gates(&[offset]);
+                    match (world, realm_data::staircases(content, pack), gates) {
+                        (Ok(world), Ok(stairs), Ok(gates)) => {
+                            let mut core = ClientCore::new(world, stairs, entity, tick);
+                            if copy != 0 {
+                                core.set_gates(gates);
+                            }
+                            self.core = Some(core);
+                            self.copy = copy;
                             self.status = "joined".to_owned();
                         }
-                        (Err(e), _) | (_, Err(e)) => self.status = format!("closed: {e}"),
+                        (_, _, Err(e)) | (Err(e), _, _) | (_, Err(e), _) => {
+                            self.status = format!("closed: {e}");
+                        }
                     }
                 }
                 NetEvent::Refused(reason) => self.status = format!("refused: {reason}"),
@@ -462,8 +482,14 @@ impl RealmSession {
                     event @ (ServerMsg::TravelResult { .. }
                     | ServerMsg::Departing { .. }
                     | ServerMsg::Arrived { .. }
-                    | ServerMsg::Waylink(_)),
+                    | ServerMsg::Waylink(_)
+                    | ServerMsg::Dungeon(_)),
                 ) => self.game_events.push(event),
+                NetEvent::Control(ServerMsg::Gate { id, tick, open }) => {
+                    if let Some(core) = self.core.as_mut() {
+                        core.schedule_gate(&id, tick, open);
+                    }
+                }
                 NetEvent::Control(ServerMsg::Travel {
                     map,
                     address,
@@ -614,6 +640,81 @@ impl RealmSession {
                 self.status = format!("closed: {e}");
                 false
             }
+        }
+    }
+
+    /// The dungeon copy this connection plays in (0: none).
+    #[func]
+    fn copy(&self) -> i64 {
+        i64::from(self.copy)
+    }
+
+    /// Where this connection's dungeon copy stands (add it to the map's own
+    /// coordinates: the pack's meshes, spawn points, doors, nodes).
+    #[func]
+    fn copy_offset(&self) -> Vector3 {
+        let o = realm_rules::dungeons::copy_offset(self.copy);
+        Vector3::new(o[0], o[1], o[2])
+    }
+
+    /// The copy's gates: [{id, center, size, open}] (world space; `open` at
+    /// the predicted tick, so a portcullis lifts with the prediction).
+    #[func]
+    fn gates(&self) -> VarArray {
+        let mut out = VarArray::new();
+        let (Some(core), Some(pack)) = (self.core.as_ref(), self.pack.as_ref()) else {
+            return out;
+        };
+        let o = realm_rules::dungeons::copy_offset(self.copy);
+        for d in &pack.dynamic {
+            let Some(id) = d.source.strip_prefix("gate:") else {
+                continue;
+            };
+            let mut g = VarDictionary::new();
+            let t = d.collider.translation;
+            g.set("id", &GString::from(id).to_variant());
+            g.set(
+                "center",
+                &Vector3::new(t[0] + o[0], t[1] + o[1], t[2] + o[2]).to_variant(),
+            );
+            if let realm_sim::pack::PackShape::Box { half } = &d.collider.shape {
+                g.set(
+                    "size",
+                    &Vector3::new(half[0] * 2.0, half[1] * 2.0, half[2] * 2.0).to_variant(),
+                );
+            }
+            g.set("open", &core.gate_open(id, core.tick()).to_variant());
+            out.push(&g.to_variant());
+        }
+        out
+    }
+
+    /// Asks what the dungeon behind gate `portal` asks of the party (the
+    /// answer: a "dungeon" game event, `event` "info").
+    #[func]
+    fn dungeon_info(&mut self, portal: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::DungeonInfo(portal.to_string()));
+        }
+    }
+
+    /// The party leader starts the dungeon behind `portal` at `difficulty`
+    /// (0 easy .. 4 legendary).
+    #[func]
+    fn dungeon_start(&mut self, portal: GString, difficulty: i64) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::DungeonStart {
+                portal: portal.to_string(),
+                difficulty: difficulty.clamp(0, 4) as u8,
+            });
+        }
+    }
+
+    /// Answers ready check `id`.
+    #[func]
+    fn dungeon_ready(&mut self, id: i64, yes: bool) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::DungeonReady { id: id as u32, yes });
         }
     }
 
@@ -951,6 +1052,9 @@ impl RealmSession {
     ///   "bag_full")
     /// - "party_invite": `from` (answer with `/accept` or `/decline`)
     /// - "party": the party changed (read it with `party()`)
+    /// - "dungeon": `event` (info, ready, cancelled, refused, launch, state,
+    ///   rewards) and that message's fields (ready / state carry `view`)
+    /// - "travel_result", "departing", "travel", "arrived", "waylink": trips
     /// - "duel_invite": `from`, `group`, `size` (answer `/daccept`,
     ///   `/ddecline`)
     /// - "duel": `duel` (0 when it ended), `group`, `phase` (0 countdown, 1
@@ -1046,6 +1150,28 @@ impl RealmSession {
                 ServerMsg::Arrived { kind } => {
                     d.set("kind", "arrived");
                     d.set("trip", &GString::from(kind.as_str()).to_variant());
+                }
+                ServerMsg::Dungeon(m) => {
+                    // `event`: info, ready, cancelled, refused, launch, state,
+                    // rewards; the message's fields alongside (tuples come
+                    // as arrays).
+                    d.set("kind", "dungeon");
+                    if let Ok(serde_json::Value::Object(o)) = serde_json::to_value(&m) {
+                        for (name, inner) in o {
+                            d.set(
+                                "event",
+                                &GString::from(name.to_lowercase().as_str()).to_variant(),
+                            );
+                            match inner {
+                                serde_json::Value::Object(fields) => {
+                                    for (k, v) in fields {
+                                        d.set(k.as_str(), &json_to_variant(&v));
+                                    }
+                                }
+                                other => d.set("view", &json_to_variant(&other)),
+                            }
+                        }
+                    }
                 }
                 ServerMsg::Waylink(w) => {
                     d.set("kind", "waylink");

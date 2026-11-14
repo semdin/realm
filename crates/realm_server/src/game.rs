@@ -37,6 +37,8 @@ pub struct DeathRules {
 #[derive(Clone, Debug, PartialEq)]
 pub enum PackKind {
     Creatures,
+    /// A dungeon run's step in copy N: never respawns.
+    Dungeon(u8),
     /// A Dark Shard of this type (its one member is the stone).
     Stone(String),
     /// A training dummy.
@@ -403,6 +405,13 @@ impl Game {
             .bosses
             .get(key)
             .map(|b| (b.hp * self.hp_multiplier, b.attack_power))
+    }
+
+    /// The pack strength multiplier at `level` (what a creature's numbers
+    /// grow by).
+    pub fn strength_at(&self, level: u32) -> f32 {
+        let (base, per_level, floor) = self.strength;
+        (base + per_level * level as f32).max(floor)
     }
 
     pub fn aggro_radius(&self, level: u32) -> f32 {

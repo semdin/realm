@@ -232,6 +232,72 @@ impl MapPack {
         }
         Ok(world)
     }
+
+    /// The collision world with the map's colliders laid down once per
+    /// `offset` (copies of a dungeon side by side; terrain and water once).
+    pub fn world_copies(&self, offsets: &[Vec3]) -> Result<World, String> {
+        let mut copy = self.clone();
+        copy.colliders.clear();
+        let mut world = copy.world()?;
+        for offset in offsets {
+            for (index, collider) in self.colliders.iter().enumerate() {
+                let (pose, shape) = crate::world::pack_shape(collider, *offset)
+                    .map_err(|e| format!("collider {index}: {e}"))?;
+                world.add(pose, shape);
+            }
+        }
+        Ok(world)
+    }
+
+    /// The dungeon gates (`gate:<id>` dynamic colliders) for each copy:
+    /// copy `i + 1` at `offsets[i]`. All start closed.
+    pub fn gates(&self, offsets: &[Vec3]) -> Result<crate::gates::Gates, String> {
+        let mut gates = Vec::new();
+        for (i, offset) in offsets.iter().enumerate() {
+            for d in &self.dynamic {
+                let Some(id) = d.source.strip_prefix("gate:") else {
+                    continue;
+                };
+                let (pose, shape) = crate::world::pack_shape(&d.collider, *offset)?;
+                gates.push(crate::gates::Gate {
+                    id: id.to_owned(),
+                    copy: (i + 1) as u8,
+                    pose,
+                    shape,
+                    changes: Vec::new(),
+                });
+            }
+        }
+        Ok(crate::gates::Gates::new(gates))
+    }
+
+    /// The navigation mesh laid down once per offset.
+    #[must_use]
+    pub fn nav_copies(&self, offsets: &[Vec3]) -> NavMesh {
+        let mut out = NavMesh::default();
+        for offset in offsets {
+            let base = out.vertices.len() as u32;
+            let poly_base = out.polygons.len() as u32;
+            let o = [offset.x, offset.y, offset.z];
+            let add = |p: [f32; 3]| [p[0] + o[0], p[1] + o[1], p[2] + o[2]];
+            out.vertices
+                .extend(self.nav.vertices.iter().map(|v| add(*v)));
+            out.polygons.extend(
+                self.nav
+                    .polygons
+                    .iter()
+                    .map(|p| p.iter().map(|i| i + base).collect::<Vec<u32>>()),
+            );
+            out.portals
+                .extend(self.nav.portals.iter().map(|p| NavPortal {
+                    a: p.a + poly_base,
+                    b: p.b + poly_base,
+                    p0: add(p.p0),
+                    p1: add(p.p1),
+                }));
+        }
+        out
+    }
 }
 
 /// File header: magic, then the pack version, then zstd(postcard(MapPack)).

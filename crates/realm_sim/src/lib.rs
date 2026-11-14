@@ -9,6 +9,7 @@
 //! snapped to the wire grid after every step, so a client that rewinds to a
 //! server snapshot resumes from exactly the server's numbers.
 
+pub mod gates;
 pub mod input;
 pub mod movement;
 pub mod nav;

@@ -131,6 +131,9 @@ pub struct CharacterSheet {
     /// House standing (quest rewards only).
     #[serde(default)]
     pub house_rep: u32,
+    /// Dungeon clears, best times, today's rewarded runs, titles.
+    #[serde(default)]
+    pub dungeons: crate::dungeons::DungeonLog,
     /// Bumped by every change; a save older than the stored one is refused.
     pub revision: u64,
 }

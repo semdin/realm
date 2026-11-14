@@ -247,7 +247,19 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
                 rotation,
                 shape: shape(item, &bin, path)?,
             };
-            if item["kind"].as_str() == Some("dynamic") {
+            // A dungeon gate (the old greybox's `Gate_<id>` portcullis) opens
+            // and closes with the run: kept out of the static world, named
+            // `gate:<id>` for the dungeon rules.
+            let gate = path
+                .rsplit('/')
+                .next()
+                .and_then(|name| name.strip_prefix("Gate_"));
+            if let Some(id) = gate {
+                dynamic.push(DynamicCollider {
+                    source: format!("gate:{id}"),
+                    collider,
+                });
+            } else if item["kind"].as_str() == Some("dynamic") {
                 dynamic.push(DynamicCollider {
                     source: renamer.rename_str(path, &mut report),
                     collider,

@@ -169,6 +169,9 @@ pub struct BossDef {
     pub exp_reward: u32,
     /// Indices of its extra abilities.
     pub extras: Vec<u16>,
+    /// The level its numbers are authored for (0: they hold at any level);
+    /// a dungeon boss at another level scales by the pack strength ratio.
+    pub stat_level: u32,
 }
 
 /// An encounter template (spawn_tables.json templates).
@@ -412,6 +415,7 @@ impl CreatureRules {
                     move_speed: f(&o["move_speed"], 3.0),
                     exp_reward: o["exp_reward"].as_u64().unwrap_or(0) as u32,
                     extras: rules.boss_extras.get(key).cloned().unwrap_or_default(),
+                    stat_level: o["stat_level"].as_u64().unwrap_or(0) as u32,
                 },
             );
         }

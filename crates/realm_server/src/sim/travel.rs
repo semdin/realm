@@ -94,7 +94,7 @@ impl Sim {
         );
     }
 
-    fn feet(&self, entity: Entity) -> Option<[f32; 3]> {
+    pub(super) fn feet(&self, entity: Entity) -> Option<[f32; 3]> {
         self.world
             .get::<Player>(entity)
             .map(|p| [p.body.pos.x, p.body.pos.y, p.body.pos.z])
@@ -102,10 +102,33 @@ impl Sim {
 
     /// `ClientMsg::Door`.
     pub(super) fn request_door(&mut self, conn: ConnId, entity: Entity, id: &str) {
-        let Some(pos) = self.feet(entity) else { return };
-        let trip = self.rules().travel.door_trip(&self.game.map, id, pos);
+        let Some(mut pos) = self.feet(entity) else {
+            return;
+        };
+        // Inside a dungeon copy the doors stand at the copy's offset.
+        if self.instanced {
+            pos[0] -= super::dungeon::offset_of(realm_rules::dungeons::copy_at(pos[0])).x;
+        }
+        let rules = self.rules();
+        let trip = rules.travel.door_trip(&self.game.map, id, pos);
         match trip {
-            Ok(trip) => self.start_trip(conn, entity, trip, true),
+            Ok(mut trip) => {
+                // A dungeon is entered through its gate; its door only takes
+                // a member of a run still standing back in.
+                if rules
+                    .travel
+                    .maps
+                    .get(&trip.arrival.map)
+                    .is_some_and(|m| m.instanced)
+                {
+                    let me = self.world.get::<Player>(entity).map_or(0, |p| p.sheet.id);
+                    trip.arrival.copy = self.run_copy_of(&trip.arrival.map, me);
+                    if trip.arrival.copy == 0 {
+                        return self.travel_refused(conn, "door", "use_gate");
+                    }
+                }
+                self.start_trip(conn, entity, trip, true);
+            }
             Err(reason) => self.travel_refused(conn, "door", reason),
         }
     }
@@ -135,7 +158,7 @@ impl Sim {
     /// Starts `trip` for a player: here at once, or a seat reserved on the
     /// destination first. `checked`: the player's own checks still apply
     /// (a Waylink checked its riders when it fired).
-    fn start_trip(&mut self, conn: ConnId, entity: Entity, trip: Trip, checked: bool) {
+    pub(super) fn start_trip(&mut self, conn: ConnId, entity: Entity, trip: Trip, checked: bool) {
         let tick = self.tick;
         let what = trip.arrival.kind.name();
         let Some(p) = self.world.get::<Player>(entity) else {
@@ -341,6 +364,15 @@ impl Sim {
                 .and_then(|m| m.spawns.get(name))
                 .map_or(Vec3::ZERO, |p| Vec3::new(p[0], p[1], p[2])),
             Landing::Node { node: id, .. } | Landing::Scatter { node: id, .. } => node(id),
+            Landing::Ring { spawn: name, .. } => {
+                rules
+                    .travel
+                    .maps
+                    .get(&a.map)
+                    .and_then(|m| m.spawns.get(name))
+                    .map_or(Vec3::ZERO, |p| Vec3::new(p[0], p[1], p[2]))
+                    + super::dungeon::offset_of(a.copy)
+            }
         }
     }
 
@@ -543,6 +575,32 @@ impl Sim {
         }
     }
 
+    /// Where a landing puts a body in dungeon copy `copy` (0: the map).
+    pub(super) fn land_in(&self, copy: u8, landing: &Landing) -> Vec3 {
+        if copy == 0 {
+            return self.land(landing);
+        }
+        let shift = super::dungeon::offset_of(copy);
+        let rules = self.rules();
+        let spawn = |name: &str| {
+            rules
+                .travel
+                .maps
+                .get(&self.game.map)
+                .and_then(|m| m.spawns.get(name))
+                .map_or(self.game.spawn_point, |p| Vec3::new(p[0], p[1], p[2]))
+        };
+        match landing {
+            Landing::Spawn(name) => self.settle(spawn(name) + shift),
+            Landing::Ring {
+                spawn: name,
+                slot,
+                of,
+            } => self.settle(Self::ring_point(spawn(name), *slot, *of) + shift),
+            other => self.land(other) + shift,
+        }
+    }
+
     /// Where a landing puts a body on this map.
     pub(super) fn land(&self, landing: &Landing) -> Vec3 {
         let rules = self.rules();
@@ -556,6 +614,11 @@ impl Sim {
         };
         match landing {
             Landing::Spawn(name) => self.settle(spawn(name)),
+            Landing::Ring {
+                spawn: name,
+                slot,
+                of,
+            } => self.settle(Self::ring_point(spawn(name), *slot, *of)),
             Landing::Node { node, arrive } => {
                 let Some(n) = rules.travel.nodes.get(node) else {
                     return self.settle(self.game.spawn_point);
@@ -978,6 +1041,7 @@ impl Sim {
                         riders: n,
                     },
                     kind: TripKind::Waylink,
+                    copy: 0,
                 },
                 label: dest.label.clone(),
                 cost: None,

@@ -1,0 +1,93 @@
+extends Node
+class_name MapDungeon
+
+## Dungeons on the client, drawn from what the server says:
+##
+##   * The gate (F at a door into an instanced map, MapTravel hands it over):
+##     the gate window (HudDungeon) asks the server what the party may do and
+##     starts the run; a ready check shows its card (HudInvites) and answers
+##     with RealmSession.dungeon_ready; "launch" closes them, and the trip
+##     (departing -> travel -> scene reload -> loading screen) is MapTravel's.
+##   * Inside a copy (RealmSession.copy() != 0): main.gd draws the map at
+##     copy_offset(); the copy's gates stand as portcullises (DungeonGates),
+##     the run tracker (HudDungeonRun) follows the run's "state" views, a new
+##     step message shows on the notice band, and the result window
+##     (HudDungeonResult) opens at the end with the "rewards" that follow.
+
+## main.gd (session, hud).
+var game: Node
+var map_name := ""
+var gate_window: HudDungeon
+var run_view: HudDungeonRun
+var result_window: HudDungeonResult
+var gates: DungeonGates
+## Step messages shown (the check reads them).
+var messages: Array = []
+## Every dungeon event by its `event` (the check reads them).
+var events: Dictionary = {}
+var _message := ""
+
+func setup(main: Node, map_id: String, ui_root: Control) -> void:
+	game = main
+	map_name = map_id
+	name = "MapDungeon"
+	gate_window = HudDungeon.new()
+	gate_window.session = game.session
+	gate_window.hud = game.hud
+	ui_root.add_child(gate_window)
+	result_window = HudDungeonResult.new()
+	result_window.session = game.session
+	ui_root.add_child(result_window)
+	run_view = HudDungeonRun.new()
+	run_view.session = game.session
+	run_view.result_window = result_window
+	ui_root.add_child(run_view)
+	ui_root.move_child(run_view, game.hud.get_index() + 1)
+
+## The player is in a dungeon copy.
+func in_copy() -> bool:
+	return game.session != null and int(game.session.copy()) != 0
+
+## The map is drawn: a copy's gates stand on it.
+func on_map_built() -> void:
+	if in_copy():
+		gates = DungeonGates.new()
+		game.add_child(gates)
+
+func tick(delta: float) -> void:
+	if gates != null:
+		gates.sync(game.session.gates(), delta)
+
+## F at a dungeon door: its gate window.
+func open_gate(portal_id: String) -> void:
+	gate_window.open_at(portal_id)
+
+## A "dungeon" game event (main.gd hands each over).
+func on_event(event: Dictionary) -> void:
+	var what := String(event.get("event", ""))
+	events[what] = int(events.get(what, 0)) + 1
+	var view: Dictionary = event.get("view", event)
+	match what:
+		"info", "refused":
+			gate_window.on_event(event)
+		"ready":
+			gate_window.on_event(event)
+			game.hud.invites.on_dungeon_ready(view)
+		"cancelled":
+			gate_window.on_event(event)
+			game.hud.invites.clear_dungeon()
+		"launch":
+			gate_window.on_event(event)
+			result_window.on_event(event)
+			game.hud.invites.clear_dungeon()
+		"state":
+			run_view.on_state(view)
+			var message := String(view.get("message", ""))
+			if message != "" and message != _message:
+				# The server words its step messages in English (dungeons.json).
+				var shown := I18n.from_server(message)
+				messages.append(shown)
+				game.hud.show_notice(shown, "info")
+			_message = message
+		"rewards":
+			result_window.on_event(event)

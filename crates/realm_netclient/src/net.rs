@@ -19,6 +19,8 @@ pub enum NetEvent {
         entity: u32,
         tick: u32,
         content_hash: [u8; 32],
+        /// The dungeon copy (0: none).
+        copy: u8,
     },
     Refused(String),
     Datagram(Vec<u8>),
@@ -113,11 +115,13 @@ impl NetHandle {
                         entity,
                         tick,
                         content_hash,
+                        copy,
                     } => {
                         let _ = event_tx.send(NetEvent::Joined {
                             entity,
                             tick,
                             content_hash,
+                            copy,
                         });
                     }
                     JoinReply::Refused(reason) => {

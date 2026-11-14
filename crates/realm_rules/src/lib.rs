@@ -8,6 +8,7 @@
 
 pub mod combat;
 pub mod creatures;
+pub mod dungeons;
 pub mod items;
 pub mod loot;
 pub mod progress;
@@ -108,6 +109,8 @@ pub struct Rules {
     pub quests: quests::QuestRules,
     /// Doors, the Hearthway, cabinets, passages, the Waylink, flight.
     pub travel: travel::TravelRules,
+    /// Dungeons: difficulties, party rules, rewards, director steps.
+    pub dungeons: dungeons::DungeonRules,
     pub safe_zones: Vec<SafeZone>,
     /// Map -> the ids of its safe zones (maps.json `safe_zones`).
     pub map_zones: BTreeMap<String, Vec<String>>,
@@ -204,6 +207,7 @@ impl Rules {
                 file(content, "spawn_tables.json")?,
             )?,
             travel: travel::TravelRules::from_content(content)?,
+            dungeons: dungeons::DungeonRules::from_json(file(content, "dungeons.json")?)?,
             safe_zones: Vec::new(),
             map_zones: BTreeMap::new(),
         };
@@ -316,6 +320,7 @@ impl Rules {
             attributes: Vec::new(),
             quests: QuestLog::default(),
             house_rep: 0,
+            dungeons: dungeons::DungeonLog::default(),
             revision: 1,
         };
         for (slot, item) in &self.starter.equipment {

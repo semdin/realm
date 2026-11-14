@@ -34,21 +34,29 @@ use realm_sim::input::MoveInput;
 
 use crate::{AnyResult, arg};
 
-struct Session {
-    net: NetHandle,
-    core: Option<ClientCore>,
-    map: String,
-    content: Content,
-    pack: realm_sim::pack::MapPack,
-    sheet: Option<CharacterSheet>,
-    events: Vec<ServerMsg>,
-    closed: Option<String>,
-    started: Instant,
-    corrections: u64,
+pub(crate) struct Session {
+    pub(crate) net: NetHandle,
+    pub(crate) core: Option<ClientCore>,
+    pub(crate) map: String,
+    pub(crate) content: Content,
+    pub(crate) pack: realm_sim::pack::MapPack,
+    pub(crate) sheet: Option<CharacterSheet>,
+    pub(crate) events: Vec<ServerMsg>,
+    pub(crate) closed: Option<String>,
+    pub(crate) started: Instant,
+    pub(crate) corrections: u64,
+    pub(crate) copy: u8,
+    /// Casts fired at (target, local tick).
+    pub(crate) action: (u8, u32, Vec3),
 }
 
 impl Session {
-    fn open(address: &str, map: &str, ticket: Vec<u8>, args: &[String]) -> AnyResult<Self> {
+    pub(crate) fn open(
+        address: &str,
+        map: &str,
+        ticket: Vec<u8>,
+        args: &[String],
+    ) -> AnyResult<Self> {
         let keys = PathBuf::from(arg(args, "--keys", "keys"));
         let content = Content::load(&PathBuf::from(arg(args, "--content", "content/data")))?;
         let pack = realm_data::maps::read_pack(
@@ -71,10 +79,12 @@ impl Session {
             closed: None,
             started: Instant::now(),
             corrections: 0,
+            copy: 0,
+            action: (0, 0, Vec3::ZERO),
         })
     }
 
-    fn dev(
+    pub(crate) fn dev(
         address: &str,
         map: &str,
         character: u64,
@@ -87,14 +97,32 @@ impl Session {
     }
 
     /// Takes what arrived and runs one input tick with `input`.
-    fn pump(&mut self, input: MoveInput) -> AnyResult<()> {
+    pub(crate) fn pump(&mut self, input: MoveInput) -> AnyResult<()> {
         let ticks = self.started.elapsed().as_secs_f64() * ClientCore::HZ;
         while let Some(event) = self.net.poll() {
             match event {
-                NetEvent::Joined { entity, tick, .. } => {
-                    let world = self.pack.world()?;
+                NetEvent::Joined {
+                    entity, tick, copy, ..
+                } => {
+                    let o = realm_rules::dungeons::copy_offset(copy);
+                    let offset = Vec3::new(o[0], o[1], o[2]);
+                    let world = if copy == 0 {
+                        self.pack.world()?
+                    } else {
+                        self.pack.world_copies(&[offset])?
+                    };
                     let stairs = realm_data::staircases(&self.content, &self.pack)?;
-                    self.core = Some(ClientCore::new(world, stairs, entity, tick));
+                    let mut core = ClientCore::new(world, stairs, entity, tick);
+                    if copy != 0 {
+                        core.set_gates(self.pack.gates(&[offset])?);
+                    }
+                    self.core = Some(core);
+                    self.copy = copy;
+                }
+                NetEvent::Control(ServerMsg::Gate { id, tick, open }) => {
+                    if let Some(core) = self.core.as_mut() {
+                        core.schedule_gate(&id, tick, open);
+                    }
                 }
                 NetEvent::Refused(r) => return Err(format!("{} refused: {r}", self.map).into()),
                 NetEvent::Closed(r) => self.closed = Some(r),
@@ -109,7 +137,10 @@ impl Session {
                     | ServerMsg::Departing { .. }
                     | ServerMsg::Travel { .. }
                     | ServerMsg::Arrived { .. }
-                    | ServerMsg::Waylink(_)),
+                    | ServerMsg::Waylink(_)
+                    | ServerMsg::Dungeon(_)
+                    | ServerMsg::Chest { .. }
+                    | ServerMsg::LootResult { .. }),
                 ) => {
                     println!("[travel] {} hears {m:?}", self.map);
                     self.events.push(m);
@@ -118,44 +149,45 @@ impl Session {
             }
         }
         if let Some(core) = self.core.as_mut() {
-            let bytes = core.step(input, 0, 0, Vec3::ZERO);
+            let (action, target, aim) = std::mem::take(&mut self.action);
+            let bytes = core.step(input, action, target, aim);
             self.net.send(bytes);
             self.corrections = core.stats.corrections;
         }
         Ok(())
     }
 
-    fn body(&self) -> Option<realm_sim::movement::Body> {
+    pub(crate) fn body(&self) -> Option<realm_sim::movement::Body> {
         self.core.as_ref().and_then(|c| c.body()).copied()
     }
 
-    fn pos(&self) -> Vec3 {
+    pub(crate) fn pos(&self) -> Vec3 {
         self.body().map_or(Vec3::ZERO, |b| b.pos)
     }
 
-    fn count(&self, item: &str) -> u32 {
+    pub(crate) fn count(&self, item: &str) -> u32 {
         self.sheet
             .as_ref()
             .map_or(0, |s| realm_rules::items::count_items(s, item))
     }
 
-    fn take(&mut self, f: impl Fn(&ServerMsg) -> bool) -> Option<ServerMsg> {
+    pub(crate) fn take(&mut self, f: impl Fn(&ServerMsg) -> bool) -> Option<ServerMsg> {
         let i = self.events.iter().position(f)?;
         Some(self.events.remove(i))
     }
 }
 
-fn fail<T>(what: impl Into<String>) -> AnyResult<T> {
+pub(crate) fn fail<T>(what: impl Into<String>) -> AnyResult<T> {
     Err(format!("travel check failed: {}", what.into()).into())
 }
 
-fn yaw_toward(from: Vec3, to: Vec3) -> f32 {
+pub(crate) fn yaw_toward(from: Vec3, to: Vec3) -> f32 {
     // Yaw 0 looks along -Z.
     (-(to.x - from.x)).atan2(-(to.z - from.z))
 }
 
 /// Runs ticks at 30 Hz until `done` holds (or `seconds` pass).
-fn run_until(
+pub(crate) fn run_until(
     s: &mut Session,
     seconds: f32,
     mut input: impl FnMut(&Session) -> MoveInput,
@@ -181,13 +213,13 @@ fn run_until(
     Ok(false)
 }
 
-fn idle(_: &Session) -> MoveInput {
+pub(crate) fn idle(_: &Session) -> MoveInput {
     MoveInput::default()
 }
 
 /// Walks to `to` along the map's walkable mesh until within `reach`
 /// (planar).
-fn walk(s: &mut Session, to: Vec3, reach: f32, what: &str) -> AnyResult<()> {
+pub(crate) fn walk(s: &mut Session, to: Vec3, reach: f32, what: &str) -> AnyResult<()> {
     // A point given on the ground (y 0) stands on the terrain there.
     let mut to = to;
     if to.y == 0.0
@@ -237,7 +269,7 @@ fn walk(s: &mut Session, to: Vec3, reach: f32, what: &str) -> AnyResult<()> {
     Ok(())
 }
 
-fn joined(s: &mut Session) -> AnyResult<()> {
+pub(crate) fn joined(s: &mut Session) -> AnyResult<()> {
     if !run_until(s, 10.0, idle, |s| {
         s.core.is_some() && s.sheet.is_some() && s.body().is_some()
     })? {
@@ -247,7 +279,7 @@ fn joined(s: &mut Session) -> AnyResult<()> {
 }
 
 /// Waits for the trip's ticket and joins the destination with it.
-fn follow(s: &mut Session, args: &[String]) -> AnyResult<Session> {
+pub(crate) fn follow(s: &mut Session, args: &[String]) -> AnyResult<Session> {
     let mut ticket = None;
     run_until(s, 10.0, idle, |s| {
         if let Some(ServerMsg::Travel {
@@ -312,7 +344,7 @@ fn same_goods(
     Ok(())
 }
 
-fn near(a: Vec3, b: Vec3, planar: f32) -> bool {
+pub(crate) fn near(a: Vec3, b: Vec3, planar: f32) -> bool {
     Vec3::new(a.x - b.x, 0.0, a.z - b.z).length() <= planar
 }
 

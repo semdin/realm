@@ -131,6 +131,9 @@ pub enum Landing {
     Spawn(String),
     /// `arrive` metres in front of a node.
     Node { node: String, arrive: f32 },
+    /// A spawn point, member `slot` of `of` in a 1.4 m ring around it (a
+    /// party entering a dungeon together).
+    Ring { spawn: String, slot: u8, of: u8 },
     /// A Waylink: an open spot found around the node with `seed`, rider
     /// `slot` of `riders` in a small ring there.
     Scatter {
@@ -169,6 +172,8 @@ pub struct Arrival {
     pub map: String,
     pub landing: Landing,
     pub kind: TripKind,
+    /// The dungeon copy it enters (0: the map itself).
+    pub copy: u8,
 }
 
 /// A trip the rules allow from where the traveller stands; the map still
@@ -387,6 +392,7 @@ impl TravelRules {
                 map: portal.to_map.clone(),
                 landing: Landing::Spawn(portal.to_spawn.clone()),
                 kind: TripKind::Door,
+                copy: 0,
             },
             label: self
                 .maps
@@ -441,6 +447,7 @@ impl TravelRules {
                     arrive: self.rules_of(dest.kind).arrive,
                 },
                 kind,
+                copy: 0,
             },
             label: dest.label.clone(),
             cost: (source.kind == NodeKind::Hearthway)

@@ -168,6 +168,11 @@ pub enum ServerMsg {
     Arrived { kind: String },
     /// A Waylink of the player's party.
     Waylink(WaylinkView),
+    /// The dungeon gate, a ready check, a run.
+    Dungeon(Box<DungeonMsg>),
+    /// Gate `id` of the player's dungeon copy opens (or closes) from server
+    /// tick `tick` (scheduled ahead, for the prediction).
+    Gate { id: String, tick: u32, open: bool },
     /// The answer to `ClaimQuest` ("claimed", "not_ready", "bag_full").
     QuestResult {
         quest: String,
@@ -291,6 +296,129 @@ pub enum ClientMsg {
     WaylinkPlace(String),
     /// Hold on to (or let go of) the Waylink `id`.
     WaylinkHold { id: u32, hold: bool },
+    /// What the dungeon behind the gate `portal` asks of the party.
+    DungeonInfo(String),
+    /// The party leader starts the dungeon behind `portal` at `difficulty`
+    /// (index into realm_rules::dungeons::DIFFICULTIES).
+    DungeonStart { portal: String, difficulty: u8 },
+    /// A member answers the ready check `id`.
+    DungeonReady { id: u32, yes: bool },
+}
+
+/// A party member as the dungeon gate sees it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct GateMember {
+    pub character: u64,
+    pub name: String,
+    pub level: u16,
+    /// What keeps it from going ("" when nothing): not_gathered, dead,
+    /// mounted, in_duel, in_combat, in_run, ...
+    pub status: String,
+    /// Per difficulty: unlocked, rewarded runs left today (-1 unlimited),
+    /// best full clear in ms (0 none).
+    pub unlocked: Vec<bool>,
+    pub rights: Vec<i32>,
+    pub best_ms: Vec<u32>,
+}
+
+/// A ready check as its members see it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ReadyView {
+    pub id: u32,
+    pub dungeon: String,
+    pub difficulty: u8,
+    pub leader: String,
+    /// (name, level, ready)
+    pub members: Vec<(String, u16, bool)>,
+    /// Server tick it runs out.
+    pub ends_tick: u32,
+}
+
+/// How a run ended.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RunResult {
+    /// realm_rules::dungeons::RANK_* (0: cleared without a medal, -1: not
+    /// cleared).
+    pub rank: i8,
+    pub time_ms: u32,
+    /// Share of the creatures cleared, 0..=1000.
+    pub clear: u16,
+    pub deaths: u16,
+    pub timeout: bool,
+}
+
+/// A dungeon run as the players in it see it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RunView {
+    pub dungeon: String,
+    pub difficulty: u8,
+    pub ref_level: u16,
+    /// 0 gathering, 1 counting down, 2 running, 3 over.
+    pub phase: u8,
+    /// Server ticks: when the countdown ends (phase 1) / the clock started.
+    pub countdown_end: u32,
+    pub start_tick: u32,
+    /// The clock's own penalty (deaths), seconds.
+    pub penalty_s: f32,
+    pub par_s: f32,
+    pub limit_s: f32,
+    pub step: String,
+    pub message: String,
+    pub forces: u32,
+    pub forces_total: u32,
+    pub deaths: u16,
+    /// -1: no lives rule.
+    pub lives_left: i32,
+    pub broken: bool,
+    /// (name, down)
+    pub bosses: Vec<(String, bool)>,
+    /// Creatures still standing when only `cleared:all` remains.
+    pub left: u32,
+    pub complete: bool,
+    pub result: Option<RunResult>,
+}
+
+/// The dungeon gate, the ready check and a run.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum DungeonMsg {
+    /// The answer to `DungeonInfo`. `active`: the asker's own run still
+    /// open (copy, its view as a summary).
+    Info {
+        dungeon: String,
+        portal: String,
+        leader: String,
+        members: Vec<GateMember>,
+        active: Option<crate::coord::RunSummary>,
+        check: Option<ReadyView>,
+    },
+    Ready(ReadyView),
+    Cancelled {
+        reason: String,
+        who: String,
+    },
+    /// The start was refused: reason (not_leader, party_size, level_too_low,
+    /// level_spread, difficulty_locked, no_key, map_full, ...), who, value.
+    Refused {
+        reason: String,
+        who: String,
+        value: i32,
+    },
+    /// The party is on its way into `map`.
+    Launch {
+        map: String,
+    },
+    /// The run as it stands.
+    State(RunView),
+    /// What the run paid this player. `helper`: no daily right left.
+    Rewards {
+        helper: bool,
+        rank: i8,
+        exp: u64,
+        oril: u64,
+        items: Vec<(String, u32, u8)>,
+        unlocked: Vec<u8>,
+        title: String,
+    },
 }
 
 /// A Waylink boot as its party sees it. `phase` 0 set down (counting down

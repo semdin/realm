@@ -2,13 +2,15 @@ extends Control
 class_name HudInvites
 
 ## Invitation cards, top centre (the old game's approved card): a party
-## invitation, a duel challenge or a group duel challenge names who asked,
-## runs a timer bar down over the server's answer window (TTL_S) and answers
-## with the same chat commands the player can type (`/accept` and `/decline`
-## for a party, `/daccept` and `/ddecline` for a duel), so a card is a thin
-## shortcut over the server's own flow. Cards are wide, framed in the
-## invitation's colour, slide in with a chime and pulse until answered; a new
-## invitation of the same kind replaces the old one.
+## invitation, a duel challenge, a group duel challenge or a dungeon ready
+## check names who asked, runs a timer bar down over the server's answer
+## window (TTL_S; a ready check's own end) and answers with the same chat
+## commands the player can type (`/accept` and `/decline` for a party,
+## `/daccept` and `/ddecline` for a duel), so a card is a thin shortcut over
+## the server's own flow; a ready check answers with
+## RealmSession.dungeon_ready. Cards are wide, framed in the invitation's
+## colour, slide in with a chime and pulse until answered; a new invitation of
+## the same kind replaces the old one.
 
 const CARD_W := 404.0
 ## The coordinator's INVITE_TTL and the map server's duel REQUEST_TICKS.
@@ -18,6 +20,7 @@ const ACCENTS := {
 	"party": Color(0.46, 0.74, 1.0),
 	"duel": Color(1.0, 0.40, 0.32),
 	"group_duel": Color(1.0, 0.58, 0.24),
+	"dungeon": Color(0.77, 0.61, 1.0),
 }
 ## What each answer sends: [accept, decline].
 const ANSWERS := {
@@ -28,6 +31,8 @@ const ANSWERS := {
 
 var session: Node
 var _stack: VBoxContainer
+## The ready check the dungeon card answers (0 = none).
+var _dungeon_check := 0
 
 func _init() -> void:
 	name = "Invites"
@@ -64,7 +69,39 @@ func push(kind: String, from_name: String, party_size := 1) -> InviteCard:
 	AudioManager.play_sound_at("ui_quest", Vector3.ZERO, null, true)
 	return card
 
+## A dungeon ready check asks the player once (the leader is ready already);
+## its end (cancelled, launch) takes the card away. `view` is the check
+## (ReadyView: id, dungeon, difficulty, leader, members [[name, level,
+## ready]], ends_tick).
+func on_dungeon_ready(view: Dictionary) -> void:
+	var id := int(view.get("id", 0))
+	if id == 0 or id == _dungeon_check or session == null:
+		return
+	var own := String((session.sheet() as Dictionary).get("name", ""))
+	for m: Array in view.get("members", []):
+		if String(m[0]) == own and bool(m[2]):
+			return
+	_dungeon_check = id
+	var card := push("dungeon", String(view.get("leader", "")), (view.get("members", []) as Array).size())
+	card.detail = "%s - %s" % [DungeonData.display_name(String(view.get("dungeon", ""))),
+		DungeonData.difficulty_name(DungeonData.difficulty_id(int(view.get("difficulty", 1))))]
+	var now := float(session.server_tick())
+	if now >= 0.0:
+		card.ttl_s = maxf(1.0, (float(view.get("ends_tick", 0)) - now) / float(RealmInfo.sim_hz()))
+
+## The ready check ended (cancelled, or the party is on its way in).
+func clear_dungeon() -> void:
+	_dungeon_check = 0
+	for card in _stack.get_children():
+		if card is InviteCard and (card as InviteCard).kind == "dungeon":
+			card.queue_free()
+
 func _on_answered(kind: String, accept: bool) -> void:
+	if kind == "dungeon":
+		if session != null and _dungeon_check != 0:
+			session.dungeon_ready(_dungeon_check, accept)
+		AudioManager.play_sound_at("ui_confirm" if accept else "ui_cancel", Vector3.ZERO, null, true)
+		return
 	var pair: Array = ANSWERS.get(kind, ["", ""])
 	var command := String(pair[0] if accept else pair[1])
 	if command != "" and session != null:
@@ -87,6 +124,16 @@ class InviteCard extends PanelContainer:
 	var kind := "party"
 	var from_name := ""
 	var closing := false
+	## A line under the sentence (the dungeon and its difficulty).
+	var detail := "":
+		set(v):
+			detail = v
+			if _detail != null:
+				_detail.text = v
+				_detail.visible = v != ""
+	## Seconds the answer window lasts (a ready check sends its own end).
+	var ttl_s := HudInvites.TTL_S
+	var _detail: Label
 	var _accent := HudKit.GOLD
 	var _box: StyleBoxFlat
 	var _bar: TimerBar
@@ -148,6 +195,9 @@ class InviteCard extends PanelContainer:
 		body.add_theme_constant_override("outline_size", UITheme.outline_for(16, 3))
 		body.text = _sentence(p_from, party_size)
 		words.add_child(body)
+		_detail = HudKit.label("", 14, accent.lerp(HudKit.GOLD_HI, 0.5), HudKit.bold(), 3)
+		_detail.visible = false
+		words.add_child(_detail)
 
 		_bar = TimerBar.new()
 		_bar.accent = accent
@@ -170,6 +220,8 @@ class InviteCard extends PanelContainer:
 				return tr("Duel Challenge")
 			"group_duel":
 				return tr("Group Duel Challenge")
+			"dungeon":
+				return tr("Ready Check")
 		return tr("Party Invitation")
 
 	func _sentence(who_name: String, party_size: int) -> String:
@@ -179,6 +231,8 @@ class InviteCard extends PanelContainer:
 				return tr("%s challenges you to a duel.") % who
 			"group_duel":
 				return tr("%s challenges your party to a group duel (%d players).") % [who, party_size]
+			"dungeon":
+				return tr("%s wants to enter the dungeon with the party (%d players). Ready?") % [who, party_size]
 		return tr("%s invites you to join their party.") % who
 
 	func _answer_button(text: String, tint: Color) -> Button:
@@ -226,7 +280,7 @@ class InviteCard extends PanelContainer:
 
 	func _process(_delta: float) -> void:
 		var age := float(Time.get_ticks_msec() - _born_ms) / 1000.0
-		var left := clampf(1.0 - age / HudInvites.TTL_S, 0.0, 1.0)
+		var left := clampf(1.0 - age / maxf(1.0, ttl_s), 0.0, 1.0)
 		_bar.fraction = left
 		# A pulse on the frame for the first seconds, then a slow breath.
 		var speed := 7.0 if age < 4.0 else 2.4
@@ -296,6 +350,16 @@ class InviteEmblem extends Control:
 			_figure(c + Vector2(-10, 3), 0.8, ink.darkened(0.25))
 			_figure(c + Vector2(10, 3), 0.8, ink.darkened(0.25))
 			_figure(c + Vector2(0, 0), 1.0, ink)
+			return
+		if kind == "dungeon":
+			# A portcullis: the gate the party is about to go through.
+			draw_rect(Rect2(c + Vector2(-13, -14), Vector2(26, 28)), Color(0, 0, 0, 0.4))
+			for i in 5:
+				var x := -12.0 + 6.0 * float(i)
+				draw_line(c + Vector2(x, -14), c + Vector2(x, 15), ink, 2.4, true)
+			for y in [-7.0, 4.0]:
+				draw_line(c + Vector2(-14, y), c + Vector2(14, y), ink.darkened(0.2), 2.4, true)
+			draw_arc(c + Vector2(0, -14), 14.0, PI, TAU, 18, ink, 2.4, true)
 			return
 		if kind == "group_duel":
 			_figure(c + Vector2(-12, 6), 0.65, ink.darkened(0.45))

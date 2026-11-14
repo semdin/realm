@@ -26,10 +26,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 16;
+pub const PROTOCOL_VERSION: u16 = 17;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/16";
+pub const ALPN: &[u8] = b"realm/17";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -61,6 +61,9 @@ pub enum JoinReply {
         /// SHA-256 of the server's content; the client refuses to play on
         /// different data.
         content_hash: [u8; 32],
+        /// The dungeon copy the player is in (0: none); its geometry stands
+        /// at `realm_rules::dungeons::copy_offset(copy)`.
+        copy: u8,
     },
     Refused(String),
 }
@@ -223,6 +226,7 @@ pub fn encode_join_reply(reply: &JoinReply) -> Vec<u8> {
             entity,
             tick,
             content_hash,
+            copy,
         } => {
             w.bool(true);
             w.u32(*entity);
@@ -230,6 +234,7 @@ pub fn encode_join_reply(reply: &JoinReply) -> Vec<u8> {
             for b in content_hash {
                 w.u8(*b);
             }
+            w.u8(*copy);
         }
         JoinReply::Refused(reason) => {
             w.bool(false);
@@ -256,10 +261,12 @@ pub fn decode_join_reply(bytes: &[u8]) -> Result<JoinReply, DecodeError> {
         for b in &mut content_hash {
             *b = r.u8()?;
         }
+        let copy = r.u8()?;
         JoinReply::Accepted {
             entity,
             tick,
             content_hash,
+            copy,
         }
     } else {
         let len = usize::from(r.u8()?);

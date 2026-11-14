@@ -148,6 +148,24 @@ jobs:
           ./target/release/realm_netcheck --travel --characters build/travelcheck
           kill %1 %2 %3 || true
 
+      - name: A dungeon run
+        if: matrix.os == 'ubuntu-26.04'
+        # The grounds and the Trial Hall (its creatures one hit each) with the
+        # coordinator: the gate's rules, a solo Normal launch into a copy,
+        # gather, countdown, every gate opening behind its creatures, the
+        # Warden, a medal, the rewards and the character's own chest, the
+        # clear recorded, out by the reward exit, Hard unlocked; no
+        # correction.
+        run: |
+          mkdir -p build/dungeoncheck
+          ./target/release/realm_coord > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --characters build/dungeoncheck > server_a.log 2>&1 &
+          ./target/release/realm_server serve --map dng_trial --bind 127.0.0.1:7779 --coord 127.0.0.1:7900 --characters build/dungeoncheck --dev-dungeon-scale 0.05 > server_d.log 2>&1 &
+          sleep 8
+          ./target/release/realm_netcheck --dungeon --characters build/dungeoncheck
+          kill %1 %2 %3 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

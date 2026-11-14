@@ -51,13 +51,25 @@ extends Node3D
 ##                                                    Orvell Square and mounts and dismounts the
 ##                                                    broom there (TravelCheck; it carries on across
 ##                                                    the scene reload a map change makes)
-##   [--capture-dir build/captures/travel]            where TravelCheck saves its PNG frames
+##   [--check-dungeon]                                the check walks to the Trial Hall gate, opens the
+##                                                    gate window, enters Normal, fights through the
+##                                                    copy until the result window shows a medal and
+##                                                    the rewards, and leaves by the reward exit
+##                                                    (DungeonCheck; the servers run with
+##                                                    --dev-dungeon-scale 0.05)
+##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
 ## a Waylink; Shift mounts or dismounts the broom. A trip to another map
 ## rebuilds this scene for it: `map_name` is then the trip's map and the
 ## session joins with RealmSession.start_travel (the loading screen stays up
 ## across the reload until the new map is drawn).
+##
+## Dungeons (MapDungeon): F at a door into an instanced map opens its gate
+## window. Inside a dungeon copy the whole map stands at
+## RealmSession.copy_offset() (the pack's meshes and every content position on
+## it are shifted by it; server positions are already absolute), with the
+## copy's gates, the run tracker and the result window.
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
@@ -109,6 +121,7 @@ const WorkshopCheckScript := "res://scripts/systems/workshop_check.gd"
 const SocialCheckScript := "res://scripts/systems/social_check.gd"
 const DuelCheckScript := "res://scripts/systems/duel_check.gd"
 const TravelCheckScript := "res://scripts/systems/travel_check.gd"
+const DungeonCheckScript := "res://scripts/systems/dungeon_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -195,6 +208,10 @@ var map_name := "grounds"
 var travel: MapTravel
 ## `--check-travel`: the travel check.
 var travel_check: Node = null
+## Dungeon gates, the run tracker and the result (MapDungeon).
+var dungeon: MapDungeon
+## `--check-dungeon`: the dungeon check.
+var dungeon_check: Node = null
 ## Other players' heroes by entity id.
 var heroes := {}
 ## Other players' names by entity id, as the server said them (asked when a
@@ -488,6 +505,14 @@ func _build_ui() -> void:
 	travel = MapTravel.new()
 	add_child(travel)
 	travel.setup(self, map_name, root)
+	dungeon = MapDungeon.new()
+	add_child(dungeon)
+	dungeon.setup(self, map_name, root)
+	if OS.get_cmdline_user_args().has("--check-dungeon"):
+		dungeon_check = load(DungeonCheckScript).new()
+		dungeon_check.name = "DungeonCheck"
+		dungeon_check.game = self
+		add_child(dungeon_check)
 	if OS.get_cmdline_user_args().has("--check-travel"):
 		travel_check = load(TravelCheckScript).new()
 		travel_check.name = "TravelCheck"
@@ -613,6 +638,8 @@ func before_reload() -> void:
 	set_process(false)
 	if travel_check != null:
 		travel_check.before_reload()
+	if dungeon_check != null:
+		dungeon_check.before_reload()
 
 func _new_hero() -> Node3D:
 	var hero: Node3D = load(HeroViewScript).new()
@@ -630,27 +657,35 @@ func _capsule(color: Color) -> Mesh:
 	mesh.material = material
 	return mesh
 
-## Map geometry arrives once the session has joined (it needs the pack).
+## Map geometry arrives once the session has joined (it needs the pack). The
+## pack's meshes are at the map's own coordinates: a dungeon copy draws them
+## at its offset.
 func _build_map() -> void:
+	var offset: Vector3 = session.copy_offset()
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.42, 0.47, 0.38)
 	var terrain: ArrayMesh = session.terrain_mesh(2)
 	if terrain != null:
 		var node := MeshInstance3D.new()
+		node.name = "Terrain"
 		node.mesh = terrain
 		node.material_override = material
+		node.position = offset
 		add_child(node)
 	var walls: ArrayMesh = session.collider_mesh()
 	if walls != null:
 		var node := MeshInstance3D.new()
+		node.name = "Walls"
 		node.mesh = walls
 		var stone := StandardMaterial3D.new()
 		stone.albedo_color = Color(0.62, 0.6, 0.56)
 		node.material_override = stone
+		node.position = offset
 		add_child(node)
 	built = true
 	_spawn_npcs()
 	travel.on_map_built()
+	dungeon.on_map_built()
 
 ## ------------------------------------------------------------------- NPCs
 
@@ -781,6 +816,10 @@ func _unhandled_input(event: InputEvent) -> void:
 					quest_log.close()
 				elif loot_window.visible:
 					loot_window.close()
+				elif dungeon.gate_window.visible:
+					dungeon.gate_window.close()
+				elif dungeon.result_window.visible:
+					dungeon.result_window.close()
 				elif character_window.visible:
 					character_window.card.close()
 				elif workshop.visible:
@@ -1102,6 +1141,12 @@ func _show_game_events() -> void:
 				travel.on_event(event)
 				if travel_check != null:
 					travel_check.on_event(event)
+				if dungeon_check != null:
+					dungeon_check.on_event(event)
+			"dungeon":
+				dungeon.on_event(event)
+				if dungeon_check != null:
+					dungeon_check.on_event(event)
 			"reward":
 				check_exp += int(event["exp"])
 				check_oril += int(event["oril"])
@@ -1781,6 +1826,9 @@ func _process(delta: float) -> void:
 		forward = travel_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
 		jump = travel_check.jump_intent()
+	elif dungeon_check != null:
+		forward = dungeon_check.walk_intent()
+		strafe = _check_sidestep(forward > 0.0)
 	elif not hud.chat.is_open():
 		# while the chat has the keys, typing does not walk
 		strafe = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
@@ -1899,6 +1947,7 @@ func _process(delta: float) -> void:
 	_show_game_events()
 	_show_chat()
 	travel.tick(delta)
+	dungeon.tick(delta)
 
 	var stats: Dictionary = session.stats()
 	readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d

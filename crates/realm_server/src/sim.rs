@@ -32,6 +32,7 @@ mod afflict;
 mod brain;
 mod combat;
 mod duel;
+mod dungeon;
 mod quests;
 mod rewards;
 mod social;
@@ -284,6 +285,8 @@ struct Mob {
     replan_at: u32,
     /// Holds, slows, burns and throws on the body.
     status: status::Status,
+    /// Loot chance multiplier (a dungeon run's creatures).
+    drop_scale: f32,
 }
 
 /// What one client has been sent.
@@ -422,6 +425,19 @@ pub struct Sim {
     open_maps: Vec<String>,
     waylinks: Vec<travel::Waylink>,
     next_waylink: u32,
+    /// A dungeon map: its copies' gates and runs.
+    instanced: bool,
+    gates: realm_sim::gates::Gates,
+    runs: Vec<Option<dungeon::Run>>,
+    free_packs: Vec<usize>,
+    runs_told: Vec<realm_proto::coord::RunSummary>,
+    /// An outer map: every dungeon map's live copies, ready checks, launches.
+    dungeon_runs: Vec<realm_proto::coord::RunSummary>,
+    ready_checks: Vec<dungeon::Check>,
+    launches: Vec<dungeon::Launch>,
+    next_check: u32,
+    /// Development: a run's creatures' health and damage x this.
+    pub dev_dungeon_scale: f32,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -460,6 +476,13 @@ impl realm_rules::Dice for ServerDice {
     fn unit(&mut self) -> f32 {
         unit(&mut self.0)
     }
+}
+
+/// Seconds since the Unix epoch (reward days, weekly resets).
+fn now_unix() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 fn xorshift(state: &mut u32) -> u32 {
@@ -579,12 +602,29 @@ impl Sim {
             open_maps: Vec::new(),
             waylinks: Vec::new(),
             next_waylink: 0,
+            instanced: false,
+            gates: realm_sim::gates::Gates::default(),
+            runs: Vec::new(),
+            free_packs: Vec::new(),
+            runs_told: Vec::new(),
+            dungeon_runs: Vec::new(),
+            ready_checks: Vec::new(),
+            launches: Vec::new(),
+            next_check: 0,
+            dev_dungeon_scale: 1.0,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
         };
         sim.spawn_creatures();
         Ok(sim)
+    }
+
+    /// Makes this a dungeon map: copies side by side, these gates.
+    pub fn set_copies(&mut self, gates: realm_sim::gates::Gates) {
+        self.instanced = true;
+        self.gates = gates;
+        self.runs = (0..realm_rules::dungeons::COPIES).map(|_| None).collect();
     }
 
     /// Links this server to the coordinator (the link task reports through
@@ -658,6 +698,7 @@ impl Sim {
                     path_goal: Vec3::ZERO,
                     replan_at: 0,
                     status: status::Status::default(),
+                    drop_scale: 1.0,
                 };
                 let entity = self.world.spawn(mob).id();
                 let id = self.new_id(entity);
@@ -712,6 +753,8 @@ impl Sim {
         self.advance_waylinks();
         self.expire_trips();
         self.sweep_departing();
+        self.tick_runs();
+        self.tick_checks();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -883,7 +926,32 @@ impl Sim {
             .filter(|p| p.map == self.game.map)
             .map(|p| self.settle(Vec3::new(p.pos[0], p.pos[1], p.pos[2])));
         let arrival = join.arrival.clone();
-        let landed = arrival.as_ref().map(|a| self.land(&a.landing));
+        // A dungeon map: the copy of the character's run (none: it leaves).
+        let copy = if self.instanced {
+            self.copy_for_join(
+                character,
+                arrival.as_ref().map_or(0, |a| a.copy),
+                sheet
+                    .place
+                    .as_ref()
+                    .filter(|p| p.map == self.game.map)
+                    .map(|p| p.pos[0]),
+            )
+        } else {
+            Some(0)
+        };
+        let eject = copy.is_none() && self.coord_tx.is_some();
+        // Without a run (or a coordinator to leave through) it stands in
+        // copy 1.
+        let copy = copy.unwrap_or(u8::from(self.instanced));
+        let landed = arrival.as_ref().map(|a| self.land_in(copy, &a.landing));
+        let saved_here =
+            saved_here.filter(|p| !self.instanced || realm_rules::dungeons::copy_at(p.x) == copy);
+        let home = if self.instanced {
+            self.settle(home + dungeon::offset_of(copy))
+        } else {
+            home
+        };
         let derived = self.game.rules.derived(&sheet);
         let max_hp = derived.max_hp.max(1) as f32;
         let caster = Caster::new(sheet.mana as f32, derived);
@@ -951,10 +1019,18 @@ impl Sim {
             entity: id,
             tick: self.tick,
             content_hash: self.content_hash,
+            copy,
         });
         self.send_sheet(conn);
         if let Some(arrival) = &arrival {
             self.arrived(conn, entity, arrival);
+        }
+        if self.instanced {
+            if eject {
+                self.eject_from_dungeon(conn, entity);
+            } else {
+                self.copy_joined(conn, copy);
+            }
         }
     }
 
@@ -1070,6 +1146,11 @@ impl Sim {
             ClientMsg::Ride(on) => self.request_ride(conn, entity, on),
             ClientMsg::WaylinkPlace(dest) => self.place_waylink(conn, entity, &dest),
             ClientMsg::WaylinkHold { id, hold } => self.hold_waylink(conn, entity, id, hold),
+            ClientMsg::DungeonInfo(portal) => self.dungeon_info(conn, entity, &portal),
+            ClientMsg::DungeonStart { portal, difficulty } => {
+                self.dungeon_start(conn, entity, &portal, difficulty);
+            }
+            ClientMsg::DungeonReady { id, yes } => self.dungeon_ready(entity, id, yes),
             ClientMsg::Inspect(id) => {
                 let player = self
                     .ids
@@ -1285,6 +1366,12 @@ impl Sim {
         self.stairs.apply(&mut self.terrain, tick);
         let has_stairs = !self.stairs.flights.is_empty();
         let mut stairs_at = tick;
+        // A dungeon's gates, the same way (a dungeon has no staircases).
+        let has_gates = !self.gates.is_empty();
+        if has_gates {
+            self.gates.apply(&mut self.terrain, tick);
+        }
+        let mut gates_at = tick;
         let mut casts: Vec<(Entity, InputFrame)> = Vec::new();
         let mut risen: Vec<Entity> = Vec::new();
         let mut query = self.world.query::<(Entity, &mut Player)>();
@@ -1340,6 +1427,10 @@ impl Sim {
                     self.stairs.apply(&mut self.terrain, input_tick);
                     stairs_at = input_tick;
                 }
+                if has_gates && input_tick != gates_at {
+                    self.gates.apply(&mut self.terrain, input_tick);
+                    gates_at = input_tick;
+                }
                 let mut body = player.body;
                 self.stairs.carry(&mut body, input_tick);
                 let params = player.restraint.params(&self.params, input_tick);
@@ -1364,6 +1455,9 @@ impl Sim {
         }
         if stairs_at != tick {
             self.stairs.apply(&mut self.terrain, tick);
+        }
+        if has_gates && gates_at != tick {
+            self.gates.apply(&mut self.terrain, tick);
         }
         for (caster, frame) in casts {
             self.request_cast(caster, frame);

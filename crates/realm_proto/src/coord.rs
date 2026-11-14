@@ -84,6 +84,33 @@ pub enum PartyCmd {
     Promote(String),
 }
 
+/// What opens a dungeon copy: the run's spec, fixed at the gate.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RunSpec {
+    pub dungeon: String,
+    pub difficulty: u8,
+    pub ref_level: u16,
+    /// (character, name, level, rewarded, first run of the day)
+    pub roster: Vec<(u64, String, u16, bool, bool)>,
+}
+
+/// A live copy as the gates see it.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct RunSummary {
+    pub map: String,
+    pub copy: u8,
+    pub dungeon: String,
+    pub difficulty: u8,
+    pub roster: Vec<u64>,
+    pub complete: bool,
+    pub forces: u32,
+    pub forces_total: u32,
+    /// Seconds until it closes (empty) or times out; -1 none.
+    pub left_s: i32,
+    /// Players inside.
+    pub inside: u8,
+}
+
 /// Map server -> coordinator.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MapMsg {
@@ -117,6 +144,19 @@ pub enum MapMsg {
     Gone {
         character: u64,
     },
+    /// A gate asks for a copy of the dungeon on `map`.
+    OpenCopy {
+        req: u64,
+        map: String,
+        spec: Box<RunSpec>,
+    },
+    /// A dungeon map's answer (copy 0: none free).
+    CopyOpened {
+        req: u64,
+        copy: u8,
+    },
+    /// A dungeon map's live copies (sent whenever they change).
+    Runs(Vec<RunSummary>),
     /// A character came onto this map (or this server reconnected).
     Online {
         character: u64,
@@ -187,6 +227,18 @@ pub enum CoordMsg {
     },
     /// The maps open right now (sent whenever one comes or goes).
     Maps(Vec<String>),
+    /// To a dungeon map: open a copy for this run.
+    OpenCopy {
+        req: u64,
+        spec: Box<RunSpec>,
+    },
+    /// To the gate that asked: the copy (0: none free).
+    CopyOpened {
+        req: u64,
+        copy: u8,
+    },
+    /// Every dungeon map's live copies.
+    Runs(Vec<RunSummary>),
     /// A line for one character on this map.
     Line {
         to: u64,

@@ -16,7 +16,8 @@
 //!       SIGTERM or Ctrl+Break saves everyone and stops. `--coord` links
 //!       it to the coordinator (travel, chat and parties across maps);
 //!       `--public` is the address clients reach it at (default: the bind
-//!       address, 0.0.0.0 read as 127.0.0.1).
+//!       address, 0.0.0.0 read as 127.0.0.1). `--dev-dungeon-scale F`
+//!       (checks only) multiplies dungeon creatures' health and damage.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -92,6 +93,8 @@ struct Options {
     coord: Option<String>,
     /// Where clients reach this server (told to travellers).
     public: Option<String>,
+    /// Development: dungeon creatures' health and damage x this.
+    dev_dungeon_scale: f32,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -105,6 +108,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         characters: None,
         coord: None,
         public: None,
+        dev_dungeon_scale: 1.0,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -124,6 +128,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--characters" => o.characters = Some(PathBuf::from(value()?)),
             "--coord" => o.coord = Some(value()?),
             "--public" => o.public = Some(value()?),
+            "--dev-dungeon-scale" => o.dev_dungeon_scale = value()?.parse()?,
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -140,8 +145,25 @@ fn serve(args: &[String]) -> AnyResult<()> {
     }
     let game = game::Game::from_content(&content, &o.map)?;
     let pack = realm_data::maps::read_pack(&o.maps.join(format!("{}.realmmap", o.map)))?;
-    let terrain = pack.world()?;
-    let nav = realm_sim::nav::NavQuery::new(&pack.nav);
+    // A dungeon map holds its copies side by side.
+    let instanced = content
+        .file("maps.json")
+        .and_then(|m| m["maps"][o.map.as_str()]["instanced"].as_bool())
+        .unwrap_or(false);
+    let offsets: Vec<realm_sim::Vec3> = (1..=realm_rules::dungeons::COPIES)
+        .map(|c| {
+            let o = realm_rules::dungeons::copy_offset(c);
+            realm_sim::Vec3::new(o[0], o[1], o[2])
+        })
+        .collect();
+    let (terrain, nav) = if instanced {
+        (
+            pack.world_copies(&offsets)?,
+            realm_sim::nav::NavQuery::new(&pack.nav_copies(&offsets)),
+        )
+    } else {
+        (pack.world()?, realm_sim::nav::NavQuery::new(&pack.nav))
+    };
     let stairs = realm_data::staircases(&content, &pack)?;
     let pub_bytes: [u8; 32] = std::fs::read(o.keys.join("ticket.pub"))?
         .try_into()
@@ -157,6 +179,11 @@ fn serve(args: &[String]) -> AnyResult<()> {
     };
     let store_jobs = store::start(character_store, tx.clone())?;
     let staircase_count = stairs.flights.len();
+    let gates = if instanced {
+        Some(pack.gates(&offsets)?)
+    } else {
+        None
+    };
     let mut sim = Sim::new(
         game,
         terrain,
@@ -166,6 +193,15 @@ fn serve(args: &[String]) -> AnyResult<()> {
         o.dev_spawn_near.as_deref(),
         store_jobs.clone(),
     )?;
+    sim.dev_dungeon_scale = o.dev_dungeon_scale;
+    if let Some(gates) = gates {
+        println!(
+            "[server] {} copies, {} gates",
+            offsets.len(),
+            gates.gates.len()
+        );
+        sim.set_copies(gates);
+    }
     println!(
         "[server] map {} ({} colliders, {} nav polygons, {} staircases), content {}..., {} creatures, listening on {}{}",
         o.map,

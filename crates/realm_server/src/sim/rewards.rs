@@ -43,6 +43,8 @@ pub(super) struct Chest {
     pub slots: Vec<Option<Item>>,
     pub rare: bool,
     pub expires: u32,
+    /// Only this character may open it (0: anyone).
+    pub owner: u64,
 }
 
 /// Who hit a creature, and when (newest last).
@@ -79,7 +81,7 @@ impl Sim {
     pub(super) fn reward_kill(&mut self, mob: Entity) {
         let tick = self.tick;
         let rules = self.rules();
-        let Some((credit, pos, level, exp_reward, elite, boss, pack, species)) =
+        let Some((credit, pos, level, exp_reward, elite, boss, pack, species, drop_scale)) =
             self.world.get::<Mob>(mob).map(|m| {
                 (
                     m.credit.clone(),
@@ -90,6 +92,7 @@ impl Sim {
                     m.boss,
                     m.pack,
                     usize::from(m.species),
+                    m.drop_scale,
                 )
             })
         else {
@@ -185,7 +188,7 @@ impl Sim {
                 elite,
                 boss,
                 stone,
-                drop_factor: gap.drop * (1.0 + drop_bonus / 100.0),
+                drop_factor: gap.drop * (1.0 + drop_bonus / 100.0) * drop_scale,
             },
             &mut dice,
         );
@@ -213,6 +216,26 @@ impl Sim {
                 slots: items.into_iter().map(Some).collect(),
                 rare,
                 expires: tick + CHEST_TICKS,
+                owner: 0,
+            })
+            .id();
+        let id = self.new_id(chest);
+        self.world.entity_mut(chest).insert(NetId(id));
+    }
+
+    /// A chest only `owner` may open (a dungeon's final chest); it stands
+    /// as long as the copy may (five minutes).
+    pub(super) fn drop_owned_chest(&mut self, at: Vec3, items: Vec<Item>, owner: u64) {
+        let tick = self.tick;
+        let rare = items.iter().any(|i| !i.bonuses.is_empty());
+        let chest = self
+            .world
+            .spawn(Chest {
+                pos: at,
+                slots: items.into_iter().map(Some).collect(),
+                rare,
+                expires: tick + 300 * SIM_HZ,
+                owner,
             })
             .id();
         let id = self.new_id(chest);
@@ -261,7 +284,7 @@ impl Sim {
 
     /// Pays a player experience and oril: levels gained refill health and
     /// mana; the sheet and the reward go to its client.
-    fn pay(&mut self, player: Entity, exp: u64, oril: u64) {
+    pub(super) fn pay(&mut self, player: Entity, exp: u64, oril: u64) {
         if exp == 0 && oril == 0 {
             return;
         }
@@ -328,6 +351,9 @@ impl Sim {
         }
         let chest = *self.ids.get(&id).ok_or("gone")?;
         let c = self.world.get::<Chest>(chest).ok_or("gone")?;
+        if c.owner != 0 && c.owner != p.sheet.id {
+            return Err("not_yours");
+        }
         if planar_distance(c.pos, p.body.pos) > CHEST_REACH
             || (c.pos.y - p.body.pos.y).abs() > CHEST_REACH
         {
@@ -453,6 +479,7 @@ impl Sim {
     /// A player fell: it may rise after a moment, and goes to town by itself
     /// after a while.
     pub(super) fn player_died(&mut self, player: Entity, killer: Entity) {
+        self.run_player_died(player);
         let tick = self.tick;
         let d = &self.game.death;
         let (ready, auto) = (tick + d.ready_ticks, tick + d.auto_ticks);
@@ -482,8 +509,16 @@ impl Sim {
             self.game.death.here_ward_ticks,
         );
         let y_min = self.game.y_min;
+        // In a dungeon copy the town point is the copy's entry.
+        let copy_shift = self
+            .world
+            .get::<Player>(player)
+            .filter(|_| self.instanced)
+            .map_or(Vec3::ZERO, |p| {
+                super::dungeon::offset_of(realm_rules::dungeons::copy_at(p.body.pos.x))
+            });
         let town = if self.dev_spawn_packs.is_empty() {
-            Some(self.game.town_point)
+            Some(self.game.town_point + copy_shift)
         } else {
             None
         };

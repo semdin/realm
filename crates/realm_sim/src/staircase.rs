@@ -448,6 +448,12 @@ impl Staircases {
     /// Puts every flight's solid colliders for `tick` into the world's moving
     /// set (replacing the previous tick's).
     pub fn apply(&mut self, world: &mut World, tick: u32) {
+        // A map without staircases leaves the moving colliders to whatever
+        // else owns them (a dungeon's gates): clearing them every tick let
+        // the server's bodies walk through closed gates.
+        if self.flights.is_empty() {
+            return;
+        }
         self.scratch.clear();
         for flight in &self.flights {
             flight.solid_at(f64::from(tick), &mut self.scratch);

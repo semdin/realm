@@ -45,6 +45,8 @@ cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777
 cargo run --release -p realm_netcheck -- --social       # two players on two maps: invite, party, party line, shout, local stays local
 cargo run --release -p realm_netcheck -- --duel         # two players on one map: challenge, accept, fight to 1 health, result
 cargo run --release -p realm_netcheck -- --travel --characters build/travelcheck   # grounds (7777) + castle_interior (7778) with --coord and --characters build/travelcheck: doors both ways, hearths, broom, Waylink, a takeover; the sheet whole every time
+cargo run --release -p realm_netcheck -- --dungeon --characters build/dungeoncheck   # grounds (7777) + dng_trial (7779, --dev-dungeon-scale 0.05) with --coord and --characters build/dungeoncheck: gate, solo Normal run to a medal, rewards, chest, record, out
+cargo run --release -p realm_netcheck -- --dungeon --quick --characters build/dungeoncheck   # the same servers, ~30 s: gate, launch, countdown, first wave, second gate, out (while working on dungeons)
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data

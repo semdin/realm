@@ -291,6 +291,33 @@ impl Rules {
 
     /// A gear piece from the level band, enchanted with 1..N bonuses at the
     /// table's chance.
+    /// A dungeon chest's gear piece at `level` with exactly `count`
+    /// enchantments (30 % of the time an accessory instead).
+    pub fn dungeon_gear(&self, level: u32, count: u8, dice: &mut dyn Dice) -> Option<Item> {
+        let band = self.loot.gear.level_band;
+        if dice.unit() < 0.3
+            && let Some(id) = self.pick_accessory(level, band, false, dice)
+        {
+            return Some(self.new_item(&id, 1));
+        }
+        let pool = self.band(level, band, |d| {
+            d.kind != "accessory" && self.enchantable(&d.id)
+        });
+        if pool.is_empty() {
+            return None;
+        }
+        let id = pool[dice.below(pool.len() as u32) as usize].clone();
+        let mut item = self.new_item(&id, 1);
+        let mut bonuses: Vec<Bonus> = Vec::new();
+        for _ in 0..count {
+            if let Some(b) = self.roll_bonus(&id, &bonuses, dice) {
+                bonuses.push(b);
+            }
+        }
+        item.bonuses = bonuses;
+        Some(item)
+    }
+
     fn roll_gear(&self, level: u32, gear: &GearRules, out: &mut Loot, dice: &mut dyn Dice) {
         let pool = self.band(level, gear.level_band, |d| {
             d.kind != "accessory" && self.enchantable(&d.id)

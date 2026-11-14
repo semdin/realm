@@ -128,6 +128,8 @@ enum Deed {
 struct Walk<'a> {
     terrain: &'a Terrain,
     nav: &'a NavQuery,
+    /// Closed dungeon gates' footprints: no creature walks through one.
+    barriers: &'a [[f32; 4]],
     scratch: &'a mut NavScratch,
     paths: u64,
     path_ms: f64,
@@ -175,6 +177,7 @@ impl Walk<'_> {
                 *end = goal;
             }
         }
+        let start = mob.pos;
         let mut budget = speed * SIM_DT;
         while budget > 0.0 {
             let Some(&corner) = mob.path.last() else {
@@ -203,15 +206,36 @@ impl Walk<'_> {
             }
         }
         if apart != Vec3::ZERO {
-            mob.pos += apart * (speed * SIM_DT);
+            // Spacing never pushes a body off the walkable mesh (into a
+            // wall, where it would stand out of everyone's reach).
+            let pushed = mob.pos + apart * (speed * SIM_DT);
+            if self.nav.locate(pushed, 2.5).is_some() || self.nav.locate(mob.pos, 2.5).is_none() {
+                mob.pos = pushed;
+            }
+        }
+        // A closed gate stops it (half a metre of body round its feet).
+        let inside = |p: Vec3, b: &[f32; 4]| {
+            p.x > b[0] - 0.5 && p.x < b[2] + 0.5 && p.z > b[1] - 0.5 && p.z < b[3] + 0.5
+        };
+        if self
+            .barriers
+            .iter()
+            .any(|b| inside(mob.pos, b) && !inside(start, b))
+        {
+            mob.pos = start;
+            return false;
         }
         // Height follows the ground every third tick, creatures spread over
         // the three.
         if (tick + mob.rng).is_multiple_of(GROUND_EVERY) {
             let t_ground = Instant::now();
+            // Never more than a step up at once: a probe that starts inside
+            // a wall (a body pushed into one) would otherwise lift the
+            // creature onto the wall's top.
             if let Some(ground) = self
                 .terrain
                 .ray_down(mob.pos + Vec3::new(0.0, 1.5, 0.0), 4.0)
+                .filter(|g| g.point.y <= mob.pos.y + 1.0)
             {
                 mob.pos.y = ground.point.y;
             }
@@ -331,9 +355,15 @@ impl Sim {
         let awake_cells = &self.awake;
         let auras = &mut self.auras;
         let mut scratch = std::mem::take(&mut self.nav_scratch);
+        let barriers = if self.gates.is_empty() {
+            Vec::new()
+        } else {
+            self.gates.closed_footprints(self.tick)
+        };
         let mut walk = Walk {
             terrain,
             nav: &self.nav,
+            barriers: &barriers,
             scratch: &mut scratch,
             paths: 0,
             path_ms: 0.0,
@@ -846,7 +876,7 @@ impl Sim {
         let state = &mut self.packs[pack];
         state.alive = state.alive.saturating_sub(1);
         let p = &self.game.packs[pack];
-        let summoned = matches!(p.kind, PackKind::Summons(_));
+        let summoned = matches!(p.kind, PackKind::Summons(_) | PackKind::Dungeon(_));
         if state.alive == 0 && !summoned {
             let (lo, hi) = p.respawn_ticks;
             state.respawn_at = Some(tick + lo + roll % hi.saturating_sub(lo).max(1));
@@ -1054,6 +1084,7 @@ impl Sim {
             path_goal: at,
             replan_at: 0,
             status: super::status::Status::default(),
+            drop_scale: 1.0,
         };
         let entity = self.world.spawn(mob).id();
         let id = self.new_id(entity);
@@ -1066,7 +1097,7 @@ impl Sim {
 
     /// Takes a creature out of the world for good (a wave's corpse, or a
     /// wave left standing when its stone comes back).
-    fn despawn(&mut self, entity: Entity) {
+    pub(super) fn despawn(&mut self, entity: Entity) {
         if let Some(id) = self.world.get::<NetId>(entity).map(|n| n.0) {
             self.ids.remove(&id);
         }
@@ -1077,7 +1108,10 @@ impl Sim {
     fn clear_corpses(&mut self) {
         let tick = self.tick;
         for pack in 0..self.packs.len() {
-            if !matches!(self.game.packs[pack].kind, PackKind::Summons(_)) {
+            if !matches!(
+                self.game.packs[pack].kind,
+                PackKind::Summons(_) | PackKind::Dungeon(_)
+            ) {
                 continue;
             }
             let gone: Vec<Entity> = self.packs[pack]

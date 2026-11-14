@@ -63,6 +63,11 @@ pub struct RemoteEntity {
 pub struct ClientCore {
     world: World,
     stairs: Staircases,
+    /// A dungeon copy's gates, as the server scheduled them.
+    gates: realm_sim::gates::Gates,
+    /// A gate change arrived since the last reconciliation (its tick may
+    /// already be in the replayed inputs).
+    gates_moved: bool,
     params: MoveParams,
     me: u32,
     /// Last simulated tick.
@@ -101,6 +106,8 @@ impl ClientCore {
         Self {
             world,
             stairs,
+            gates: realm_sim::gates::Gates::default(),
+            gates_moved: false,
             params: MoveParams::default(),
             me,
             tick: start_tick,
@@ -126,6 +133,28 @@ impl ClientCore {
     #[must_use]
     pub fn me(&self) -> u32 {
         self.me
+    }
+
+    /// The dungeon copy's gates (from `MapPack::gates`, its own copy as 1).
+    pub fn set_gates(&mut self, gates: realm_sim::gates::Gates) {
+        self.gates = gates;
+        self.gates_moved = true;
+    }
+
+    /// The server opens (or closes) gate `id` from server tick `tick`.
+    pub fn schedule_gate(&mut self, id: &str, tick: u32, open: bool) {
+        if self.gates.schedule(1, id, tick, open) {
+            self.gates_moved = true;
+        }
+    }
+
+    /// Whether gate `id` stands open at `tick`.
+    #[must_use]
+    pub fn gate_open(&self, id: &str, tick: u32) -> bool {
+        self.gates
+            .gates
+            .iter()
+            .any(|g| g.id == id && g.open_at(tick))
     }
 
     #[must_use]
@@ -173,9 +202,11 @@ impl ClientCore {
             .map(|b| self.prev_pos + (b.pos - self.prev_pos) * alpha.clamp(0.0, 1.0))
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn simulate(
         world: &mut World,
         stairs: &mut Staircases,
+        gates: &mut realm_sim::gates::Gates,
         params: &MoveParams,
         restraint: &Restraint,
         body: &mut Body,
@@ -188,6 +219,9 @@ impl ClientCore {
         }
         if !stairs.flights.is_empty() {
             stairs.apply(world, frame.tick);
+        }
+        if !gates.is_empty() {
+            gates.apply(world, frame.tick);
         }
         stairs.carry(body, frame.tick);
         movement::step(
@@ -220,6 +254,7 @@ impl ClientCore {
                 Self::simulate(
                     &mut self.world,
                     &mut self.stairs,
+                    &mut self.gates,
                     &self.params,
                     &self.restraint,
                     body,
@@ -335,6 +370,7 @@ impl ClientCore {
     /// respawn or a new hold on the body, so a difference is the server's
     /// doing, not a misprediction.
     fn reconcile(&mut self, snapshot: &Snapshot, life_changed: bool) {
+        let life_changed = life_changed || std::mem::take(&mut self.gates_moved);
         let confirmed = snapshot.last_input_seq;
         // A snapshot that arrives after a newer one (reordered on the way)
         // confirms nothing new. A death, respawn or hold still counts: a
@@ -360,6 +396,7 @@ impl ClientCore {
                 Self::simulate(
                     &mut self.world,
                     &mut self.stairs,
+                    &mut self.gates,
                     &self.params,
                     &self.restraint,
                     &mut body,
@@ -382,6 +419,7 @@ impl ClientCore {
             Self::simulate(
                 &mut self.world,
                 &mut self.stairs,
+                &mut self.gates,
                 &self.params,
                 &self.restraint,
                 &mut body,

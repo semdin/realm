@@ -16,6 +16,12 @@ again to reset it.
 Sweeper (broom slot), carries 5 Hearth Dust and a Waylink boot (cells 5 and
 6), and stands on the grounds at the castle approach (spawn
 `castle_approach`), facing the castle door.
+
+    python tools/fixtures/make_prepared_character.py build/dungeoncheck 900301 --dungeon-kit
+
+`--dungeon-kit` (the Godot client's --check-dungeon) is level 12 and stands
+on the grounds beside the Trial Hall gate (portal `trial_entry`), where
+realm_netcheck --dungeon seeds its own character.
 """
 import json
 import os
@@ -29,6 +35,7 @@ def item(item_id, amount=1, uid=0):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     travel_kit = "--travel-kit" in sys.argv[1:]
+    dungeon_kit = "--dungeon-kit" in sys.argv[1:]
     folder, character = args[0], int(args[1])
     bag = [None] * 40
     bag[0] = item("potion_health", 5)
@@ -52,6 +59,10 @@ def main():
         bag[6] = item("waylink_boot", 1)
         # maps.json grounds spawn_points.castle_approach
         sheet["place"] = {"map": "grounds", "pos": [0.0, 58.49, 20.0], "yaw": 0.0}
+    if dungeon_kit:
+        sheet["level"] = 12
+        # beside maps.json portal trial_entry (its trigger is at 70, 58, 69)
+        sheet["place"] = {"map": "grounds", "pos": [70.0, 58.3, 63.0], "yaw": 0.0}
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, "%d.json" % character)
     with open(path, "w", encoding="utf-8", newline="\n") as out:

@@ -30,7 +30,7 @@ use realm_proto::SigningKey;
 use realm_proto::control::FrameReader;
 use realm_proto::coord::{
     CHANNEL_PARTY, CHANNEL_SHOUT, CHANNEL_SYSTEM, CoordMsg, MapMsg, PARTY_MAX, PartyCmd,
-    PartyMember, PartyView, decode_map, encode_coord,
+    PartyMember, PartyView, RunSummary, decode_map, encode_coord,
 };
 use realm_proto::ticket::Ticket;
 use realm_rules::CharacterSheet;
@@ -114,6 +114,11 @@ struct Book {
     reservations: HashMap<u64, Reservation>,
     /// Signs travel tickets (None: nobody may travel between maps).
     ticket_key: Option<SigningKey>,
+    /// Each dungeon map's live copies, by link.
+    runs: HashMap<u64, Vec<RunSummary>>,
+    /// Copy requests on their way to a dungeon map: ours -> (link, theirs).
+    copy_requests: HashMap<u64, (u64, u64)>,
+    next_request: u64,
     online: HashMap<u64, Online>,
     by_name: HashMap<String, u64>,
     parties: HashMap<u64, Party>,
@@ -142,6 +147,14 @@ impl Book {
             .get(&link)
             .map(|l| l.map.clone())
             .unwrap_or_default()
+    }
+
+    /// Every dungeon map's live copies, to every map.
+    fn runs_changed(&self) {
+        let all: Vec<RunSummary> = self.runs.values().flatten().cloned().collect();
+        for l in self.links.values() {
+            let _ = l.tx.send(CoordMsg::Runs(all.clone()));
+        }
     }
 
     /// Tells every map which maps are open.
@@ -637,6 +650,31 @@ impl Book {
                     }
                 }
             }
+            MapMsg::OpenCopy { req, map, spec } => {
+                let target = self
+                    .links
+                    .iter()
+                    .find(|(_, l)| l.map == map)
+                    .map(|(id, _)| *id);
+                match target {
+                    Some(t) => {
+                        self.next_request += 1;
+                        let ours = self.next_request;
+                        self.copy_requests.insert(ours, (link, req));
+                        self.to_link(t, CoordMsg::OpenCopy { req: ours, spec });
+                    }
+                    None => self.to_link(link, CoordMsg::CopyOpened { req, copy: 0 }),
+                }
+            }
+            MapMsg::CopyOpened { req, copy } => {
+                if let Some((origin, theirs)) = self.copy_requests.remove(&req) {
+                    self.to_link(origin, CoordMsg::CopyOpened { req: theirs, copy });
+                }
+            }
+            MapMsg::Runs(list) => {
+                self.runs.insert(link, list);
+                self.runs_changed();
+            }
             MapMsg::Reserve { character, map } => {
                 let answer = self.reserve(character, &map);
                 self.to_link(
@@ -765,6 +803,19 @@ impl Book {
             self.offline(c);
         }
         self.maps_changed();
+        if self.runs.remove(&link).is_some() {
+            self.runs_changed();
+        }
+        // Copy requests to it die with it.
+        let lost: Vec<u64> = self
+            .copy_requests
+            .iter()
+            .filter(|(_, (origin, _))| *origin == link)
+            .map(|(k, _)| *k)
+            .collect();
+        for k in lost {
+            self.copy_requests.remove(&k);
+        }
     }
 
     fn sweep(&mut self) {
@@ -860,6 +911,7 @@ async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>)
             },
         );
         b.maps_changed();
+        b.runs_changed();
     }
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {

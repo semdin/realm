@@ -214,6 +214,9 @@ impl Sim {
                 ticket,
             } => self.deliver_ticket(character, map, address, ticket),
             CoordMsg::Maps(maps) => self.open_maps = maps,
+            CoordMsg::OpenCopy { req, spec } => self.open_copy(req, &spec),
+            CoordMsg::CopyOpened { req, copy } => self.copy_opened(req, copy),
+            CoordMsg::Runs(runs) => self.dungeon_runs = runs,
         }
     }
 

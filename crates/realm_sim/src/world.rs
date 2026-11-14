@@ -139,28 +139,7 @@ impl World {
 
     /// A collider from a map pack.
     pub fn add_pack_collider(&mut self, c: &PackCollider) -> Result<(), String> {
-        let [x, y, z, w] = c.rotation;
-        let pose = Pose::from_parts(v3(c.translation), Rot3::from_xyzw(x, y, z, w));
-        let shape = match &c.shape {
-            PackShape::Box { half } => SharedShape::cuboid(half[0], half[1], half[2]),
-            PackShape::Sphere { radius } => SharedShape::ball(*radius),
-            PackShape::Capsule {
-                half_height,
-                radius,
-            } => SharedShape::capsule_y(*half_height, *radius),
-            PackShape::Cylinder {
-                half_height,
-                radius,
-            } => SharedShape::cylinder(*half_height, *radius),
-            PackShape::Convex { points } => {
-                let points: Vec<Vec3> = points.iter().copied().map(v3).collect();
-                SharedShape::convex_hull(&points).ok_or("degenerate convex hull")?
-            }
-            PackShape::TriMesh { vertices, indices } => {
-                SharedShape::trimesh(vertices.iter().copied().map(v3).collect(), indices.clone())
-                    .map_err(|e| format!("trimesh: {e:?}"))?
-            }
-        };
+        let (pose, shape) = pack_shape(c, Vec3::ZERO)?;
         self.add(pose, shape);
         Ok(())
     }
@@ -551,4 +530,31 @@ fn overlaps(a: &Aabb, b: &Aabb) -> bool {
         && a.maxs.y >= b.mins.y
         && a.mins.z <= b.maxs.z
         && a.maxs.z >= b.mins.z
+}
+
+/// A pack collider's pose (moved by `offset`) and shape.
+pub fn pack_shape(c: &PackCollider, offset: Vec3) -> Result<(Pose, SharedShape), String> {
+    let [x, y, z, w] = c.rotation;
+    let pose = Pose::from_parts(v3(c.translation) + offset, Rot3::from_xyzw(x, y, z, w));
+    let shape = match &c.shape {
+        PackShape::Box { half } => SharedShape::cuboid(half[0], half[1], half[2]),
+        PackShape::Sphere { radius } => SharedShape::ball(*radius),
+        PackShape::Capsule {
+            half_height,
+            radius,
+        } => SharedShape::capsule_y(*half_height, *radius),
+        PackShape::Cylinder {
+            half_height,
+            radius,
+        } => SharedShape::cylinder(*half_height, *radius),
+        PackShape::Convex { points } => {
+            let points: Vec<Vec3> = points.iter().copied().map(v3).collect();
+            SharedShape::convex_hull(&points).ok_or("degenerate convex hull")?
+        }
+        PackShape::TriMesh { vertices, indices } => {
+            SharedShape::trimesh(vertices.iter().copied().map(v3).collect(), indices.clone())
+                .map_err(|e| format!("trimesh: {e:?}"))?
+        }
+    };
+    Ok((pose, shape))
 }
