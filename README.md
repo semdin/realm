@@ -71,7 +71,10 @@ land on a release tick; every Nth attack is a telegraphed ability (a
 `telegraph` combat event carries its shape and release tick), a target out of
 reach can draw a thrown one, casters throw bolts. Abilities stun, throw, web,
 poison and despair players (`sim/afflict.rs`); the holds travel in the owner's
-snapshot as a `Restraint`, so prediction replays them exactly. Packs come back
+snapshot as a `Restraint` in the player's own input ticks, so prediction
+replays them exactly; a life counter in the same snapshot marks deaths and
+respawns. The client draws a telegraph as the old game's projected ground mark
+filling toward its release tick against `RealmSession.server_tick()`. Packs come back
 whole on a fresh anchor. Load with fighting creatures:
 
 ```bash

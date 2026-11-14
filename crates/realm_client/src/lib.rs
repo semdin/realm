@@ -664,7 +664,8 @@ impl RealmSession {
     /// by id. A telegraph carries its creature ability whole: `ability`
     /// (key), `clip`, `fx`, `flight`, `impact_fx`, `shape` ("area" or
     /// "cone"), `radius`, `range`, `half_angle`, `center`, `yaw`,
-    /// `release_tick`, `recovery_tick`.
+    /// `start_tick` (the windup's first tick), `release_tick`,
+    /// `recovery_tick`.
     #[func]
     fn take_combat_events(&mut self) -> VarArray {
         use realm_proto::control::CombatEvent;
@@ -767,6 +768,11 @@ impl RealmSession {
                     }
                     d.set("center", &v3(center).to_variant());
                     d.set("yaw", &yaw.to_variant());
+                    let windup = (ab.windup_ms * realm_sim::SIM_HZ).div_ceil(1000);
+                    d.set(
+                        "start_tick",
+                        &i64::from(release_tick.saturating_sub(windup)).to_variant(),
+                    );
                     d.set("release_tick", &i64::from(release_tick).to_variant());
                     d.set("recovery_tick", &i64::from(recovery_tick).to_variant());
                 }
@@ -778,6 +784,17 @@ impl RealmSession {
             out.push(&d.to_variant());
         }
         out
+    }
+
+    /// The server's tick now, as estimated from snapshot arrivals (with a
+    /// fraction; -1 before the first snapshot). Telegraphs and other
+    /// server-timed events are drawn against it.
+    #[func]
+    fn server_tick(&self) -> f64 {
+        self.core
+            .as_ref()
+            .and_then(|c| c.server_tick_at(self.local_ticks()))
+            .unwrap_or(-1.0)
     }
 
     /// The player's health, maximum health, mana and maximum mana as the

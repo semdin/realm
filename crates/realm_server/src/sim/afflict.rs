@@ -2,7 +2,9 @@
 //! steering, no jump, no casts), a web slows it, venom ticks, despair stops
 //! natural regeneration, a pallid's cold seeps into those near it. Holds on
 //! the body go into the player's `Restraint`, which the owner's snapshots
-//! carry so its prediction applies them to the same inputs.
+//! carry so its prediction applies them to the same inputs. A hold starts
+//! with the player's next input (input ticks, not server ticks: a client's
+//! labels may run a little behind or ahead of the server's clock).
 
 use realm_proto::{STATUS_KNOCKED, STATUS_POISON, STATUS_SLOW, STATUS_STUN};
 use realm_rules::creatures::{Riders, shove_lock_ms};
@@ -76,13 +78,14 @@ impl Sim {
         if p.dead_until != 0 {
             return;
         }
+        // Holds count in the owner's input ticks, from its next input.
+        let now = p.last_input_tick + 1;
         let stun_immune = p.caster.stat("stun_immunity") > 0.0;
         let slow_immune = p.caster.stat("slow_immunity") > 0.0;
         let mut locked = false;
         if riders.stun_ms > 0 && !stun_immune {
-            let until = tick + ticks(riders.stun_ms);
-            p.afflictions.stun_until = p.afflictions.stun_until.max(until);
-            p.restraint.lock(tick, until);
+            p.afflictions.stun_until = p.afflictions.stun_until.max(tick + ticks(riders.stun_ms));
+            p.restraint.lock(now, now + ticks(riders.stun_ms));
             locked = true;
         }
         if riders.push != 0.0 || riders.lift != 0.0 {
@@ -99,15 +102,14 @@ impl Sim {
                     p.body.on_floor = false;
                 }
             }
-            let until = tick + ticks(shove_lock_ms(riders.push, riders.lift));
-            p.afflictions.knock_until = p.afflictions.knock_until.max(until);
-            p.restraint.lock(tick, until);
+            let lock = ticks(shove_lock_ms(riders.push, riders.lift));
+            p.afflictions.knock_until = p.afflictions.knock_until.max(tick + lock);
+            p.restraint.lock(now, now + lock);
             locked = true;
         }
         if riders.web_ms > 0 && !slow_immune {
-            let until = tick + ticks(riders.web_ms);
-            p.afflictions.web_until = p.afflictions.web_until.max(until);
-            p.restraint.web(tick, until);
+            p.afflictions.web_until = p.afflictions.web_until.max(tick + ticks(riders.web_ms));
+            p.restraint.web(now, now + ticks(riders.web_ms));
         }
         if riders.despair_ms > 0 {
             p.afflictions.despair_until = p
@@ -175,15 +177,16 @@ impl Sim {
         self.poisoned = list;
         // Venom is not armour's business: it bites flat.
         for (player, source, damage) in doses {
-            self.wound_player(player, source, damage, 0.0, false);
+            self.wound_player(player, source, damage, 0.0, false, u8::MAX);
         }
         if tick.is_multiple_of(RESTRAINT_FORGET_TICKS) {
             let mut q = self.world.query::<&mut Player>();
             for mut p in q.iter_mut(&mut self.world) {
                 let r = p.restraint;
+                let input = p.last_input_tick;
                 if r != Default::default()
-                    && r.lock_until + RESTRAINT_FORGET_TICKS < tick
-                    && r.web_until + RESTRAINT_FORGET_TICKS < tick
+                    && r.lock_until + RESTRAINT_FORGET_TICKS < input
+                    && r.web_until + RESTRAINT_FORGET_TICKS < input
                 {
                     p.restraint = Default::default();
                 }

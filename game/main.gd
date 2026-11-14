@@ -35,14 +35,18 @@ const HeroViewScript := "res://scripts/view/hero_view.gd"
 const PlayerSheetScript := "res://scripts/view/player_sheet.gd"
 const HudScript := "res://scripts/ui/hud.gd"
 const InventoryScript := "res://scripts/ui/inventory_arcane.gd"
-## Entity kind of a player in snapshots (creatures carry their kind id + 1).
+## Entity kind of a player in snapshots (creatures carry their species index
+## + 1, with CreatureView.ELITE_BIT set for an elite).
 const KIND_PLAYER := 0
+## An elite's name on the target card (the old game's elite label colour).
+const ELITE_NAME_COLOR := Color(1.0, 0.9, 0.35)
 ## Where a cast aims on a creature, above its feet (the server's chest height).
 const CHEST := 1.15
 ## How far the cursor's pick ray reaches, and how near Tab looks for creatures.
 const PICK_REACH := 200.0
 const TAB_RANGE := 30.0
 const CHECK_CAST_SECONDS := 0.6
+const HELD_NOTICE_SECONDS := 0.8
 
 var session: Node
 var player: Node3D
@@ -63,7 +67,7 @@ var drawn: Dictionary = {}
 ## Creatures with a model by entity id (CreatureView); species without one yet
 ## are drawn as capsules.
 var beasts := {}
-## Kinds whose species has no model in this client yet.
+## Species kinds (elite bit masked) with no model in this client yet.
 var no_model := {}
 const CreatureViewScript := "res://scripts/view/creature_view.gd"
 var house_color := Color(0.85, 0.4, 0.11)
@@ -94,10 +98,14 @@ var check_bursts := 0
 var check_statuses := {}
 var check_hit_ids := {}
 var check_target_statuses := 0
+## The union of status bits the creatures put on the player.
+var check_own_statuses := 0
 ## `--check-spells`: the rotation the check casts instead of the basic cast.
 var check_spells: PackedStringArray = []
 var check_spell_next := 0
 var built := false
+## When the next "you are stunned" notice may show.
+var _held_notice_at := 0.0
 
 func _arg(name: String, fallback: String) -> String:
 	var args := OS.get_cmdline_user_args()
@@ -295,12 +303,14 @@ func click_world(at: Vector2) -> void:
 	if _creature_index(entity) >= 0:
 		select_target(entity)
 		cast_spell("basic_cast")
-	else:
+	elif not _held_refusal():
 		session.cast("basic_cast", 0, hit["point"])
 
 ## Casts `spell` at the target's chest, or with no target at the point under
 ## the cursor.
 func cast_spell(spell: String) -> void:
+	if _held_refusal():
+		return
 	if target != 0 and drawn.has(target):
 		session.cast(spell, target, (drawn[target] as Vector3) + Vector3(0, CHEST, 0))
 		return
@@ -325,11 +335,15 @@ func select_target(id: int) -> void:
 	if target == 0:
 		hud.set_target(0)
 		return
-	var species := CreatureView.species_for_kind((others["kinds"] as PackedInt32Array)[i])
+	var kind := (others["kinds"] as PackedInt32Array)[i]
+	var species := CreatureView.species_for_kind(kind)
 	var mobs: Variant = RealmContent.table("mobs")
 	var entry: Dictionary = (mobs as Dictionary).get("mobs", {}).get(species, {}) if mobs is Dictionary else {}
-	hud.set_target(target, I18n.mob_name(String(entry.get("display", species.capitalize()))),
-		(others["hp"] as PackedInt32Array)[i])
+	var title := I18n.mob_name(String(entry.get("display", species.capitalize())))
+	if CreatureView.is_elite(kind):
+		hud.set_target(target, tr("Elite %s") % title, (others["hp"] as PackedInt32Array)[i], ELITE_NAME_COLOR)
+	else:
+		hud.set_target(target, title, (others["hp"] as PackedInt32Array)[i])
 
 ## Living creatures within `reach` of the player, nearest first.
 func _creatures_near(reach: float) -> Array:
@@ -387,6 +401,25 @@ func _show_combat() -> void:
 			"cast_refused":
 				_say_refusal(String(event["spell"]), String(event["reason"]))
 
+## Stunned or thrown (own_body `held`): the server refuses every cast, so none
+## is sent and the notice band says why, at most every HELD_NOTICE_SECONDS.
+func _held_refusal() -> bool:
+	var own: Dictionary = session.own_body()
+	if not bool(own.get("held", false)):
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	if now >= _held_notice_at:
+		_held_notice_at = now + HELD_NOTICE_SECONDS
+		var bits := int(own.get("status", 0))
+		var text := tr("You are stunned!")
+		if bits & StatusFX.STATUS_KNOCKED:
+			text = tr("You were knocked off your feet!")
+		elif bits & StatusFX.STATUS_FREEZE:
+			text = tr("You are frozen!")
+		hud.show_notice(text, "warn")
+		AudioManager.play_deny()
+	return true
+
 ## Why a cast of the player's was refused, on the notice band (a cooldown or an
 ## unknown spell needs no words).
 func _say_refusal(spell: String, reason: String) -> void:
@@ -418,6 +451,9 @@ func _check_fight(delta: float) -> void:
 		var near := _creatures_near(INF)
 		if not near.is_empty():
 			select_target(near[0])
+	if bool(session.own_body().get("held", false)):
+		# stunned or thrown: nothing can be cast until the body is free
+		return
 	if not check_learn_sent:
 		check_learn_sent = true
 		session.learn_skill("shockwave")
@@ -492,6 +528,7 @@ func _process(delta: float) -> void:
 	if not own.is_empty():
 		player.drive_own(own, delta)
 		player.set_status(int(own.get("status", 0)))
+		check_own_statuses |= int(own.get("status", 0))
 	var look_at_point := me + Vector3(0, 1.5, 0)
 	var offset := Vector3(0, 0, cam_distance).rotated(Vector3.RIGHT, cam_pitch).rotated(Vector3.UP, cam_yaw + cam_side)
 	camera.position = look_at_point + offset
@@ -517,7 +554,8 @@ func _process(delta: float) -> void:
 			heroes[ids[i]].drive_remote(positions[i], delta)
 			heroes[ids[i]].set_status(statuses[i])
 			continue
-		if not no_model.has(kinds[i]):
+		var species_kind := kinds[i] & CreatureView.SPECIES_MASK
+		if not no_model.has(species_kind):
 			seen[ids[i]] = true
 			if not beasts.has(ids[i]):
 				var beast: Node3D = load(CreatureViewScript).new()
@@ -526,13 +564,13 @@ func _process(delta: float) -> void:
 					beasts[ids[i]] = beast
 				else:
 					beast.queue_free()
-					no_model[kinds[i]] = true
+					no_model[species_kind] = true
 			if beasts.has(ids[i]):
 				beasts[ids[i]].set_status(statuses[i])
 				beasts[ids[i]].drive(positions[i], yaws[i], states[i], delta)
 				continue
 		crowd.multimesh.set_instance_transform(creatures, Transform3D(Basis(), positions[i] + Vector3(0, 0.925, 0)))
-		crowd.multimesh.set_instance_color(creatures, KIND_COLORS[kinds[i] % KIND_COLORS.size()])
+		crowd.multimesh.set_instance_color(creatures, KIND_COLORS[species_kind % KIND_COLORS.size()])
 		creatures += 1
 	crowd.multimesh.visible_instance_count = creatures
 	for table: Dictionary in [heroes, beasts]:
@@ -573,7 +611,10 @@ bag: %s" % [
 ", " | "),
 			" | fight: %d own casts started, %d own hits, %d own bursts, target hp %d/255" % [check_casts, check_hits, check_bursts, check_hp],
 			" | statuses: target %s (%d), hit creatures %s (%d)" % [_status_names(check_target_statuses),
-				check_target_statuses, _status_names(_check_hit_statuses()), _check_hit_statuses()])
+				check_target_statuses, _status_names(_check_hit_statuses()), _check_hit_statuses()],
+			" | creatures: %d telegraphs (%d released, %d called off), %d boulders, %d bolts, %d evades, own statuses %s" % [
+				combat.telegraphs_seen, combat.telegraphs_released, combat.telegraphs_cancelled, combat.boulders_thrown,
+				combat.creature_bolts, combat.evades_shown, _status_names(check_own_statuses)])
 		var passed := int(stats.get("corrections", 0)) == 0 and int(stats.get("snapshots", 0)) > 0 and check_hits > 0 \
 			and check_bursts > 0 and _check_hit_statuses() & StatusFX.STATUS_KNOCKED != 0
 		get_tree().quit(0 if passed else 1)

@@ -25,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 8;
+pub const PROTOCOL_VERSION: u16 = 9;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/8";
+pub const ALPN: &[u8] = b"realm/9";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -164,6 +164,10 @@ pub struct Snapshot {
     pub own_restraint: Restraint,
     /// STATUS_* bits on the owner (what the others see on it).
     pub own_status: u8,
+    /// Counts the owner's deaths and respawns (wrapping): a change means
+    /// the server moved the body, even when two of them fell between the
+    /// snapshots the client got (a respawn and an instant death).
+    pub own_life: u8,
     /// Every entity in the client's interest set, sorted by id.
     pub entities: EntitySet,
 }
@@ -357,6 +361,7 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
         }
     }
     w.u8(snapshot.own_status);
+    w.u8(snapshot.own_life);
 
     let base = baseline.unwrap_or(&[]);
     let next = &snapshot.entities;
@@ -480,6 +485,7 @@ pub fn decode_snapshot<'a>(
         Restraint::default()
     };
     let own_status = r.u8()?;
+    let own_life = r.u8()?;
     let base: &[(u32, EntityState)] = if baseline_tick == 0 {
         &[]
     } else {
@@ -602,6 +608,7 @@ pub fn decode_snapshot<'a>(
         own_vitals,
         own_restraint,
         own_status,
+        own_life,
         entities,
     })
 }

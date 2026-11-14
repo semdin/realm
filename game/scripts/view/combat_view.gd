@@ -8,6 +8,12 @@ class_name CombatView
 ## bolt lands its impact plays on the body or, for an area spell, a burst on
 ## the spot; a damage number rises over whoever is hit. The looks are
 ## SpellEffect stages (VFXLibrary) and WardShield, their sounds AudioManager's.
+## A creature's telegraphed ability burns on the ground where it will land
+## (GroundWarning), its fire reaching the boundary on the server's release
+## tick, while the creature plays the ability's clip; on the release the
+## warning flashes out and the ability's impact plays (a thrown boulder lands
+## there first). A creature's bolt flies straight from where the server
+## launched it.
 ## It decides nothing; every event comes from the server through
 ## RealmSession.take_combat_events, which main.gd drains once per frame and
 ## hands here (`show_event`).
@@ -22,6 +28,19 @@ const WAND_HEIGHT := 1.2
 const BODY_RADIUS := 0.45
 ## Hit flags (realm_proto CombatEvent::Hit).
 const FLAG_CRIT := 1
+## A creature walking home shrugged the blow off (amount 0).
+const FLAG_EVADE := 64
+const EVADE_COLOUR := Color(0.78, 0.86, 0.95)
+## What an area ability's release plays when its data names no impact (the
+## old game's default), and what a cone's plays from the creature's chest.
+const AREA_IMPACT := "shockwave"
+const CONE_CAST := "disarm"
+## The thrown boulder: the grounds' rock, this big across; the last stretch
+## of the windup at most is its flight, on an arc this high.
+const BOULDER_MODEL := "res://assets/models/vegetation/rock_boulder.glb"
+const BOULDER_SIZE := 1.5
+const BOULDER_FLIGHT := 0.55
+const BOULDER_ARC := 5.0
 ## Longest a landing bolt takes to reach where it struck.
 const LAND_SECONDS := 0.25
 
@@ -45,6 +64,21 @@ var _cast_targets := {}
 var _chain := {}
 ## Raised wards by caster entity id.
 var _wards := {}
+## Telegraphs by caster entity id: {warning, start, release, recovery, data,
+## rock, from}.
+var _telegraphs := {}
+## A creature's hit this many ticks before its telegraph's release tick is
+## the telegraph landing.
+const RELEASE_SLACK := 4.0
+## What the check reads: telegraphs shown, released and cancelled, boulders
+## thrown, creature bolts launched, evades shown.
+var telegraphs_seen := 0
+var telegraphs_released := 0
+var telegraphs_cancelled := 0
+var boulders_thrown := 0
+var creature_bolts := 0
+var evades_shown := 0
+static var _boulder_scene: PackedScene = null
 
 static func spell(id: String) -> Dictionary:
 	return HudActionBar.spells().get(id, {})
@@ -72,10 +106,30 @@ func show_event(event: Dictionary) -> void:
 			var at: Vector3 = event["at"]
 			if not _land(caster, spell_id, at, 0, func(dir: Vector3): _burst(caster, spell_id, at, dir)):
 				_burst(caster, spell_id, at, at - (drawn.get(caster, at) as Vector3))
+		"telegraph":
+			_telegraph(event)
+		"telegraph_cancelled":
+			_end_telegraph(int(event["caster"]), false)
 		"hit":
+			_strike_lands(int(event["attacker"]))
+			event = _named_blow(event)
 			if not _land(int(event["attacker"]), String(event["spell"]), Vector3.ZERO, int(event["target"]),
 					func(dir: Vector3): _hit(event, dir)):
 				_hit(event, _incoming(event))
+
+## A creature's blow names no spell (the server's hit carries none for a
+## creature): when the creature has a bolt in the air the blow is that bolt,
+## so the bolt finishes its flight onto the body and its impact plays there.
+func _named_blow(event: Dictionary) -> Dictionary:
+	var attacker := int(event["attacker"])
+	if String(event["spell"]) != "" or _hero(attacker) != null:
+		return event
+	for bolt: Dictionary in _bolts:
+		if int(bolt["caster"]) == attacker and not bolt.has("then"):
+			var named := event.duplicate()
+			named["spell"] = bolt["spell"]
+			return named
+	return event
 
 ## The caster's hero plays the spell's clip, its release on the server's
 ## windup (half the spell's cast lock, in whole ticks); a bolt spell's charge
@@ -121,7 +175,11 @@ func _released(event: Dictionary) -> void:
 			SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
 			_raise_ward(caster, hero)
 		_:
-			if spell_id == "basic_cast":
+			if hero == null:
+				# A creature's bolt: the flash where it leaves the body.
+				creature_bolts += 1
+				SkillFX.play_cast(self, null, spell_id, from, dir)
+			elif spell_id == "basic_cast":
 				SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
 			_launch(caster, spell_id, SkillFX.emission_origin(hero, from), dir)
 
@@ -135,7 +193,10 @@ func _launch(caster: int, spell_id: String, from: Vector3, dir: Vector3) -> void
 	var speed := float(data.get("projectile_speed", 0.0))
 	if speed <= 0.0:
 		return
-	var named: Dictionary = _cast_targets.get(caster, {})
+	# Only a hero's cast names a creature to home on; a creature's bolt flies
+	# straight along the server's line.
+	var hero_cast := _hero(caster) != null
+	var named: Dictionary = _cast_targets.get(caster, {}) if hero_cast else {}
 	var mine := String(named.get("spell", "")) == spell_id
 	var target := int(named.get("target", 0)) if mine else 0
 	var aim := SkillFX.safe_direction(dir)
@@ -148,7 +209,7 @@ func _launch(caster: int, spell_id: String, from: Vector3, dir: Vector3) -> void
 		"path": from, "travelled": 0.0, "length": 1.0, "amp": 0.0, "side": Vector3.ZERO,
 		"effect": SkillFX.spawn_stage(self, spell_id, "travel", from, aim, _hero(caster),
 			{"follow_target": node, "house": _house(caster)})}
-	var bend := float((VFXLibrary.SPELLS.get(spell_id, {}) as Dictionary).get("curve", 0.0))
+	var bend := float((VFXLibrary.SPELLS.get(spell_id, {}) as Dictionary).get("curve", 0.0)) if hero_cast else 0.0
 	if bend > 0.0:
 		var end: Vector3 = from + aim * 15.0
 		if drawn.has(target):
@@ -237,6 +298,10 @@ func _number(event: Dictionary) -> void:
 	if not drawn.has(target):
 		return
 	var amount := int(event.get("amount", 0))
+	if int(event.get("flags", 0)) & FLAG_EVADE:
+		evades_shown += 1
+		FloatingText.spawn(self, (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0), tr("Evaded"), EVADE_COLOUR, 1.1)
+		return
 	var crit := (int(event.get("flags", 0)) & FLAG_CRIT) != 0
 	var text := ("%d!" % amount) if crit else str(amount)
 	var colour := Color.WHITE
@@ -293,7 +358,171 @@ func _floor_under(at: Vector3, above := 0.5) -> float:
 	var point: Vector3 = hit["point"]
 	return point.y if point.y > at.y - 29.9 else SpellEffect.NO_FLOOR
 
+## ---------------------------------------------------------------- telegraphs
+
+## The server tick now, between whole ticks (the session's estimate).
+func server_tick() -> float:
+	return float(session.server_tick()) if session != null else 0.0
+
+## A creature winds up a telegraphed ability: the warning on the ground, the
+## creature's clip, and for a throw the rock in its hand.
+func _telegraph(event: Dictionary) -> void:
+	var caster := int(event["caster"])
+	_end_telegraph(caster, false, true)
+	telegraphs_seen += 1
+	var release := int(event["release_tick"])
+	var recovery := int(event["recovery_tick"])
+	var now := server_tick()
+	# The countdown runs from the server's start tick; one that arrived late
+	# shows the fire already part way out.
+	var start := minf(float(event.get("start_tick", release - 1)), float(release) - 1.0)
+	var entry := {"start": start, "release": release, "recovery": recovery, "data": event}
+	var cone := String(event.get("shape", "area")) == "cone"
+	if DisplayServer.get_name() != "headless":
+		var center: Vector3 = event["center"]
+		# Snapshot yaw 0 looks along -Z; the warning's cone opens along +Z.
+		var facing := float(event.get("yaw", 0.0)) + PI
+		var reach := float(event.get("range", 8.0)) if cone else float(event.get("radius", 5.0))
+		entry["warning"] = GroundWarning.spawn(self, center, reach,
+			float(event.get("half_angle", 0.6)) if cone else 0.0, facing)
+	if String(event.get("flight", "")) == "boulder":
+		boulders_thrown += 1
+		if DisplayServer.get_name() != "headless":
+			entry["rock"] = _boulder()
+	var hz := float(RealmInfo.sim_hz())
+	var beast: Node = beasts.get(caster)
+	if beast != null and is_instance_valid(beast):
+		beast.begin_ability(String(event.get("clip", "")), (float(release) - now) / hz, (float(recovery) - now) / hz)
+	_telegraphs[caster] = entry
+	_drive_telegraph(caster, entry, now)
+
+## The telegraph of `caster` ends: on its release tick (`landed`: the warning
+## flashes out and the impact plays) or called off (it cools away, the clip
+## and the rock with it). `quiet`: replaced by a new one, nothing counted.
+func _end_telegraph(caster: int, landed: bool, quiet := false) -> void:
+	var entry: Dictionary = _telegraphs.get(caster, {})
+	if entry.is_empty():
+		return
+	_telegraphs.erase(caster)
+	var warning: Variant = entry.get("warning")
+	var rock: Variant = entry.get("rock")
+	if is_instance_valid(rock):
+		(rock as Node).queue_free()
+	if landed:
+		telegraphs_released += 1
+		if is_instance_valid(warning):
+			(warning as GroundWarning).release()
+		_ability_impact(caster, entry["data"])
+		return
+	if not quiet:
+		telegraphs_cancelled += 1
+	if is_instance_valid(warning):
+		(warning as GroundWarning).cancel()
+	var beast: Node = beasts.get(caster)
+	if beast != null and is_instance_valid(beast):
+		beast.cancel_ability()
+
+## A creature's blow arrived: a telegraph of its due within RELEASE_SLACK
+## ticks is its release (the hit and the flash land together, whatever the
+## clock's jitter).
+func _strike_lands(attacker: int) -> void:
+	var entry: Dictionary = _telegraphs.get(attacker, {})
+	if not entry.is_empty() and server_tick() >= float(entry["release"]) - RELEASE_SLACK:
+		_end_telegraph(attacker, true)
+
+## The release: an area ability's impact bursts on its centre, a cone's blast
+## leaves the creature's chest along its facing.
+func _ability_impact(caster: int, data: Dictionary) -> void:
+	if DisplayServer.get_name() == "headless":
+		return
+	var impact := String(data.get("impact_fx", ""))
+	var center: Vector3 = data["center"]
+	if String(data.get("shape", "area")) == "cone":
+		var yaw := float(data.get("yaw", 0.0))
+		var dir := Vector3(-sin(yaw), 0.0, -cos(yaw))
+		var from := (drawn.get(caster, center) as Vector3) + Vector3.UP * WAND_HEIGHT
+		SkillFX.play_cast(self, null, impact if VFXLibrary.has_spell(impact) else CONE_CAST, from, dir)
+		return
+	_burst(0, impact if VFXLibrary.has_spell(impact) else AREA_IMPACT, center, Vector3.DOWN)
+
+## The rock a creature throws: the grounds' boulder model sized to
+## BOULDER_SIZE across, its centre on the node.
+func _boulder() -> Node3D:
+	if _boulder_scene == null:
+		_boulder_scene = load(BOULDER_MODEL) as PackedScene
+	var holder := Node3D.new()
+	holder.name = "Boulder"
+	add_child(holder)
+	if _boulder_scene == null:
+		return holder
+	var model := _boulder_scene.instantiate() as Node3D
+	holder.add_child(model)
+	var box := AABB()
+	var first := true
+	for child in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var xf := Transform3D.IDENTITY
+		var node: Node = mesh
+		while node != null and node != model:
+			if node is Node3D:
+				xf = (node as Node3D).transform * xf
+			node = node.get_parent()
+		var local: AABB = xf * mesh.get_aabb()
+		box = local if first else box.merge(local)
+		first = false
+	var extent := maxf(0.01, maxf(box.size.x, maxf(box.size.y, box.size.z)))
+	model.scale = Vector3.ONE * (BOULDER_SIZE / extent)
+	model.position = -box.get_center() * model.scale
+	return holder
+
+## One frame of a telegraph: the fill follows the server tick from its start to
+## its release; a held rock rides the thrower's hand, and over the last
+## BOULDER_FLIGHT seconds flies on an arc to land on the centre at the release.
+func _drive_telegraph(caster: int, entry: Dictionary, now: float) -> void:
+	var release := float(entry["release"])
+	var span := maxf(1.0, release - float(entry["start"]))
+	var warning: Variant = entry.get("warning")
+	if is_instance_valid(warning):
+		(warning as GroundWarning).set_progress((now - float(entry["start"])) / span)
+	var rock: Variant = entry.get("rock")
+	if not is_instance_valid(rock):
+		return
+	var hz := float(RealmInfo.sim_hz())
+	var left := (release - now) / hz
+	var center: Vector3 = (entry["data"] as Dictionary)["center"]
+	var node := rock as Node3D
+	if left > BOULDER_FLIGHT:
+		var beast: Node = beasts.get(caster)
+		if beast != null and is_instance_valid(beast):
+			node.global_position = beast.hand_position()
+		elif drawn.has(caster):
+			node.global_position = (drawn[caster] as Vector3) + Vector3.UP * 4.6
+		entry["from"] = node.global_position
+		return
+	var from: Vector3 = entry.get("from", node.global_position)
+	var t := clampf(1.0 - left / BOULDER_FLIGHT, 0.0, 1.0)
+	node.global_position = from.lerp(center, t) + Vector3.UP * sin(t * PI) * BOULDER_ARC
+	node.rotation = Vector3(t * 7.0, 0.0, t * 3.0)
+
+func _process_telegraphs() -> void:
+	if _telegraphs.is_empty():
+		return
+	var now := server_tick()
+	for caster: int in _telegraphs.keys():
+		var entry: Dictionary = _telegraphs[caster]
+		if now >= float(entry["release"]):
+			_end_telegraph(caster, true)
+			continue
+		# A caster gone from view or dead before its release takes its warning
+		# with it (the server's own call-off follows).
+		var beast: Node = beasts.get(caster)
+		if not drawn.has(caster) or (beast != null and is_instance_valid(beast) and bool(beast.get("is_dead"))):
+			_end_telegraph(caster, false)
+			continue
+		_drive_telegraph(caster, entry, now)
+
 func _process(delta: float) -> void:
+	_process_telegraphs()
 	for i in range(_bolts.size() - 1, -1, -1):
 		var bolt: Dictionary = _bolts[i]
 		var node: Node3D = bolt["node"]

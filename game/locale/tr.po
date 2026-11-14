@@ -373,6 +373,9 @@ msgstr "Savruldu!"
 msgid "Disarmed"
 msgstr "Silahsızlandı"
 
+msgid "Evaded"
+msgstr "Kaçındı"
+
 msgid "Complete! Click to claim your reward"
 msgstr "Tamamlandı! Ödülünü almak için tıkla"
 

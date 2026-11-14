@@ -88,6 +88,8 @@ pub struct ClientCore {
     /// and its STATUS_* bits.
     restraint: Restraint,
     own_status: u8,
+    /// The newest snapshot's death/respawn count.
+    life: Option<u8>,
     pub stats: ClientStats,
 }
 
@@ -116,6 +118,7 @@ impl ClientCore {
             dead: false,
             restraint: Restraint::default(),
             own_status: 0,
+            life: None,
             stats: ClientStats::default(),
         }
     }
@@ -272,6 +275,14 @@ impl ClientCore {
             Some(old) if offset > old => offset,
             Some(old) => old + (offset - old) * 0.02,
         });
+        // A client that dropped steps in a stall (FixedStep runs at most 8 a
+        // frame) would label its inputs further and further behind the
+        // server; it catches its tick up to the server's instead.
+        if let Some(now) = self.server_tick_at(local_ticks)
+            && f64::from(self.tick) + 0.5 < now
+        {
+            self.tick = now.ceil() as u32;
+        }
         if snapshot.tick > self.acked {
             self.acked = snapshot.tick;
         }
@@ -293,8 +304,13 @@ impl ClientCore {
             // Only the newest snapshot says whether the player is dead now,
             // and what holds its body.
             self.dead = snapshot.own_hp == 0;
-            held = snapshot.own_restraint != self.restraint
-                && snapshot.own_restraint != Restraint::default();
+            // A respawn and a death between two received snapshots leave
+            // `dead` as it was; the count still moved.
+            let life_moved = self.life.is_some_and(|l| l != snapshot.own_life);
+            self.life = Some(snapshot.own_life);
+            held = life_moved
+                || (snapshot.own_restraint != self.restraint
+                    && snapshot.own_restraint != Restraint::default());
             self.restraint = snapshot.own_restraint;
             self.own_status = snapshot.own_status;
         }

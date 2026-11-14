@@ -456,6 +456,7 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
             web_until: tick + 90,
         },
         own_status: realm_proto::STATUS_STUN | realm_proto::STATUS_POISON,
+        own_life: 3,
         entities: Vec::new(),
     };
     let decoded =
@@ -547,6 +548,7 @@ fn crowd_bandwidth() -> String {
             own_vitals: [500, 500, 300, 300],
             own_restraint: Default::default(),
             own_status: 0,
+            own_life: 0,
             entities: entities.clone(),
         };
         let bytes = realm_proto::encode_snapshot(&snapshot, baseline.map(Vec::as_slice));

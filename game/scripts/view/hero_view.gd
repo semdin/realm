@@ -107,6 +107,10 @@ func setup(house_color: Color, look: Dictionary = {}) -> void:
 func set_status(bits: int) -> void:
 	if bits == status:
 		return
+	var held := StatusFX.STATUS_STUN | StatusFX.STATUS_FREEZE | StatusFX.STATUS_KNOCKED
+	if bits & held and not status & held and anim != null:
+		# a stun or a throw breaks the cast: the arm drops into the stun clip
+		anim.end_cast()
 	status = bits
 	StatusFX.update(self, bits)
 

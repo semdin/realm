@@ -834,7 +834,9 @@ impl Sim {
                     .get(&self.game.species[usize::from(m.species)].id)
             })
             .is_some_and(|c| c.mana_first);
-        self.wound_player(victim, attacker, amount, reflect_share, mana_first)
+        // A creature's bolt names its spell; a swing or an ability none.
+        let spell = combat.spell(attack).map_or(u8::MAX, |s| s.index);
+        self.wound_player(victim, attacker, amount, reflect_share, mana_first, spell)
     }
 
     /// Damage that got through: mana first for the soul-drinkers, then
@@ -846,6 +848,7 @@ impl Sim {
         amount: f32,
         reflect_share: f32,
         mana_first: bool,
+        spell: u8,
     ) -> u32 {
         let tick = self.tick;
         let respawn = u32::from(self.game.respawn_ticks);
@@ -873,6 +876,7 @@ impl Sim {
             player.caster.queued = None;
             player.afflictions = super::afflict::Afflictions::default();
             player.restraint = Default::default();
+            player.life = player.life.wrapping_add(1);
             self.stats.player_deaths += 1;
         }
         let hp_byte = super::hp_byte(player.hp, player.max_hp);
@@ -890,7 +894,7 @@ impl Sim {
             CombatEvent::Hit {
                 target: target_id,
                 attacker: attacker_id,
-                spell: u8::MAX,
+                spell,
                 amount: amount as u32,
                 flags: 0,
                 hp: hp_byte,

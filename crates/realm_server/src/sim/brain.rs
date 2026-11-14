@@ -798,10 +798,18 @@ impl Sim {
         m.state = STATE_DEAD;
         m.died_at = tick;
         m.status = super::status::Status::default();
-        m.attack = None;
-        let pack = m.pack;
+        let cancelled = m
+            .attack
+            .take()
+            .is_some_and(|a| a.ability.is_some() && !a.released);
+        let (pack, at) = (m.pack, m.pos);
         let roll = xorshift(&mut m.rng);
         self.stats.kills += 1;
+        // A creature that falls mid-windup takes its warning with it.
+        if cancelled {
+            let caster = self.net_id_of(mob);
+            self.event(at, CombatEvent::TelegraphCancelled { caster });
+        }
         let state = &mut self.packs[pack];
         state.alive = state.alive.saturating_sub(1);
         if state.alive == 0 {

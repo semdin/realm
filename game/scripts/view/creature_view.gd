@@ -6,7 +6,9 @@ class_name CreatureView
 ## (idle, moving, attacking, dead), the speed it is seen to cover and its
 ## replicated status (StatusFX draws the look; a stunned or thrown body plays
 ## its stun clip, a frozen one holds its pose, a slowed one moves at the slowed
-## pace). It decides nothing.
+## pace). A telegraphed ability (CombatView hands it over) plays the ability's
+## own clip pair, its windup stretched to end on the server's release tick and
+## its strike over the recovery. It decides nothing.
 
 ## Snapshot states (realm_server sim.rs).
 const STATE_IDLE := 0
@@ -51,6 +53,10 @@ const TURN_RATE := 10.0
 ## A stun played on the hit clip (no stun clip of its own) holds the recoil
 ## this far into it, the body reeling, for as long as the stun lasts.
 const STUN_HOLD := 0.4
+## A snapshot creature kind is its species index + 1, with this bit set for an
+## elite (a stronger copy of the same species).
+const ELITE_BIT := 0x8000
+const SPECIES_MASK := 0x7FFF
 
 static var _views := {}
 static var _species := []
@@ -78,10 +84,16 @@ var _anim_speed := 1.0
 var _cc_pace := 1.0
 ## The stun on the hit clip: "" none, "recoil" playing in, "held" at STUN_HOLD.
 var _stun_phase := ""
+## The snapshot kind rolled elite.
+var elite := false
+## The telegraphed ability playing: {clip, release_at, recovery_at, phase} in
+## seconds of Time.get_ticks_msec (empty: none).
+var _ability := {}
 
 ## Species ids in the server's order: a snapshot's creature kind is its index
 ## here plus one (realm_server game.rs sorts species by id).
 static func species_for_kind(kind: int) -> String:
+	kind &= SPECIES_MASK
 	if _species.is_empty():
 		var mobs: Variant = RealmContent.table("mobs")
 		if mobs is Dictionary:
@@ -101,6 +113,7 @@ static func view_of(id: String) -> Dictionary:
 ## False when the species has no model in this client yet.
 func setup(kind: int) -> bool:
 	species = species_for_kind(kind)
+	elite = is_elite(kind)
 	view = view_of(species)
 	var path := String(view.get("model", ""))
 	if path == "" or not ResourceLoader.exists(path):
@@ -123,6 +136,9 @@ func setup(kind: int) -> bool:
 				anim_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 	_play("idle")
 	return true
+
+static func is_elite(kind: int) -> bool:
+	return kind & ELITE_BIT != 0
 
 ## The replicated status (main.gd hands it over when it changes): the look on
 ## the body, and through set_cc_anim_scale the pace of its clips.
@@ -149,6 +165,7 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 		if not is_dead:
 			is_dead = true
 			_stun_phase = ""
+			_ability.clear()
 			_play("death", 0.1)
 		return
 	is_dead = false
@@ -159,9 +176,12 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 	facing = rotate_toward(facing, yaw + PI, TURN_RATE * delta)
 	rotation.y = facing
 	if status & (StatusFX.STATUS_STUN | StatusFX.STATUS_KNOCKED):
+		_ability.clear()
 		_play_stunned()
 		return
 	_stun_phase = ""
+	if _play_ability():
+		return
 	if state == STATE_ATTACKING:
 		_play_attack()
 		return
@@ -198,6 +218,63 @@ func _play_stunned() -> void:
 		_stun_phase = "held"
 		_anim_speed = 0.0
 		_apply_speed()
+
+## A telegraphed ability begins: `clip` is the ability's clip slot ("Slam" ->
+## Slam_Anticipation / Slam_Attack), the strike lands `release_in` seconds
+## from now and the recovery ends `recovery_in` seconds from now.
+func begin_ability(clip: String, release_in: float, recovery_in: float) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	_ability = {"clip": clip, "start": now, "release_at": now + maxf(0.05, release_in),
+		"recovery_at": now + maxf(release_in + 0.1, recovery_in), "phase": ""}
+
+## The server called the ability off before its release.
+func cancel_ability() -> void:
+	if not _ability.is_empty() and float(_ability["release_at"]) > Time.get_ticks_msec() / 1000.0:
+		_ability.clear()
+		_attack_phase = ""
+
+## The windup plays until the release, stretched over the time left to it; the
+## strike plays from the release over the recovery (only ever sped up). A body
+## without the ability's pair plays its own attack slots. False when no
+## ability is playing.
+func _play_ability() -> bool:
+	if _ability.is_empty() or anim_player == null:
+		return false
+	var now := Time.get_ticks_msec() / 1000.0
+	var release_at := float(_ability["release_at"])
+	var recovery_at := float(_ability["recovery_at"])
+	if now >= recovery_at:
+		_ability.clear()
+		# the plain swing cycle picks up from a finished strike
+		_attack_phase = "attack"
+		return false
+	var phase := "anticipation" if now < release_at else "attack"
+	if phase == String(_ability["phase"]):
+		return true
+	_ability["phase"] = phase
+	_attack_phase = phase
+	var clip := "%s_%s" % [_ability["clip"], "Anticipation" if phase == "anticipation" else "Attack"]
+	if not anim_player.has_animation(clip):
+		clip = _clip(phase)
+	var span := (release_at - now) if phase == "anticipation" else (recovery_at - release_at)
+	var speed := clampf(anim_player.get_animation(clip).length / maxf(0.05, span), 0.5, 3.0)
+	if phase == "attack":
+		speed = maxf(1.0, speed)   # a follow-through only ever speeds up
+	_anim_speed = speed
+	anim_player.play(clip, 0.08 if phase == "anticipation" else 0.06)
+	_apply_speed()
+	return true
+
+## Where the body's right hand is in the world (what it throws leaves from);
+## over the head when the rig has no hand.
+func hand_position() -> Vector3:
+	if model != null:
+		for found in model.find_children("*", "Skeleton3D", true, false):
+			var skeleton := found as Skeleton3D
+			var bone := skeleton.find_bone("RightHand")
+			if bone >= 0:
+				return skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
+	return global_position + Vector3.UP * maxf(1.5, head_height + 0.4)
 
 ## An attack is anticipation then the strike, repeated while the state holds.
 func _play_attack() -> void:

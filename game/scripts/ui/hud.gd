@@ -16,6 +16,8 @@ const NoticeScript := "res://scripts/view/notice_band.gd"
 ## by a divider.
 const TRAY_DIVIDER := 14.0
 const TARGET_CARD_H := 74.0
+## The target card's name colour for an ordinary creature.
+const TARGET_TINT := Color(1.0, 0.86, 0.80)
 ## A hit's hp byte stands this long before the (older) interpolated snapshot
 ## may raise the target card's bar again.
 const HIT_HOLD_SECONDS := 0.5
@@ -182,7 +184,7 @@ func _build_target_card() -> void:
 	target_portrait.set_look(UITheme.chrome("ui_target"), Color(0.80, 0.09, 0.08).lerp(Color(1.0, 0.86, 0.80), 0.35))
 	target_panel.add_child(target_portrait)
 	var left := 64.0
-	target_name = HudKit.label("", 17, Color(1.0, 0.86, 0.80), HudKit.title(), 4)
+	target_name = HudKit.label("", 17, TARGET_TINT, HudKit.title(), 4)
 	target_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	target_name.set_anchors_preset(Control.PRESET_TOP_WIDE)
 	target_name.offset_left = left
@@ -211,13 +213,15 @@ func _build_target_card() -> void:
 	target_hp_text = _gauge_label(target_hp_bar, 12, Color(1, 1, 1))
 
 ## Show `id` (a creature named `title`, at hp byte `hp`) on the card, or hide
-## it (id 0).
-func set_target(id: int, title := "", hp := 255) -> void:
+## it (id 0). `tint` colours the name and its rank (an elite's gold).
+func set_target(id: int, title := "", hp := 255, tint := TARGET_TINT) -> void:
 	target_id = id
 	target_panel.visible = id != 0
 	if id == 0:
 		return
 	target_name.text = title
+	target_name.add_theme_color_override("font_color", tint)
+	target_rank.add_theme_color_override("font_color", tint.darkened(0.12))
 	_hit_hold_until = 0.0
 	_show_target_health(hp)
 	_target_stat.snap()

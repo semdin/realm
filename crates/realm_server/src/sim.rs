@@ -167,6 +167,10 @@ struct Player {
     allowance: u32,
     /// Ticks the next input has been missing while later ones wait.
     gap_ticks: u32,
+    /// The tick label of the newest input run (holds start from the next).
+    last_input_tick: u32,
+    /// Deaths and respawns so far (wrapping), for the owner's snapshots.
+    life: u8,
     /// The character record. Position and hp live in `body` / `hp` while
     /// playing and are written back by `Sim::sheet_of`.
     sheet: CharacterSheet,
@@ -760,6 +764,8 @@ impl Sim {
             last_ground: start,
             allowance: 0,
             gap_ticks: 0,
+            last_input_tick: self.tick,
+            life: 0,
             sheet,
             dirty_since: None,
             caster,
@@ -1080,6 +1086,7 @@ impl Sim {
                 if tick >= player.dead_until {
                     player.dead_until = 0;
                     player.hp = player.max_hp;
+                    player.life = player.life.wrapping_add(1);
                     let home = player.home;
                     player.body = Body::at(home);
                 }
@@ -1119,6 +1126,7 @@ impl Sim {
                     tick.saturating_sub(INPUT_TICK_WINDOW),
                     tick + INPUT_TICK_WINDOW,
                 );
+                player.last_input_tick = input_tick;
                 if has_stairs && input_tick != stairs_at {
                     self.stairs.apply(&mut self.terrain, input_tick);
                     stairs_at = input_tick;
@@ -1325,6 +1333,7 @@ impl Sim {
                 ],
                 own_restraint: player.restraint,
                 own_status: player.afflictions.bits(tick),
+                own_life: player.life,
                 entities: next,
             };
             let bytes = realm_proto::encode_snapshot(&snapshot, baseline.map(|(_, s)| s));
