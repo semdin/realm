@@ -20,6 +20,17 @@ pub struct Species {
     /// A Dark Shard or a training dummy: it stands, takes blows and never
     /// thinks.
     pub object: bool,
+    /// Its loot_tables.json table (mobs.json `loot_table`).
+    pub loot_table: String,
+}
+
+/// combat.json death: when a fallen player may rise, when it goes to town by
+/// itself, and what rising where it fell gives.
+pub struct DeathRules {
+    pub ready_ticks: u32,
+    pub auto_ticks: u32,
+    pub here_fraction: f32,
+    pub here_ward_ticks: u32,
 }
 
 /// What a pack is.
@@ -80,9 +91,11 @@ pub struct Game {
     pub species: Vec<Species>,
     pub packs: Vec<Pack>,
     pub spawn_point: Vec3,
+    /// Where a fallen player rises in town (maps.json respawn_spawn).
+    pub town_point: Vec3,
+    pub death: DeathRules,
     /// Bottom of the map's height band: a body below it fell out of the map.
     pub y_min: f32,
-    pub respawn_ticks: u16,
     hp_multiplier: f32,
     attack_multiplier: f32,
     strength: (f32, f32, f32),
@@ -142,6 +155,7 @@ impl Game {
                     brain,
                     bolt,
                     object: false,
+                    loot_table: def["loot_table"].as_str().unwrap_or("").to_owned(),
                 });
             } else {
                 // A Dark Shard type's body or the training dummy.
@@ -161,6 +175,7 @@ impl Game {
                     brain: realm_rules::creatures::Brain::default(),
                     bolt: None,
                     object: true,
+                    loot_table: String::new(),
                 });
             }
         }
@@ -315,7 +330,42 @@ impl Game {
                 num(&spawn[1], "spawn")?,
                 num(&spawn[2], "spawn")?,
             ),
-            respawn_ticks: ticks(num(&combat["death"]["respawn_ms"], "death.respawn_ms")? / 1000.0),
+            town_point: {
+                let key = maps["maps"][map]["respawn_spawn"]
+                    .as_str()
+                    .unwrap_or("default");
+                let p = &points[key];
+                if p.is_array() {
+                    Vec3::new(
+                        num(&p[0], "town")?,
+                        num(&p[1], "town")?,
+                        num(&p[2], "town")?,
+                    )
+                } else {
+                    Vec3::new(
+                        num(&spawn[0], "spawn")?,
+                        num(&spawn[1], "spawn")?,
+                        num(&spawn[2], "spawn")?,
+                    )
+                }
+            },
+            death: {
+                let d = &combat["death"];
+                let t = |key: &str, default: f32| {
+                    u32::from(ticks(
+                        d[key].as_f64().map_or(default, |v| v as f32) / 1000.0,
+                    ))
+                };
+                DeathRules {
+                    ready_ticks: t("respawn_ms", 3000.0),
+                    auto_ticks: t("auto_respawn_ms", 180_000.0),
+                    here_fraction: d["revive_here_fraction"]
+                        .as_f64()
+                        .map_or(0.5, |v| v as f32)
+                        .clamp(0.05, 1.0),
+                    here_ward_ticks: t("revive_here_ward_ms", 3000.0),
+                }
+            },
             hp_multiplier: num(&tuning["hp_multiplier"], "pack_tuning.hp_multiplier")?,
             attack_multiplier: num(
                 &tuning["attack_multiplier"],

@@ -730,6 +730,7 @@ impl Sim {
         if amount <= 0.0 {
             return 0;
         }
+        self.note_credit(victim, attacker);
         let Some(mut mob) = self.world.get_mut::<super::Mob>(victim) else {
             return 0;
         };
@@ -857,7 +858,6 @@ impl Sim {
         spell: u8,
     ) -> u32 {
         let tick = self.tick;
-        let respawn = u32::from(self.game.respawn_ticks);
         let Some(mut player) = self
             .world
             .get_mut::<Player>(victim)
@@ -877,7 +877,8 @@ impl Sim {
         let died = player.hp <= 0.0;
         if died {
             player.hp = 0.0;
-            player.dead_until = tick + respawn;
+            // A placeholder until player_died sets the real times below.
+            player.dead_until = tick + 1;
             player.caster.cast = None;
             player.caster.queued = None;
             player.afflictions = super::afflict::Afflictions::default();
@@ -906,6 +907,9 @@ impl Sim {
                 hp: hp_byte,
             },
         );
+        if died {
+            self.player_died(victim, attacker);
+        }
         amount as u32
     }
 

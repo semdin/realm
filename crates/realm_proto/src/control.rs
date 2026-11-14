@@ -7,7 +7,7 @@
 //! This module does no I/O: [`frame`] wraps bytes to write, [`FrameReader`]
 //! takes whatever arrived and hands back whole frames.
 
-use realm_rules::{CharacterSheet, ItemOp};
+use realm_rules::{CharacterSheet, Item, ItemOp};
 
 /// Something that happened in combat, for the clients that can see it.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -111,6 +111,41 @@ pub enum ServerMsg {
         elite: bool,
         boss: bool,
     },
+    /// What a kill paid this player: experience, oril (the killer's), items
+    /// taken from a chest, and the levels it gained.
+    Reward {
+        exp: u64,
+        oril: u64,
+        items: Vec<(String, u32)>,
+        levels: u16,
+    },
+    /// A chest's cells (answer to `OpenChest`, and after every take): an
+    /// emptied cell stays as None.
+    Chest {
+        chest: u32,
+        slots: Vec<Option<Item>>,
+    },
+    /// The answer to `TakeLoot` ("taken", "bag_full", "out_of_range",
+    /// "gone", "dead").
+    LootResult {
+        chest: u32,
+        ok: bool,
+        reason: String,
+    },
+    /// The player died: it may rise from `ready_tick`, and goes to town by
+    /// itself at `auto_tick` (server ticks); `killer` is the entity.
+    Death {
+        ready_tick: u32,
+        auto_tick: u32,
+        killer: u32,
+    },
+    /// The answer to `SpendAttribute` ("spent", "no_points", "max",
+    /// "unknown").
+    AttributeResult {
+        stat: String,
+        ok: bool,
+        reason: String,
+    },
     /// Something the map announces: `kind` ("boss_soon", "boss_spawned",
     /// "boss_slain", "stone_wave", "stone_shattered") about `subject` (a
     /// name; the client translates both). `actor` is the character whose
@@ -143,6 +178,14 @@ pub enum ClientMsg {
     LearnSkill(String),
     /// What is this creature (entity id)?
     Inspect(u32),
+    /// Show a chest's cells (within reach).
+    OpenChest(u32),
+    /// Take one cell of a chest, or everything that fits (None).
+    TakeLoot { chest: u32, slot: Option<u8> },
+    /// Rise after death: where the body fell (`here`) or in town.
+    Respawn { here: bool },
+    /// Spend an attribute point (vit, int, str, dex).
+    SpendAttribute(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]

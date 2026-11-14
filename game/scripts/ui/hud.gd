@@ -7,7 +7,8 @@ extends Control
 ##
 ## It only draws: health and mana come from the newest snapshot
 ## (RealmSession.vitals), name, level, experience and purse from the character
-## sheet (PlayerSheet), the target's health from the snapshot hp byte or, when
+## sheet (PlayerSheet; the experience a level takes is the sheet's
+## `exp_next`), the target's health from the snapshot hp byte or, when
 ## a hit lands, from the hit itself.
 
 const NoticeScript := "res://scripts/view/notice_band.gd"
@@ -52,8 +53,6 @@ var _exp_stat: StatBar
 var _target_stat: StatBar
 var _target_flow: GaugeFlow
 var _hit_hold_until := 0.0
-## The level last shown; a rise plays the level-up sound.
-var _shown_level := 0
 
 func _init() -> void:
 	name = "HUD"
@@ -284,11 +283,8 @@ func _process(_delta: float) -> void:
 	if data.is_empty():
 		return
 	var level := int(data["level"])
-	if _shown_level > 0 and level > _shown_level:
-		AudioManager.play_levelup()
-	_shown_level = level
 	var earned := int(data["exp"])
-	var needed := Levels.exp_threshold(level)
+	var needed := maxi(1, int(data.get("exp_next", 1)))
 	_exp_stat.set_value(earned, needed)
 	# Rounded down: 7347 / 7350 is 99.9 %, never a full bar that has not levelled.
 	var pct := floorf(float(earned) / maxf(1.0, float(needed)) * 1000.0) / 10.0

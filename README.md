@@ -80,7 +80,15 @@ keeps to its arena; a commander enrages when a pack mate falls; world bosses
 are announced to the map before they come, when they come and when they fall.
 Dark Shards (`monolith_types`) call their waves at 75/50/25 % health and come
 back elsewhere near their site; training dummies never fall. A client asks
-what a creature is with `RealmSession.inspect` (boss name and key, level). Packs come back
+what a creature is with `RealmSession.inspect` (boss name and key, level).
+
+The kill loop (`sim/rewards.rs`, realm_rules `progress` and `loot`): every
+player who hit a creature in its last ten seconds earns its experience
+(level gap, experience bonus); the killer pockets its oril and the rest lands
+in one chest anyone may open for 90 s from 7 m. Levels add health and mana and
+two attribute points each (`SpendAttribute`). A fallen player rises after 3 s
+where it fell (half health, a 3 s ward) or in town, and goes to town by itself
+after 3 min. Packs come back
 whole on a fresh anchor. Load with fighting creatures:
 
 ```bash
@@ -95,6 +103,7 @@ WASD, Space, Ctrl, right mouse drag, wheel):
 godot --path game -- --server 127.0.0.1:7777 --map grounds
 godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
 godot --headless --path game -- --check 30 --check-target stone_dark   # fights a Dark Shard first (its waves)
+godot --headless --path game -- --check 180 --character 9 --check-rise here   # loots chests, spends a status point, rises where it fell
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```

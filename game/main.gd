@@ -14,19 +14,28 @@ extends Node3D
 ##                                                    server runs with --characters)
 ##   [--check-target stone_dark]                      the check fights the nearest of this
 ##                                                    species (a Dark Shard, a dummy) first
+##   [--check-rise town|here|auto]                    how the check rises when it falls: the
+##                                                    death panel's Return to Town (default) or
+##                                                    Revive Here, or waiting for the server's
+##                                                    own return to town
+##   [--open-character 1]                             start with the character window open
 ##
 ## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
 ## wheel zooms. Left-click picks under the cursor: a creature becomes the target
 ## and takes a basic cast, anything else takes the basic cast at that point.
-## Tab cycles the nearest living creatures, Esc closes the bag or drops the
-## target, I opens the bag; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
+## A right-click on a loot chest (within 7 m) opens it; Z takes everything from
+## the nearest chest within 6 m. Tab cycles the nearest living creatures, Esc
+## closes a window or drops the target, I opens the bag, C the character
+## window; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
 ## The check mode also fights: it targets the nearest creature, learns and casts
 ## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
 ## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
 ## the status looks on a character that knows them). It fails when none of its
 ## casts hit or when its Shockwave landed on a creature that can be thrown and
 ## none it hit was ever seen thrown (STATUS_KNOCKED; a boss, a Dark Shard or a
-## dummy never is);
+## dummy never is), when a chest dropped and it did not walk to it, take
+## everything (a "reward" with items) and see the chest vanish, when it had a
+## status point and did not spend it, or when it fell and did not rise;
 ## the final line prints the status bits seen on its target, then what it saw
 ## of the world: creature answers (bosses with the body and scale they wear),
 ## the map's notices, and the Dark Shards, dummies and bosses in view.
@@ -41,6 +50,10 @@ const HeroViewScript := "res://scripts/view/hero_view.gd"
 const PlayerSheetScript := "res://scripts/view/player_sheet.gd"
 const HudScript := "res://scripts/ui/hud.gd"
 const InventoryScript := "res://scripts/ui/inventory_arcane.gd"
+const FeedbackScript := "res://scripts/ui/combat_feedback.gd"
+const LootScript := "res://scripts/ui/loot_window.gd"
+const CharacterScript := "res://scripts/ui/character_window.gd"
+const ChestViewScript := "res://scripts/view/chest_view.gd"
 ## Entity kind of a player in snapshots (creatures carry their species index
 ## + 1 in the low bits, CreatureView ELITE_BIT / ENRAGED_BIT / BOSS_BIT above).
 const KIND_PLAYER := 0
@@ -61,6 +74,14 @@ const CHEST := 1.15
 const PICK_REACH := 200.0
 const TAB_RANGE := 30.0
 const CHECK_CAST_SECONDS := 0.6
+## A right-click that moves the pointer less than this is a click, not a turn.
+const CLICK_SLOP := 5.0
+## Z takes everything from the nearest chest this close (the old pickup reach).
+const PICKUP_REACH := 6.0
+## The check opens a chest from this close, and shows what it holds this long
+## before it takes everything.
+const CHECK_LOOT_REACH := 3.5
+const CHECK_LOOT_SHOW := 1.5
 const HELD_NOTICE_SECONDS := 0.8
 
 var session: Node
@@ -71,6 +92,12 @@ var heroes := {}
 var sheet_view: PlayerSheet
 var hud: Control
 var inventory: Control
+## Toasts, the level-up moment and the death panel (CombatFeedback).
+var feedback: Control
+var loot_window: Control
+var character_window: Control
+## Loot chests on the ground by entity id (ChestView).
+var chests := {}
 ## Casts, bolts, impacts, bursts, wards and damage numbers.
 var combat: CombatView
 ## The selected creature (entity id, 0 = none).
@@ -138,6 +165,30 @@ var check_target_species := ""
 var check_infos := 0
 var check_bosses := {}
 var check_notices := {}
+## The kill loop as the check saw it: experience and oril earned, levels,
+## deaths and the rises it asked for.
+var check_exp := 0
+var check_oril := 0
+var check_levels := 0
+var check_deaths := 0
+var check_rises_asked := 0
+## When the check first fell (seconds, 0 = never) and how it rises.
+var check_fell_at := 0.0
+var check_rise := "town"
+## Chests: seen in view, the one the check walks to (0 = none) and since when
+## its window shows what it holds, rewards that brought items, chests seen to
+## vanish, and loot answers by reason.
+var check_chests_seen := {}
+var check_loot_target := 0
+var check_loot_shown_at := 0.0
+var check_loot_taken := false
+var check_loot_items := 0
+var check_chests_vanished := 0
+var check_loot_results := {}
+## Status points: whether it had one, asked to spend it, and the answers.
+var check_had_points := false
+var check_spend_sent := false
+var check_attribute_results := {}
 var check_stones := {}
 var check_dummies := {}
 var built := false
@@ -158,6 +209,7 @@ func _ready() -> void:
 	var rotation_arg := _arg("--check-spells", "")
 	if rotation_arg != "":
 		check_spells = rotation_arg.split(",", false)
+	check_rise = _arg("--check-rise", check_rise)
 	if not ClassDB.class_exists("RealmSession"):
 		printerr("realm: the realm_client extension did not load (cargo build --release -p realm_client)")
 		get_tree().quit(2)
@@ -245,6 +297,20 @@ func _build_ui() -> void:
 	inventory.prepare(sheet_view)
 	if _arg("--open-bag", "") != "":
 		inventory.open_for_player(sheet_view)
+	character_window = load(CharacterScript).new()
+	character_window.setup(session)
+	root.add_child(character_window)
+	if _arg("--open-character", "") != "":
+		character_window.open.call_deferred()
+	loot_window = load(LootScript).new()
+	loot_window.name = "LootWindow"
+	loot_window.session = session
+	loot_window.where = _chest_distance
+	root.add_child(loot_window)
+	feedback = load(FeedbackScript).new()
+	feedback.name = "CombatFeedback"
+	root.add_child(feedback)
+	feedback.setup(session, hud, player)
 
 func toggle_inventory() -> void:
 	if inventory.visible:
@@ -306,10 +372,18 @@ func _unhandled_input(event: InputEvent) -> void:
 		match event.physical_keycode:
 			KEY_I:
 				toggle_inventory()
+			KEY_C:
+				character_window.toggle()
+			KEY_Z:
+				take_nearest_chest()
 			KEY_TAB:
 				cycle_target()
 			KEY_ESCAPE:
-				if inventory.visible:
+				if loot_window.visible:
+					loot_window.close()
+				elif character_window.visible:
+					character_window.card.close()
+				elif inventory.visible:
 					inventory.hide()
 				else:
 					select_target(0)
@@ -317,6 +391,11 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		cam_yaw -= event.relative.x * 0.005
 		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004, -1.3, 0.4)
+	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		if event.pressed:
+			_right_pressed_at = event.position
+		elif built and event.position.distance_to(_right_pressed_at) < CLICK_SLOP:
+			right_click_world(event.position)
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT and built:
 			click_world(event.position)
@@ -326,6 +405,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			cam_distance = minf(60.0, cam_distance * 1.1)
 
 ## ----------------------------------------------------------------- targeting
+
+## Where the right button went down (a release near it is a click).
+var _right_pressed_at := Vector2.ZERO
 
 ## What lies under the screen point `at`: {entity, point} (RealmSession.pick).
 func pick_at(at: Vector2) -> Dictionary:
@@ -362,7 +444,8 @@ func _creature_index(id: int) -> int:
 	if id == 0 or others.is_empty():
 		return -1
 	var i := (others["ids"] as PackedInt32Array).find(id)
-	if i < 0 or (others["kinds"] as PackedInt32Array)[i] == KIND_PLAYER 			or (others["states"] as PackedInt32Array)[i] == CreatureView.STATE_DEAD:
+	if i < 0 or (others["kinds"] as PackedInt32Array)[i] == KIND_PLAYER \
+			or ChestView.is_chest((others["kinds"] as PackedInt32Array)[i]) 			or (others["states"] as PackedInt32Array)[i] == CreatureView.STATE_DEAD:
 		return -1
 	return i
 
@@ -537,6 +620,101 @@ func _take_creature_info() -> void:
 			if i >= 0:
 				_show_target_card(i)
 
+## The kill loop's messages: a kill's reward (the toasts, the level-up moment),
+## a chest's cells and the answers to takes (the chest window), a death (the
+## death panel) and the answer to a status point (the character window). The
+## check counts them.
+func _show_game_events() -> void:
+	for event: Dictionary in session.take_game_events():
+		if check_seconds > 0.0:
+			# the frame each message lands on (a --write-movie capture's index)
+			print("realm check event: frame %d %s" % [Engine.get_frames_drawn(), event["kind"]])
+		match String(event["kind"]):
+			"reward":
+				check_exp += int(event["exp"])
+				check_oril += int(event["oril"])
+				check_levels += int(event["levels"])
+				if not (event["items"] as Array).is_empty():
+					check_loot_items += 1
+				feedback.on_reward(event)
+			"chest":
+				loot_window.on_chest(int(event["chest"]), event["slots"])
+			"loot_result":
+				var reason := String(event["reason"])
+				check_loot_results[reason] = int(check_loot_results.get(reason, 0)) + 1
+				if loot_window.visible and loot_window.chest_id == int(event["chest"]):
+					loot_window.on_result(int(event["chest"]), bool(event["ok"]), reason)
+				elif reason == "bag_full":
+					# a Z take: the window is not there to say it
+					hud.show_notice(tr("Your bag is full."), "warn")
+				elif reason == "out_of_range":
+					hud.show_notice(tr("Too far away."), "warn")
+			"death":
+				check_deaths += 1
+				if check_fell_at == 0.0:
+					check_fell_at = Time.get_ticks_msec() / 1000.0
+				loot_window.close()
+				select_target(0)
+				feedback.on_death(event)
+			"attribute_result":
+				var answer := String(event["reason"])
+				check_attribute_results[answer] = int(check_attribute_results.get(answer, 0)) + 1
+				if answer == "dead":
+					# fell while the request was on its way: the check asks again
+					check_spend_sent = false
+				character_window.on_result(event)
+
+## ------------------------------------------------------------- loot chests
+
+## A chest stands on the ground under the place the server gives it (it drops
+## a chest a little above the creature's feet): a short ray down from just
+## under that place, which leaves the chest's own body out.
+func _ground(at: Vector3) -> Vector3:
+	var start := at - Vector3(0, 0.25, 0)
+	var hit: Dictionary = session.pick(start, Vector3.DOWN, 1.5)
+	if hit.is_empty() or int(hit["entity"]) != 0:
+		return at
+	var point: Vector3 = hit["point"]
+	return point if start.y - point.y < 1.49 else at
+
+## How far chest `id` is from the player, on the ground (INF when it is gone).
+func _chest_distance(id: int) -> float:
+	var chest: Node3D = chests.get(id)
+	if chest == null:
+		return INF
+	var me: Vector3 = session.own_position()
+	return Vector2(chest.position.x - me.x, chest.position.z - me.z).length()
+
+## A right click on the world: a chest under the cursor opens.
+func right_click_world(at: Vector2) -> void:
+	var hit := pick_at(at)
+	if not hit.is_empty() and chests.has(int(hit["entity"])):
+		open_chest_window(int(hit["entity"]))
+
+## The chest window on chest `id`, when the player stands close enough.
+func open_chest_window(id: int) -> void:
+	var chest: ChestView = chests.get(id)
+	if chest == null or feedback.is_dead():
+		return
+	if _chest_distance(id) > ChestView.PICK_RANGE:
+		var ft := FloatingText.spawn(self, player.global_position + Vector3(0, 2.4, 0), tr("Too far"), Color(1.0, 0.85, 0.5))
+		ft.duration = 1.0
+		return
+	loot_window.open_chest(id, chest.chest_kind == "chest_rare")
+
+## Z: everything that fits from the nearest chest within PICKUP_REACH.
+func take_nearest_chest() -> void:
+	var best := 0
+	var best_distance := PICKUP_REACH
+	for id: int in chests:
+		var distance := _chest_distance(id)
+		if distance < best_distance:
+			best_distance = distance
+			best = id
+	if best != 0:
+		session.take_loot(best, -1)
+		AudioManager.play_sound_at("ui_loot", Vector3.ZERO, null, true)
+
 ## What the map announced, on the notice band in the old game's words:
 ## a world boss stirring, rising and falling (with its horn), a Dark Shard's
 ## wave and its shatter. The server sends the numbers (seconds, level, wave)
@@ -690,6 +868,70 @@ func _check_fight(delta: float) -> void:
 		else:
 			cast_spell("basic_cast")
 
+## The check's side of the kill loop: fallen, it rises the way --check-rise
+## says once the death panel lets it (or waits for the server's return to
+## town); standing, it spends a status point when it has one.
+func _check_kill_loop() -> void:
+	if feedback.is_dead():
+		if check_rise != "auto" and feedback.can_rise():
+			check_rises_asked += 1
+			feedback.press_rise(check_rise == "here")
+		return
+	var sheet: Dictionary = session.sheet()
+	if not sheet.is_empty() and int(sheet.get("attribute_points", 0)) > 0:
+		check_had_points = true
+		if not check_spend_sent:
+			check_spend_sent = true
+			character_window.spend("vit")
+
+## Chests the check gave up on (it could not take everything).
+var check_loot_skip := {}
+## Chests it asked to take from (a vanish after a take counts).
+var check_taken_from := {}
+var check_loot_since := 0.0
+
+## The check walks to the nearest chest that dropped, opens it, shows what it
+## holds for CHECK_LOOT_SHOW and takes everything. Returns the steering yaw
+## toward the chest, INF to stand at it, NAN with no chest to go to.
+func _check_loot_steer() -> float:
+	if feedback.is_dead():
+		check_loot_target = 0
+		return NAN
+	var now := Time.get_ticks_msec() / 1000.0
+	if check_loot_target != 0 and (not chests.has(check_loot_target) or now - check_loot_since > 25.0):
+		if chests.has(check_loot_target):
+			check_loot_skip[check_loot_target] = true
+		check_loot_target = 0
+	if check_loot_target == 0:
+		var best_distance := 60.0
+		for id: int in chests:
+			var distance := _chest_distance(id)
+			if not check_loot_skip.has(id) and distance < best_distance:
+				best_distance = distance
+				check_loot_target = id
+		check_loot_shown_at = 0.0
+		check_loot_taken = false
+		check_loot_since = now
+	if check_loot_target == 0:
+		return NAN
+	var chest: ChestView = chests[check_loot_target]
+	var me: Vector3 = session.own_position()
+	var flat := Vector2(chest.position.x - me.x, chest.position.z - me.z)
+	if flat.length() > CHECK_LOOT_REACH:
+		return atan2(-flat.x, -flat.y)
+	if not loot_window.visible or loot_window.chest_id != check_loot_target:
+		if not check_loot_taken:
+			open_chest_window(check_loot_target)
+			check_loot_shown_at = now
+	elif not check_loot_taken and now - check_loot_shown_at >= CHECK_LOOT_SHOW:
+		check_loot_taken = true
+		check_taken_from[check_loot_target] = true
+		loot_window.take(-1)
+	elif check_loot_taken and int(check_loot_results.get("bag_full", 0)) > 0:
+		check_loot_skip[check_loot_target] = true
+		check_loot_target = 0
+	return INF
+
 ## The status bits every creature in view carries this frame, gathered for the
 ## check's verdict.
 func _check_statuses(ids: PackedInt32Array, kinds: PackedInt32Array, statuses: PackedInt32Array) -> void:
@@ -721,6 +963,23 @@ func _check_hit_throwable() -> bool:
 		if float(entry.get("displace_resist", 0.0)) < 1.0:
 			return true
 	return false
+
+## Counts by key as "taken x2, bag_full x1".
+static func _counts(table: Dictionary) -> String:
+	return ", ".join(table.keys().map(func(k): return "%s x%d" % [k, table[k]]))
+
+## The kill loop's part of the verdict: a chest that dropped early enough to
+## be reached was emptied (a reward with items) and vanished; a status point
+## it had was spent; a fall was followed by a rise once one was due.
+func _check_loop_passed() -> bool:
+	var now := Time.get_ticks_msec() / 1000.0
+	var reachable := check_chests_seen.values().any(func(at): return now - float(at) > 15.0)
+	var loot_ok := not reachable or (check_loot_items > 0 and check_chests_vanished > 0)
+	var points_ok := not check_had_points or check_attribute_results.has("spent")
+	var death: Dictionary = ItemRules.combat().get("death", {})
+	var due := float(death.get("auto_respawn_ms" if check_rise == "auto" else "respawn_ms", 3000)) / 1000.0 + 5.0
+	var rise_ok: bool = check_fell_at == 0.0 or feedback.rises_shown > 0 or now - check_fell_at < due
+	return loot_ok and points_ok and rise_ok
 
 ## Status bits as names: "stun+knocked".
 static func _status_names(bits: int) -> String:
@@ -755,6 +1014,15 @@ func _process(delta: float) -> void:
 		forward = 1.0 if walking else 0.0
 		cam_yaw += 0.004
 		jump = walking and int(Time.get_ticks_msec() / 1500) % 4 == 3
+		# A chest that dropped comes first: walk to it, then stand and take.
+		var toward := _check_loot_steer()
+		if is_inf(toward):
+			forward = 0.0
+			jump = false
+		elif not is_nan(toward):
+			cam_yaw = toward
+			forward = 1.0
+			jump = false
 	else:
 		strafe = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
 		forward = float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S))
@@ -781,17 +1049,30 @@ func _process(delta: float) -> void:
 	var statuses: PackedInt32Array = others["statuses"]
 	var hps: PackedInt32Array = others["hp"]
 	var seen := {}
+	var seen_chests := {}
 	var creatures := 0
 	drawn = {session.own_entity(): me}
 	crowd.multimesh.instance_count = positions.size()
 	for i in positions.size():
 		drawn[ids[i]] = positions[i]
+		if ChestView.is_chest(kinds[i]):
+			seen_chests[ids[i]] = true
+			if not check_chests_seen.has(ids[i]):
+				check_chests_seen[ids[i]] = Time.get_ticks_msec() / 1000.0
+			if not chests.has(ids[i]):
+				var chest: ChestView = load(ChestViewScript).new()
+				add_child(chest)
+				chest.setup(kinds[i])
+				chest.drive(_ground(positions[i]))
+				chests[ids[i]] = chest
+			continue
 		if kinds[i] == KIND_PLAYER:
 			seen[ids[i]] = true
 			if not heroes.has(ids[i]):
 				heroes[ids[i]] = _new_hero()
 			heroes[ids[i]].drive_remote(positions[i], delta)
 			heroes[ids[i]].set_status(statuses[i])
+			heroes[ids[i]].set_dead(states[i] == CreatureView.STATE_DEAD)
 			continue
 		var species_kind := kinds[i] & CreatureView.SPECIES_MASK
 		if not no_model.has(species_kind):
@@ -822,6 +1103,15 @@ func _process(delta: float) -> void:
 		crowd.multimesh.set_instance_color(creatures, KIND_COLORS[species_kind % KIND_COLORS.size()])
 		creatures += 1
 	crowd.multimesh.visible_instance_count = creatures
+	for id: int in chests.keys():
+		if not seen_chests.has(id):
+			# emptied, expired or out of view: it shrinks away, its window closes
+			if check_taken_from.has(id):
+				check_chests_vanished += 1
+			if loot_window.chest_id == id:
+				loot_window.close()
+			chests[id].despawn()
+			chests.erase(id)
 	for table: Dictionary in [heroes, beasts]:
 		for id in table.keys():
 			if not seen.has(id):
@@ -830,10 +1120,13 @@ func _process(delta: float) -> void:
 	_take_creature_info()
 	_follow_target()
 	if check_seconds > 0.0:
-		_check_fight(delta)
+		_check_kill_loop()
+		if not feedback.is_dead():
+			_check_fight(delta)
 		_check_statuses(ids, kinds, statuses)
 	_show_combat()
 	_show_notices()
+	_show_game_events()
 
 	var stats: Dictionary = session.stats()
 	readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d
@@ -861,6 +1154,13 @@ bag: %s" % [
 		print("realm check: ", readout.text.replace("
 ", " | "),
 			" | fight: %d own casts started, %d own hits, %d own bursts, target hp %d/255" % [check_casts, check_hits, check_bursts, check_hp],
+			" | loop: +%d exp, +%d oril, %d levels (%d level-ups shown), %d deaths (death panel %d, rises asked %d, rises shown %d), %d toasts, last \"%s\"" % [
+				check_exp, check_oril, check_levels, feedback.level_ups_shown, check_deaths, feedback.deaths_shown,
+				check_rises_asked, feedback.rises_shown, feedback.toasts_shown, feedback.last_toast],
+			" | loot: %d chests seen, %d takes, %d rewards with items, %d chests vanished after a take, results [%s]" % [
+				check_chests_seen.size(), loot_window.takes_sent, check_loot_items, check_chests_vanished, _counts(check_loot_results)],
+			" | attributes: points %s, %d spends, answers [%s], vit %d" % [check_had_points, character_window.spends_sent,
+				_counts(check_attribute_results), int((sheet.get("attributes", {}) as Dictionary).get("vit", 0)) if not sheet.is_empty() else 0],
 			" | statuses: target %s (%d), hit creatures %s (%d), shockwave on a throwable %s" % [_status_names(check_target_statuses),
 				check_target_statuses, _status_names(_check_hit_statuses()), _check_hit_statuses(), _check_hit_throwable()],
 			" | creatures: %d telegraphs (%d released, %d called off), %d boulders, %d bolts, %d evades, own statuses %s" % [
@@ -871,5 +1171,6 @@ bag: %s" % [
 				", ".join(check_notices.keys().map(func(k): return "%s x%d" % [k, check_notices[k]])),
 				check_stones.size(), check_dummies.size(), hud.notices.last_text])
 		var passed := int(stats.get("corrections", 0)) == 0 and int(stats.get("snapshots", 0)) > 0 and check_hits > 0 \
+			and _check_loop_passed() \
 			and check_bursts > 0 and (_check_hit_statuses() & StatusFX.STATUS_KNOCKED != 0 or not _check_hit_throwable())
 		get_tree().quit(0 if passed else 1)

@@ -9,6 +9,8 @@
 pub mod combat;
 pub mod creatures;
 pub mod items;
+pub mod loot;
+pub mod progress;
 pub mod sheet;
 
 use std::collections::BTreeMap;
@@ -96,6 +98,10 @@ pub struct Rules {
     pub combat: CombatRules,
     /// What creatures do on their own: attacks, abilities, pack tuning.
     pub mobs: creatures::CreatureRules,
+    /// Experience, levels, attribute points.
+    pub progress: progress::ProgressRules,
+    /// What kills drop.
+    pub loot: loot::LootRules,
     pub safe_zones: Vec<SafeZone>,
     /// Map -> the ids of its safe zones (maps.json `safe_zones`).
     pub map_zones: BTreeMap<String, Vec<String>>,
@@ -176,6 +182,12 @@ impl Rules {
             looks,
             item_rules: ItemRules::from_content(content)?,
             combat: CombatRules::from_content(content)?,
+            progress: progress::ProgressRules::from_json(
+                &combat,
+                file(content, "mobs.json")?,
+                file(content, "spawn_tables.json")?,
+            ),
+            loot: loot::LootRules::from_json(file(content, "loot_tables.json")?),
             mobs: creatures::CreatureRules::from_json(
                 file(content, "mobs.json")?,
                 file(content, "spawn_tables.json")?,
@@ -289,6 +301,7 @@ impl Rules {
             look: Vec::new(),
             place: None,
             skills: Vec::new(),
+            attributes: Vec::new(),
             revision: 1,
         };
         for (slot, item) in &self.starter.equipment {

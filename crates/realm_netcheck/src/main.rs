@@ -446,10 +446,16 @@ fn main() -> AnyResult<()> {
                         }
                     }
                 }
-                // Creature answers and map notices: the castle has neither.
+                // Creature answers, map notices and the kill loop: the castle
+                // has none of them.
                 NetEvent::Control(
                     realm_proto::control::ServerMsg::CreatureInfo { .. }
-                    | realm_proto::control::ServerMsg::Notice { .. },
+                    | realm_proto::control::ServerMsg::Notice { .. }
+                    | realm_proto::control::ServerMsg::Reward { .. }
+                    | realm_proto::control::ServerMsg::Chest { .. }
+                    | realm_proto::control::ServerMsg::LootResult { .. }
+                    | realm_proto::control::ServerMsg::Death { .. }
+                    | realm_proto::control::ServerMsg::AttributeResult { .. },
                 ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }

@@ -172,6 +172,10 @@ fn main() -> AnyResult<()> {
     })
 }
 
+/// Ticks a dead bot waits before it asks to rise (a little past the
+/// server's 3 s).
+const RISE_AFTER_TICKS: u32 = 100;
+
 fn unix_now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -237,10 +241,21 @@ async fn bot(
     let skill_action = skill.1 + 1;
     let mut attacks = 0_u32;
     let _drain = tokio::spawn(async move {
-        let _keep_open = send;
         let mut chunk = [0_u8; 4096];
         while let Ok(Some(_)) = recv.read(&mut chunk).await {}
     });
+    // Later control requests (rising after a death) go out on their own
+    // task so the 30 Hz loop never waits on the stream.
+    let (control, mut outgoing) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+    let _writer = tokio::spawn(async move {
+        while let Some(frame) = outgoing.recv().await {
+            if send.write_all(&frame).await.is_err() {
+                break;
+            }
+        }
+    });
+    // A dead bot asks to rise once it may (combat.json death.respawn_ms).
+    let mut dead_since: Option<u32> = None;
 
     let mut history: VecDeque<(u32, EntitySet)> = VecDeque::new();
     let mut acked = 0_u32;
@@ -270,7 +285,16 @@ async fn bot(
                         .filter(|t| t.2 < 28.0)
                         .min_by(|a, b| a.2.total_cmp(&b.2))
                 });
+                if own_hp != 0 {
+                    dead_since = None;
+                }
                 let frame = if own_hp == 0 {
+                    let since = *dead_since.get_or_insert(seq);
+                    if seq.saturating_sub(since) == RISE_AFTER_TICKS {
+                        let _ = control.send(realm_proto::control::encode_client(
+                            &realm_proto::control::ClientMsg::Respawn { here: false },
+                        ));
+                    }
                     InputFrame { tick: acked + 3, ..InputFrame::default() }
                 } else if let Some((target_id, pos, dist)) = target {
                     let yaw = yaw_toward(own, pos);

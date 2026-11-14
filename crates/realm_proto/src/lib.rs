@@ -25,10 +25,10 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 10;
+pub const PROTOCOL_VERSION: u16 = 11;
 
 /// QUIC application protocol name, checked during the TLS handshake.
-pub const ALPN: &[u8] = b"realm/10";
+pub const ALPN: &[u8] = b"realm/11";
 
 /// Inputs repeated in every input packet.
 pub const MAX_INPUTS_PER_PACKET: usize = 8;
@@ -148,6 +148,10 @@ pub const KIND_ELITE: u16 = 0x8000;
 pub const KIND_ENRAGED: u16 = 0x4000;
 pub const KIND_BOSS: u16 = 0x2000;
 pub const KIND_SPECIES: u16 = 0x1FFF;
+/// A loot chest's kind (no species bits); KIND_CHEST_RARE when a piece in
+/// it carries enchantment bonuses.
+pub const KIND_CHEST: u16 = 0x1000;
+pub const KIND_CHEST_RARE: u16 = 0x1001;
 
 /// Server -> client.
 #[derive(Clone, Debug, PartialEq)]

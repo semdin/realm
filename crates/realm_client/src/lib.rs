@@ -289,6 +289,8 @@ struct RealmSession {
     /// Creature answers to `inspect` and map notices, waiting to be taken.
     creature_info: Vec<ServerMsg>,
     notices: Vec<ServerMsg>,
+    /// Rewards, chests, loot answers, deaths, attribute answers.
+    game_events: Vec<ServerMsg>,
     status: String,
     /// The player's character sheet as the server last sent it.
     sheet: Option<CharacterSheet>,
@@ -317,6 +319,7 @@ impl INode for RealmSession {
             skill_results: Vec::new(),
             creature_info: Vec::new(),
             notices: Vec::new(),
+            game_events: Vec::new(),
             status: "idle".to_owned(),
             sheet: None,
             item_results: Vec::new(),
@@ -433,6 +436,13 @@ impl RealmSession {
                 NetEvent::Control(notice @ ServerMsg::Notice { .. }) => {
                     self.notices.push(notice);
                 }
+                NetEvent::Control(
+                    event @ (ServerMsg::Reward { .. }
+                    | ServerMsg::Chest { .. }
+                    | ServerMsg::LootResult { .. }
+                    | ServerMsg::Death { .. }
+                    | ServerMsg::AttributeResult { .. }),
+                ) => self.game_events.push(event),
                 NetEvent::Control(ServerMsg::ItemResult {
                     op_id,
                     ok,
@@ -670,6 +680,115 @@ impl RealmSession {
         if let Some(net) = self.net.as_ref() {
             net.send_control(&ClientMsg::LearnSkill(spell.to_string()));
         }
+    }
+
+    /// Shows a chest's cells (within reach); they come back as a "chest"
+    /// game event.
+    #[func]
+    fn open_chest(&mut self, chest: i64) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::OpenChest(chest.max(0) as u32));
+        }
+    }
+
+    /// Takes cell `slot` of a chest, or everything that fits (`slot` -1).
+    #[func]
+    fn take_loot(&mut self, chest: i64, slot: i64) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::TakeLoot {
+                chest: chest.max(0) as u32,
+                slot: u8::try_from(slot).ok(),
+            });
+        }
+    }
+
+    /// Rises after death: where the body fell (`here`) or in town.
+    #[func]
+    fn respawn(&mut self, here: bool) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Respawn { here });
+        }
+    }
+
+    /// Spends an attribute point (vit, int, str, dex).
+    #[func]
+    fn spend_attribute(&mut self, stat: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::SpendAttribute(stat.to_string()));
+        }
+    }
+
+    /// The kill loop's messages since the last call, each with `kind`:
+    /// - "reward": `exp`, `oril`, `items` ([{id, amount}]), `levels`
+    /// - "chest": `chest`, `slots` (item dictionaries, null for an empty cell)
+    /// - "loot_result": `chest`, `ok`, `reason`
+    /// - "death": `ready_tick`, `auto_tick` (server ticks), `killer`
+    /// - "attribute_result": `stat`, `ok`, `reason`
+    #[func]
+    fn take_game_events(&mut self) -> VarArray {
+        let mut out = VarArray::new();
+        for msg in self.game_events.drain(..) {
+            let mut d = VarDictionary::new();
+            match msg {
+                ServerMsg::Reward {
+                    exp,
+                    oril,
+                    items,
+                    levels,
+                } => {
+                    d.set("kind", "reward");
+                    d.set("exp", &(exp as i64).to_variant());
+                    d.set("oril", &(oril as i64).to_variant());
+                    let mut list = VarArray::new();
+                    for (id, amount) in items {
+                        let mut i = VarDictionary::new();
+                        i.set("id", &GString::from(id.as_str()).to_variant());
+                        i.set("amount", &i64::from(amount).to_variant());
+                        list.push(&i.to_variant());
+                    }
+                    d.set("items", &list.to_variant());
+                    d.set("levels", &i64::from(levels).to_variant());
+                }
+                ServerMsg::Chest { chest, slots } => {
+                    d.set("kind", "chest");
+                    d.set("chest", &i64::from(chest).to_variant());
+                    let mut list = VarArray::new();
+                    for cell in &slots {
+                        list.push(
+                            &cell
+                                .as_ref()
+                                .map_or_else(Variant::nil, |i| item_dict(i).to_variant()),
+                        );
+                    }
+                    d.set("slots", &list.to_variant());
+                }
+                ServerMsg::LootResult { chest, ok, reason } => {
+                    d.set("kind", "loot_result");
+                    d.set("chest", &i64::from(chest).to_variant());
+                    d.set("ok", &ok.to_variant());
+                    d.set("reason", &GString::from(reason.as_str()).to_variant());
+                }
+                ServerMsg::Death {
+                    ready_tick,
+                    auto_tick,
+                    killer,
+                } => {
+                    d.set("kind", "death");
+                    d.set("ready_tick", &i64::from(ready_tick).to_variant());
+                    d.set("auto_tick", &i64::from(auto_tick).to_variant());
+                    d.set("killer", &i64::from(killer).to_variant());
+                }
+                ServerMsg::AttributeResult { stat, ok, reason } => {
+                    d.set("kind", "attribute_result");
+                    d.set("stat", &GString::from(stat.as_str()).to_variant());
+                    d.set("ok", &ok.to_variant());
+                    d.set("reason", &GString::from(reason.as_str()).to_variant());
+                }
+                _ => continue,
+            }
+            out.push(&d.to_variant());
+        }
+        out
     }
 
     /// Asks what creature `entity` is; the answer comes through
@@ -984,9 +1103,11 @@ impl RealmSession {
 
     /// The player's character sheet: `id`, `name`, `house`, `level`, `exp`,
     /// `hp`, `mana`, `max_hp`, `max_mana`, `oril`, `bag` (40 cells: an item
-    /// dictionary or null), `equipment` (slot name -> item dictionary) and
-    /// `look`. An item is `id`, `amount`, `tier`, `uid` and `bonuses`
-    /// (stat -> value). Empty before the server has sent it.
+    /// dictionary or null), `equipment` (slot name -> item dictionary),
+    /// `look`, `exp_next` (experience the level takes), `attributes` (stat
+    /// -> points spent), `attribute_points` and `skill_points` (unspent).
+    /// An item is `id`, `amount`, `tier`, `uid` and `bonuses` (stat ->
+    /// value). Empty before the server has sent it.
     #[func]
     fn sheet(&self) -> VarDictionary {
         let mut out = VarDictionary::new();
@@ -1033,6 +1154,25 @@ impl RealmSession {
             look.set(key.as_str(), &value.to_variant());
         }
         out.set("look", &look.to_variant());
+        if let Some(r) = self.rules.as_ref() {
+            out.set(
+                "exp_next",
+                &(r.progress.exp_threshold(sheet.level) as i64).to_variant(),
+            );
+            out.set(
+                "attribute_points",
+                &i64::from(r.progress.attribute_points(sheet)).to_variant(),
+            );
+            out.set(
+                "skill_points",
+                &i64::from(r.combat.skill_points(sheet)).to_variant(),
+            );
+        }
+        let mut attributes = VarDictionary::new();
+        for (stat, points) in &sheet.attributes {
+            attributes.set(stat.as_str(), &i64::from(*points).to_variant());
+        }
+        out.set("attributes", &attributes.to_variant());
         out
     }
 

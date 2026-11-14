@@ -789,6 +789,7 @@ impl Sim {
             .is_some_and(|a| a.ability.is_some() && !a.released);
         m.mode = MobMode::Return;
         m.status = super::status::Status::default();
+        m.credit.clear();
         m.unreachable_since = 0;
         m.path.clear();
         let (pack, at) = (m.pack, m.pos);
@@ -802,6 +803,7 @@ impl Sim {
                 && !matches!(m.mode, MobMode::Chase(_) | MobMode::Dead)
             {
                 m.status = super::status::Status::default();
+                m.credit.clear();
             }
         }
     }
@@ -819,6 +821,10 @@ impl Sim {
             m.hp = m.max_hp;
             return;
         }
+        self.reward_kill(mob);
+        let Some(mut m) = self.world.get_mut::<Mob>(mob) else {
+            return;
+        };
         m.hp = 0.0;
         m.mode = MobMode::Dead;
         m.state = STATE_DEAD;
@@ -1030,6 +1036,8 @@ impl Sim {
             boss: false,
             enraged: false,
             pattern_next: 0,
+            exp_reward: self.game.rules.progress.creature_exp(species, level, false),
+            credit: Vec::new(),
             mode: MobMode::Chase(target),
             attack_cd: 0.0,
             attack: None,
@@ -1255,6 +1263,7 @@ impl Sim {
                 m.boss = is_boss;
                 m.enraged = false;
                 m.pattern_next = 0;
+                m.credit.clear();
                 m.mode = MobMode::Idle;
                 m.state = STATE_IDLE;
                 m.attack = None;
@@ -1266,6 +1275,13 @@ impl Sim {
                 m.path_goal = home;
                 m.next_think = tick;
                 m.unreachable_since = 0;
+            }
+        }
+        for i in 0..self.packs[pack].members.len() {
+            let member = self.packs[pack].members[i];
+            let exp = self.world.get::<Mob>(member).map(|m| self.exp_reward_of(m));
+            if let (Some(exp), Some(mut m)) = (exp, self.world.get_mut::<Mob>(member)) {
+                m.exp_reward = exp;
             }
         }
         let state = &mut self.packs[pack];

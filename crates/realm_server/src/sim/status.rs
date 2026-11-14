@@ -397,6 +397,7 @@ impl Sim {
             return;
         }
         self.stats.dot_ticks += 1;
+        self.note_credit(victim, source);
         let Some(mut mob) = self.world.get_mut::<super::Mob>(victim) else {
             return;
         };

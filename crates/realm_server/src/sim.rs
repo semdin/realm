@@ -31,6 +31,7 @@ use crate::game::Game;
 mod afflict;
 mod brain;
 mod combat;
+mod rewards;
 mod status;
 use crate::store::StoreJob;
 use combat::{Bolt, Caster};
@@ -55,7 +56,7 @@ pub enum NetEvent {
     /// The store thread answered a load.
     Loaded {
         conn: ConnId,
-        result: Result<Option<CharacterSheet>, String>,
+        result: Result<Option<Box<CharacterSheet>>, String>,
     },
     /// The store thread finished a save.
     Saved {
@@ -171,6 +172,9 @@ struct Player {
     last_input_tick: u32,
     /// Deaths and respawns so far (wrapping), for the owner's snapshots.
     life: u8,
+    /// A dead player may rise from this tick (`dead_until` is when it goes
+    /// to town by itself).
+    respawn_ready: u32,
     /// The character record. Position and hp live in `body` / `hp` while
     /// playing and are written back by `Sim::sheet_of`.
     sheet: CharacterSheet,
@@ -233,6 +237,10 @@ struct Mob {
     enraged: bool,
     /// The boss pattern it throws next.
     pattern_next: u32,
+    /// The experience its kill gives.
+    exp_reward: u32,
+    /// Players who hit it lately (the kill's credit).
+    credit: Vec<rewards::Credit>,
     mode: MobMode,
     /// Ticks until the next attack may start (runs slower while slowed).
     attack_cd: f32,
@@ -583,6 +591,8 @@ impl Sim {
                     boss: false,
                     enraged: false,
                     pattern_next: 0,
+                    exp_reward: 0,
+                    credit: Vec::new(),
                     mode: MobMode::Idle,
                     attack_cd: 0.0,
                     attack: None,
@@ -646,6 +656,7 @@ impl Sim {
         self.advance_mob_bolts();
         self.advance_status();
         self.advance_afflictions();
+        self.sweep_chests();
         self.regenerate();
         lap(2, &mut self.stats);
         self.rebuild_grid();
@@ -699,7 +710,7 @@ impl Sim {
                     return;
                 };
                 match result {
-                    Ok(sheet) => self.admit(conn, join, sheet),
+                    Ok(sheet) => self.admit(conn, join, sheet.map(|s| *s)),
                     Err(e) => {
                         eprintln!("[store] load for connection {conn} failed: {e}");
                         let _ = join.reply.send(JoinReply::Refused(
@@ -800,6 +811,7 @@ impl Sim {
             gap_ticks: 0,
             last_input_tick: self.tick,
             life: 0,
+            respawn_ready: 0,
             sheet,
             dirty_since: None,
             caster,
@@ -926,6 +938,10 @@ impl Sim {
                 op,
             } => self.item_op(conn, entity, op_id, revision, &op),
             ClientMsg::LearnSkill(spell) => self.learn_skill(conn, entity, spell),
+            ClientMsg::OpenChest(id) => self.open_chest(conn, entity, id),
+            ClientMsg::TakeLoot { chest, slot } => self.take_loot(conn, entity, chest, slot),
+            ClientMsg::Respawn { here } => self.request_respawn(entity, here),
+            ClientMsg::SpendAttribute(stat) => self.spend_attribute(conn, entity, stat),
             ClientMsg::Inspect(id) => {
                 let Some(info) = self.creature_info(id) else {
                     return;
@@ -1114,6 +1130,7 @@ impl Sim {
         let has_stairs = !self.stairs.flights.is_empty();
         let mut stairs_at = tick;
         let mut casts: Vec<(Entity, InputFrame)> = Vec::new();
+        let mut risen: Vec<Entity> = Vec::new();
         let mut query = self.world.query::<(Entity, &mut Player)>();
         for (entity, mut player) in query.iter_mut(&mut self.world) {
             if player.dead_until != 0 {
@@ -1124,11 +1141,7 @@ impl Sim {
                 }
                 player.pending.clear();
                 if tick >= player.dead_until {
-                    player.dead_until = 0;
-                    player.hp = player.max_hp;
-                    player.life = player.life.wrapping_add(1);
-                    let home = player.home;
-                    player.body = Body::at(home);
+                    risen.push(entity);
                 }
                 continue;
             }
@@ -1199,6 +1212,10 @@ impl Sim {
         for (caster, frame) in casts {
             self.request_cast(caster, frame);
         }
+        // No choice made in time: to town.
+        for player in risen {
+            self.respawn(player, false);
+        }
     }
 
     /// Collects every visible entity's replicated state into rows and files
@@ -1230,6 +1247,26 @@ impl Sim {
                 entity,
                 state,
                 is_player: true,
+            });
+        }
+        let mut chests = self.world.query::<(Entity, &NetId, &rewards::Chest)>();
+        for (entity, id, c) in chests.iter(&self.world) {
+            self.rows.push(Row {
+                id: id.0,
+                entity,
+                state: EntityState {
+                    pos: realm_proto::on_grid(c.pos),
+                    yaw: 0,
+                    state: STATE_IDLE,
+                    kind: if c.rare {
+                        realm_proto::KIND_CHEST_RARE
+                    } else {
+                        realm_proto::KIND_CHEST
+                    },
+                    hp: 255,
+                    status: 0,
+                },
+                is_player: false,
             });
         }
         let mut mobs = self.world.query::<(Entity, &NetId, &Mob)>();

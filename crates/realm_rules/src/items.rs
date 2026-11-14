@@ -474,6 +474,23 @@ impl Rules {
                 }
             }
         }
+        // Attribute points: flat health and mana, both ends of the wand's
+        // ranges, percent speeds and crit.
+        for (stat, add) in self.progress.attribute_totals(sheet) {
+            match stat.as_str() {
+                "max_hp" => hp += add.round(),
+                "max_mana" => mana += add.round(),
+                "attack_value" => {
+                    out.attack_value.0 += add.round();
+                    out.attack_value.1 += add.round();
+                }
+                "magic_attack" => {
+                    out.magic_attack.0 += add.round();
+                    out.magic_attack.1 += add.round();
+                }
+                _ => *out.stats.entry(stat).or_default() += add,
+            }
+        }
         out.max_hp = hp.round().max(1.0) as u32;
         out.max_mana = mana.round().max(0.0) as u32;
         let stat = |out: &mut Derived, key: &str, lo: f32, hi: f32| {
@@ -794,7 +811,12 @@ impl Rules {
     /// One new bonus for `id`: a stat from its pool it does not hold yet (nor
     /// as a fixed stat), not disabled, of a theme the piece may carry, at a
     /// weighted grade.
-    fn roll_bonus(&self, id: &str, held: &[Bonus], dice: &mut dyn Dice) -> Option<Bonus> {
+    pub(crate) fn roll_bonus(
+        &self,
+        id: &str,
+        held: &[Bonus],
+        dice: &mut dyn Dice,
+    ) -> Option<Bonus> {
         let e = &self.item_rules.enchant;
         let kind = self.slot_kind(id)?;
         let themes = e.slot_themes.get(kind)?;

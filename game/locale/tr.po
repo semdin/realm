@@ -5592,3 +5592,9 @@ msgstr "vahşi topraklar"
 
 msgid "%s (Lv.%d)\n%d / %d (%d%%)"
 msgstr "%s (Sv.%d)\n%d / %d (%%%d)"
+
+msgid "LEVEL %d!"
+msgstr "SEVİYE %d!"
+
+msgid "%s: a wave of creatures answers its call! (Wave %d/%d)"
+msgstr "%s: çağrısına bir yaratık dalgası karşılık veriyor! (Dalga %d/%d)"

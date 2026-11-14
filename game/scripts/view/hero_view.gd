@@ -8,6 +8,7 @@ class_name HeroView
 ## interpolated snapshots (everyone else). Its replicated status draws on it
 ## (StatusFX): stunned or frozen it plays the stun loop, thrown the fall loop,
 ## frozen its pose is held and slowed its clips play at the slowed pace.
+## Fallen it lies in the death pose until it rises with the Revive clip.
 
 ## A short hop or a step down keeps the light airborne pose; past this long
 ## in the air, or falling faster than HARD_FALL_SPEED, the body flails.
@@ -62,6 +63,8 @@ var _turn_to := NAN
 ## sets for them (0 frozen, the slowed pace, 1). Below 1 the animation tree is
 ## advanced by hand at that pace.
 var status := 0
+## Fallen (set_dead): the death pose holds until the body rises.
+var dead := false
 var _cc_pace := 1.0
 var _tree_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 
@@ -113,6 +116,22 @@ func set_status(bits: int) -> void:
 		anim.end_cast()
 	status = bits
 	StatusFX.update(self, bits)
+
+## Fallen or risen. A fall drops the cast and lies down in Death_A; a rise
+## plays Revive over the standing pose.
+func set_dead(on: bool) -> void:
+	if on == dead:
+		return
+	dead = on
+	if anim == null:
+		return
+	if on:
+		anim.end_cast()
+		anim.cancel_oneshot()
+		anim.set_locomotion("dead", "Death_A", true)
+	else:
+		anim.play_oneshot("Revive")
+		anim.set_locomotion("idle", "Idle", true)
 
 ## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
 func set_cc_anim_scale(pace: float) -> void:
@@ -183,6 +202,9 @@ func _pose(at: Vector3, velocity: Vector3, on_floor: bool, swimming: bool, air_s
 	anim.tick(delta * _cc_pace)
 	if _cc_pace < 1.0 and anim.tree != null and anim.tree.active:
 		anim.tree.advance(delta * _cc_pace)
+	if dead:
+		# lies where it fell (set_dead chose the clip)
+		return
 	if status & StatusFX.STATUS_KNOCKED:
 		anim.set_locomotion("thrown", "Fall_Loop")
 		return

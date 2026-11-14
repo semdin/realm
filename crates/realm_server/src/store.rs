@@ -101,7 +101,7 @@ pub fn start(
             for job in queue {
                 match job {
                     StoreJob::Load { conn, character } => {
-                        let result = store.load(character);
+                        let result = store.load(character).map(|s| s.map(Box::new));
                         if events.send(NetEvent::Loaded { conn, result }).is_err() {
                             return;
                         }

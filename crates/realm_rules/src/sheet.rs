@@ -113,6 +113,9 @@ pub struct CharacterSheet {
     /// here is not learned.
     #[serde(default)]
     pub skills: Vec<(String, u8)>,
+    /// Attribute points spent (combat.json attributes: vit, int, str, dex).
+    #[serde(default)]
+    pub attributes: Vec<(String, u8)>,
     /// Bumped by every change; a save older than the stored one is refused.
     pub revision: u64,
 }
