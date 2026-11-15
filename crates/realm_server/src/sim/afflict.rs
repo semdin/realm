@@ -50,6 +50,26 @@ pub(super) struct Afflictions {
 }
 
 impl Afflictions {
+    /// What lasts now and when each ends (for the owner's bar).
+    pub fn lasting(&self, tick: u32) -> Vec<(&'static str, u32)> {
+        let mut out = Vec::new();
+        let mut put = |kind: &'static str, until: u32| {
+            if until > tick {
+                out.push((kind, until));
+            }
+        };
+        put("stun", self.stun_until);
+        put("knock", self.knock_until);
+        put("web", self.web_until);
+        put("despair", self.despair_until);
+        put("venom", self.venom.map_or(0, |v| v.until));
+        put("freeze", self.freeze_until);
+        put("burn", self.burn.map_or(0, |v| v.until));
+        put("bleed", self.bleed.map_or(0, |v| v.until));
+        put("weak", self.weak_until);
+        out
+    }
+
     /// Outgoing damage multiplier (weakened by a duel foe's spell).
     pub fn strength(&self, tick: u32) -> f32 {
         if tick < self.weak_until {

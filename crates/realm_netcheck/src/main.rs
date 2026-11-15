@@ -501,6 +501,7 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Notice { .. }
                     | realm_proto::control::ServerMsg::Maintenance { .. }
                     | realm_proto::control::ServerMsg::Weather { .. }
+                    | realm_proto::control::ServerMsg::Effects(_)
                     | realm_proto::control::ServerMsg::Reward { .. }
                     | realm_proto::control::ServerMsg::Chest { .. }
                     | realm_proto::control::ServerMsg::LootResult { .. }

@@ -145,6 +145,7 @@ impl Session {
                     | ServerMsg::Maintenance { .. }
                     | ServerMsg::Notice { .. }
                     | ServerMsg::Weather { .. }
+                    | ServerMsg::Effects(_)
                     | ServerMsg::PlayerInfo { .. }
                     | ServerMsg::Chat { .. }),
                 ) => {

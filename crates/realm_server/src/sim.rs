@@ -189,6 +189,8 @@ struct Player {
     chat_ready: u32,
     /// What the players near it were last told about it (PlayerInfo).
     info_key: u64,
+    /// The lasting effects its owner was last told of.
+    effects_sent: Vec<(&'static str, u32)>,
     /// Its party as the coordinator last said.
     party: realm_proto::coord::PartyView,
     /// A dead player may rise from this tick (`dead_until` is when it goes
@@ -831,6 +833,7 @@ impl Sim {
         self.tick_hazards();
         self.tick_checks();
         self.regenerate();
+        self.tell_effects();
         lap(2, &mut self.stats);
         self.rebuild_grid();
         lap(3, &mut self.stats);
@@ -1053,6 +1056,7 @@ impl Sim {
             life: 0,
             chat_ready: 0,
             info_key: 0,
+            effects_sent: Vec::new(),
             party: realm_proto::coord::PartyView::default(),
             respawn_ready: 0,
             sheet,
@@ -1173,6 +1177,33 @@ impl Sim {
         {
             eprintln!("[net] connection {conn}: control queue full, closing");
             self.leave_world(conn, None);
+        }
+    }
+
+    /// Each player's lasting effects, to its owner when they changed.
+    fn tell_effects(&mut self) {
+        let tick = self.tick;
+        if !tick.is_multiple_of(3) {
+            return;
+        }
+        let mut out = Vec::new();
+        for (conn, c) in &self.clients {
+            let Some(mut p) = self.world.get_mut::<Player>(c.entity) else {
+                continue;
+            };
+            let mut now = p.afflictions.lasting(tick);
+            if p.caster.ward_until > tick {
+                now.push(("ward", p.caster.ward_until));
+            }
+            if now != p.effects_sent {
+                let msg =
+                    ServerMsg::Effects(now.iter().map(|(k, t)| ((*k).to_owned(), *t)).collect());
+                p.effects_sent = now;
+                out.push((*conn, msg));
+            }
+        }
+        for (conn, msg) in out {
+            self.send_control(conn, &msg);
         }
     }
 

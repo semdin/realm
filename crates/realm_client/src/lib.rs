@@ -294,6 +294,8 @@ struct RealmSession {
     notices: Vec<ServerMsg>,
     /// The realm's weather as the map last told it.
     rain: bool,
+    /// The player's lasting effects and the server tick each ends.
+    effects: Vec<(String, u32)>,
     /// Rewards, chests, loot answers, deaths, attribute answers.
     game_events: Vec<ServerMsg>,
     /// Chat lines waiting to be taken.
@@ -331,6 +333,7 @@ impl INode for RealmSession {
             creature_info: Vec::new(),
             notices: Vec::new(),
             rain: false,
+            effects: Vec::new(),
             game_events: Vec::new(),
             chat: Vec::new(),
             party: realm_proto::coord::PartyView::default(),
@@ -473,6 +476,7 @@ impl RealmSession {
                     self.notices.push(notice);
                 }
                 NetEvent::Control(ServerMsg::Weather { rain }) => self.rain = rain,
+                NetEvent::Control(ServerMsg::Effects(list)) => self.effects = list,
                 NetEvent::Control(
                     event @ (ServerMsg::Reward { .. }
                     | ServerMsg::Chest { .. }
@@ -1312,6 +1316,28 @@ impl RealmSession {
     #[func]
     fn raining(&self) -> bool {
         self.rain
+    }
+
+    /// What lasts on the player now: [{`kind` (stun, knock, web, despair,
+    /// venom, freeze, burn, bleed, weak, ward), `seconds` left}], the ended
+    /// ones left out.
+    #[func]
+    fn effects(&self) -> VarArray {
+        let mut out = VarArray::new();
+        let now = self.core.as_ref().map_or(0, ClientCore::tick);
+        for (kind, until) in &self.effects {
+            if *until <= now {
+                continue;
+            }
+            let mut d = VarDictionary::new();
+            d.set("kind", &GString::from(kind.as_str()).to_variant());
+            d.set(
+                "seconds",
+                &(f64::from(until - now) / ClientCore::HZ).to_variant(),
+            );
+            out.push(&d.to_variant());
+        }
+        out
     }
 
     /// Answers to `inspect` (and a player's info again when its GA emblem

@@ -291,6 +291,15 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         if let Some(h) = healed {
             return fail(format!("a reset mid-fight: {h}"));
         }
+        // The cocoon's hold reached the player's bar of effects with its
+        // time (12 s).
+        let stun = d.events.iter().find_map(|m| match m {
+            ServerMsg::Effects(list) => list.iter().find(|(k, _)| k == "stun").map(|(_, t)| *t),
+            _ => None,
+        });
+        if stun.is_none() {
+            return fail("the cocoon's hold never reached the bar of effects");
+        }
         let pools = hazards(&d, "pool");
         if pools == 0 {
             return fail("no venom pool welled up");
