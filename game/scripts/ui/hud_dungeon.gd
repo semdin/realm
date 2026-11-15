@@ -6,7 +6,8 @@ class_name HudDungeon
 ## times; five difficulty cards (1-5 diamonds, each in its colour, locked per
 ## the player's own unlocks); for the chosen one the run for this party as
 ## chips (creature levels, power, what it needs, the gold medal, the final
-## chest, the key or the best time); the party at the gate with a status tag
+## chest, the key or the best time) and this week's curses on it (red tags,
+## each curse's description on hover); the party at the gate with a status tag
 ## each (empty places up to the party cap); then the verdict and the button:
 ## "Ready check" for a party, "Enter" alone. A run of the player's that is
 ## still open offers its way back in ("Return to the dungeon (m:ss)", through
@@ -14,8 +15,10 @@ class_name HudDungeon
 ##
 ## The server decides everything (RealmSession.dungeon_info / dungeon_start);
 ## the checks here only explain early what it would refuse. While open the
-## window asks again every REFRESH_S. (The old window's Seal Shop tab comes
-## with the seal shop; this week's curses come when the server applies them.)
+## window asks again every REFRESH_S. This week's curses come with the gate's
+## answer (`affixes`, in order); a difficulty takes the first N of them
+## (dungeons.json difficulty.<id>.affixes). (The old window's Seal Shop tab
+## comes with the seal shop.)
 
 const REFRESH_S := 1.5
 const WELL := Color("070b12")
@@ -41,6 +44,9 @@ var cards: Dictionary = {}   # difficulty -> DifficultyCard
 var _detail: PanelContainer
 var _chips: GridContainer
 var _facts_key := ""
+## The chosen difficulty's curses as their tags (ids, in order).
+var curses_shown: Array = []
+var _curses: HFlowContainer
 var _members: VBoxContainer
 var _members_key := ""
 var verdict: Label
@@ -76,11 +82,19 @@ func _ready() -> void:
 
 	_detail = PanelContainer.new()
 	view.add_child(_detail)
+	var detail_col := VBoxContainer.new()
+	detail_col.add_theme_constant_override("separation", 8)
+	_detail.add_child(detail_col)
 	_chips = GridContainer.new()
 	_chips.columns = 3
 	_chips.add_theme_constant_override("h_separation", 6)
 	_chips.add_theme_constant_override("v_separation", 6)
-	_detail.add_child(_chips)
+	detail_col.add_child(_chips)
+	_curses = HFlowContainer.new()
+	_curses.name = "Curses"
+	_curses.add_theme_constant_override("h_separation", 6)
+	_curses.add_theme_constant_override("v_separation", 4)
+	detail_col.add_child(_curses)
 
 	view.add_child(section(tr("Party at the gate")))
 	_members = VBoxContainer.new()
@@ -355,10 +369,13 @@ func refresh() -> void:
 		var best: Array = mine.get("best_ms", [])
 		var best_ms := int(best[d_index]) if d_index < best.size() else 0
 		facts.append([tr("Your best"), DungeonData.clock(best_ms / 1000.0) if best_ms > 0 else "—", HudKit.PARCHMENT])
+	# This week's curses on the chosen difficulty (the run keeps the ones it
+	# starts with).
+	var curses := week_curses(difficulty)
 	# Rebuilt only when a fact changed: the gate asks again every REFRESH_S,
 	# and new chips lay their wrapped values out afresh (the rows below them
 	# twitched with every answer).
-	var facts_key := str(facts)
+	var facts_key := str(facts) + str(curses) + str(info.is_empty())
 	if facts_key != _facts_key:
 		_facts_key = facts_key
 		for child in _chips.get_children():
@@ -366,6 +383,18 @@ func refresh() -> void:
 			child.queue_free()
 		for fact: Array in facts:
 			_chip(String(fact[0]), String(fact[1]), fact[2])
+		for child in _curses.get_children():
+			_curses.remove_child(child)
+			child.queue_free()
+		curses_shown = curses
+		# (nothing before the gate's first answer: the week comes with it)
+		if curses.is_empty() and not info.is_empty():
+			_curses.add_child(HudKit.label(tr("No curses on this difficulty."), 12, FAINT, HudKit.body(), 0))
+		elif not curses.is_empty():
+			_curses.add_child(HudKit.label(tr("This week's curses:"), 12, HudKit.TEXT_DIM, HudKit.body(), 0))
+			for id: String in curses:
+				var curse := DungeonData.affix(id)
+				_curses.add_child(_curse(I18n.t(String(curse.get("display", id))), I18n.t(String(curse.get("desc", "")))))
 	_set_accent(accent)
 	_fill_members(members, need, int(group.get("max_party", 5)))
 	_judge(members, levels, rules, need)
@@ -382,6 +411,27 @@ func _set_accent(accent: Color) -> void:
 	box.content_margin_top = 10
 	box.content_margin_bottom = 10
 	_detail.add_theme_stylebox_override("panel", box)
+
+## The curses a run on `difficulty_id` takes this week: the first N of the
+## gate's `affixes` (N: dungeons.json difficulty.<id>.affixes).
+func week_curses(difficulty_id: String) -> Array:
+	var week: Array = info.get("affixes", [])
+	var n := mini(int(DungeonData.difficulty(difficulty_id).get("affixes", 0)), week.size())
+	return week.slice(0, n).map(func(id): return String(id))
+
+## A curse as a red tag; its description on hover.
+func _curse(title: String, desc: String) -> PanelContainer:
+	var tag := PanelContainer.new()
+	tag.mouse_filter = Control.MOUSE_FILTER_STOP
+	tag.tooltip_text = desc
+	var sb := _box(Color(0.43, 0.1, 0.055, 0.25), Color("5a2a2a"), 11, 0)
+	sb.content_margin_left = 9
+	sb.content_margin_right = 9
+	sb.content_margin_top = 2
+	sb.content_margin_bottom = 2
+	tag.add_theme_stylebox_override("panel", sb)
+	tag.add_child(HudKit.label("☠ " + title, 12, Color("ffb4a8"), HudKit.body(), 0))
+	return tag
 
 ## One fact as a small card: caption over value.
 func _chip(caption: String, value: String, colour: Color = HudKit.PARCHMENT) -> void:

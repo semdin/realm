@@ -29,7 +29,9 @@
 //! check ends as soon as the party changes; replaying is the leader's.
 
 use bevy_ecs::prelude::*;
-use realm_proto::control::{DungeonMsg, GateMember, ReadyView, RunResult, RunView, ServerMsg};
+use realm_proto::control::{
+    DungeonMsg, GateMember, HazardView, ReadyView, RunResult, RunView, ServerMsg,
+};
 use realm_proto::coord::{MapMsg, RunSpec, RunSummary};
 use realm_rules::dungeons::{
     self, DIFFICULTIES, RANK_CLEAR, SpawnEntry, Trigger, copy_at, copy_offset,
@@ -75,6 +77,23 @@ pub(super) struct RunMob {
     pub exp: u32,
     pub level: u32,
     pub boss_name: Option<String>,
+    pub role: String,
+    /// Its numbers before curses (bolster and rage scale these).
+    pub base_hp: f32,
+    pub base_attack: f32,
+    pub base_speed: f32,
+    pub stacks: u8,
+    pub raged: bool,
+    /// A boss: when its current fight began (its legendary rage counts
+    /// from the pull, again after every reset).
+    pub pulled_at: Option<u32>,
+}
+
+/// A curse's mark on a run's floor.
+pub(super) struct Hazard {
+    pub view: HazardView,
+    pub pos: Vec3,
+    pub done: bool,
 }
 
 pub(super) struct RunMember {
@@ -111,6 +130,10 @@ pub(super) struct Run {
     pub empty_since: Option<u32>,
     pub paid: bool,
     pub sent: Option<RunView>,
+    pub affixes: Vec<String>,
+    pub hazards: Vec<Hazard>,
+    pub chill_next: u32,
+    pub storm_next: u32,
 }
 
 /// A ready check on an outer map.
@@ -281,12 +304,29 @@ impl Sim {
         let party = spec.roster.len();
         // What a full clear counts: every forces-bearing creature of the
         // steps this difficulty fields.
+        let affixes = self
+            .dev_dungeon_affixes
+            .clone()
+            .unwrap_or_else(|| spec.affixes.clone());
+        let teeming = affixes.iter().any(|a| a == "teeming");
+        let extra_share = rules.dungeons.affixes.num("teeming", "extra", 0.25);
         let mut forces_total = 0;
         for step in &def.steps {
             if step.min_difficulty > difficulty {
                 continue;
             }
-            for e in &step.spawn {
+            let mut entries: Vec<&SpawnEntry> = step.spawn.iter().collect();
+            // Teeming's extra groups count towards a full clear too.
+            let trash: Vec<&SpawnEntry> = entries
+                .iter()
+                .copied()
+                .filter(|e| e.role == "trash")
+                .collect();
+            if teeming {
+                let extra = (trash.len() as f32 * extra_share).ceil() as usize;
+                entries.extend(trash.into_iter().take(extra));
+            }
+            for e in entries {
                 if e.min_difficulty > difficulty {
                     continue;
                 }
@@ -330,6 +370,10 @@ impl Sim {
             empty_since: None,
             paid: false,
             sent: None,
+            affixes,
+            hazards: Vec::new(),
+            chill_next: 0,
+            storm_next: 0,
         });
         println!(
             "[dungeon] copy {copy} of {} opened: {} at {} for {party} (level {})",
@@ -440,6 +484,13 @@ impl Sim {
             left,
             complete: r.complete,
             result: r.result.clone(),
+            affixes: r.affixes.clone(),
+            hazards: r
+                .hazards
+                .iter()
+                .filter(|h| !h.done)
+                .map(|h| h.view.clone())
+                .collect(),
         }
     }
 
@@ -575,9 +626,17 @@ impl Sim {
             }
             1 => {
                 if tick >= phase_end {
+                    let hazard_mult = rules.dungeons.difficulties
+                        [self.runs[i].as_ref().map_or(0, |r| r.difficulty)]
+                    .hazard_mult;
+                    let a = &rules.dungeons.affixes;
                     let r = self.runs[i].as_mut().expect("live run");
                     r.phase = 2;
                     r.start_tick = tick + GATE_LEAD;
+                    r.chill_next = tick
+                        + (a.num("chill", "every_s", 45.0) * hazard_mult * SIM_HZ as f32) as u32;
+                    r.storm_next = tick
+                        + (a.num("storm", "every_s", 12.0) * hazard_mult * SIM_HZ as f32) as u32;
                     self.set_gate(i, "start", true);
                 }
                 return;
@@ -586,6 +645,7 @@ impl Sim {
             _ => {}
         }
         self.credit_forces(i);
+        self.curse_tick(i);
         self.wipe_lock(i, &def);
         // The chain: steps in order, the first unmet one waits.
         let difficulty = self.runs[i].as_ref().map_or(0, |r| r.difficulty);
@@ -743,7 +803,34 @@ impl Sim {
         let diff = rules.dungeons.difficulties[difficulty].clone();
         let pack = self.run_pack(i, s, entries);
         let max_level = rules.progress.max_level;
-        for e in entries {
+        // Teeming: a quarter more of the ordinary groups, beside them.
+        let teeming = self.runs[i]
+            .as_ref()
+            .is_some_and(|r| r.affixes.iter().any(|a| a == "teeming"));
+        let mut entries: Vec<SpawnEntry> = entries.to_vec();
+        if teeming {
+            let trash: Vec<SpawnEntry> = entries
+                .iter()
+                .filter(|e| e.role == "trash")
+                .cloned()
+                .collect();
+            let extra = (trash.len() as f32 * rules.dungeons.affixes.num("teeming", "extra", 0.25))
+                .ceil() as usize;
+            let offset = offset_of(self.runs[i].as_ref().map_or(0, |r| r.copy));
+            for e in trash.into_iter().take(extra) {
+                let mut more = e;
+                // Beside the group where the floor runs on; on it otherwise
+                // (never behind a wall).
+                let chest = Vec3::new(0.0, 1.0, 0.0);
+                let from = self.settle(v3(more.at) + offset) + chest;
+                let beside = self.settle(v3(more.at) + offset + Vec3::new(1.6, 0.0, 1.2)) + chest;
+                if self.terrain.line_hit(from, beside).is_none() {
+                    more.at = [more.at[0] + 1.6, more.at[1], more.at[2] + 1.2];
+                }
+                entries.push(more);
+            }
+        }
+        for e in &entries {
             if e.min_difficulty > difficulty {
                 continue;
             }
@@ -785,10 +872,16 @@ impl Sim {
                 };
                 let entity =
                     self.spawn_run_mob(pack, species, level, at, hp_scale, diff.damage, e, boss);
-                let exp = self.world.get::<Mob>(entity).map_or(0, |m| m.exp_reward);
+                let (exp, base_hp, base_attack, base_speed) = self
+                    .world
+                    .get::<Mob>(entity)
+                    .map_or((0, 0.0, 0.0, 0.0), |m| {
+                        (m.exp_reward, m.max_hp, m.attack_power, m.move_speed)
+                    });
                 if let Some(mut m) = self.world.get_mut::<Mob>(entity) {
                     // Kills pay the members in the copy, not the hitters.
                     m.exp_reward = 0;
+                    m.windup_scale = diff.telegraph;
                     m.drop_scale = diff.drop
                         * if boss {
                             1.0
@@ -809,6 +902,13 @@ impl Sim {
                         exp,
                         level,
                         boss_name,
+                        role: e.role.clone(),
+                        base_hp,
+                        base_attack,
+                        base_speed,
+                        stacks: 0,
+                        raged: false,
+                        pulled_at: None,
                     });
                 }
             }
@@ -974,6 +1074,7 @@ impl Sim {
             replan_at: 0,
             status: super::status::Status::default(),
             drop_scale: 1.0,
+            windup_scale: 1.0,
         };
         let entity = self.world.spawn(mob).id();
         let id = self.new_id(entity);
@@ -1002,6 +1103,18 @@ impl Sim {
         r.forces = (r.forces + m.forces).min(r.forces_total.max(r.forces + m.forces));
         let (exp, level, copy, difficulty, party) =
             (m.exp, m.level, r.copy, r.difficulty, r.roster.len());
+        let (entity, boss, role) = (m.entity, m.boss_name.is_some(), m.role.clone());
+        // Death curses: ordinary creatures only (not bosses, eggs, cocoons
+        // or what hatched).
+        if !boss && role != "object" && role != "hatchling" {
+            let at = self.world.get::<Mob>(entity).map(|x| x.pos);
+            if let Some(at) = at {
+                self.death_curses(i, entity, at);
+            }
+        }
+        let Some(r) = self.runs[i].as_ref() else {
+            return;
+        };
         let firsts: Vec<(u64, bool)> = r
             .roster
             .iter()
@@ -1035,6 +1148,400 @@ impl Sim {
             };
             let amount = (f64::from(exp) * f64::from(gap * kill * together * bonus)).round() as u64;
             self.pay(entity, amount, 0);
+        }
+    }
+
+    /// A run's creature fell at `at`: bursting dead, sticky ground, the
+    /// bolster on its neighbours.
+    fn death_curses(&mut self, i: usize, dead: Entity, at: Vec3) {
+        let rules = self.rules();
+        let a = &rules.dungeons.affixes;
+        let tick = self.tick;
+        let affixes = self.runs[i]
+            .as_ref()
+            .map(|r| r.affixes.clone())
+            .unwrap_or_default();
+        if affixes.iter().any(|x| x == "burst") {
+            let warn = (a.num("burst", "warn_s", 2.0) * SIM_HZ as f32) as u32;
+            self.add_hazard(
+                i,
+                "burst",
+                at,
+                a.num("burst", "radius", 4.0),
+                tick + warn,
+                0,
+                a.num("burst", "hp_share", 0.12),
+            );
+        }
+        if affixes.iter().any(|x| x == "sticky") {
+            let until = tick + (a.num("sticky", "duration_s", 6.0) * SIM_HZ as f32) as u32;
+            self.add_hazard(
+                i,
+                "sticky",
+                at,
+                a.num("sticky", "radius", 3.5),
+                0,
+                until,
+                0.0,
+            );
+        }
+        if affixes.iter().any(|x| x == "bolster") {
+            let radius = a.num("bolster", "radius", 15.0);
+            let max = a.num("bolster", "max_stacks", 5.0) as u8;
+            let near: Vec<usize> = self.runs[i].as_ref().map_or(Vec::new(), |r| {
+                r.mobs
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, m)| m.entity != dead && m.boss_name.is_none() && m.stacks < max)
+                    .filter(|(_, m)| {
+                        self.world.get::<Mob>(m.entity).is_some_and(|x| {
+                            x.mode != MobMode::Dead && planar_distance(x.pos, at) <= radius
+                        })
+                    })
+                    .map(|(k, _)| k)
+                    .collect()
+            });
+            for k in near {
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.mobs[k].stacks += 1;
+                }
+                self.restat(i, k);
+            }
+        }
+    }
+
+    /// A run creature's numbers from its base, bolster stacks and rage.
+    fn restat(&mut self, i: usize, k: usize) {
+        let rules = self.rules();
+        let a = &rules.dungeons.affixes;
+        let Some(m) = self.runs[i].as_ref().map(|r| &r.mobs[k]) else {
+            return;
+        };
+        let stacks = f32::from(m.stacks);
+        let hp_mult = 1.0 + a.num("bolster", "hp", 0.15) * stacks;
+        let mut attack = m.base_attack * (1.0 + a.num("bolster", "damage", 0.15) * stacks);
+        let mut speed = m.base_speed;
+        if m.raged {
+            attack *= a.num("enrage", "damage", 1.5);
+            speed *= a.num("enrage", "speed", 1.15);
+        }
+        let (entity, base_hp) = (m.entity, m.base_hp);
+        if let Some(mut x) = self.world.get_mut::<Mob>(entity) {
+            let share = if x.max_hp > 0.0 { x.hp / x.max_hp } else { 1.0 };
+            x.max_hp = base_hp * hp_mult;
+            x.hp = x.max_hp * share;
+            x.attack_power = attack;
+            x.move_speed = speed;
+        }
+    }
+
+    /// A curse mark on run `i`'s floor, told to its players.
+    #[allow(clippy::too_many_arguments)]
+    fn add_hazard(
+        &mut self,
+        i: usize,
+        kind: &str,
+        at: Vec3,
+        radius: f32,
+        release: u32,
+        until: u32,
+        hp_share: f32,
+    ) {
+        let tick = self.tick;
+        self.next_hazard += 1;
+        let view = HazardView {
+            id: self.next_hazard,
+            kind: kind.to_owned(),
+            center: [at.x, at.y, at.z],
+            radius,
+            start_tick: tick,
+            release_tick: release,
+            until_tick: until,
+            hp_share,
+        };
+        let Some(copy) = self.runs[i].as_ref().map(|r| r.copy) else {
+            return;
+        };
+        if let Some(r) = self.runs[i].as_mut() {
+            r.hazards.push(Hazard {
+                view: view.clone(),
+                pos: at,
+                done: false,
+            });
+        }
+        for (_, conn) in self.in_copy(copy) {
+            self.send_control(
+                conn,
+                &ServerMsg::Dungeon(Box::new(DungeonMsg::Hazard(view.clone()))),
+            );
+        }
+    }
+
+    /// The timed curses: rage at low health, the chill, the storm; and a
+    /// legendary boss's rage (from its pull, again after every reset).
+    fn curse_tick(&mut self, i: usize) {
+        let rules = self.rules();
+        let a = &rules.dungeons.affixes;
+        let tick = self.tick;
+        let Some((affixes, copy, difficulty)) = self.runs[i]
+            .as_ref()
+            .map(|r| (r.affixes.clone(), r.copy, r.difficulty))
+        else {
+            return;
+        };
+        let diff = &rules.dungeons.difficulties[difficulty];
+        let has = |c: &str| affixes.iter().any(|x| x == c);
+        let count = self.runs[i].as_ref().map_or(0, |r| r.mobs.len());
+        for k in 0..count {
+            let Some((entity, boss, raged, pulled)) = self.runs[i].as_ref().map(|r| {
+                (
+                    r.mobs[k].entity,
+                    r.mobs[k].boss_name.is_some(),
+                    r.mobs[k].raged,
+                    r.mobs[k].pulled_at,
+                )
+            }) else {
+                return;
+            };
+            let Some((mode, hp, max_hp)) = self
+                .world
+                .get::<Mob>(entity)
+                .map(|m| (m.mode, m.hp, m.max_hp))
+            else {
+                continue;
+            };
+            if mode == MobMode::Dead {
+                continue;
+            }
+            if !boss && has("enrage") && !raged && hp < max_hp * a.num("enrage", "below", 0.3) {
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.mobs[k].raged = true;
+                }
+                self.restat(i, k);
+            }
+            if boss && diff.boss_enrage_s > 0.0 {
+                let fighting = matches!(mode, MobMode::Chase(_));
+                let at_home = matches!(mode, MobMode::Idle | MobMode::Return);
+                if fighting && pulled.is_none() {
+                    if let Some(r) = self.runs[i].as_mut() {
+                        r.mobs[k].pulled_at = Some(tick);
+                    }
+                } else if at_home && pulled.is_some() {
+                    if let Some(r) = self.runs[i].as_mut() {
+                        r.mobs[k].pulled_at = None;
+                    }
+                    if let Some(mut m) = self.world.get_mut::<Mob>(entity) {
+                        m.enraged = false;
+                    }
+                } else if let Some(since) = pulled
+                    && tick >= since + (diff.boss_enrage_s * SIM_HZ as f32) as u32
+                    && let Some(mut m) = self.world.get_mut::<Mob>(entity)
+                    && !m.enraged
+                {
+                    m.enraged = true;
+                    self.say(
+                        i,
+                        "The guardian of this place flies into a rage - finish it now!",
+                    );
+                }
+            }
+        }
+        let inside = self.in_copy(copy);
+        let living: Vec<Entity> = inside
+            .iter()
+            .map(|(e, _)| *e)
+            .filter(|e| {
+                self.world
+                    .get::<Player>(*e)
+                    .is_some_and(|p| p.dead_until == 0)
+            })
+            .collect();
+        // The chill and the storm wait while there is nobody to strike.
+        let next = |every: f32| tick + (every * diff.hazard_mult * SIM_HZ as f32) as u32;
+        if has("chill") {
+            if living.is_empty() {
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.chill_next = r.chill_next.max(tick);
+                }
+            } else if self.runs[i].as_ref().is_some_and(|r| tick >= r.chill_next) {
+                let ticks = (a.num("chill", "despair_s", 6.0) * SIM_HZ as f32) as u32;
+                for e in &living {
+                    if let Some(mut p) = self.world.get_mut::<Player>(*e) {
+                        p.afflictions.despair_until = p.afflictions.despair_until.max(tick + ticks);
+                    }
+                }
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.chill_next = next(a.num("chill", "every_s", 45.0));
+                }
+                self.say(
+                    i,
+                    "A Pallid's chill sweeps the halls - nobody recovers for a while.",
+                );
+            }
+        }
+        if has("storm") {
+            let fighting = self.runs[i].as_ref().is_some_and(|r| {
+                r.mobs.iter().any(|m| {
+                    self.world
+                        .get::<Mob>(m.entity)
+                        .is_some_and(|x| matches!(x.mode, MobMode::Chase(_)))
+                })
+            });
+            if !fighting || living.is_empty() {
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.storm_next = r.storm_next.max(tick);
+                }
+            } else if self.runs[i].as_ref().is_some_and(|r| tick >= r.storm_next) {
+                let pick = (xorshift(&mut self.dice_state) as usize) % living.len();
+                let at = self.world.get::<Player>(living[pick]).map(|p| p.body.pos);
+                if let Some(at) = at {
+                    let warn = (a.num("storm", "warn_s", 1.2) * SIM_HZ as f32) as u32;
+                    self.add_hazard(
+                        i,
+                        "storm",
+                        at,
+                        a.num("storm", "radius", 3.5),
+                        tick + warn,
+                        0,
+                        a.num("storm", "hp_share", 0.15),
+                    );
+                }
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.storm_next = next(a.num("storm", "every_s", 12.0));
+                }
+            }
+        }
+    }
+
+    /// Curse marks go off and hold, every tick: rings strike at their
+    /// release, sticky patches and webs slow, venom pools bite each second.
+    pub(super) fn tick_hazards(&mut self) {
+        if !self.instanced {
+            return;
+        }
+        let tick = self.tick;
+        for i in 0..self.runs.len() {
+            let Some(copy) = self.runs[i].as_ref().map(|r| r.copy) else {
+                continue;
+            };
+            let marks: Vec<(usize, String, Vec3, f32, u32, u32, f32)> = self.runs[i]
+                .as_ref()
+                .map(|r| {
+                    r.hazards
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, h)| !h.done)
+                        .map(|(k, h)| {
+                            (
+                                k,
+                                h.view.kind.clone(),
+                                h.pos,
+                                h.view.radius,
+                                h.view.release_tick,
+                                h.view.until_tick,
+                                h.view.hp_share,
+                            )
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            if marks.is_empty() {
+                continue;
+            }
+            let players: Vec<(Entity, Vec3, f32)> = self
+                .in_copy(copy)
+                .into_iter()
+                .filter_map(|(e, _)| {
+                    let p = self.world.get::<Player>(e)?;
+                    (p.dead_until == 0).then_some((e, p.body.pos, p.max_hp))
+                })
+                .collect();
+            for (k, kind, at, radius, release, until, share) in marks {
+                let inside: Vec<(Entity, f32)> = players
+                    .iter()
+                    .filter(|(_, p, _)| {
+                        planar_distance(*p, at) <= radius && (p.y - at.y).abs() < 4.0
+                    })
+                    .map(|(e, _, max)| (*e, *max))
+                    .collect();
+                let over = match kind.as_str() {
+                    "burst" | "storm" => {
+                        if tick < release {
+                            continue;
+                        }
+                        for (e, max) in &inside {
+                            self.wound_player(*e, *e, max * share, 0.0, false, u8::MAX);
+                        }
+                        true
+                    }
+                    _ => {
+                        let web = kind == "sticky" || (kind == "pool" && share <= 0.0);
+                        if web && tick.is_multiple_of(9) {
+                            for (e, _) in &inside {
+                                if let Some(mut p) = self.world.get_mut::<Player>(*e) {
+                                    let next = p.last_input_tick + 1;
+                                    p.restraint.web(next, next + 18, 50);
+                                }
+                            }
+                        }
+                        if !web && share > 0.0 && tick.is_multiple_of(SIM_HZ) {
+                            for (e, max) in &inside {
+                                self.wound_player(*e, *e, max * share, 0.0, false, u8::MAX);
+                            }
+                        }
+                        tick >= until
+                    }
+                };
+                if over && let Some(r) = self.runs[i].as_mut() {
+                    r.hazards[k].done = true;
+                }
+            }
+            if let Some(r) = self.runs[i].as_mut() {
+                r.hazards
+                    .retain(|h| !h.done || h.view.until_tick + 60 > tick);
+            }
+        }
+    }
+
+    /// An elite's blow under the bleeding curse: the victim bleeds.
+    pub(super) fn curse_bleed(&mut self, mob: Entity, player: Entity) {
+        if !self.instanced {
+            return;
+        }
+        let Some((pos, elite)) = self.world.get::<Mob>(mob).map(|m| (m.pos, m.elite)) else {
+            return;
+        };
+        let Some(i) = self.run_index(self.copy_of(pos)) else {
+            return;
+        };
+        if !elite
+            || !self.runs[i]
+                .as_ref()
+                .is_some_and(|r| r.affixes.iter().any(|a| a == "bleed"))
+        {
+            return;
+        }
+        let rules = self.rules();
+        let a = &rules.dungeons.affixes;
+        let tick = self.tick;
+        let interval = (a.num("bleed", "interval_ms", 1000.0) * SIM_HZ as f32 / 1000.0) as u32;
+        let ticks = a.num("bleed", "ticks", 6.0) as u32;
+        let Some(mut p) = self.world.get_mut::<Player>(player) else {
+            return;
+        };
+        if p.dead_until != 0 {
+            return;
+        }
+        let damage = p.max_hp * a.num("bleed", "hp_share", 0.02);
+        p.afflictions.bleed = Some(super::afflict::Venom {
+            until: tick + interval * ticks,
+            next: tick + interval,
+            interval,
+            damage,
+            source: mob,
+        });
+        if !self.poisoned.contains(&player) {
+            self.poisoned.push(player);
         }
     }
 
@@ -1533,6 +2040,10 @@ impl Sim {
                 members: out,
                 active,
                 check,
+                affixes: rules
+                    .dungeons
+                    .affixes
+                    .of_week(dungeons::curse_week(super::now_unix())),
             })),
         );
     }
@@ -1837,6 +2348,14 @@ impl Sim {
             members.push((*ch, p.sheet.name.clone(), p.sheet.level, rewarded, first));
         }
         let ref_level = rules.dungeons.ref_level(&def, &levels);
+        let curses = usize::from(rules.dungeons.difficulties[difficulty].affixes);
+        let affixes: Vec<String> = rules
+            .dungeons
+            .affixes
+            .of_week(dungeons::curse_week(super::now_unix()))
+            .into_iter()
+            .take(curses)
+            .collect();
         self.next_check += 1;
         let req = u64::from(self.next_check);
         let keys = rules.dungeons.difficulties[difficulty].keys;
@@ -1856,6 +2375,7 @@ impl Sim {
                 difficulty: difficulty as u8,
                 ref_level,
                 roster: members,
+                affixes,
             }),
         });
     }

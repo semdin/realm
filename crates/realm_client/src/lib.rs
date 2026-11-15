@@ -1153,8 +1153,10 @@ impl RealmSession {
                 }
                 ServerMsg::Dungeon(m) => {
                     // `event`: info, ready, cancelled, refused, launch, state,
-                    // rewards; the message's fields alongside (tuples come
-                    // as arrays).
+                    // hazard, rewards; the message's fields alongside (tuples
+                    // come as arrays), and the whole of a struct's as `view`
+                    // too (a hazard's own `kind` stays there: the event's
+                    // `kind` is "dungeon").
                     d.set("kind", "dungeon");
                     if let Ok(serde_json::Value::Object(o)) = serde_json::to_value(&m) {
                         for (name, inner) in o {
@@ -1164,8 +1166,16 @@ impl RealmSession {
                             );
                             match inner {
                                 serde_json::Value::Object(fields) => {
+                                    d.set(
+                                        "view",
+                                        &json_to_variant(&serde_json::Value::Object(
+                                            fields.clone(),
+                                        )),
+                                    );
                                     for (k, v) in fields {
-                                        d.set(k.as_str(), &json_to_variant(&v));
+                                        if k != "kind" {
+                                            d.set(k.as_str(), &json_to_variant(&v));
+                                        }
                                     }
                                 }
                                 other => d.set("view", &json_to_variant(&other)),

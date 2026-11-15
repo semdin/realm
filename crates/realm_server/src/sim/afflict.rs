@@ -198,6 +198,17 @@ impl Sim {
             .flatten()
             .filter(|(v, s)| self.foes(*s, *v))
             .collect();
+        let creatures: Vec<Entity> = list
+            .iter()
+            .filter_map(|&v| {
+                self.world
+                    .get::<Player>(v)?
+                    .afflictions
+                    .bleed
+                    .map(|d| d.source)
+            })
+            .filter(|src| self.world.get::<super::Mob>(*src).is_some())
+            .collect();
         list.retain(|&player| {
             let Some(mut p) = self.world.get_mut::<Player>(player) else {
                 return false;
@@ -209,10 +220,12 @@ impl Sim {
                 return false;
             }
             let a = &mut p.afflictions;
+            // A creature's bleed (a dungeon curse) runs like venom.
+            let creature_bleed = a.bleed.is_some_and(|d| creatures.contains(&d.source));
             for (slot, duel) in [
                 (&mut a.venom, false),
                 (&mut a.burn, true),
-                (&mut a.bleed, true),
+                (&mut a.bleed, !creature_bleed),
             ] {
                 let Some(mut dot) = *slot else { continue };
                 if tick > dot.until || (duel && !foes.contains(&(player, dot.source))) {

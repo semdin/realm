@@ -11,8 +11,10 @@ class_name MapDungeon
 ##   * Inside a copy (RealmSession.copy() != 0): main.gd draws the map at
 ##     copy_offset(); the copy's gates stand as portcullises (DungeonGates),
 ##     the run tracker (HudDungeonRun) follows the run's "state" views, a new
-##     step message shows on the notice band, and the result window
-##     (HudDungeonResult) opens at the end with the "rewards" that follow.
+##     step message shows on the notice band, the curses' marks burn on the
+##     floor (DungeonHazards, from the "hazard" events and the run views),
+##     and the result window (HudDungeonResult) opens at the end with the
+##     "rewards" that follow.
 
 ## main.gd (session, hud).
 var game: Node
@@ -21,6 +23,7 @@ var gate_window: HudDungeon
 var run_view: HudDungeonRun
 var result_window: HudDungeonResult
 var gates: DungeonGates
+var hazards: DungeonHazards
 ## Step messages shown (the check reads them).
 var messages: Array = []
 ## Every dungeon event by its `event` (the check reads them).
@@ -43,6 +46,9 @@ func setup(main: Node, map_id: String, ui_root: Control) -> void:
 	run_view.result_window = result_window
 	ui_root.add_child(run_view)
 	ui_root.move_child(run_view, game.hud.get_index() + 1)
+	hazards = DungeonHazards.new()
+	hazards.session = game.session
+	game.add_child(hazards)
 
 ## The player is in a dungeon copy.
 func in_copy() -> bool:
@@ -82,6 +88,7 @@ func on_event(event: Dictionary) -> void:
 			game.hud.invites.clear_dungeon()
 		"state":
 			run_view.on_state(view)
+			hazards.sync(view.get("hazards", []))
 			var message := String(view.get("message", ""))
 			if message != "" and message != _message:
 				# The server words its step messages in English (dungeons.json).
@@ -91,3 +98,5 @@ func on_event(event: Dictionary) -> void:
 			_message = message
 		"rewards":
 			result_window.on_event(event)
+		"hazard":
+			hazards.on_hazard(view)

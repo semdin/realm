@@ -645,7 +645,8 @@ impl Sim {
                             let a = begin(&mut mob, ab, target, tpos, tick, cooldown);
                             deeds.push(telegraph(net_id.0, ab, &a));
                         } else if brain.windup_ms > 0 || brain.recovery_ms > 0 {
-                            let release = tick + ticks(brain.windup_ms);
+                            let release =
+                                tick + ticks((brain.windup_ms as f32 * mob.windup_scale) as u32);
                             mob.attack = Some(Attack {
                                 ability: None,
                                 target,
@@ -1085,6 +1086,7 @@ impl Sim {
             replan_at: 0,
             status: super::status::Status::default(),
             drop_scale: 1.0,
+            windup_scale: 1.0,
         };
         let entity = self.world.spawn(mob).id();
         let id = self.new_id(entity);
@@ -1419,6 +1421,7 @@ impl Sim {
                     .is_none()
             {
                 self.hit_player(attack.target, mob, power, "melee", level);
+                self.curse_bleed(mob, attack.target);
             }
             return;
         };
@@ -1545,7 +1548,7 @@ fn begin(
         Shape::Area { offset, .. } => mob.pos + facing(mob.yaw) * offset,
         Shape::Cone { .. } => mob.pos,
     };
-    let release = tick + ticks(ab.windup_ms);
+    let release = tick + ticks((ab.windup_ms as f32 * mob.windup_scale) as u32);
     let a = Attack {
         ability: Some(ab.index),
         target,

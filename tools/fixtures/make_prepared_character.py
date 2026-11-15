@@ -22,10 +22,20 @@ Sweeper (broom slot), carries 5 Hearth Dust and a Waylink boot (cells 5 and
 `--dungeon-kit` (the Godot client's --check-dungeon) is level 12 and stands
 on the grounds beside the Trial Hall gate (portal `trial_entry`), where
 realm_netcheck --dungeon seeds its own character.
+
+    python tools/fixtures/make_prepared_character.py build/dungeoncheck 900302 --dungeon-kit --dungeon-cleared normal
+
+`--dungeon-cleared <difficulty>` (with the kit) also writes a gold-medal clear
+of the Trial Hall on that difficulty (and every easier one), so the next one
+up is unlocked: `normal` opens Hard, the first difficulty with a curse
+(--check-dungeon-difficulty 2).
 """
 import json
 import os
 import sys
+
+# realm_rules::dungeons difficulties in protocol order.
+DIFFICULTIES = ["easy", "normal", "hard", "very_hard", "legendary"]
 
 
 def item(item_id, amount=1, uid=0):
@@ -33,9 +43,17 @@ def item(item_id, amount=1, uid=0):
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    travel_kit = "--travel-kit" in sys.argv[1:]
-    dungeon_kit = "--dungeon-kit" in sys.argv[1:]
+    argv = sys.argv[1:]
+    cleared = ""
+    if "--dungeon-cleared" in argv:
+        at = argv.index("--dungeon-cleared")
+        cleared = argv[at + 1]
+        del argv[at:at + 2]
+        if cleared not in DIFFICULTIES:
+            sys.exit("--dungeon-cleared: one of " + ", ".join(DIFFICULTIES))
+    args = [a for a in argv if not a.startswith("--")]
+    travel_kit = "--travel-kit" in argv
+    dungeon_kit = "--dungeon-kit" in argv
     folder, character = args[0], int(args[1])
     bag = [None] * 40
     bag[0] = item("potion_health", 5)
@@ -63,6 +81,12 @@ def main():
         sheet["level"] = 12
         # beside maps.json portal trial_entry (its trigger is at 70, 58, 69)
         sheet["place"] = {"map": "grounds", "pos": [70.0, 58.3, 63.0], "yaw": 0.0}
+    if cleared:
+        # realm_rules::dungeons DungeonLog: gold (rank 3) on every difficulty
+        # up to `cleared`, no reward taken today.
+        records = [{"dungeon": "trial", "difficulty": i, "rank": 3, "best_ms": 100000, "day": 0, "rewarded": 0}
+                   for i in range(DIFFICULTIES.index(cleared) + 1)]
+        sheet["dungeons"] = {"records": records, "last_rewarded_day": 0, "titles": []}
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, "%d.json" % character)
     with open(path, "w", encoding="utf-8", newline="\n") as out:

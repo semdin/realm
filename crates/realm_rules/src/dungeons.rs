@@ -270,8 +270,51 @@ pub struct Rewards {
     pub shop: Vec<(String, u32, u32)>,
 }
 
+/// The weekly curses: the pool and each curse's numbers.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Affixes {
+    pub pool: Vec<String>,
+    pub numbers: BTreeMap<String, BTreeMap<String, f32>>,
+}
+
+impl Affixes {
+    /// A curse's number (`key`), or `default`.
+    #[must_use]
+    pub fn num(&self, curse: &str, key: &str, default: f32) -> f32 {
+        self.numbers
+            .get(curse)
+            .and_then(|m| m.get(key))
+            .copied()
+            .unwrap_or(default)
+    }
+
+    /// This week's curses in order (the same on every server): the pool
+    /// shuffled with the week as the seed.
+    #[must_use]
+    pub fn of_week(&self, week: u32) -> Vec<String> {
+        let mut out = self.pool.clone();
+        let mut state = week.wrapping_mul(7919).wrapping_add(17) | 1;
+        for i in (1..out.len()).rev() {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            let j = (state % (i as u32 + 1)) as usize;
+            out.swap(i, j);
+        }
+        out
+    }
+}
+
+/// The curse week: it turns on Monday 03:00 UTC.
+#[must_use]
+pub fn curse_week(unix_seconds: u64) -> u32 {
+    // The Unix epoch was a Thursday: four days on is a Monday.
+    (unix_seconds.saturating_sub(3 * 3600 + 4 * 86_400) / 604_800) as u32
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct DungeonRules {
+    pub affixes: Affixes,
     pub difficulties: Vec<Difficulty>,
     pub group: Group,
     pub roles: BTreeMap<String, Role>,
@@ -489,6 +532,16 @@ impl DungeonRules {
                 })
                 .collect(),
         };
+        rules.affixes.pool = strings(&d["affixes"]["pool"]);
+        for (id, def) in d["affixes"]["defs"].as_object().into_iter().flatten() {
+            let numbers = def
+                .as_object()
+                .into_iter()
+                .flatten()
+                .filter_map(|(k, v)| Some((k.clone(), v.as_f64()? as f32)))
+                .collect();
+            rules.affixes.numbers.insert(id.clone(), numbers);
+        }
         for (id, x) in d["dungeons"].as_object().into_iter().flatten() {
             let mut steps = Vec::new();
             for s in x["steps"].as_array().into_iter().flatten() {

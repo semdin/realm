@@ -166,6 +166,21 @@ jobs:
           ./target/release/realm_netcheck --dungeon --characters build/dungeoncheck
           kill %1 %2 %3 || true
 
+      - name: A dungeon run under every curse
+        if: matrix.os == 'ubuntu-26.04'
+        # The quick run (launch to the second gate) with all eight weekly
+        # curses forced: their marks must reach the player, the prediction
+        # never corrected.
+        run: |
+          mkdir -p build/cursecheck
+          ./target/release/realm_coord > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --characters build/cursecheck > server_a.log 2>&1 &
+          ./target/release/realm_server serve --map dng_trial --bind 127.0.0.1:7779 --coord 127.0.0.1:7900 --characters build/cursecheck --dev-dungeon-scale 0.05 --dev-dungeon-affixes burst,storm,sticky,bolster,enrage,chill,teeming,bleed > server_d.log 2>&1 &
+          sleep 8
+          ./target/release/realm_netcheck --dungeon --quick --characters build/cursecheck
+          kill %1 %2 %3 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

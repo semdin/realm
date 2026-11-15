@@ -49,6 +49,15 @@ static func difficulty_name(id: String) -> String:
 static func colour(id: String) -> Color:
 	return COLOURS.get(id, HudKit.GOLD_LT)
 
+## One weekly curse by id (dungeons.json affixes.defs: display, desc and its
+## numbers; {} when unknown).
+static func affix(id: String) -> Dictionary:
+	return ((_load().get("affixes", {}) as Dictionary).get("defs", {}) as Dictionary).get(id, {})
+
+## A curse's name in the player's language.
+static func affix_name(id: String) -> String:
+	return I18n.t(String(affix(id).get("display", id)))
+
 ## One dungeon by id (map, display, level_min, level_max, par_s, key, steps).
 static func dungeon(id: String) -> Dictionary:
 	return (_load().get("dungeons", {}) as Dictionary).get(id, {})

@@ -6,7 +6,7 @@ class_name HudDungeonRun
 ##   - while the party gathers, a line saying so; then the start countdown in
 ##     the middle of the screen (10 ... 1, "Go!") as the start gate opens;
 ##   - the tracker on the right rail: the dungeon and difficulty in the
-##     difficulty's colour, the clock against the medal times (it ticks here
+##     difficulty's colour, the run's curses, the clock against the medal times (it ticks here
 ##     from the run's start tick and its death penalty), the clear, the
 ##     creatures still standing, the bosses, the deaths and the party's lives;
 ##   - at completion with a result, the result window (HudDungeonResult).
@@ -38,6 +38,8 @@ var _frozen := 0.0
 
 var panel: PanelContainer
 var _title: Label
+## The run's curses, one line ("" and hidden when none).
+var curses_label: Label
 var clock_label: Label
 var _target: Label
 var _medal_bar: MedalBar
@@ -109,6 +111,11 @@ func _build_tracker() -> void:
 	_title = HudKit.label("", 14, HudKit.GOLD_LT, HudKit.title(), 4)
 	_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_title)
+	curses_label = HudKit.label("", 12, Color(0.86, 0.62, 1.0), HudKit.body(), 3)
+	curses_label.name = "Curses"
+	curses_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	curses_label.visible = false
+	column.add_child(curses_label)
 	var clock_row := HBoxContainer.new()
 	clock_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_child(clock_row)
@@ -229,6 +236,11 @@ func _refresh_tracker() -> void:
 	var difficulty := DungeonData.difficulty_id(int(state.get("difficulty", 1)))
 	_title.text = "%s - %s" % [I18n.upper(DungeonData.display_name(dungeon_id)), DungeonData.difficulty_name(difficulty)]
 	_title.add_theme_color_override("font_color", DungeonData.colour(difficulty))
+	var names := PackedStringArray()
+	for id: Variant in state.get("affixes", []):
+		names.append(DungeonData.affix_name(String(id)))
+	curses_label.text = " · ".join(names)
+	curses_label.visible = not names.is_empty()
 	var forces := int(state.get("forces", 0))
 	var total := int(state.get("forces_total", 0))
 	var share := 1.0 if total <= 0 else minf(1.0, float(forces) / float(total))

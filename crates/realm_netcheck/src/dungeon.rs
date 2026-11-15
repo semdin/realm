@@ -194,7 +194,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let started = Instant::now();
     let mut casts = 0_u32;
     let mut last_fixes = 0;
-    while started.elapsed() < Duration::from_secs(480) {
+    while started.elapsed() < Duration::from_secs(900) {
         let view = state(&d);
         if view.as_ref().is_some_and(|v| v.complete) {
             break;
@@ -279,6 +279,26 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     };
     let result = view.result.clone().unwrap_or_default();
     if !view.complete || result.timeout || result.clear < 1000 {
+        // Where the creatures still standing are (local x, y, z).
+        let local_ticks = d.started.elapsed().as_secs_f64() * ClientCore::HZ;
+        let standing: Vec<(i32, i32, i32)> = d.core.as_ref().map_or(Vec::new(), |c| {
+            c.remote_entities(local_ticks)
+                .into_iter()
+                .filter(|e| {
+                    e.kind != 0
+                        && e.kind & realm_proto::KIND_CHEST != realm_proto::KIND_CHEST
+                        && e.state != 3
+                })
+                .map(|e| {
+                    (
+                        (e.pos.x - origin.x) as i32,
+                        e.pos.y as i32,
+                        (e.pos.z - origin.z) as i32,
+                    )
+                })
+                .collect()
+        });
+        println!("[dungeon] still standing: {standing:?}");
         return fail(format!(
             "the run did not finish clean after {casts} casts: step {}, {} / {} forces, result {result:?}, left {}",
             view.step, view.forces, view.forces_total, view.left
@@ -431,6 +451,29 @@ fn quick_out(
         "[dungeon] 3 ok (quick): the first wave down, {} / {} forces, {exp} exp, gate_h open",
         view.forces, view.forces_total
     );
+    // Curses (a server run with --dev-dungeon-affixes): their marks.
+    let marks: Vec<String> = d
+        .events
+        .iter()
+        .filter_map(|m| match m {
+            ServerMsg::Dungeon(x) => match &**x {
+                DungeonMsg::Hazard(h) => Some(h.kind.clone()),
+                _ => None,
+            },
+            _ => None,
+        })
+        .collect();
+    if !view.affixes.is_empty() {
+        println!(
+            "[dungeon] curses {:?}: {} marks {:?}",
+            view.affixes,
+            marks.len(),
+            marks
+        );
+        if view.affixes.iter().any(|a| a == "burst") && !marks.iter().any(|k| k == "burst") {
+            return fail("the bursting dead left no ring");
+        }
+    }
     let exit = rules
         .travel
         .portals

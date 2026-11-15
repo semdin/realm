@@ -347,6 +347,23 @@ pub struct RunResult {
     pub timeout: bool,
 }
 
+/// A curse's mark on a run's floor. `kind`: burst (a ring at a corpse that
+/// goes off at `release_tick`), storm (a ring under a player, the same),
+/// sticky (a slowing patch until `until_tick`), pool (venom or web, until
+/// `until_tick`). Server ticks; `hp_share`: the share of maximum health it
+/// takes (per second for a venom pool).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct HazardView {
+    pub id: u32,
+    pub kind: String,
+    pub center: [f32; 3],
+    pub radius: f32,
+    pub start_tick: u32,
+    pub release_tick: u32,
+    pub until_tick: u32,
+    pub hp_share: f32,
+}
+
 /// A dungeon run as the players in it see it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct RunView {
@@ -376,6 +393,10 @@ pub struct RunView {
     pub left: u32,
     pub complete: bool,
     pub result: Option<RunResult>,
+    /// The run's curses (dungeons.json affixes ids).
+    pub affixes: Vec<String>,
+    /// Curse marks on the floor now (a player arriving late sees them).
+    pub hazards: Vec<HazardView>,
 }
 
 /// The dungeon gate, the ready check and a run.
@@ -390,6 +411,8 @@ pub enum DungeonMsg {
         members: Vec<GateMember>,
         active: Option<crate::coord::RunSummary>,
         check: Option<ReadyView>,
+        /// This week's curses in order: a difficulty takes the first N.
+        affixes: Vec<String>,
     },
     Ready(ReadyView),
     Cancelled {
@@ -409,6 +432,8 @@ pub enum DungeonMsg {
     },
     /// The run as it stands.
     State(RunView),
+    /// A curse mark appears on the floor.
+    Hazard(HazardView),
     /// What the run paid this player. `helper`: no daily right left.
     Rewards {
         helper: bool,

@@ -287,6 +287,8 @@ struct Mob {
     status: status::Status,
     /// Loot chance multiplier (a dungeon run's creatures).
     drop_scale: f32,
+    /// Its windups' length multiplier (a dungeon difficulty's telegraph).
+    windup_scale: f32,
 }
 
 /// What one client has been sent.
@@ -436,8 +438,11 @@ pub struct Sim {
     ready_checks: Vec<dungeon::Check>,
     launches: Vec<dungeon::Launch>,
     next_check: u32,
+    next_hazard: u32,
     /// Development: a run's creatures' health and damage x this.
     pub dev_dungeon_scale: f32,
+    /// Development: every run's curses (instead of the week's).
+    pub dev_dungeon_affixes: Option<Vec<String>>,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -611,7 +616,9 @@ impl Sim {
             ready_checks: Vec::new(),
             launches: Vec::new(),
             next_check: 0,
+            next_hazard: 0,
             dev_dungeon_scale: 1.0,
+            dev_dungeon_affixes: None,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -699,6 +706,7 @@ impl Sim {
                     replan_at: 0,
                     status: status::Status::default(),
                     drop_scale: 1.0,
+                    windup_scale: 1.0,
                 };
                 let entity = self.world.spawn(mob).id();
                 let id = self.new_id(entity);
@@ -754,6 +762,7 @@ impl Sim {
         self.expire_trips();
         self.sweep_departing();
         self.tick_runs();
+        self.tick_hazards();
         self.tick_checks();
         self.regenerate();
         lap(2, &mut self.stats);

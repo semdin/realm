@@ -20,6 +20,11 @@ class_name GroundWarning
 ##     blast running out to the boundary.
 ## No flames stand on it and nothing in it is a ruled line or a flat fill.
 ## Presentation only: the server decides who the attack hits.
+##
+## The dungeon curses' marks (DungeonHazards) are the same ground in their
+## own tint: a ring that fills to its release tick and bursts, or a held
+## patch (`held`: the whole area burns at once, no front, no charge sound)
+## that cools away (`expire`) when it runs out.
 
 const SHADER := preload("res://assets/shaders/ground_telegraph.gdshader")
 const TINT := Color(1.0, 0.38, 0.08)
@@ -30,6 +35,8 @@ const BLAST_S := 0.34
 ## How long the embers already in the air are left to burn out after a release.
 const AFTERGLOW_S := 0.8
 const CANCEL_S := 0.15
+## A held patch running out cools over this long.
+const EXPIRE_S := 0.7
 const CHARGE_SOUND := "boss_slam_cast"
 const RELEASE_SOUND := "boss_slam_release"
 
@@ -41,6 +48,10 @@ var reach := 5.0
 ## A cone's half angle in radians; 4.0 is the whole circle.
 var sector := 4.0
 var progress := 0.0
+## The fire's colour (TINT for a creature's telegraph).
+var tint := TINT
+## A lasting patch: no countdown, no charge, no blast.
+var held := false
 var _disc: MeshInstance3D = null
 var _embers: GPUParticles3D = null
 var _light: OmniLight3D = null
@@ -60,11 +71,15 @@ static func base_material() -> ShaderMaterial:
 ## A warning under `parent`, centred on `center` (the attack's feet point):
 ## `reach` metres to the boundary (an area's radius, a cone's range),
 ## `half_angle` > 0 for a cone opening along `facing` (radians, 0 = +Z).
-static func spawn(parent: Node, center: Vector3, reach_m: float, half_angle: float, facing: float) -> GroundWarning:
+## `colour`: the fire's tint; `lasting`: a held patch (see `held`).
+static func spawn(parent: Node, center: Vector3, reach_m: float, half_angle: float, facing: float,
+		colour: Color = TINT, lasting := false) -> GroundWarning:
 	var warning := GroundWarning.new()
 	warning.name = "GroundWarning"
 	warning.reach = maxf(0.5, reach_m)
 	warning.sector = half_angle if half_angle > 0.0 else 4.0
+	warning.tint = colour
+	warning.held = lasting
 	parent.add_child(warning)
 	warning.global_position = center
 	warning.rotation.y = facing
@@ -88,6 +103,8 @@ func _build() -> void:
 	material.set_shader_parameter("half_height", half_height)
 	material.set_shader_parameter("sector", sector)
 	material.set_shader_parameter("fade", 0.0)
+	material.set_shader_parameter("tint", tint)
+	material.set_shader_parameter("held", 1.0 if held else 0.0)
 	mesh.material = material
 	_disc = MeshInstance3D.new()
 	_disc.name = "Area"
@@ -96,14 +113,14 @@ func _build() -> void:
 	_disc.position.y = 0.08
 	add_child(_disc)
 	var low := SkillFX.quality == "low"
-	_embers = RisingMotes.make(reach, sector, TINT, 16 if low else 36, 1.5, Vector2(0.4, 1.7), Vector2(0.011, 0.026))
-	RisingMotes.set_rate(_embers, 0.3)
+	_embers = RisingMotes.make(reach, sector, tint, 16 if low else 36, 1.5, Vector2(0.4, 1.7), Vector2(0.011, 0.026))
+	RisingMotes.set_rate(_embers, 0.45 if held else 0.3)
 	add_child(_embers)
 	_embers.emitting = true
 	if not low:
 		_light = OmniLight3D.new()
 		_light.name = "WarningLight"
-		_light.light_color = TINT.lerp(Color(1.0, 0.75, 0.45), 0.3)
+		_light.light_color = tint.lerp(Color(1.0, 0.75, 0.45), 0.3)
 		_light.light_energy = 0.0
 		_light.omni_range = maxf(4.5, reach * 1.5)
 		_light.omni_attenuation = 1.4
@@ -111,7 +128,7 @@ func _build() -> void:
 		_light.position = Vector3(0, 1.1, reach * 0.5 if sector < 3.1 else 0.0)
 		add_child(_light)
 	var audio := _audio()
-	if audio != null:
+	if audio != null and not held:
 		_charge = audio.call("play_sound_at", CHARGE_SOUND, global_position, self)
 
 func _audio() -> Node:
@@ -130,7 +147,8 @@ func _process(delta: float) -> void:
 		_param("fade", _appear)
 	if _light != null:
 		var t := Time.get_ticks_msec() * 0.001
-		_light.light_energy = (0.5 + 2.4 * progress) * _appear * (0.86 + 0.14 * sin(t * 17.0) * sin(t * 7.3))
+		var p := 0.35 if held else progress
+		_light.light_energy = (0.5 + 2.4 * p) * _appear * (0.86 + 0.14 * sin(t * 17.0) * sin(t * 7.3))
 
 ## 0 at the telegraph's start, 1 on its release tick: the fire's front is
 ## exactly the server's countdown. The embers thicken with it.
@@ -139,7 +157,8 @@ func set_progress(p: float) -> void:
 		return
 	progress = clampf(p, 0.0, 1.0)
 	_param("progress", progress)
-	RisingMotes.set_rate(_embers, 0.3 + 0.7 * progress)
+	if not held:
+		RisingMotes.set_rate(_embers, 0.3 + 0.7 * progress)
 
 ## The attack went off: the fire flashes, a blast runs out to the boundary,
 ## embers are thrown up, and it is gone.
@@ -153,7 +172,7 @@ func release() -> void:
 	if _embers != null:
 		_embers.emitting = false
 	if SkillFX.quality != "low":
-		var burst := RisingMotes.make(reach, sector, TINT, 46, 0.95, Vector2(1.6, 4.6), Vector2(0.012, 0.034), true)
+		var burst := RisingMotes.make(reach, sector, tint, 46, 0.95, Vector2(1.6, 4.6), Vector2(0.012, 0.034), true)
 		add_child(burst)
 		burst.emitting = true
 	var audio := _audio()
@@ -177,6 +196,13 @@ func release() -> void:
 ## Called off before its release (the creature was stunned, thrown, died or
 ## gave up): the ground cools at once, the charge falls silent, no blast.
 func cancel() -> void:
+	_cool(CANCEL_S)
+
+## A held patch ran out: it cools away over EXPIRE_S.
+func expire() -> void:
+	_cool(EXPIRE_S)
+
+func _cool(over_s: float) -> void:
 	if _released:
 		return
 	_released = true
@@ -187,9 +213,9 @@ func cancel() -> void:
 	var material := (_disc.mesh as CylinderMesh).material as ShaderMaterial
 	var tween := create_tween()
 	tween.set_parallel(true)
-	tween.tween_property(material, "shader_parameter/fade", 0.0, CANCEL_S)
+	tween.tween_property(material, "shader_parameter/fade", 0.0, over_s)
 	if _light != null:
-		tween.tween_property(_light, "light_energy", 0.0, CANCEL_S)
+		tween.tween_property(_light, "light_energy", 0.0, over_s)
 	tween.set_parallel(false)
 	tween.tween_interval(0.6)
 	tween.tween_callback(queue_free)

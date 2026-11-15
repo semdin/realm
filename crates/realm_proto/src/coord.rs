@@ -92,6 +92,9 @@ pub struct RunSpec {
     pub ref_level: u16,
     /// (character, name, level, rewarded, first run of the day)
     pub roster: Vec<(u64, String, u16, bool, bool)>,
+    /// The week's curses this difficulty takes.
+    #[serde(default)]
+    pub affixes: Vec<String>,
 }
 
 /// A live copy as the gates see it.

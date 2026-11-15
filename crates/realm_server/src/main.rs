@@ -17,7 +17,8 @@
 //!       it to the coordinator (travel, chat and parties across maps);
 //!       `--public` is the address clients reach it at (default: the bind
 //!       address, 0.0.0.0 read as 127.0.0.1). `--dev-dungeon-scale F`
-//!       (checks only) multiplies dungeon creatures' health and damage.
+//!       (checks only) multiplies dungeon creatures' health and damage;
+//!       `--dev-dungeon-affixes a,b` gives every run those curses.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -95,6 +96,8 @@ struct Options {
     public: Option<String>,
     /// Development: dungeon creatures' health and damage x this.
     dev_dungeon_scale: f32,
+    /// Development: every run's curses.
+    dev_dungeon_affixes: Option<Vec<String>>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -109,6 +112,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         coord: None,
         public: None,
         dev_dungeon_scale: 1.0,
+        dev_dungeon_affixes: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -129,6 +133,15 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--coord" => o.coord = Some(value()?),
             "--public" => o.public = Some(value()?),
             "--dev-dungeon-scale" => o.dev_dungeon_scale = value()?.parse()?,
+            "--dev-dungeon-affixes" => {
+                o.dev_dungeon_affixes = Some(
+                    value()?
+                        .split(',')
+                        .filter(|s| !s.is_empty())
+                        .map(str::to_owned)
+                        .collect(),
+                );
+            }
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -194,6 +207,7 @@ fn serve(args: &[String]) -> AnyResult<()> {
         store_jobs.clone(),
     )?;
     sim.dev_dungeon_scale = o.dev_dungeon_scale;
+    sim.dev_dungeon_affixes = o.dev_dungeon_affixes.clone();
     if let Some(gates) = gates {
         println!(
             "[server] {} copies, {} gates",
