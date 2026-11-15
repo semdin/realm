@@ -321,6 +321,8 @@ var player: Node3D
 ## The map this scene shows: `--map` (default grounds), or the map a trip
 ## brought the player to (RealmSession.pending_travel_map).
 var map_name := "grounds"
+## The map's own scene (Phase 6), when it has one.
+var map_view: Node3D = null
 ## Doors, hearths, Waylinks, the broom key and the loading flow (MapTravel).
 var travel: MapTravel
 ## `--check-travel`: the travel check.
@@ -1043,6 +1045,24 @@ func _capsule(color: Color) -> Mesh:
 ## at its offset.
 func _build_map() -> void:
 	var offset: Vector3 = session.copy_offset()
+	# Phase 6: a map's own scene (res://maps/<map>/<map>.tscn) draws it; the
+	# pack's grey terrain and walls stand in where there is none yet, or
+	# with --placeholder-world. The scene sits at the copy's offset and gets
+	# setup(session, main) when it has one.
+	var scene := "res://maps/%s/%s.tscn" % [map_name, map_name]
+	if ResourceLoader.exists(scene) and not OS.get_cmdline_user_args().has("--placeholder-world"):
+		map_view = (load(scene) as PackedScene).instantiate() as Node3D
+		map_view.name = "MapView"
+		map_view.position = offset
+		add_child(map_view)
+		if map_view.has_method("setup"):
+			map_view.call("setup", session, self)
+	else:
+		_build_placeholder_world(offset)
+	_map_built()
+
+## The pack's own shapes, grey: terrain and every static collider.
+func _build_placeholder_world(offset: Vector3) -> void:
 	var material := StandardMaterial3D.new()
 	material.albedo_color = Color(0.42, 0.47, 0.38)
 	var terrain: ArrayMesh = session.terrain_mesh(2)
@@ -1063,6 +1083,8 @@ func _build_map() -> void:
 		node.material_override = stone
 		node.position = offset
 		add_child(node)
+
+func _map_built() -> void:
 	built = true
 	# the player's own info: whether it is a game admin (its emblem)
 	session.inspect(session.own_entity())
