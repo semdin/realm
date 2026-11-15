@@ -3,7 +3,11 @@
 //! live in `world/patches/<map>.json`, next to the packs, as boxes:
 //!
 //!   {"boxes": [{"note": "...", "center": [x, y, z], "half": [hx, hy, hz],
-//!               "yaw_deg": 0}]}
+//!               "yaw_deg": 0, "obstacle": false}]}
+//!
+//! An `obstacle` box (a tree trunk, a spire) is solid to bodies and cut out
+//! of the navmesh, but not ground for things placed from above (packs,
+//! arrivals): it goes to the pack's `obstacles`, the others to `colliders`.
 //!
 //! `build` adds them to the map's static colliders before the navmesh is
 //! baked; `patch` adds them to packs that are already built (a box already
@@ -28,8 +32,9 @@ fn triple(v: &Value, what: &str) -> Result<[f32; 3], String> {
     Ok([num(&a[0], what)?, num(&a[1], what)?, num(&a[2], what)?])
 }
 
-/// The patch boxes for `map` (none when it has no patch file).
-pub fn boxes(patches_dir: &Path, map: &str) -> Result<Vec<PackCollider>, String> {
+/// The patch boxes for `map` (none when it has no patch file), with
+/// whether each is an obstacle.
+pub fn boxes(patches_dir: &Path, map: &str) -> Result<Vec<(PackCollider, bool)>, String> {
     let path = patches_dir.join(format!("{map}.json"));
     let Ok(text) = std::fs::read_to_string(&path) else {
         return Ok(Vec::new());
@@ -44,11 +49,14 @@ pub fn boxes(patches_dir: &Path, map: &str) -> Result<Vec<PackCollider>, String>
         }
         let yaw = b["yaw_deg"].as_f64().unwrap_or(0.0).to_radians() as f32;
         let (s, c) = (yaw * 0.5).sin_cos();
-        out.push(PackCollider {
-            translation: center,
-            rotation: [0.0, s, 0.0, c],
-            shape: PackShape::Box { half },
-        });
+        out.push((
+            PackCollider {
+                translation: center,
+                rotation: [0.0, s, 0.0, c],
+                shape: PackShape::Box { half },
+            },
+            b["obstacle"].as_bool().unwrap_or(false),
+        ));
     }
     Ok(out)
 }
@@ -65,9 +73,14 @@ fn same(a: &PackCollider, b: &PackCollider) -> bool {
 /// Adds `map`'s patch boxes to `pack`; how many were new.
 pub fn apply(pack: &mut MapPack, patches_dir: &Path, map: &str) -> Result<usize, String> {
     let mut added = 0;
-    for b in boxes(patches_dir, map)? {
-        if !pack.colliders.iter().any(|c| same(c, &b)) {
-            pack.colliders.push(b);
+    for (b, obstacle) in boxes(patches_dir, map)? {
+        let list = if obstacle {
+            &mut pack.obstacles
+        } else {
+            &mut pack.colliders
+        };
+        if !list.iter().any(|c| same(c, &b)) {
+            list.push(b);
             added += 1;
         }
     }

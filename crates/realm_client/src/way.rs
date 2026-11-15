@@ -391,6 +391,8 @@ impl RealmSession {
             } else {
                 Vec::new()
             },
+            // trees and spires are not painted as walls on the map sheet
+            obstacles: Vec::new(),
             dynamic: Vec::new(),
             nav: if nav {
                 pack.nav.clone()

@@ -12,7 +12,7 @@ use crate::Vec3;
 use crate::world::{WaterArea, World};
 
 /// Bumped whenever the layout changes.
-pub const PACK_VERSION: u32 = 2;
+pub const PACK_VERSION: u32 = 3;
 
 /// Height grid value meaning "no terrain here" (a hole).
 pub const HOLE: i32 = i32::MIN;
@@ -26,6 +26,9 @@ pub struct MapPack {
     pub terrain: Vec<TerrainGrid>,
     pub water: Vec<PackWater>,
     pub colliders: Vec<PackCollider>,
+    /// Obstacles (tree trunks, spires; pack v3): solid to bodies and cut
+    /// out of the navmesh, but not ground for placing things from above.
+    pub obstacles: Vec<PackCollider>,
     /// Moving geometry the export found outside any rule: kept out of the
     /// static world.
     pub dynamic: Vec<DynamicCollider>,
@@ -140,7 +143,7 @@ impl MapPack {
     #[must_use]
     pub fn collider_meshes(&self) -> Vec<ColliderMesh> {
         let mut out = Vec::new();
-        for c in &self.colliders {
+        for c in self.colliders.iter().chain(&self.obstacles) {
             let (local, indices): (Vec<Vec3>, Vec<[u32; 3]>) = match &c.shape {
                 PackShape::Box { half } => Cuboid::new(v3(*half)).to_trimesh(),
                 PackShape::Sphere { radius } => Ball::new(*radius).to_trimesh(8, 8),
@@ -230,6 +233,11 @@ impl MapPack {
                 .add_pack_collider(collider)
                 .map_err(|e| format!("collider {index}: {e}"))?;
         }
+        for (index, collider) in self.obstacles.iter().enumerate() {
+            let (pose, shape) = crate::world::pack_shape(collider, Vec3::ZERO)
+                .map_err(|e| format!("obstacle {index}: {e}"))?;
+            world.add_obstacle(pose, shape);
+        }
         Ok(world)
     }
 
@@ -238,12 +246,18 @@ impl MapPack {
     pub fn world_copies(&self, offsets: &[Vec3]) -> Result<World, String> {
         let mut copy = self.clone();
         copy.colliders.clear();
+        copy.obstacles.clear();
         let mut world = copy.world()?;
         for offset in offsets {
             for (index, collider) in self.colliders.iter().enumerate() {
                 let (pose, shape) = crate::world::pack_shape(collider, *offset)
                     .map_err(|e| format!("collider {index}: {e}"))?;
                 world.add(pose, shape);
+            }
+            for (index, collider) in self.obstacles.iter().enumerate() {
+                let (pose, shape) = crate::world::pack_shape(collider, *offset)
+                    .map_err(|e| format!("obstacle {index}: {e}"))?;
+                world.add_obstacle(pose, shape);
             }
         }
         Ok(world)

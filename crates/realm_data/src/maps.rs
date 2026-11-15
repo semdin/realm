@@ -30,6 +30,9 @@ pub fn read_pack(path: &Path) -> Result<MapPack, String> {
         return Err(format!("{}: not a map pack", path.display()));
     }
     let version = u32::from_le_bytes([bytes[4], bytes[5], bytes[6], bytes[7]]);
+    if version == 2 {
+        return read_v2(path, &bytes);
+    }
     if version != PACK_VERSION {
         return Err(format!(
             "{}: pack version {version}, this build reads {PACK_VERSION}",
@@ -42,6 +45,49 @@ pub fn read_pack(path: &Path) -> Result<MapPack, String> {
         .map_err(|e| format!("{}: {e}", path.display()))?;
     let mut pack: MapPack =
         postcard::from_bytes(&raw).map_err(|e| format!("{}: {e}", path.display()))?;
+    for grid in &mut pack.terrain {
+        let cols = grid.cols as usize;
+        if cols == 0 || grid.heights.len() % cols != 0 {
+            return Err(format!("{}: terrain grid size", path.display()));
+        }
+        grid.heights = unpredict(&grid.heights, cols);
+    }
+    Ok(pack)
+}
+
+/// A version 2 pack (before obstacles): read and brought to the current
+/// layout with no obstacles.
+fn read_v2(path: &Path, bytes: &[u8]) -> Result<MapPack, String> {
+    #[derive(serde::Deserialize)]
+    struct V2 {
+        version: u32,
+        map: String,
+        flight_ceiling_y: f32,
+        flight_max_above_ground: f32,
+        terrain: Vec<realm_sim::pack::TerrainGrid>,
+        water: Vec<realm_sim::pack::PackWater>,
+        colliders: Vec<realm_sim::pack::PackCollider>,
+        dynamic: Vec<realm_sim::pack::DynamicCollider>,
+        nav: realm_sim::pack::NavMesh,
+        staircases: Vec<realm_sim::pack::StairAnchor>,
+    }
+    let raw = zstd::bulk::decompress(&bytes[8..], 512 << 20)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    let old: V2 = postcard::from_bytes(&raw).map_err(|e| format!("{}: {e}", path.display()))?;
+    let _ = old.version;
+    let mut pack = MapPack {
+        version: PACK_VERSION,
+        map: old.map,
+        flight_ceiling_y: old.flight_ceiling_y,
+        flight_max_above_ground: old.flight_max_above_ground,
+        terrain: old.terrain,
+        water: old.water,
+        colliders: old.colliders,
+        obstacles: Vec::new(),
+        dynamic: old.dynamic,
+        nav: old.nav,
+        staircases: old.staircases,
+    };
     for grid in &mut pack.terrain {
         let cols = grid.cols as usize;
         if cols == 0 || grid.heights.len() % cols != 0 {

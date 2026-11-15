@@ -221,6 +221,9 @@ fn patch_packs(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         let mut pack = read_pack(&path)?;
         let added = patch::apply(&mut pack, &patches, map)?;
         if added == 0 {
+            // Written again all the same: an older pack comes out in the
+            // current layout.
+            write_pack(&path, &pack)?;
             continue;
         }
         let y_max = info["y_max"].as_f64().unwrap_or(1000.0) as f32;
@@ -231,8 +234,9 @@ fn patch_packs(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         pack.nav = navmesh;
         write_pack(&path, &pack)?;
         println!(
-            "{map:<24} +{added} patch boxes -> {} colliders; navmesh {} polygons",
+            "{map:<24} +{added} patch boxes -> {} colliders, {} obstacles; navmesh {} polygons",
             pack.colliders.len(),
+            pack.obstacles.len(),
             report.polygons
         );
     }
@@ -383,7 +387,14 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
             });
         }
         let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
-        colliders.extend(patch::boxes(&patches, map)?);
+        let mut obstacles = Vec::new();
+        for (b, obstacle) in patch::boxes(&patches, map)? {
+            if obstacle {
+                obstacles.push(b);
+            } else {
+                colliders.push(b);
+            }
+        }
         let mut pack = MapPack {
             version: PACK_VERSION,
             map: map.clone(),
@@ -394,6 +405,7 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
             terrain,
             water,
             colliders,
+            obstacles,
             dynamic,
             nav: NavMesh::default(),
             staircases,

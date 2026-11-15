@@ -28,6 +28,10 @@ pub struct Collider {
     pub pose: Pose,
     pub shape: SharedShape,
     aabb: Aabb,
+    /// An obstacle (a tree trunk, a spire): it stops bodies, but the ground
+    /// found from the sky (where creatures and arrivals are placed) is
+    /// what lies under it.
+    obstacle: bool,
 }
 
 /// A body of water: inside the planar rectangle the surface sits at
@@ -97,6 +101,15 @@ impl World {
     }
 
     pub fn add(&mut self, pose: Pose, shape: SharedShape) {
+        self.add_kind(pose, shape, false);
+    }
+
+    /// An obstacle: solid to bodies, not ground for `ground_height`.
+    pub fn add_obstacle(&mut self, pose: Pose, shape: SharedShape) {
+        self.add_kind(pose, shape, true);
+    }
+
+    fn add_kind(&mut self, pose: Pose, shape: SharedShape, obstacle: bool) {
         let aabb = shape.compute_aabb(&pose);
         let index = self.colliders.len() as u32;
         for cx in cell_range(aabb.mins.x, aabb.maxs.x) {
@@ -104,7 +117,12 @@ impl World {
                 self.grid.entry((cx, cz)).or_default().push(index);
             }
         }
-        self.colliders.push(Collider { pose, shape, aabb });
+        self.colliders.push(Collider {
+            pose,
+            shape,
+            aabb,
+            obstacle,
+        });
     }
 
     /// Replaces the moving colliders (call once per tick, before bodies move).
@@ -116,6 +134,7 @@ impl World {
                 pose: *pose,
                 shape: shape.clone(),
                 aabb,
+                obstacle: false,
             });
         }
     }
@@ -366,6 +385,22 @@ impl World {
     /// ascending order: no candidate list to build.
     #[must_use]
     pub fn ray_down(&self, origin: Vec3, max_distance: f32) -> Option<GroundHit> {
+        self.ray_down_filtered(origin, max_distance, false)
+    }
+
+    /// As `ray_down`, looking through obstacles (trees, spires): the ground
+    /// something is placed on from above.
+    #[must_use]
+    pub fn ray_down_ground(&self, origin: Vec3, max_distance: f32) -> Option<GroundHit> {
+        self.ray_down_filtered(origin, max_distance, true)
+    }
+
+    fn ray_down_filtered(
+        &self,
+        origin: Vec3,
+        max_distance: f32,
+        skip_obstacles: bool,
+    ) -> Option<GroundHit> {
         let ray = Ray::new(origin, Vec3::new(0.0, -1.0, 0.0));
         let cell = (
             (origin.x / CELL).floor() as i32,
@@ -374,6 +409,9 @@ impl World {
         let mut best: Option<(f32, Vec3)> = None;
         for &index in self.grid.get(&cell).map_or(&[][..], Vec::as_slice) {
             let collider = &self.colliders[index as usize];
+            if skip_obstacles && collider.obstacle {
+                continue;
+            }
             let b = &collider.aabb;
             if origin.x < b.mins.x
                 || origin.x > b.maxs.x
@@ -430,7 +468,7 @@ impl World {
     /// ceiling), or `None` over the void.
     #[must_use]
     pub fn ground_height(&self, x: f32, z: f32) -> Option<f32> {
-        self.ray_down(
+        self.ray_down_ground(
             Vec3::new(x, self.flight_ceiling_y + 1.0, z),
             self.flight_ceiling_y + 2000.0,
         )
