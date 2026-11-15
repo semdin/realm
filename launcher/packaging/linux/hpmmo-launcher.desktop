@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Thousand Realms
+Comment=Thousand Realms - Büyücülük Diyarı
+Exec=ThousandRealms_Launcher
+Icon=hpmmo-launcher
+Categories=Game;
+Terminal=false

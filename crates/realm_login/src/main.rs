@@ -28,7 +28,7 @@
 //!   POST /api/characters/create (Bearer) {name, house, look} -> {character: {id, name, house}}
 //!   POST /api/play              (Bearer) {character_id} -> {map, address, ticket (hex), expires_in_seconds}
 //!   GET  /api/health
-//!   GET  /api/status            -> {state: ONLINE|MAINTENANCE, maintenance, message} (the launcher)
+//!   GET  /api/status            -> {state: ONLINE|MAINTENANCE, maintenance, message, protocol_version} (the launcher)
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
@@ -684,6 +684,8 @@ async fn realm_status(state: &Mutex<State>) -> (u16, Value) {
             "state": if open { "ONLINE" } else { "MAINTENANCE" },
             "maintenance": !open,
             "message": if open { "Diyar açık." } else { "Diyar şu an bakımda." },
+            // The launcher holds a release whose protocol range misses this.
+            "protocol_version": realm_proto::PROTOCOL_VERSION.to_string(),
             "time": now,
         }),
     )

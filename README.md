@@ -24,6 +24,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_coord` | The coordinator: who is online on which map (every character's seat: on one map or in transit), the parties, shouts and party lines across maps, and the handoff between maps (a seat reserved on the destination, the old map's save landed before the sheet moves, a ticket signed with keys/ticket.key). Map servers link to it with `--coord` and keys/coord.key; players never do. Without it a map server still runs alone (local chat, trips on its own map). |
 | `crates/realm_login` | The login service: accounts (argon2id), sessions, each account's two characters (the old name and house rules), and the ticket a client joins its map with (signed with keys/ticket.key; the map's address from the coordinator's `GET /admin/maps`). Writes new characters into the map servers' `--characters` folder. |
 | `crates/realm_persist` | The persistence service: the only writer of the realm's PostgreSQL (REALM_DATABASE_URL; schema migrations at start). Map servers run with `--persist <addr>` instead of `--characters <dir>`; a save is answered once committed and never goes back in time (an older revision is refused). |
+| `launcher/` | The launcher (C++; Windows GDI+, Linux/macOS SDL3): installs and updates the game from this repository's GitHub Releases (signed manifests, chunked delta updates), shows the realm's state from `https://api.agsilvery.com/api/status`, starts the game. Its background is drawn from noise (`assets/make_background.py`). Released by `.github/workflows/client-release.yml` (manual dispatch) with the game. |
 | `crates/realm_http` | The one-request-per-connection JSON HTTP the coordinator's admin surface and the login service share. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
@@ -194,16 +195,13 @@ build/client_export/win/ThousandRealms.exe --headless -- --login-url http://127.
   `git lfs pull` first; `stage_client.sh` refuses pointers and missing ones).
 - **The release root** (`game/scripts/systems/realm_paths.gd`): an exported
   game (feature `template`) reads `content/data`, `world/maps` and
-  `keys/tls.crt.der` beside its executable; on macOS in
-  `Thousand Realms.app/Contents/Resources`, beside the pck, so the bundle is
-  self-contained, moves as one piece and is signed as one (the executable is
-  in `Contents/MacOS`). A dev run keeps the checkout (`res://..`);
-  `--keys`, `--content` and `--maps` override either. `stage_client.sh` fills
-  the root fresh each time and, on macOS, signs the bundle again (ad-hoc:
-  `codesign` on a Mac, `rcodesign` from apple-codesign on the Linux runner),
-  since the files it adds change the sealed resources. The bundle keeps the
-  project's name, `Thousand Realms.app`: the launcher starts
-  `Thousand Realms.app/Contents/MacOS/Thousand Realms`.
+  `keys/tls.crt.der` beside its executable; on macOS beside the
+  `Thousand Realms.app` bundle (the launcher starts
+  `Thousand Realms.app/Contents/MacOS/Thousand Realms`), so the bundle stays
+  exactly as the export signed it, realm_client's library included (put in
+  `target/release/` before a macOS export). A dev run keeps the checkout
+  (`res://..`); `--keys`, `--content` and `--maps` override either.
+  `stage_client.sh` fills the root fresh each time.
 - **What ships**: the executable, `ThousandRealms.pck` (all resources; the
   grounds' scatter `.bin`s, the tree tiles and the font licence through
   `include_filter`), the two extension libraries, `content/data/*.json`,

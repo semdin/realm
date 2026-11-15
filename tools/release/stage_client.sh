@@ -6,8 +6,8 @@
 # (game/scripts/systems/realm_paths.gd):
 #
 #   windows, linux   the export dir (beside ThousandRealms.exe / .x86_64)
-#   macos            "Thousand Realms.app"/Contents/Resources (the export dir is
-#                    the folder holding the .app, or the .app itself)
+#   macos            the folder holding "Thousand Realms.app" (the export dir
+#                    is that folder, or the .app itself)
 #
 #   <root>/content/data/*.json      the game's content (content/data)
 #   <root>/world/maps/*.realmmap    the map packs (world/maps)
@@ -18,9 +18,9 @@
 # The export already put the GDExtension libraries beside the executable
 # (macOS: Contents/Frameworks), realm_client's from ../target/release; the
 # optional 4th argument replaces it with that build (a CI artifact, another
-# target dir). Both extensions' libraries must be there or this fails.
-# On macOS the bundle is signed again (ad-hoc) after its contents changed:
-# codesign on a Mac, rcodesign (apple-codesign) elsewhere.
+# target dir; not on macOS, where the library is part of the bundle the
+# export signed). Both extensions' libraries must be there or this fails.
+# Nothing inside a macOS bundle is touched, so it never needs signing again.
 #
 # Works in Linux bash and Git Bash; run it from anywhere.
 set -euo pipefail
@@ -74,16 +74,26 @@ case "$platform" in
       *) app="$export_dir/Thousand Realms.app" ;;
     esac
     [ -x "$app/Contents/MacOS/Thousand Realms" ] || fail "no Thousand Realms.app bundle at $app"
-    root="$app/Contents/Resources"
+    # The data sits beside the bundle, never in it: the bundle stays exactly
+    # as Godot exported and signed it (the extension library included, put
+    # into Contents/Frameworks by the export itself).
+    root="$(dirname "$app")"
     lib_dir="$app/Contents/Frameworks"
     lib_name="librealm_client.dylib"
     terrain="$app/Contents/Frameworks/libterrain.macos.release.framework"
     ;;
   *) usage ;;
 esac
-ls "$root"/*.pck > /dev/null 2>&1 || fail "no .pck in $root"
+if [ "$platform" = macos ]; then
+  ls "$app/Contents/Resources"/*.pck > /dev/null 2>&1 || fail "no .pck in $app/Contents/Resources"
+else
+  ls "$root"/*.pck > /dev/null 2>&1 || fail "no .pck in $root"
+fi
 
 # the extension libraries
+if [ -n "$lib" ] && [ "$platform" = macos ]; then
+  fail "on macOS the export puts the library into the signed bundle: place it at target/release/librealm_client.dylib before exporting"
+fi
 if [ -n "$lib" ]; then
   mkdir -p "$lib_dir"
   cp -f "$lib" "$lib_dir/$lib_name"
@@ -101,20 +111,10 @@ cp "$repo"/content/data/*.json "$root/content/data/"
 cp "$repo"/world/maps/*.realmmap "$root/world/maps/"
 cp "$cert" "$root/keys/tls.crt.der"
 
-if [ "$platform" = macos ]; then
-  if command -v codesign > /dev/null 2>&1; then
-    codesign --force --deep --sign - "$app"
-  elif command -v rcodesign > /dev/null 2>&1; then
-    rcodesign sign "$app"
-  else
-    fail "the bundle changed and must be signed again: install rcodesign (cargo install apple-codesign) or run on a Mac"
-  fi
-fi
-
 size() { du -sk "$1" | awk '{printf "%.1f MB", $1 / 1024}'; }
 echo "stage_client: $platform release root $root"
 echo "  content/data  $(ls "$root/content/data" | wc -l | tr -d ' ') files, $(size "$root/content/data")"
 echo "  world/maps    $(ls "$root/world/maps" | wc -l | tr -d ' ') packs, $(size "$root/world/maps")"
 echo "  keys          tls.crt.der ($cert_size bytes)"
 echo "  $lib_name  $(size "$lib_dir/$lib_name")"
-echo "  total         $(size "${app:-$export_dir}")"
+echo "  total         $(size "$export_dir")"

@@ -1,0 +1,190 @@
+// HPMMO launcher - shared utilities (Release pipeline updater support).
+#pragma once
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#endif
+
+#include <cstdint>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+namespace hpmmo {
+
+// The core keeps std::wstring paths on every platform. On POSIX they are
+// converted to UTF-8 at the system-call edge (common_posix.cpp); Windows code
+// paths are unchanged. The Win32 implementations live in common_win.cpp.
+#ifdef _WIN32
+constexpr wchar_t kPathSep = L'\\';
+#else
+constexpr wchar_t kPathSep = L'/';
+#endif
+// Release platform this binary installs ("windows-x86_64", "linux-x86_64", ...).
+const char* HostPlatform();
+
+// ---------------------------------------------------------------- strings --
+std::wstring Utf8ToWide(const std::string& str);
+std::string WideToUtf8(const std::wstring& wstr);
+std::wstring ToLower(std::wstring s);
+bool EqualsCI(const std::wstring& a, const std::wstring& b);
+bool PathStartsWithCI(const std::wstring& path, const std::wstring& prefix);
+std::string HexLower(const unsigned char* data, size_t len);
+bool HexToBytes(const std::string& hex, std::vector<unsigned char>& out);
+std::string Trim(const std::string& s);
+std::string FormatU64(uint64_t v);
+std::wstring FormatBytesW(uint64_t v);
+
+// ------------------------------------------------------------------ paths --
+std::wstring JoinPath(const std::wstring& a, const std::wstring& b);
+std::wstring GetExePath();
+std::wstring GetExeDir();
+// After the launcher renamed its own running file (legacy_names.cpp) the OS
+// still reports the old path; GetExePath returns this instead when set.
+void SetExePathOverride(const std::wstring& path);
+const std::wstring& ExePathOverride();
+// GUI start, before LoadConfig: renames a launcher still called by the game's
+// old name (HPMMO_Launcher*, "HPMMO Launcher.app") and points the player's
+// shortcuts / desktop entries at the new file. No-op once renamed.
+void MigrateLegacyLauncherFile();
+std::wstring GetCwd();
+std::wstring TempDirPath();
+std::wstring NormalizePath(const std::wstring& path);
+// NormalizePath plus symlinks resolved on POSIX (realpath), for comparing with
+// paths the kernel reports (macOS: /var -> /private/var). Same as
+// NormalizePath on Windows.
+std::wstring CanonicalPath(const std::wstring& path);
+bool FileExists(const std::wstring& path);
+bool DirExists(const std::wstring& path);
+uint64_t FileSizeOrZero(const std::wstring& path);
+bool DeleteFileQuiet(const std::wstring& path);
+bool RemoveDirRecursive(const std::wstring& dir);
+bool CreateDirs(const std::wstring& dir);
+bool WriteFileBytes(const std::wstring& path, const void* data, size_t len);
+bool WriteFileAtomic(const std::wstring& path, const std::string& bytes);
+bool ReadFileBytes(const std::wstring& path, std::string& out, uint64_t maxBytes = 0);
+uint64_t FreeDiskSpaceBytes(const std::wstring& dir);
+uint64_t DirSizeBytes(const std::wstring& dir);
+// Recursively list files under dir (relative paths, forward slashes).
+bool ListFilesRecursive(const std::wstring& dir, std::vector<std::wstring>& out, std::string& err);
+// Names of the direct subdirectories of dir.
+std::vector<std::wstring> ListSubdirs(const std::wstring& dir);
+// rename() that replaces an existing file (MoveFileEx REPLACE_EXISTING on Windows).
+bool MoveReplace(const std::wstring& from, const std::wstring& to, bool writeThrough = false);
+// rename() that refuses to replace (used for whole version directories).
+bool MoveNoReplace(const std::wstring& from, const std::wstring& to);
+// Copies a file, replacing dst.
+bool CopyFilePlain(const std::wstring& src, const std::wstring& dst);
+// Forces a written file's data to the disk (FlushFileBuffers / fsync), so a
+// power loss right after an update cannot leave a half-written game file
+// behind an already-activated version.
+bool FlushToDisk(const std::wstring& path);
+// Marks a file executable (no-op on Windows).
+bool MakeExecutable(const std::wstring& path);
+FILE* OpenFileW(const std::wstring& path, const wchar_t* mode);
+bool SeekFile64(FILE* f, uint64_t offset);
+uint64_t TellFile64(FILE* f);
+// Last OS error number (GetLastError / errno), for log messages only.
+int LastErrorCode();
+std::wstring GetEnvW(const wchar_t* name);
+// Per-user application data root: %LOCALAPPDATA%, ~/.local/share
+// ($XDG_DATA_HOME) or ~/Library/Application Support. Empty when unknown.
+std::wstring UserDataRoot();
+uint32_t CurrentProcessId();
+
+// ------------------------------------------------------------------ version --
+// Returns -1/0/1. Numeric dotted comparison; a pre-release suffix sorts lower.
+int CompareVersions(const std::string& a, const std::string& b);
+bool IsVersionString(const std::string& s);
+
+// -------------------------------------------------------------------- time --
+std::string TimeNowIso8601Utc();
+int64_t UnixNowSeconds();
+// Accepts 2026-10-04T12:00:00Z / with offset; returns unix seconds.
+bool ParseIso8601Utc(const std::string& s, int64_t& out);
+std::string FormatDuration(int64_t seconds);
+
+// ----------------------------------------------------------------- logging --
+void SetLogPath(const std::wstring& path);
+void LogMsg(const std::string& msg);
+std::string GetLogPathUtf8();
+
+// ----------------------------------------------------------------- processes --
+bool IsProcessRunning(uint32_t pid);
+struct RunningProcess {
+    uint32_t pid = 0;
+    std::wstring name;
+    std::wstring imagePath;
+};
+std::vector<RunningProcess> SnapshotProcesses();
+// True when any process image lives under dirPrefix (case-insensitive) or its
+// name is in extraNames. Never matches the current process.
+bool IsGameRunning(const std::wstring& installRoot,
+                   const std::vector<std::wstring>& extraNames,
+                   std::vector<RunningProcess>* matches);
+
+// ------------------------------------------------------------------- config --
+// Built-in release source: a lone launcher with no client_config.json
+// next to it still knows where updates live and which key signs them.
+// GitHub's "latest" alias always resolves to the newest published release.
+#ifndef HPMMO_DEFAULT_RELEASE_BASE
+#define HPMMO_DEFAULT_RELEASE_BASE L"https://github.com/semdin/realm/releases/latest/download"
+#endif
+// The account service, behind TLS (Caddy + Let's Encrypt on the game host).
+// Logins and session tokens never travel in clear text.
+#ifndef HPMMO_DEFAULT_API_URL
+#define HPMMO_DEFAULT_API_URL L"https://api.agsilvery.com"
+#endif
+#ifndef HPMMO_DEFAULT_STATUS_URL
+#define HPMMO_DEFAULT_STATUS_URL L"https://api.agsilvery.com/api/status"
+#endif
+// Raw 32-byte Ed25519 public key (base64) of the release signing key; its
+// private half is the HPMMO_CLIENT_SIGNING_KEY GitHub secret.
+#ifndef HPMMO_DEFAULT_RELEASE_KEY
+#define HPMMO_DEFAULT_RELEASE_KEY L"1fnIuBa9qYMhOphM0O94gAeYXy8o50pfHhBSsu+7zdI="
+#endif
+#ifndef HPMMO_DEFAULT_RELEASE_KEY_ID
+#define HPMMO_DEFAULT_RELEASE_KEY_ID L"d540e9f5467ba5a12aa290900249fa6ceb0824dd29f9a60ad57c6d463230842f"
+#endif
+
+struct AppConfig {
+    // Existing launcher fields (behaviour preserved).
+    std::wstring serverIp = L"185.118.141.74";
+    int serverPort = 7777;
+    int apiPort = 8081;               // only used when apiUrl is empty (a LAN/dev server)
+    std::wstring apiUrl = HPMMO_DEFAULT_API_URL;
+    std::wstring lastUsername;
+    bool rememberMe = true;
+
+    // the release pipeline updater fields (all optional; empty/0 disables the updater).
+    std::wstring releaseBaseUrl = HPMMO_DEFAULT_RELEASE_BASE;
+    std::wstring statusUrl;           // empty: HPMMO_DEFAULT_STATUS_URL for the built-in
+                                      // release base, else <release_base>/status.json
+    std::wstring releasePublicKey = HPMMO_DEFAULT_RELEASE_KEY;    // base64, 32-byte Ed25519 key
+    std::wstring releasePublicKeyId = HPMMO_DEFAULT_RELEASE_KEY_ID;  // informational
+    std::wstring releaseChannel;      // optional expected channel
+    std::wstring pinnedSpkiSha256;    // hex sha256 of a pinned certificate SPKI; empty = Windows trust store
+    std::wstring installRoot;         // empty = exe directory when it already holds an
+                                      // install (current.json / portable.txt), else %LOCALAPPDATA%\HPMMO
+    std::wstring userDataDir;         // empty = <installRoot>/user
+    std::wstring gameExeName;         // empty = auto-detect
+    std::vector<std::wstring> gameProcessNames;  // extra process names to detect
+    uint64_t stagingQuotaBytes = 0;   // 0 = only the real disk-free check
+};
+
+AppConfig& Config();
+// Base URL of the account service the game logs in through (HPMMO_API_URL):
+// `api_url`, else http://<server_ip>:<api_port> for a server without TLS.
+std::wstring ApiBaseUrl(const AppConfig& cfg);
+std::wstring DefaultConfigPath();
+bool LoadConfig(const std::wstring& explicitPath = L"");
+bool SaveConfig(const std::wstring& explicitPath = L"");
+std::wstring LastLoadedConfigPath();
+
+// ------------------------------------------------------------ base64 decoding --
+bool Base64Decode(const std::string& in, std::vector<unsigned char>& out);
+
+}  // namespace hpmmo

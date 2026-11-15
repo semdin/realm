@@ -1,0 +1,625 @@
+# Thousand Realms client release -> GitHub Releases of this repository (what
+# the launcher updates from: https://github.com/semdin/realm/releases/latest/
+# download/manifest.json + .sig). Ported from the old client repository's
+# pipeline (chunked delta updates, signed manifests, launchers for Windows,
+# Linux and macOS); the game is game/ and the launcher launcher/ here.
+#
+#   manual dispatch only (gh workflow run client-release): a release goes out
+#   when the realm's server is ready for it, never on every push.
+#
+# The export runs on the realm host's self-hosted runner (label
+# realm-release): its workspace keeps game/.godot, so unchanged assets
+# re-import byte-identically and players download only what changed. The
+# realm_client extension is built per platform on GitHub-hosted runners
+# (realm-libs) and put in target/release before the exports pick it up.
+#
+# Versions: client 2.0.<run number> (above every old 1.0.x client, so
+# installed launchers move to it), launcher 3.0.<git ct of launcher/>.
+# Chunks of the last 30 client versions are referenced, so releases inside
+# that window must NOT be deleted.
+
+name: client-release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: 'Release notes shown in the launcher (default: the commit message)'
+        type: string
+        required: false
+      rebuild_launchers:
+        description: 'Build and test the launchers even when launcher/ did not change'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write   # create the GitHub Release and upload its assets
+
+concurrency:
+  # Releases are published one at a time and never cancelled half way.
+  group: client-release
+  cancel-in-progress: false
+
+env:
+  GODOT_VERSION: '4.7.2'
+  PLATFORM: 'windows-x86_64'
+  MIN_LAUNCHER_VERSION: '3.0.0'
+  SERVER_VERSION: '2.0.0'
+  # PROTOCOL_VERSION/MIN/MAX and SCHEMA_VERSION come from the tree (Resolve versions).
+
+jobs:
+  # macOS launcher: needs a Mac to compile, link and sign, so it runs on a
+  # GitHub-hosted macOS runner (free for this public repository). The release
+  # job below picks the result up as an artifact. Its sources need no LFS: the
+  # launcher's assets are plain git (.gitattributes). When launcher/ did
+  # not change (same launcher version as the live release) the published
+  # launcher is reused and the ~9 min build + updater tests are skipped.
+  launcher-macos:
+    name: macOS launcher (universal, ad-hoc signed) + updater tests
+    # macos-14 images retire on 2026-11-02 (brownouts cancel runs before that);
+    # the bundle still targets macOS 11 (CMAKE_OSX_DEPLOYMENT_TARGET in build_app.sh).
+    runs-on: macos-15
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+    steps:
+      # A fresh hosted runner has no init.defaultBranch: checkout's `git init`
+      # printed git's "Using 'master' as the name for the initial branch" hint.
+      - name: Git default branch
+        run: git config --global init.defaultBranch main
+
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # the launcher version is the last launcher commit time
+          lfs: false
+
+      - name: Resolve the launcher version
+        id: v
+        run: |
+          launcher_ts="$(git log -1 --format=%ct -- launcher)"
+          echo "launcher=3.0.${launcher_ts:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Reuse the live launcher when launcher/ is unchanged
+        id: reuse
+        if: ${{ !inputs.rebuild_launchers }}
+        run: |
+          python3 tools/release/reuse_launcher.py \
+            --base "https://github.com/${{ github.repository }}/releases/latest/download" \
+            --manifest manifest-macos.json --version "${{ steps.v.outputs.launcher }}" \
+            --out "$RUNNER_TEMP/mac" ThousandRealms_Launcher-macos ThousandRealms_Launcher-macos.zip
+
+      - name: Build the app bundle
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          brew list ninja >/dev/null 2>&1 || brew install ninja
+          bash launcher/packaging/macos/build_app.sh launcher "${{ steps.v.outputs.launcher }}" "$RUNNER_TEMP/mac"
+
+      - name: Updater tests against the macOS build (113 checks)
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet cryptography numpy
+          "$RUNNER_TEMP/venv/bin/python" tools/release/test_updater.py \
+            --launcher "$RUNNER_TEMP/mac/HPMMO_UpdaterCLI-macos" \
+            --gui-launcher "$RUNNER_TEMP/mac/ThousandRealms_Launcher-macos" | tee "$RUNNER_TEMP/updater-tests.log"
+          grep -q "UPDATER RESULT: .*, 0 failures" "$RUNNER_TEMP/updater-tests.log"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: launcher-macos
+          path: |
+            ${{ runner.temp }}/mac/ThousandRealms_Launcher-macos.zip
+            ${{ runner.temp }}/mac/ThousandRealms_Launcher-macos
+          if-no-files-found: error
+          retention-days: 7
+
+  # The realm_client GDExtension for each platform, on GitHub-hosted runners
+  # with the pinned toolchain (rust-toolchain.toml): Windows (MSVC), macOS
+  # universal (arm64 + x86_64, lipo), Linux on Ubuntu 22.04 (glibc 2.35, so
+  # older distributions run it too).
+  realm-libs:
+    name: realm_client (${{ matrix.os }})
+    strategy:
+      matrix:
+        include:
+          - os: windows-2025
+            out: realm_client.dll
+          - os: macos-15
+            out: librealm_client.dylib
+          - os: ubuntu-22.04
+            out: librealm_client.so
+    runs-on: ${{ matrix.os }}
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: false
+      - name: Build
+        shell: bash
+        run: |
+          set -eu
+          if [ "${{ matrix.os }}" = macos-15 ]; then
+            rustup target add aarch64-apple-darwin x86_64-apple-darwin
+            cargo build --release --locked -p realm_client --target aarch64-apple-darwin
+            cargo build --release --locked -p realm_client --target x86_64-apple-darwin
+            mkdir -p target/release
+            lipo -create -output target/release/librealm_client.dylib \
+              target/aarch64-apple-darwin/release/librealm_client.dylib \
+              target/x86_64-apple-darwin/release/librealm_client.dylib
+            lipo -archs target/release/librealm_client.dylib
+          else
+            cargo build --release --locked -p realm_client
+          fi
+          ls -la "target/release/${{ matrix.out }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: realm-lib-${{ matrix.os }}
+          path: target/release/${{ matrix.out }}
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: build + sign + publish (windows, linux, macos)
+    needs: [launcher-macos, realm-libs]
+    # Self-hosted on the game host (2026-10-19): the workspace persists, so Git
+    # LFS only fetches changed objects and the .godot import cache survives
+    # between releases without a GitHub cache round trip. Never add a
+    # pull_request trigger to this workflow.
+    runs-on: [self-hosted, realm-release]
+    steps:
+      - name: Require the signing key (fail closed)
+        env:
+          SIGNING_KEY: ${{ secrets.HPMMO_CLIENT_SIGNING_KEY }}
+        run: |
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::HPMMO_CLIENT_SIGNING_KEY is not set (Settings -> Secrets and variables -> Actions)."
+            echo "Without it no manifest can be signed, and the launcher refuses unsigned releases."
+            exit 1
+          fi
+          echo "signing key present (value never printed)"
+
+      # Full history for the launcher version. clean: false keeps the ignored
+      # .godot import cache: Godot re-imports only changed sources, so unchanged
+      # models/textures keep byte-identical output and players do not
+      # re-download their chunks (imports are not bit-reproducible).
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          clean: false
+
+      - name: Reset the workspace (keep only the import cache)
+        run: |
+          set -eu
+          # Untracked leftovers of an earlier run must not leak into this one
+          # (a stale chunks-*.bin in dist/ would be published).
+          # The Godot .uid files (gitignored) stay too: deleting them gave every
+          # script a new random UID each release while .godot kept the old ones.
+          git clean -ffdx -e .godot -e export_presets.cfg -e '*.uid'
+          # LFS comes from our own server (lfs.agsilvery.com -> Cloudflare R2,
+          # see .lfsconfig; the runner user holds its credentials).
+          git lfs pull
+          # A pointer file left in the tree would export as a broken asset.
+          if git lfs ls-files | grep -q ' - '; then
+            echo "::error::some LFS objects were not downloaded"; git lfs ls-files | grep ' - ' | head; exit 1
+          fi
+
+      - name: Resolve versions
+        id: v
+        env:
+          NOTES_INPUT: ${{ inputs.release_notes }}
+        run: |
+          set -eu
+          client="2.0.${GITHUB_RUN_NUMBER}"
+          content="$(date -u +%Y.%m.%d)-${GITHUB_RUN_NUMBER}"
+          launcher_ts="$(git log -1 --format=%ct -- launcher)"
+          launcher="3.0.${launcher_ts:-0}"
+          notes="${NOTES_INPUT:-}"
+          if [ -z "$notes" ]; then notes="$(git log -1 --format=%s)"; fi
+          # The realm's protocol (the launcher holds a release whose range
+          # misses what /api/status reports) and its schema migrations.
+          proto="$(sed -n 's/^pub const PROTOCOL_VERSION: u16 = \([0-9]*\);/\1/p' crates/realm_proto/src/lib.rs)"
+          [ -n "$proto" ] || { echo "::error::no PROTOCOL_VERSION in realm_proto"; exit 1; }
+          schema="$(ls crates/realm_persist/migrations/*.sql | wc -l | tr -d ' ')"
+          {
+            echo "PROTOCOL_VERSION=$proto"
+            echo "PROTOCOL_MIN=$proto"
+            echo "PROTOCOL_MAX=$proto"
+            echo "SCHEMA_VERSION=$schema"
+          } >> "$GITHUB_ENV"
+          {
+            echo "client=$client"
+            echo "content=$content"
+            echo "launcher=$launcher"
+            echo "tag=v$client"
+          } >> "$GITHUB_OUTPUT"
+          # Multi-line safe notes for later steps.
+          printf '%s' "$notes" > "$RUNNER_TEMP/release_notes.txt"
+          echo "client $client / content $content / launcher $launcher"
+
+      # Windows + Linux launchers: reused from the live release while
+      # launcher/ is unchanged (the same version, the same sources).
+      - name: Reuse the live launchers when launcher/ is unchanged
+        id: reuse
+        if: ${{ !inputs.rebuild_launchers }}
+        run: |
+          set -eu
+          base="https://github.com/${{ github.repository }}/releases/latest/download"
+          mkdir -p dist
+          python3 tools/release/reuse_launcher.py --base "$base" --manifest manifest.json --key windows \
+            --version "${{ steps.v.outputs.launcher }}" --out dist ThousandRealms_Launcher.exe
+          python3 tools/release/reuse_launcher.py --base "$base" --manifest manifest-linux-x86_64.json --key linux \
+            --version "${{ steps.v.outputs.launcher }}" --out dist ThousandRealms_Launcher-x86_64.AppImage
+
+      - name: Build the launcher
+        if: steps.reuse.outputs.windows != 'true'
+        run: |
+          set -eu
+          # The -posix toolchain: the default win32-thread variant has no std::thread/std::mutex.
+          cmake -S launcher -B launcher/build-mingw -G Ninja \
+            -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix \
+            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
+            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DHPMMO_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
+          # Compiler errors become annotations, readable without the job log.
+          if ! ninja -k 0 -C launcher/build-mingw ThousandRealms_Launcher > "$RUNNER_TEMP/launcher-build.log" 2>&1; then
+            grep -E "error|Error" "$RUNNER_TEMP/launcher-build.log" | head -25 | while IFS= read -r line; do
+              echo "::error::$line"
+            done
+            tail -60 "$RUNNER_TEMP/launcher-build.log"
+            exit 1
+          fi
+          mkdir -p dist
+          cp launcher/build-mingw/ThousandRealms_Launcher.exe dist/ThousandRealms_Launcher.exe
+
+      - name: Fetch the macOS launcher built by launcher-macos
+        uses: actions/download-artifact@v8
+        with:
+          name: launcher-macos
+          path: dist
+
+      - name: Build the Linux launcher (AppImage)
+        # Built in the pinned Ubuntu 22.04 image (launcher/packaging/linux)
+        # through the host's root wrapper, so it runs on glibc >= 2.34 distros.
+        if: steps.reuse.outputs.linux != 'true'
+        run: |
+          set -eu
+          out="$RUNNER_TEMP/linux-launcher"
+          rm -rf "$out"
+          sudo /opt/hpmmo-ci/build_linux_launcher.sh "$PWD/launcher" "${{ steps.v.outputs.launcher }}" "$out"
+          cp "$out/ThousandRealms_Launcher-x86_64.AppImage" dist/ThousandRealms_Launcher-x86_64.AppImage
+          ls -la dist/ThousandRealms_Launcher-x86_64.AppImage
+
+      - name: Fetch the realm_client libraries built by realm-libs
+        uses: actions/download-artifact@v8
+        with:
+          pattern: realm-lib-*
+          path: ${{ runner.temp }}/libs
+
+      - name: Check the pinned Godot engine and export templates
+        id: godot
+        run: |
+          set -eu
+          # Installed once on the host (server/docs/self-hosted-runner.md).
+          godot=/opt/hpmmo-ci/godot/godot
+          "$godot" --version | grep -q "^${GODOT_VERSION}\.stable" || {
+            echo "::error::$godot is not Godot ${GODOT_VERSION}"; exit 1; }
+          test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/windows_release_x86_64.exe" \
+            && test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/macos.zip" || {
+            echo "::error::Godot ${GODOT_VERSION} export templates are missing in $HOME"; exit 1; }
+          echo "path=$godot" >> "$GITHUB_OUTPUT"
+
+      - name: Export the game (Windows + Linux)
+        run: |
+          set -eu
+          rm -rf build build-linux && mkdir -p build/client build-linux/client
+          # The extension libraries the exports pick up (game/realm.gdextension
+          # points at ../target/release).
+          mkdir -p target/release
+          cp "$RUNNER_TEMP/libs/realm-lib-windows-2025/realm_client.dll" target/release/
+          cp "$RUNNER_TEMP/libs/realm-lib-ubuntu-22.04/librealm_client.so" target/release/
+          cp "$RUNNER_TEMP/libs/realm-lib-macos-15/librealm_client.dylib" target/release/
+          # The game shows this version.
+          sed -i "s/^config\/name=\"Thousand Realms\"/config\/name=\"Thousand Realms\"\nconfig\/version=\"${{ steps.v.outputs.client }}\"/" game/project.godot
+          grep -q '^config/version=' game/project.godot
+          # The kept .godot cache remembered old script UIDs (mob_base.gd's
+          # changed long ago): exported scenes carried them and every load
+          # warned "invalid UID" and fell back to the text path. The UID tables
+          # are rebuilt from the .uid files on the import scan; the import
+          # cache itself (the slow part) is kept.
+          # The export's text->binary scene conversions are cached in
+          # .godot/exported and reused while a .tscn is unchanged, so they kept
+          # the stale UIDs too (1.0.75 still warned): rebuilt every release.
+          rm -f game/.godot/uid_cache.bin game/.godot/editor/filesystem_cache*
+          rm -rf game/.godot/exported
+          "${{ steps.godot.outputs.path }}" --headless --path game --editor --import --quit \
+            > "$RUNNER_TEMP/import.log" 2>&1 || { tail -80 "$RUNNER_TEMP/import.log"; exit 1; }
+          "${{ steps.godot.outputs.path }}" --headless --path game \
+            --export-release "Windows Desktop" "$PWD/build/client/ThousandRealms.exe" \
+            > "$RUNNER_TEMP/export.log" 2>&1 || { tail -80 "$RUNNER_TEMP/export.log"; echo "the Godot export failed" >&2; exit 1; }
+          test -f build/client/ThousandRealms.exe
+          test -f build/client/ThousandRealms.pck
+          bash tools/release/stage_client.sh build/client windows game/release/tls.crt.der
+          ls -la build/client
+          "${{ steps.godot.outputs.path }}" --headless --path game \
+            --export-release "Linux" "$PWD/build-linux/client/ThousandRealms.x86_64" \
+            > "$RUNNER_TEMP/export-linux.log" 2>&1 || { tail -80 "$RUNNER_TEMP/export-linux.log"; echo "the Linux export failed" >&2; exit 1; }
+          test -x build-linux/client/ThousandRealms.x86_64
+          test -f build-linux/client/ThousandRealms.pck
+          bash tools/release/stage_client.sh build-linux/client linux game/release/tls.crt.der
+          ls -la build-linux/client
+          # macOS: universal .app (native on Apple Silicon -> Metal, and on Intel)
+          # from the official template.
+          rm -rf build-mac && mkdir -p build-mac/client
+          "${{ steps.godot.outputs.path }}" --headless --path game \
+            --export-release "macOS" "$RUNNER_TEMP/game-macos.zip" \
+            > "$RUNNER_TEMP/export-macos.log" 2>&1 || { tail -80 "$RUNNER_TEMP/export-macos.log"; echo "the macOS export failed" >&2; exit 1; }
+          unzip -q "$RUNNER_TEMP/game-macos.zip" -d build-mac/client
+          rm -f "$RUNNER_TEMP/game-macos.zip"
+          # Godot names the bundle, its binary and the pck after
+          # application/config/name ("Thousand Realms"): the launcher looks for
+          # exactly that (updater.cpp, release_common.GAME_EXECUTABLES).
+          app="build-mac/client/Thousand Realms.app"
+          test -x "$app/Contents/MacOS/Thousand Realms" || { ls -la build-mac/client; echo "::error::the macOS export is not $app"; exit 1; }
+          test -f "$app/Contents/Resources/Thousand Realms.pck"
+          test -d "$app/Contents/Frameworks/libterrain.macos.release.framework"
+          bash tools/release/stage_client.sh build-mac/client macos game/release/tls.crt.der
+          # The game and Terrain3D must both carry an arm64 and an x86_64 slice.
+          python3 - "$app/Contents/MacOS/Thousand Realms" \
+            "$app/Contents/Frameworks/libterrain.macos.release.framework/libterrain.macos.release" \
+            "$app/Contents/Frameworks/librealm_client.dylib" <<'PY'
+          import struct, sys
+          for path in sys.argv[1:]:
+              d = open(path, "rb").read(4096)
+              magic, n = struct.unpack_from(">II", d, 0)
+              assert magic == 0xCAFEBABE, f"{path}: not a universal Mach-O"
+              cpus = {struct.unpack_from(">I", d, 8 + 20 * i)[0] for i in range(n)}
+              assert {0x01000007, 0x0100000C} <= cpus, f"{path}: slices {sorted(map(hex, cpus))}"
+              print(path, "universal (x86_64 + arm64)")
+          PY
+
+      # No full zip since 1.0.64: the packager only enforces its refusal rules
+      # (no user data, caches or secrets) on what the chunks are cut from.
+      - name: Validate the client builds (refuses user data, caches and secrets)
+        run: |
+          python3 tools/release/package_client.py \
+            --build-dir build \
+            --client-version "${{ steps.v.outputs.client }}" \
+            --content-version "${{ steps.v.outputs.content }}" \
+            --platform "$PLATFORM" \
+            --check
+          python3 tools/release/package_client.py \
+            --build-dir build-linux \
+            --client-version "${{ steps.v.outputs.client }}" \
+            --content-version "${{ steps.v.outputs.content }}" \
+            --platform linux-x86_64 \
+            --check
+          python3 tools/release/package_client.py \
+            --build-dir build-mac \
+            --client-version "${{ steps.v.outputs.client }}" \
+            --content-version "${{ steps.v.outputs.content }}" \
+            --platform macos \
+            --check
+
+      # Delta delivery: chunks the previous release already published are
+      # referenced, only new ones go into chunks-<ver>.bin - and so are chunks
+      # whose published copy is older than the chunk source window (the last
+      # 30 versions, release_common.CHUNK_SOURCE_WINDOW), so a release never
+      # depends on one outside it.
+      # The three platforms are chunked in parallel (each writes only its own
+      # content[-<platform>].json + chunks[-<platform>]-<ver>.bin).
+      - name: Chunk the build (delta updates)
+        run: |
+          set -eu
+          latest="https://github.com/${{ github.repository }}/releases/latest/download"
+          # build dir | --platform ("" = Windows, the unsuffixed legacy names) | content index name
+          pids=()
+          while read -r dir platform index; do
+            [ "$platform" = "-" ] && platform=""
+            prev="$RUNNER_TEMP/previous-$index"
+            if ! curl -fsSL "$latest/$index" -o "$prev"; then
+              echo "no previous $index: every chunk is new"
+              rm -f "$prev"
+            fi
+            python3 tools/release/chunk_release.py \
+              --build-dir "$dir" \
+              ${platform:+--platform "$platform"} \
+              --version "${{ steps.v.outputs.client }}" \
+              --download-base "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
+              --previous "$prev" \
+              --out dist > "$RUNNER_TEMP/chunk-$index.log" 2>&1 &
+            pids+=("$!:$index")
+          done <<'EOF'
+          build/client - content.json
+          build-linux/client linux-x86_64 content-linux-x86_64.json
+          build-mac/client macos content-macos.json
+          EOF
+          failed=0
+          for entry in "${pids[@]}"; do
+            index="${entry#*:}"
+            if ! wait "${entry%%:*}"; then echo "::error::chunking $index failed"; failed=1; fi
+            echo "--- $index"; cat "$RUNNER_TEMP/chunk-$index.log"
+          done
+          exit "$failed"
+
+      - name: Sign the manifest
+        env:
+          SIGNING_KEY: ${{ secrets.HPMMO_CLIENT_SIGNING_KEY }}
+        run: |
+          set -eu
+          key="$RUNNER_TEMP/hpmmo-client-release.key.pem"
+          umask 077
+          # The secret is either a PEM private key or the raw 32-byte Ed25519
+          # seed as 64 hex characters (wrapped into PKCS#8 here).
+          seed="$(printf '%s' "$SIGNING_KEY" | tr -d '[:space:]')"
+          if printf '%s' "$seed" | grep -Eq '^[0-9a-fA-F]{64}$'; then
+            { printf '302e020100300506032b657004220420'; printf '%s' "$seed"; } | xxd -r -p > "$RUNNER_TEMP/seed.der"
+            openssl pkey -inform DER -in "$RUNNER_TEMP/seed.der" -out "$key"
+            rm -f "$RUNNER_TEMP/seed.der"
+          else
+            printf '%s\n' "$SIGNING_KEY" > "$key"
+          fi
+          python3 tools/release/gen_manifest.py \
+            --launcher-artifact dist/ThousandRealms_Launcher.exe \
+            --launcher-version "${{ steps.v.outputs.launcher }}" \
+            --channel release \
+            --client-version "${{ steps.v.outputs.client }}" \
+            --min-launcher-version "$MIN_LAUNCHER_VERSION" \
+            --protocol-version "$PROTOCOL_VERSION" --protocol-min "$PROTOCOL_MIN" --protocol-max "$PROTOCOL_MAX" \
+            --content-version "${{ steps.v.outputs.content }}" --server-version "$SERVER_VERSION" \
+            --schema-version "$SCHEMA_VERSION" --platform "$PLATFORM" \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
+            --release-notes-file "$RUNNER_TEMP/release_notes.txt" \
+            --content-index dist/content.json \
+            --out dist --key "$key"
+          # Linux manifest (with the AppImage as the launcher self-update payload).
+          python3 tools/release/gen_manifest.py \
+            --launcher-artifact dist/ThousandRealms_Launcher-x86_64.AppImage \
+            --launcher-version "${{ steps.v.outputs.launcher }}" \
+            --channel release \
+            --client-version "${{ steps.v.outputs.client }}" \
+            --min-launcher-version "$MIN_LAUNCHER_VERSION" \
+            --protocol-version "$PROTOCOL_VERSION" --protocol-min "$PROTOCOL_MIN" --protocol-max "$PROTOCOL_MAX" \
+            --content-version "${{ steps.v.outputs.content }}" --server-version "$SERVER_VERSION" \
+            --schema-version "$SCHEMA_VERSION" --platform linux-x86_64 \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
+            --release-notes-file "$RUNNER_TEMP/release_notes.txt" \
+            --content-index dist/content-linux-x86_64.json \
+            --out dist --key "$key"
+          # macOS manifest (the bare launcher Mach-O is the self-update payload).
+          python3 tools/release/gen_manifest.py \
+            --launcher-artifact dist/ThousandRealms_Launcher-macos \
+            --launcher-version "${{ steps.v.outputs.launcher }}" \
+            --channel release \
+            --client-version "${{ steps.v.outputs.client }}" \
+            --min-launcher-version "$MIN_LAUNCHER_VERSION" \
+            --protocol-version "$PROTOCOL_VERSION" --protocol-min "$PROTOCOL_MIN" --protocol-max "$PROTOCOL_MAX" \
+            --content-version "${{ steps.v.outputs.content }}" --server-version "$SERVER_VERSION" \
+            --schema-version "$SCHEMA_VERSION" --platform macos \
+            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
+            --release-notes-file "$RUNNER_TEMP/release_notes.txt" \
+            --content-index dist/content-macos.json \
+            --out dist --key "$key"
+          openssl pkey -in "$key" -pubout -out "$RUNNER_TEMP/release.pub.pem"
+          rm -f "$key"
+          python3 tools/release/gen_manifest.py --verify \
+            --manifest dist/manifest.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
+          python3 tools/release/gen_manifest.py --verify \
+            --manifest dist/manifest-linux-x86_64.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
+          python3 tools/release/gen_manifest.py --verify \
+            --manifest dist/manifest-macos.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
+          # The key the launcher has built in must be the key that signed this.
+          built_in="$(grep -o 'HPMMO_DEFAULT_RELEASE_KEY L"[^"]*"' launcher/src/common.h | sed 's/.*L"\(.*\)"/\1/')"
+          signing="$(openssl pkey -pubin -in "$RUNNER_TEMP/release.pub.pem" -outform DER | tail -c 32 | base64)"
+          if [ "$built_in" != "$signing" ]; then
+            echo "::error::the signing key does not match HPMMO_DEFAULT_RELEASE_KEY in launcher/src/common.h"
+            exit 1
+          fi
+          ls -la dist
+
+      - name: Publish the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          tag="${{ steps.v.outputs.tag }}"
+          # The launchers under their names from before the rename, as
+          # byte-identical copies: links shared as .../HPMMO_Launcher.exe keep
+          # working. (The manifests name the new files; a launcher self-updates
+          # from whatever URL its manifest gives.)
+          legacy=()
+          for name in ThousandRealms_Launcher.exe ThousandRealms_Launcher-x86_64.AppImage \
+              ThousandRealms_Launcher-macos ThousandRealms_Launcher-macos.zip; do
+            old="dist/HPMMO_Launcher${name#ThousandRealms_Launcher}"
+            cp "dist/$name" "$old"
+            legacy+=("$old")
+          done
+          # chunks[-<platform>]-<ver>.bin is absent when no chunk changed.
+          shopt -s nullglob
+          chunks=(dist/chunks-*.bin)
+          gh release create "$tag" \
+            dist/ThousandRealms_Launcher.exe dist/content.json "${chunks[@]}" \
+            dist/manifest.json dist/manifest.json.sig dist/manifest.json.keyid dist/SHA256SUMS \
+            dist/content-linux-x86_64.json \
+            dist/ThousandRealms_Launcher-x86_64.AppImage \
+            dist/manifest-linux-x86_64.json dist/manifest-linux-x86_64.json.sig \
+            dist/manifest-linux-x86_64.json.keyid dist/SHA256SUMS-linux-x86_64 \
+            dist/content-macos.json dist/ThousandRealms_Launcher-macos dist/ThousandRealms_Launcher-macos.zip \
+            dist/manifest-macos.json dist/manifest-macos.json.sig \
+            dist/manifest-macos.json.keyid dist/SHA256SUMS-macos \
+            "${legacy[@]}" \
+            --repo "${{ github.repository }}" \
+            --target "${{ github.sha }}" \
+            --title "Thousand Realms $tag" \
+            --notes-file "$RUNNER_TEMP/release_notes.txt" \
+            --latest
+
+      - name: Verify what launchers will download
+        run: |
+          set -eu
+          base="https://github.com/${{ github.repository }}/releases/latest/download"
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL "$base/manifest.json" -o "$RUNNER_TEMP/live.json"; then break; fi
+            sleep 10
+          done
+          curl -fsSL "$base/manifest.json.sig" -o "$RUNNER_TEMP/live.json.sig"
+          python3 tools/release/gen_manifest.py --verify \
+            --manifest "$RUNNER_TEMP/live.json" --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
+          curl -fsSL "$base/manifest-linux-x86_64.json" -o "$RUNNER_TEMP/live-linux.json"
+          curl -fsSL "$base/manifest-linux-x86_64.json.sig" -o "$RUNNER_TEMP/live-linux.json.sig"
+          python3 tools/release/gen_manifest.py --verify \
+            --manifest "$RUNNER_TEMP/live-linux.json" --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
+          curl -fsSL "$base/manifest-macos.json" -o "$RUNNER_TEMP/live-macos.json"
+          curl -fsSL "$base/manifest-macos.json.sig" -o "$RUNNER_TEMP/live-macos.json.sig"
+          python3 tools/release/gen_manifest.py --verify \
+            --manifest "$RUNNER_TEMP/live-macos.json" --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
+          {
+            echo "### Thousand Realms ${{ steps.v.outputs.tag }}"
+            echo "- client \`${{ steps.v.outputs.client }}\`, launcher \`${{ steps.v.outputs.launcher }}\`"
+            echo "- installer link: $base/ThousandRealms_Launcher.exe"
+            echo "- Linux launcher: $base/ThousandRealms_Launcher-x86_64.AppImage"
+            echo "- macOS launcher: $base/ThousandRealms_Launcher-macos.zip"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # The published release, on a Mac: the downloaded launcher installs the game
+  # from the macOS chunks and the installed game boots natively on this Apple
+  # Silicon runner (headless, arm64 slice), and its x86_64 slice under Rosetta 2.
+  verify-macos:
+    name: macOS install + boot check
+    needs: [release]
+    runs-on: macos-15
+    steps:
+      - name: Install the release with the published launcher and boot the game
+        run: |
+          set -eu
+          base="https://github.com/${{ github.repository }}/releases/latest/download"
+          work="$RUNNER_TEMP/hpmmo"
+          mkdir -p "$work" && cd "$work"
+          curl -fsSL -o launcher.zip "$base/ThousandRealms_Launcher-macos.zip"
+          ditto -x -k launcher.zip .
+          codesign --verify --deep --strict "Thousand Realms Launcher.app"
+          bin="$work/Thousand Realms Launcher.app/Contents/MacOS/ThousandRealms_Launcher"
+          "$bin" --install-root "$work/install" --user-dir "$work/install/user" --update | tee update.json
+          grep -q '"ok":true' update.json
+          game="$(ls -d "$work"/install/versions/*/"Thousand Realms.app/Contents/MacOS/Thousand Realms")"
+          chmod +x "$game"
+          codesign --verify --deep --strict "$(dirname "$(dirname "$(dirname "$game")")")"
+          lipo -archs "$game" | tee archs.txt
+          grep -qw arm64 archs.txt && grep -qw x86_64 archs.txt
+          # Rosetta 2 only for the x86_64 (Intel Mac) slice check below.
+          if [ "$(uname -m)" = "arm64" ] && ! /usr/bin/pgrep -q oahd; then
+            sudo softwareupdate --install-rosetta --agree-to-license || true
+          fi
+          # A pty keeps Godot's output line-buffered. arch -arm64 fails unless
+          # the game runs natively (no Rosetta).
+          for a in arm64 x86_64; do
+            script -q "$work/boot-$a.log" arch -$a "$game" --headless --quit-after 600 || true
+            echo "--- $a"; tr -d '\r' < "$work/boot-$a.log" | tail -20
+            grep -q "login service" "$work/boot-$a.log"
+          done
+          # Best effort: a windowed native boot shows the renderer (Metal on
+          # Apple Silicon); hosted runners may lack a usable GPU, so not fatal.
+          script -q "$work/boot-metal.log" perl -e 'alarm 120; exec @ARGV' \
+            arch -arm64 "$game" --quit-after 300 || true
+          tr -d '\r' < "$work/boot-metal.log" | grep -iE "metal|vulkan|opengl|error" | head -10 || true

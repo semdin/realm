@@ -1,0 +1,46 @@
+#include <winres.h>
+
+#define IDI_MAIN 101
+#define IDR_BACKGROUND 201
+#define IDR_FONT_TITLE 202
+#define IDR_FONT_BODY 203
+#define IDR_LOGO 204
+
+// Application + window icon (multi-size ICO generated from assets/branding).
+IDI_MAIN ICON "assets/hpmmo.ico"
+
+// Embedded art and fonts: a lone ThousandRealms_Launcher.exe renders the full design.
+// Fonts are SIL OFL 1.1 (assets/OFL-*.txt).
+IDR_BACKGROUND RCDATA "assets/launcher_bg.jpg"
+IDR_FONT_TITLE RCDATA "assets/Literata-Bold.ttf"
+IDR_FONT_BODY  RCDATA "assets/Literata-Medium.ttf"
+// The horizontal Thousand Realms logo drawn as the crest.
+IDR_LOGO       RCDATA "assets/thousand_realms_logo.png"
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION     3,0,0,0
+ PRODUCTVERSION  3,0,0,0
+ FILEFLAGSMASK   0x3fL
+ FILEFLAGS       0x0L
+ FILEOS          0x40004L
+ FILETYPE        0x1L
+ FILESUBTYPE     0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",      "Thousand Realms"
+            VALUE "FileDescription",  "Thousand Realms Launcher"
+            VALUE "FileVersion",      "3.0.0"
+            VALUE "InternalName",     "ThousandRealms_Launcher"
+            VALUE "OriginalFilename", "ThousandRealms_Launcher.exe"
+            VALUE "ProductName",      "Thousand Realms Launcher"
+            VALUE "ProductVersion",   "3.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
