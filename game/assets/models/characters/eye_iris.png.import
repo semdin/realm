@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bytib7ndeqo6t"
 path.bptc="res://.godot/imported/eye_iris.png-01beeea4a5134801c14b72c63715a75e.bptc.ctex"
+path.astc="res://.godot/imported/eye_iris.png-01beeea4a5134801c14b72c63715a75e.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/characters/eye_iris.png"
-dest_files=["res://.godot/imported/eye_iris.png-01beeea4a5134801c14b72c63715a75e.bptc.ctex"]
+dest_files=["res://.godot/imported/eye_iris.png-01beeea4a5134801c14b72c63715a75e.bptc.ctex", "res://.godot/imported/eye_iris.png-01beeea4a5134801c14b72c63715a75e.astc.ctex"]
 
 [params]
 

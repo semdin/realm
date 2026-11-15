@@ -158,7 +158,13 @@ extends Node3D
 ##   [--others-guest NAME]                          this client waits until it sees NAME, then changes its
 ##                                                    look and takes its wand off (the second client for
 ##                                                    --check-others)
-##   [--login-url http://127.0.0.1:7950]              the login service the front door talks to
+##   [--check-play USER PASSWORD]                     the release smoke check (PlayCheck; also in an exported
+##                                                    game): through the front door, logs USER in (registers
+##                                                    it when unknown), picks its first character (creates one
+##                                                    when there is none), enters the world, sees it joined and
+##                                                    drawn, quits 0; fails fast on any refusal
+##   [--login-url http://127.0.0.1:7950]              the login service the front door talks to (an exported
+##                                                    game defaults to LoginApi.RELEASE_URL)
 ##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck / LoginCheck / MenuCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
@@ -225,8 +231,11 @@ extends Node3D
 ## (RealmSession.join_ticket, start_travel). The world's end screen then goes
 ## back to the login card (return_to_login).
 ##
-## Paths to keys/, content/data and world/maps default to the realm checkout
-## the project sits in.
+## Paths to keys/, content/data and world/maps default to RealmPaths.root():
+## the realm checkout the project sits in for a dev run, the folder beside the
+## executable (macOS: the bundle's Contents/Resources) for an exported game.
+## An exported game takes no dev switches (the dev join, the dev checks: their
+## scripts are not exported); `--check-play` is its smoke check.
 
 const KIND_COLORS := [Color(0.35, 0.65, 1.0), Color(0.85, 0.3, 0.25), Color(0.9, 0.6, 0.2),
 	Color(0.55, 0.8, 0.3), Color(0.7, 0.4, 0.85), Color(0.9, 0.85, 0.3)]
@@ -249,6 +258,7 @@ const BossCheckScript := "res://scripts/systems/boss_check.gd"
 const LairCheckScript := "res://scripts/systems/lair_check.gd"
 const OpsCheckScript := "res://scripts/systems/ops_check.gd"
 const LoginCheckScript := "res://scripts/systems/login_check.gd"
+const PlayCheckScript := "res://scripts/systems/play_smoke.gd"
 const MenuCheckScript := "res://scripts/systems/menu_check.gd"
 const SkillsCheckScript := "res://scripts/systems/skills_check.gd"
 const OthersCheckScript := "res://scripts/systems/others_check.gd"
@@ -589,7 +599,18 @@ func _ready() -> void:
 	CursorKit.apply()
 	if not get_tree().node_added.is_connected(CursorKit.point_at_buttons):
 		get_tree().node_added.connect(CursorKit.point_at_buttons)
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	if RealmPaths.is_release():
+		var refused := _dev_switch()
+		if refused == "" and OS.get_cmdline_user_args().has("--check-login"):
+			refused = "--check-login"
+		if refused != "":
+			printerr("realm: %s is for dev runs, not a release build" % refused)
+			get_tree().quit(2)
+			return
+	var root := RealmPaths.root()
+	if RealmPaths.is_release() and not Engine.has_meta(&"realm_root_told"):
+		Engine.set_meta(&"realm_root_told", true)
+		print("realm: release root %s, login service %s" % [root, _arg("--login-url", LoginApi.default_url())])
 	check_seconds = float(_arg("--check", "0"))
 	cam_distance = float(_arg("--cam-distance", str(cam_distance)))
 	cam_side = deg_to_rad(float(_arg("--cam-side", "0")))
@@ -644,10 +665,17 @@ func _exit_tree() -> void:
 ## The dev join is for `--character`, `--server` and the checks that play a
 ## dev character; anything else starts at the login card.
 func _wants_front_door() -> bool:
+	return _dev_switch() == ""
+
+## The first switch that needs the dev join or a dev check's script ("" when
+## none): `--character`, `--server`, a `-guest` client, any `--check*` but
+## the front door's own (`--check-login`, `--check-play`).
+func _dev_switch() -> String:
 	for arg: String in OS.get_cmdline_user_args():
-		if arg == "--character" or arg == "--server" or arg.ends_with("-guest") 				or (arg.begins_with("--check") and arg != "--check-login"):
-			return false
-	return true
+		if arg == "--character" or arg == "--server" or arg.ends_with("-guest") \
+				or (arg.begins_with("--check") and arg != "--check-login" and arg != "--check-play"):
+			return arg
+	return ""
 
 func _show_front_door() -> void:
 	# the world's sound fades; the front door plays the menu theme
@@ -655,7 +683,7 @@ func _show_front_door() -> void:
 	AudioManager.set_music_state("menu")
 	front_door = FrontDoor.new()
 	add_child(front_door)
-	front_door.setup(_arg("--login-url", LoginApi.DEFAULT_URL))
+	front_door.setup(_arg("--login-url", LoginApi.default_url()))
 	_add_login_check()
 	_add_menu_check()
 
@@ -689,7 +717,12 @@ func leave_world(quit: bool) -> void:
 	get_tree().reload_current_scene.call_deferred()
 
 func _add_login_check() -> void:
-	if OS.get_cmdline_user_args().has("--check-login"):
+	if OS.get_cmdline_user_args().has("--check-play"):
+		login_check = load(PlayCheckScript).new()
+		login_check.name = "PlayCheck"
+		login_check.game = self
+		add_child(login_check)
+	elif OS.get_cmdline_user_args().has("--check-login"):
 		login_check = load(LoginCheckScript).new()
 		login_check.name = "LoginCheck"
 		login_check.game = self

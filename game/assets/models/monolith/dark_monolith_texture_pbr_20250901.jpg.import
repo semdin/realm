@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cfqs25g25q7xb"
 path.s3tc="res://.godot/imported/dark_monolith_texture_pbr_20250901.jpg-7cb9c0d73fed8a56b316c76aa3723dec.s3tc.ctex"
+path.etc2="res://.godot/imported/dark_monolith_texture_pbr_20250901.jpg-7cb9c0d73fed8a56b316c76aa3723dec.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monolith/dark_monolith_texture_pbr_20250901.jpg"
-dest_files=["res://.godot/imported/dark_monolith_texture_pbr_20250901.jpg-7cb9c0d73fed8a56b316c76aa3723dec.s3tc.ctex"]
+dest_files=["res://.godot/imported/dark_monolith_texture_pbr_20250901.jpg-7cb9c0d73fed8a56b316c76aa3723dec.s3tc.ctex", "res://.godot/imported/dark_monolith_texture_pbr_20250901.jpg-7cb9c0d73fed8a56b316c76aa3723dec.etc2.ctex"]
 
 [params]
 

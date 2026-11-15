@@ -18,7 +18,14 @@ func _get_name() -> String:
 	
 func _begin_customize_resources(platform: EditorExportPlatform, features: PackedStringArray) -> bool:
 	# Godot caches exports based on this hash, so ensure we update on every version minimum
-	_hash = plugin.terrain.get_version()
+	# (realm) a headless export has no terrain selected in the editor: ask a
+	# temporary node for the version instead of failing on a null terrain
+	if plugin != null and plugin.terrain != null:
+		_hash = plugin.terrain.get_version()
+	else:
+		var probe := Terrain3D.new()
+		_hash = probe.get_version()
+		probe.free()
 	for feat: String in features:
 		_hash += feat
 	_hash += platform.to_string()

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bhq5fws8sky1p"
 path.s3tc="res://.godot/imported/fidgetling_texture_pbr_20250901_normal.jpg-fd46e6fb29701e91d94892b7609c5eac.s3tc.ctex"
+path.etc2="res://.godot/imported/fidgetling_texture_pbr_20250901_normal.jpg-fd46e6fb29701e91d94892b7609c5eac.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/fidgetling_texture_pbr_20250901_normal.jpg"
-dest_files=["res://.godot/imported/fidgetling_texture_pbr_20250901_normal.jpg-fd46e6fb29701e91d94892b7609c5eac.s3tc.ctex"]
+dest_files=["res://.godot/imported/fidgetling_texture_pbr_20250901_normal.jpg-fd46e6fb29701e91d94892b7609c5eac.s3tc.ctex", "res://.godot/imported/fidgetling_texture_pbr_20250901_normal.jpg-fd46e6fb29701e91d94892b7609c5eac.etc2.ctex"]
 
 [params]
 

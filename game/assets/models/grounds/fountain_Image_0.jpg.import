@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cq0tyjjghi4ix"
 path.s3tc="res://.godot/imported/fountain_Image_0.jpg-9df2b3eacf0658a9c0e02a8f61d571f5.s3tc.ctex"
+path.etc2="res://.godot/imported/fountain_Image_0.jpg-9df2b3eacf0658a9c0e02a8f61d571f5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/grounds/fountain_Image_0.jpg"
-dest_files=["res://.godot/imported/fountain_Image_0.jpg-9df2b3eacf0658a9c0e02a8f61d571f5.s3tc.ctex"]
+dest_files=["res://.godot/imported/fountain_Image_0.jpg-9df2b3eacf0658a9c0e02a8f61d571f5.s3tc.ctex", "res://.godot/imported/fountain_Image_0.jpg-9df2b3eacf0658a9c0e02a8f61d571f5.etc2.ctex"]
 
 [params]
 

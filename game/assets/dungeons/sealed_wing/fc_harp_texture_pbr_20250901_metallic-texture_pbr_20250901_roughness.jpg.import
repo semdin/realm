@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bu0xuxwi2t7fw"
 path.s3tc="res://.godot/imported/fc_harp_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-24c482d3132266a56bc21213328e6ec2.s3tc.ctex"
+path.etc2="res://.godot/imported/fc_harp_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-24c482d3132266a56bc21213328e6ec2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/dungeons/sealed_wing/fc_harp_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg"
-dest_files=["res://.godot/imported/fc_harp_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-24c482d3132266a56bc21213328e6ec2.s3tc.ctex"]
+dest_files=["res://.godot/imported/fc_harp_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-24c482d3132266a56bc21213328e6ec2.s3tc.ctex", "res://.godot/imported/fc_harp_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-24c482d3132266a56bc21213328e6ec2.etc2.ctex"]
 
 [params]
 

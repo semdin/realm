@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dtlah5f1eb20i"
 path.s3tc="res://.godot/imported/banner_blue.png-64b72fda7c7b7da9d5de3271d459f6e2.s3tc.ctex"
+path.etc2="res://.godot/imported/banner_blue.png-64b72fda7c7b7da9d5de3271d459f6e2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/castle/textures/banner_blue.png"
-dest_files=["res://.godot/imported/banner_blue.png-64b72fda7c7b7da9d5de3271d459f6e2.s3tc.ctex"]
+dest_files=["res://.godot/imported/banner_blue.png-64b72fda7c7b7da9d5de3271d459f6e2.s3tc.ctex", "res://.godot/imported/banner_blue.png-64b72fda7c7b7da9d5de3271d459f6e2.etc2.ctex"]
 
 [params]
 

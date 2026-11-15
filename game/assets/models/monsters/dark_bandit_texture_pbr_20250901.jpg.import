@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://4aloqeoh8dwy"
 path.s3tc="res://.godot/imported/dark_bandit_texture_pbr_20250901.jpg-d27487491f2c31fbb0f229f57e99d6bd.s3tc.ctex"
+path.etc2="res://.godot/imported/dark_bandit_texture_pbr_20250901.jpg-d27487491f2c31fbb0f229f57e99d6bd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/dark_bandit_texture_pbr_20250901.jpg"
-dest_files=["res://.godot/imported/dark_bandit_texture_pbr_20250901.jpg-d27487491f2c31fbb0f229f57e99d6bd.s3tc.ctex"]
+dest_files=["res://.godot/imported/dark_bandit_texture_pbr_20250901.jpg-d27487491f2c31fbb0f229f57e99d6bd.s3tc.ctex", "res://.godot/imported/dark_bandit_texture_pbr_20250901.jpg-d27487491f2c31fbb0f229f57e99d6bd.etc2.ctex"]
 
 [params]
 

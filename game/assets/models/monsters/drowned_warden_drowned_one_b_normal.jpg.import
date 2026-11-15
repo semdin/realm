@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bf4p6rp0lf2hb"
 path.s3tc="res://.godot/imported/drowned_warden_drowned_one_b_normal.jpg-0bfa2fbaf77f37ac4785ddd2c7bd8e6a.s3tc.ctex"
+path.etc2="res://.godot/imported/drowned_warden_drowned_one_b_normal.jpg-0bfa2fbaf77f37ac4785ddd2c7bd8e6a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/drowned_warden_drowned_one_b_normal.jpg"
-dest_files=["res://.godot/imported/drowned_warden_drowned_one_b_normal.jpg-0bfa2fbaf77f37ac4785ddd2c7bd8e6a.s3tc.ctex"]
+dest_files=["res://.godot/imported/drowned_warden_drowned_one_b_normal.jpg-0bfa2fbaf77f37ac4785ddd2c7bd8e6a.s3tc.ctex", "res://.godot/imported/drowned_warden_drowned_one_b_normal.jpg-0bfa2fbaf77f37ac4785ddd2c7bd8e6a.etc2.ctex"]
 
 [params]
 

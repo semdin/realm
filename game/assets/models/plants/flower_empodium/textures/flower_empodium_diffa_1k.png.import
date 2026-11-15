@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://duy6miu0vvahg"
 path.s3tc="res://.godot/imported/flower_empodium_diffa_1k.png-42406ca9935ba6ce8e9b340025fb697f.s3tc.ctex"
+path.etc2="res://.godot/imported/flower_empodium_diffa_1k.png-42406ca9935ba6ce8e9b340025fb697f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/plants/flower_empodium/textures/flower_empodium_diffa_1k.png"
-dest_files=["res://.godot/imported/flower_empodium_diffa_1k.png-42406ca9935ba6ce8e9b340025fb697f.s3tc.ctex"]
+dest_files=["res://.godot/imported/flower_empodium_diffa_1k.png-42406ca9935ba6ce8e9b340025fb697f.s3tc.ctex", "res://.godot/imported/flower_empodium_diffa_1k.png-42406ca9935ba6ce8e9b340025fb697f.etc2.ctex"]
 
 [params]
 

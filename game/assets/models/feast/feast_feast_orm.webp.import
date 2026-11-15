@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://blkmuyeqdyjcn"
 path.s3tc="res://.godot/imported/feast_feast_orm.webp-43ca7922e5acb912e7cb471bf83a2a94.s3tc.ctex"
+path.etc2="res://.godot/imported/feast_feast_orm.webp-43ca7922e5acb912e7cb471bf83a2a94.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/feast/feast_feast_orm.webp"
-dest_files=["res://.godot/imported/feast_feast_orm.webp-43ca7922e5acb912e7cb471bf83a2a94.s3tc.ctex"]
+dest_files=["res://.godot/imported/feast_feast_orm.webp-43ca7922e5acb912e7cb471bf83a2a94.s3tc.ctex", "res://.godot/imported/feast_feast_orm.webp-43ca7922e5acb912e7cb471bf83a2a94.etc2.ctex"]
 
 [params]
 

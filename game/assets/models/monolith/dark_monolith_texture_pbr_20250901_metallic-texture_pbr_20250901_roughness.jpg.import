@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ccv3k1tlye1bs"
 path.s3tc="res://.godot/imported/dark_monolith_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-30e1f4f8cbe388e5cbfd8c9cf310a4f9.s3tc.ctex"
+path.etc2="res://.godot/imported/dark_monolith_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-30e1f4f8cbe388e5cbfd8c9cf310a4f9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monolith/dark_monolith_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg"
-dest_files=["res://.godot/imported/dark_monolith_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-30e1f4f8cbe388e5cbfd8c9cf310a4f9.s3tc.ctex"]
+dest_files=["res://.godot/imported/dark_monolith_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-30e1f4f8cbe388e5cbfd8c9cf310a4f9.s3tc.ctex", "res://.godot/imported/dark_monolith_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-30e1f4f8cbe388e5cbfd8c9cf310a4f9.etc2.ctex"]
 
 [params]
 

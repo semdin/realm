@@ -94,7 +94,7 @@ func _capture(tag: String) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
 	await RenderingServer.frame_post_draw
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var dir := String(game._arg("--capture-dir", root.path_join("build/captures/login")))
 	DirAccess.make_dir_recursive_absolute(dir)
 	var image := get_viewport().get_texture().get_image()

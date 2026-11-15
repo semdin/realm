@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://w05x13lvwn82"
 path.s3tc="res://.godot/imported/skin_grain.png-763780ffd8622628f918dc3fde183928.s3tc.ctex"
+path.etc2="res://.godot/imported/skin_grain.png-763780ffd8622628f918dc3fde183928.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/characters/skin_grain.png"
-dest_files=["res://.godot/imported/skin_grain.png-763780ffd8622628f918dc3fde183928.s3tc.ctex"]
+dest_files=["res://.godot/imported/skin_grain.png-763780ffd8622628f918dc3fde183928.s3tc.ctex", "res://.godot/imported/skin_grain.png-763780ffd8622628f918dc3fde183928.etc2.ctex"]
 
 [params]
 

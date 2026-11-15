@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cbpa5kk2yh7h3"
 path.bptc="res://.godot/imported/wizard_mage_texture.png-3d6c506ce68e5a4fae09eee590aa53e1.bptc.ctex"
+path.astc="res://.godot/imported/wizard_mage_texture.png-3d6c506ce68e5a4fae09eee590aa53e1.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/wizard_mage_texture.png"
-dest_files=["res://.godot/imported/wizard_mage_texture.png-3d6c506ce68e5a4fae09eee590aa53e1.bptc.ctex"]
+dest_files=["res://.godot/imported/wizard_mage_texture.png-3d6c506ce68e5a4fae09eee590aa53e1.bptc.ctex", "res://.godot/imported/wizard_mage_texture.png-3d6c506ce68e5a4fae09eee590aa53e1.astc.ctex"]
 
 [params]
 

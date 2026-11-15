@@ -4,7 +4,7 @@ class_name FrontDoor
 ## The game's front door: the login card (LoginScreen), then the character
 ## screen (CharacterSelect), then the world. main.gd shows it when the game
 ## starts without `--character` (and without a check that needs the dev
-## join); `--login-url` names the login service (LoginApi.DEFAULT_URL).
+## join); `--login-url` names the login service (LoginApi.default_url()).
 ##
 ## Entering the world asks the service for a ticket (/api/play) and hands
 ## it to RealmSession.join_ticket: the loading screen comes up and the scene

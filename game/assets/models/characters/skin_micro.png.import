@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cgc08tnaxcjp5"
 path.s3tc="res://.godot/imported/skin_micro.png-126dce040f032b8952d2b58974d7b82b.s3tc.ctex"
+path.etc2="res://.godot/imported/skin_micro.png-126dce040f032b8952d2b58974d7b82b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/characters/skin_micro.png"
-dest_files=["res://.godot/imported/skin_micro.png-126dce040f032b8952d2b58974d7b82b.s3tc.ctex"]
+dest_files=["res://.godot/imported/skin_micro.png-126dce040f032b8952d2b58974d7b82b.s3tc.ctex", "res://.godot/imported/skin_micro.png-126dce040f032b8952d2b58974d7b82b.etc2.ctex"]
 
 [params]
 

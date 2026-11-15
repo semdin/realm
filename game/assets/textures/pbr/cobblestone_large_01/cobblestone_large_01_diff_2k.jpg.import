@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dgvnmsrbrj63e"
 path.s3tc="res://.godot/imported/cobblestone_large_01_diff_2k.jpg-aa5b03e79f33f4c855bf3273223280ed.s3tc.ctex"
+path.etc2="res://.godot/imported/cobblestone_large_01_diff_2k.jpg-aa5b03e79f33f4c855bf3273223280ed.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/pbr/cobblestone_large_01/cobblestone_large_01_diff_2k.jpg"
-dest_files=["res://.godot/imported/cobblestone_large_01_diff_2k.jpg-aa5b03e79f33f4c855bf3273223280ed.s3tc.ctex"]
+dest_files=["res://.godot/imported/cobblestone_large_01_diff_2k.jpg-aa5b03e79f33f4c855bf3273223280ed.s3tc.ctex", "res://.godot/imported/cobblestone_large_01_diff_2k.jpg-aa5b03e79f33f4c855bf3273223280ed.etc2.ctex"]
 
 [params]
 

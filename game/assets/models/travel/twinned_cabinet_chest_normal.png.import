@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cr0pqcqj6lr5n"
 path.s3tc="res://.godot/imported/twinned_cabinet_chest_normal.png-02ba8642c15369518512a2e16707e887.s3tc.ctex"
+path.etc2="res://.godot/imported/twinned_cabinet_chest_normal.png-02ba8642c15369518512a2e16707e887.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/travel/twinned_cabinet_chest_normal.png"
-dest_files=["res://.godot/imported/twinned_cabinet_chest_normal.png-02ba8642c15369518512a2e16707e887.s3tc.ctex"]
+dest_files=["res://.godot/imported/twinned_cabinet_chest_normal.png-02ba8642c15369518512a2e16707e887.s3tc.ctex", "res://.godot/imported/twinned_cabinet_chest_normal.png-02ba8642c15369518512a2e16707e887.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://85iuh3qrcasx"
 path.s3tc="res://.godot/imported/cavern_camp_chest_normal.png-e4073995f6d877116e68276d76c8f09e.s3tc.ctex"
+path.etc2="res://.godot/imported/cavern_camp_chest_normal.png-e4073995f6d877116e68276d76c8f09e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/caverns/cavern_camp_chest_normal.png"
-dest_files=["res://.godot/imported/cavern_camp_chest_normal.png-e4073995f6d877116e68276d76c8f09e.s3tc.ctex"]
+dest_files=["res://.godot/imported/cavern_camp_chest_normal.png-e4073995f6d877116e68276d76c8f09e.s3tc.ctex", "res://.godot/imported/cavern_camp_chest_normal.png-e4073995f6d877116e68276d76c8f09e.etc2.ctex"]
 
 [params]
 

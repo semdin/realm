@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cdyvsj86ye6bb"
 path.s3tc="res://.godot/imported/owl_0.webp-a8850108338fc15f29d0bd67b6466fec.s3tc.ctex"
+path.etc2="res://.godot/imported/owl_0.webp-a8850108338fc15f29d0bd67b6466fec.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/castle/props/owl_0.webp"
-dest_files=["res://.godot/imported/owl_0.webp-a8850108338fc15f29d0bd67b6466fec.s3tc.ctex"]
+dest_files=["res://.godot/imported/owl_0.webp-a8850108338fc15f29d0bd67b6466fec.s3tc.ctex", "res://.godot/imported/owl_0.webp-a8850108338fc15f29d0bd67b6466fec.etc2.ctex"]
 
 [params]
 

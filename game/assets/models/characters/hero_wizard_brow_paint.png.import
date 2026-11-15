@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://8n5cp8ggevub"
 path.bptc="res://.godot/imported/hero_wizard_brow_paint.png-a9800023a75ff747a6f0a087783fd412.bptc.ctex"
+path.astc="res://.godot/imported/hero_wizard_brow_paint.png-a9800023a75ff747a6f0a087783fd412.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_brow_paint.png"
-dest_files=["res://.godot/imported/hero_wizard_brow_paint.png-a9800023a75ff747a6f0a087783fd412.bptc.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_brow_paint.png-a9800023a75ff747a6f0a087783fd412.bptc.ctex", "res://.godot/imported/hero_wizard_brow_paint.png-a9800023a75ff747a6f0a087783fd412.astc.ctex"]
 
 [params]
 

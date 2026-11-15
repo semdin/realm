@@ -324,7 +324,7 @@ func _align(name: String, at: Vector3) -> void:
 func _capture(tag: String) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var dir := String(game._arg("--capture-dir", "build/captures/castle"))
 	if dir.is_relative_path():
 		dir = root.path_join(dir)

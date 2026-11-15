@@ -94,7 +94,7 @@ func _capture(tag: String) -> void:
 	await _frames(3)
 	if DisplayServer.get_name() == "headless":
 		return
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var dir := String(game._arg("--capture-dir", root.path_join("build/captures/others")))
 	DirAccess.make_dir_recursive_absolute(dir)
 	var image := get_viewport().get_texture().get_image()
@@ -190,7 +190,7 @@ func _run() -> void:
 
 ## Starts the partner: this game again, headless, as `--others-guest`.
 func _start_guest(own_name: String) -> void:
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var log_path := root.path_join("build/logs/others_guest.log")
 	var args := ["--headless", "--path", ProjectSettings.globalize_path("res://"), "--log-file", log_path, "--",
 		"--others-guest", own_name, "--character", str(PARTNER), "--server", game._arg("--server", "127.0.0.1:7777")]

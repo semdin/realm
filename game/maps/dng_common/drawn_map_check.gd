@@ -431,7 +431,7 @@ func _on_gate(point: Vector3) -> bool:
 func _capture(tag: String) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var dir := String(game._arg("--capture-dir", "build/captures/" + _tag))
 	if dir.is_relative_path():
 		dir = root.path_join(dir)

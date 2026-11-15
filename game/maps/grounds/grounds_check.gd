@@ -167,7 +167,7 @@ func _run() -> void:
 
 
 func _root() -> String:
-	return ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	return RealmPaths.root()
 
 
 func _wait(seconds: float) -> void:

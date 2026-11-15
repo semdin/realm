@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b7vv2ig3noncq"
 path.s3tc="res://.godot/imported/goblin_guard_goblin_b_albedo.jpg-bbd96b3d233a5b477573781adee45589.s3tc.ctex"
+path.etc2="res://.godot/imported/goblin_guard_goblin_b_albedo.jpg-bbd96b3d233a5b477573781adee45589.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/goblin_guard_goblin_b_albedo.jpg"
-dest_files=["res://.godot/imported/goblin_guard_goblin_b_albedo.jpg-bbd96b3d233a5b477573781adee45589.s3tc.ctex"]
+dest_files=["res://.godot/imported/goblin_guard_goblin_b_albedo.jpg-bbd96b3d233a5b477573781adee45589.s3tc.ctex", "res://.godot/imported/goblin_guard_goblin_b_albedo.jpg-bbd96b3d233a5b477573781adee45589.etc2.ctex"]
 
 [params]
 

@@ -2,7 +2,8 @@ extends Node
 class_name LoginApi
 
 ## The login service (crates/realm_login) as the front door talks to it:
-## JSON over HTTP, `base_url` from `--login-url` (default DEFAULT_URL).
+## JSON over HTTP, `base_url` from `--login-url` (default default_url():
+## the realm's own service in an exported game, a local one in a dev run).
 ##
 ##   register(user, pass)        POST /api/register
 ##   login(user, pass)           POST /api/login -> the session token
@@ -20,7 +21,9 @@ class_name LoginApi
 ## The session token lives in memory only (`token`, static: it outlives the
 ## scene reload into the world and back), never on disk.
 
-const DEFAULT_URL := "http://127.0.0.1:7950"
+## A dev run's service (realm_login on loopback) and an exported game's.
+const DEV_URL := "http://127.0.0.1:7950"
+const RELEASE_URL := "https://api.agsilvery.com"
 const TIMEOUT := 12.0
 
 # i18n-begin
@@ -49,11 +52,14 @@ const SERVICE_LINES := [
 static var token := ""
 static var username := ""
 
-var base_url := DEFAULT_URL
+var base_url := DEV_URL
 
-func _init(url: String = DEFAULT_URL) -> void:
+static func default_url() -> String:
+	return RELEASE_URL if RealmPaths.is_release() else DEV_URL
+
+func _init(url: String = "") -> void:
 	name = "LoginApi"
-	base_url = url.strip_edges().rstrip("/")
+	base_url = (url if url != "" else default_url()).strip_edges().rstrip("/")
 
 func signed_in() -> bool:
 	return token != ""

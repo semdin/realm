@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://u2v2svqw5bym"
 path.bptc="res://.godot/imported/hero_wizard_T_Ranger_BaseColor.png-fd2de044f3fe2a28f68ac6effb566ff2.bptc.ctex"
+path.astc="res://.godot/imported/hero_wizard_T_Ranger_BaseColor.png-fd2de044f3fe2a28f68ac6effb566ff2.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_T_Ranger_BaseColor.png"
-dest_files=["res://.godot/imported/hero_wizard_T_Ranger_BaseColor.png-fd2de044f3fe2a28f68ac6effb566ff2.bptc.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_T_Ranger_BaseColor.png-fd2de044f3fe2a28f68ac6effb566ff2.bptc.ctex", "res://.godot/imported/hero_wizard_T_Ranger_BaseColor.png-fd2de044f3fe2a28f68ac6effb566ff2.astc.ctex"]
 
 [params]
 

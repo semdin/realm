@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bi1m3u8yyvut8"
 path.s3tc="res://.godot/imported/distortion_512.png-e5b01e7160d1dc90e03abb3c6db2625e.s3tc.ctex"
+path.etc2="res://.godot/imported/distortion_512.png-e5b01e7160d1dc90e03abb3c6db2625e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/vfx/tex/distortion_512.png"
-dest_files=["res://.godot/imported/distortion_512.png-e5b01e7160d1dc90e03abb3c6db2625e.s3tc.ctex"]
+dest_files=["res://.godot/imported/distortion_512.png-e5b01e7160d1dc90e03abb3c6db2625e.s3tc.ctex", "res://.godot/imported/distortion_512.png-e5b01e7160d1dc90e03abb3c6db2625e.etc2.ctex"]
 
 [params]
 

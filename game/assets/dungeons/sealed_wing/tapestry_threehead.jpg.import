@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bp0aovqxxgufs"
 path.s3tc="res://.godot/imported/tapestry_threehead.jpg-9d44871e15ffe9f8346c8bd4804793c7.s3tc.ctex"
+path.etc2="res://.godot/imported/tapestry_threehead.jpg-9d44871e15ffe9f8346c8bd4804793c7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/dungeons/sealed_wing/tapestry_threehead.jpg"
-dest_files=["res://.godot/imported/tapestry_threehead.jpg-9d44871e15ffe9f8346c8bd4804793c7.s3tc.ctex"]
+dest_files=["res://.godot/imported/tapestry_threehead.jpg-9d44871e15ffe9f8346c8bd4804793c7.s3tc.ctex", "res://.godot/imported/tapestry_threehead.jpg-9d44871e15ffe9f8346c8bd4804793c7.etc2.ctex"]
 
 [params]
 

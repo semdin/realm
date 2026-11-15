@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://8bfh0lrn3bmu"
 path.s3tc="res://.godot/imported/stone_tiles_02_diff_2k.jpg-870b198676c4f91182c16a43f2307a35.s3tc.ctex"
+path.etc2="res://.godot/imported/stone_tiles_02_diff_2k.jpg-870b198676c4f91182c16a43f2307a35.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/pbr/stone_tiles_02/stone_tiles_02_diff_2k.jpg"
-dest_files=["res://.godot/imported/stone_tiles_02_diff_2k.jpg-870b198676c4f91182c16a43f2307a35.s3tc.ctex"]
+dest_files=["res://.godot/imported/stone_tiles_02_diff_2k.jpg-870b198676c4f91182c16a43f2307a35.s3tc.ctex", "res://.godot/imported/stone_tiles_02_diff_2k.jpg-870b198676c4f91182c16a43f2307a35.etc2.ctex"]
 
 [params]
 

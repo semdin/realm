@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dslu4e7ggvhgd"
 path.s3tc="res://.godot/imported/armour_commander_texture_pbr_20250901_normal.jpg-7a4991e48e996f472c9100faf3b561ad.s3tc.ctex"
+path.etc2="res://.godot/imported/armour_commander_texture_pbr_20250901_normal.jpg-7a4991e48e996f472c9100faf3b561ad.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/armour_commander_texture_pbr_20250901_normal.jpg"
-dest_files=["res://.godot/imported/armour_commander_texture_pbr_20250901_normal.jpg-7a4991e48e996f472c9100faf3b561ad.s3tc.ctex"]
+dest_files=["res://.godot/imported/armour_commander_texture_pbr_20250901_normal.jpg-7a4991e48e996f472c9100faf3b561ad.s3tc.ctex", "res://.godot/imported/armour_commander_texture_pbr_20250901_normal.jpg-7a4991e48e996f472c9100faf3b561ad.etc2.ctex"]
 
 [params]
 

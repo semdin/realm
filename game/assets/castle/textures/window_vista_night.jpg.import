@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://n0wu68afroe2"
 path.s3tc="res://.godot/imported/window_vista_night.jpg-1b82c9d2da5f2ddf465498367a23663c.s3tc.ctex"
+path.etc2="res://.godot/imported/window_vista_night.jpg-1b82c9d2da5f2ddf465498367a23663c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/castle/textures/window_vista_night.jpg"
-dest_files=["res://.godot/imported/window_vista_night.jpg-1b82c9d2da5f2ddf465498367a23663c.s3tc.ctex"]
+dest_files=["res://.godot/imported/window_vista_night.jpg-1b82c9d2da5f2ddf465498367a23663c.s3tc.ctex", "res://.godot/imported/window_vista_night.jpg-1b82c9d2da5f2ddf465498367a23663c.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwd0042loi85n"
 path.s3tc="res://.godot/imported/mask_peasant_2.png-50ff99008e712ac730b024c0b328acbb.s3tc.ctex"
+path.etc2="res://.godot/imported/mask_peasant_2.png-50ff99008e712ac730b024c0b328acbb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/characters/outfits/mask_peasant_2.png"
-dest_files=["res://.godot/imported/mask_peasant_2.png-50ff99008e712ac730b024c0b328acbb.s3tc.ctex"]
+dest_files=["res://.godot/imported/mask_peasant_2.png-50ff99008e712ac730b024c0b328acbb.s3tc.ctex", "res://.godot/imported/mask_peasant_2.png-50ff99008e712ac730b024c0b328acbb.etc2.ctex"]
 
 [params]
 

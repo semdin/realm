@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwv83lpa7u7tn"
 path.s3tc="res://.godot/imported/cavern_stalag_chest_mr.png-51b9dab8b3813b5da0d2565c886bfecd.s3tc.ctex"
+path.etc2="res://.godot/imported/cavern_stalag_chest_mr.png-51b9dab8b3813b5da0d2565c886bfecd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/caverns/cavern_stalag_chest_mr.png"
-dest_files=["res://.godot/imported/cavern_stalag_chest_mr.png-51b9dab8b3813b5da0d2565c886bfecd.s3tc.ctex"]
+dest_files=["res://.godot/imported/cavern_stalag_chest_mr.png-51b9dab8b3813b5da0d2565c886bfecd.s3tc.ctex", "res://.godot/imported/cavern_stalag_chest_mr.png-51b9dab8b3813b5da0d2565c886bfecd.etc2.ctex"]
 
 [params]
 

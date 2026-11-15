@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1ckn5ribyw68"
 path.s3tc="res://.godot/imported/cavern_mushrooms_chest_mr.png-1799831215b3699f1c685327d9e79425.s3tc.ctex"
+path.etc2="res://.godot/imported/cavern_mushrooms_chest_mr.png-1799831215b3699f1c685327d9e79425.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/caverns/cavern_mushrooms_chest_mr.png"
-dest_files=["res://.godot/imported/cavern_mushrooms_chest_mr.png-1799831215b3699f1c685327d9e79425.s3tc.ctex"]
+dest_files=["res://.godot/imported/cavern_mushrooms_chest_mr.png-1799831215b3699f1c685327d9e79425.s3tc.ctex", "res://.godot/imported/cavern_mushrooms_chest_mr.png-1799831215b3699f1c685327d9e79425.etc2.ctex"]
 
 [params]
 

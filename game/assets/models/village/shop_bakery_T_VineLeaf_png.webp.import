@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqifipa44hi6s"
 path.s3tc="res://.godot/imported/shop_bakery_T_VineLeaf_png.webp-852289db71582b1d54d49239eee53905.s3tc.ctex"
+path.etc2="res://.godot/imported/shop_bakery_T_VineLeaf_png.webp-852289db71582b1d54d49239eee53905.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/village/shop_bakery_T_VineLeaf_png.webp"
-dest_files=["res://.godot/imported/shop_bakery_T_VineLeaf_png.webp-852289db71582b1d54d49239eee53905.s3tc.ctex"]
+dest_files=["res://.godot/imported/shop_bakery_T_VineLeaf_png.webp-852289db71582b1d54d49239eee53905.s3tc.ctex", "res://.godot/imported/shop_bakery_T_VineLeaf_png.webp-852289db71582b1d54d49239eee53905.etc2.ctex"]
 
 [params]
 

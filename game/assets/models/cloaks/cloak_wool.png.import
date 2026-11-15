@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://4hhteqorcxvp"
 path.bptc="res://.godot/imported/cloak_wool.png-ecd63a896afe08a146505b393e71abfd.bptc.ctex"
+path.astc="res://.godot/imported/cloak_wool.png-ecd63a896afe08a146505b393e71abfd.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cloaks/cloak_wool.png"
-dest_files=["res://.godot/imported/cloak_wool.png-ecd63a896afe08a146505b393e71abfd.bptc.ctex"]
+dest_files=["res://.godot/imported/cloak_wool.png-ecd63a896afe08a146505b393e71abfd.bptc.ctex", "res://.godot/imported/cloak_wool.png-ecd63a896afe08a146505b393e71abfd.astc.ctex"]
 
 [params]
 

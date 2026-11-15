@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dq046o46eban3"
 path.s3tc="res://.godot/imported/broom_emberwing_Image_1.jpg-e3b2c586572a9f960d258a17174a392c.s3tc.ctex"
+path.etc2="res://.godot/imported/broom_emberwing_Image_1.jpg-e3b2c586572a9f960d258a17174a392c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/props/brooms/broom_emberwing_Image_1.jpg"
-dest_files=["res://.godot/imported/broom_emberwing_Image_1.jpg-e3b2c586572a9f960d258a17174a392c.s3tc.ctex"]
+dest_files=["res://.godot/imported/broom_emberwing_Image_1.jpg-e3b2c586572a9f960d258a17174a392c.s3tc.ctex", "res://.godot/imported/broom_emberwing_Image_1.jpg-e3b2c586572a9f960d258a17174a392c.etc2.ctex"]
 
 [params]
 

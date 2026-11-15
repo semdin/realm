@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dyaq67wet5y7j"
 path.s3tc="res://.godot/imported/fc_harp_texture_pbr_20250901.jpg-86e52b7975538fc4f05a9197b64103c9.s3tc.ctex"
+path.etc2="res://.godot/imported/fc_harp_texture_pbr_20250901.jpg-86e52b7975538fc4f05a9197b64103c9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/dungeons/sealed_wing/fc_harp_texture_pbr_20250901.jpg"
-dest_files=["res://.godot/imported/fc_harp_texture_pbr_20250901.jpg-86e52b7975538fc4f05a9197b64103c9.s3tc.ctex"]
+dest_files=["res://.godot/imported/fc_harp_texture_pbr_20250901.jpg-86e52b7975538fc4f05a9197b64103c9.s3tc.ctex", "res://.godot/imported/fc_harp_texture_pbr_20250901.jpg-86e52b7975538fc4f05a9197b64103c9.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c06qjx3fyxfua"
 path.s3tc="res://.godot/imported/armour_guard_texture_pbr_20250901_normal.jpg-6acb307de66e40da0f6118b2f6678ae6.s3tc.ctex"
+path.etc2="res://.godot/imported/armour_guard_texture_pbr_20250901_normal.jpg-6acb307de66e40da0f6118b2f6678ae6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/armour_guard_texture_pbr_20250901_normal.jpg"
-dest_files=["res://.godot/imported/armour_guard_texture_pbr_20250901_normal.jpg-6acb307de66e40da0f6118b2f6678ae6.s3tc.ctex"]
+dest_files=["res://.godot/imported/armour_guard_texture_pbr_20250901_normal.jpg-6acb307de66e40da0f6118b2f6678ae6.s3tc.ctex", "res://.godot/imported/armour_guard_texture_pbr_20250901_normal.jpg-6acb307de66e40da0f6118b2f6678ae6.etc2.ctex"]
 
 [params]
 

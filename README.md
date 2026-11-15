@@ -32,6 +32,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `content/data/` | The game's content (12 JSON files, imported 2026-11-13). Keys starting with `_` are author notes. |
 | `perf/budgets.toml` | Client budgets on the reference machine (low preset). |
 | `tools/gdext_smoke` | Smallest Godot project that loads `realm_client`. |
+| `tools/release` | `stage_client.sh`: makes a Godot export of the client a complete game (see Releasing the client). |
 
 ## Commands
 
@@ -159,6 +160,75 @@ Godot extension smoke (after a build; Windows shown):
 mkdir -p tools/gdext_smoke/bin && cp target/debug/realm_client.dll tools/gdext_smoke/bin/
 godot --headless --path tools/gdext_smoke -s res://smoke.gd -- 1 30
 ```
+
+## Releasing the client
+
+The game players run is a Godot export of `game/` (`game/export_presets.cfg`:
+"Windows Desktop", "Linux", "macOS"; executable `ThousandRealms`), staged
+with the files the Rust core reads with `std::fs`:
+
+```bash
+cargo build --release -p realm_client                 # the extension, into target/release (the export copies it from there)
+godot --headless --path game --import                 # once, and after a new class_name
+godot --headless --path game --export-release "Windows Desktop" "$(pwd -W)/build/client_export/win/ThousandRealms.exe"
+godot --headless --path game --export-release "Linux" "$PWD/build/client_export/linux/ThousandRealms.x86_64"
+godot --headless --path game --export-release "macOS" "$PWD/build/client_export/mac.zip" && unzip -q build/client_export/mac.zip -d build/client_export/mac
+bash tools/release/stage_client.sh build/client_export/win windows game/release/tls.crt.der [realm_client.dll to ship]
+bash tools/release/stage_client.sh build/client_export/mac macos game/release/tls.crt.der [universal librealm_client.dylib]
+build/client_export/win/ThousandRealms.exe --headless -- --login-url http://127.0.0.1:<port> --check-play USER PASSWORD   # smoke (build/logs/e8_check.sh)
+```
+
+- **The extension library.** `game/realm.gdextension` points at
+  `../target/release`; Godot 4.7.2 exports a library outside `res://` as it
+  does any other: it copies it beside the executable (macOS: the bundle's
+  `Contents/Frameworks`), and the exported game loads it from there. An export
+  fails when the library is missing. To export for another platform, put that
+  platform's library in `target/release` first (`realm_client.dll`,
+  `librealm_client.so`, `librealm_client.dylib` sit side by side), or give the
+  build to ship as `stage_client.sh`'s 4th argument, which replaces the copy.
+  The macOS export is universal: the dylib is `lipo -create` of the
+  `aarch64-apple-darwin` and `x86_64-apple-darwin` builds (Godot only allows a
+  universal export when the project imports ETC2/ASTC as well, hence
+  `import_etc2_astc` in `project.godot`; the pck carries S3TC/BPTC only).
+  Terrain3D's libraries come from `game/addons/terrain_3d/bin` (Git LFS:
+  `git lfs pull` first; `stage_client.sh` refuses pointers and missing ones).
+- **The release root** (`game/scripts/systems/realm_paths.gd`): an exported
+  game (feature `template`) reads `content/data`, `world/maps` and
+  `keys/tls.crt.der` beside its executable; on macOS in
+  `Thousand Realms.app/Contents/Resources`, beside the pck, so the bundle is
+  self-contained, moves as one piece and is signed as one (the executable is
+  in `Contents/MacOS`). A dev run keeps the checkout (`res://..`);
+  `--keys`, `--content` and `--maps` override either. `stage_client.sh` fills
+  the root fresh each time and, on macOS, signs the bundle again (ad-hoc:
+  `codesign` on a Mac, `rcodesign` from apple-codesign on the Linux runner),
+  since the files it adds change the sealed resources. The bundle keeps the
+  project's name, `Thousand Realms.app`: the launcher starts
+  `Thousand Realms.app/Contents/MacOS/Thousand Realms`.
+- **What ships**: the executable, `ThousandRealms.pck` (all resources; the
+  grounds' scatter `.bin`s, the tree tiles and the font licence through
+  `include_filter`), the two extension libraries, `content/data/*.json`,
+  `world/maps/*.realmmap`, and of `keys/` only the realm's public certificate
+  (`game/release/tls.crt.der`, the one the live map servers present; the
+  client pins it, server name "localhost"). Never `ticket.key`, `coord.key`
+  or a TLS private key: `stage_client.sh` copies exactly one file into `keys/`
+  and refuses anything that is not a DER certificate. The dev checks
+  (`*_check.gd`) and the `map_solids` tool are left out by `exclude_filter`;
+  an exported game refuses the dev switches (`--character`, `--server`,
+  `-guest`, every `--check*` but `--check-play`) with exit code 2.
+- **The login service** an exported game talks to by default is
+  `https://api.agsilvery.com` (`LoginApi.RELEASE_URL`; a dev run keeps
+  `http://127.0.0.1:7950`); `--login-url` overrides both. The game prints its
+  release root and login service as it starts.
+- **`--check-play USER PASSWORD`** (`scripts/systems/play_smoke.gd`, also in
+  an export): through the front door, logs in (registers an unknown account),
+  picks the first character (creates one on an empty roster), enters the
+  world, sees the sheet and the map's own scene drawn, quits 0; fails fast on
+  any refusal, at most 80 s. On 2026-11-15 the staged Windows export did it
+  against a local stack (persist, coordinator, grounds, login) in ~2 s for a
+  new and for an existing account. Its parts: `ThousandRealms.exe` 104 MiB
+  (the release template), `ThousandRealms.pck` 875 MiB,
+  `realm_client.dll` 33 MiB, Terrain3D's dll 3.7 MiB, `content/data` 0.8 MB,
+  `world/maps` 5.4 MB, `keys` 366 bytes: 1.0 GiB in all.
 
 ## Toolchain
 

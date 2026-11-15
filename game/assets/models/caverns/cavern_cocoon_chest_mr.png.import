@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ddcbodi5mcpqm"
 path.s3tc="res://.godot/imported/cavern_cocoon_chest_mr.png-b054bdad30a984133fdb42b88d74aeec.s3tc.ctex"
+path.etc2="res://.godot/imported/cavern_cocoon_chest_mr.png-b054bdad30a984133fdb42b88d74aeec.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/caverns/cavern_cocoon_chest_mr.png"
-dest_files=["res://.godot/imported/cavern_cocoon_chest_mr.png-b054bdad30a984133fdb42b88d74aeec.s3tc.ctex"]
+dest_files=["res://.godot/imported/cavern_cocoon_chest_mr.png-b054bdad30a984133fdb42b88d74aeec.s3tc.ctex", "res://.godot/imported/cavern_cocoon_chest_mr.png-b054bdad30a984133fdb42b88d74aeec.etc2.ctex"]
 
 [params]
 

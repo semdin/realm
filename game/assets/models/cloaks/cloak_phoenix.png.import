@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ld6a3crpq2x7"
 path.bptc="res://.godot/imported/cloak_phoenix.png-2f305980bb7dccf1219d100696b9e4e0.bptc.ctex"
+path.astc="res://.godot/imported/cloak_phoenix.png-2f305980bb7dccf1219d100696b9e4e0.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cloaks/cloak_phoenix.png"
-dest_files=["res://.godot/imported/cloak_phoenix.png-2f305980bb7dccf1219d100696b9e4e0.bptc.ctex"]
+dest_files=["res://.godot/imported/cloak_phoenix.png-2f305980bb7dccf1219d100696b9e4e0.bptc.ctex", "res://.godot/imported/cloak_phoenix.png-2f305980bb7dccf1219d100696b9e4e0.astc.ctex"]
 
 [params]
 

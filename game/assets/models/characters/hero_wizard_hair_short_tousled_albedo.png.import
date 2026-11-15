@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://6lpygy1onm2w"
 path.bptc="res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.bptc.ctex"
+path.astc="res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_hair_short_tousled_albedo.png"
-dest_files=["res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.bptc.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.bptc.ctex", "res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.astc.ctex"]
 
 [params]
 

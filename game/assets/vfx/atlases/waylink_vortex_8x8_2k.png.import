@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dt22f5t3307i"
 path.s3tc="res://.godot/imported/waylink_vortex_8x8_2k.png-8b8574b6cbf83695d082c071868a5cbc.s3tc.ctex"
+path.etc2="res://.godot/imported/waylink_vortex_8x8_2k.png-8b8574b6cbf83695d082c071868a5cbc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/vfx/atlases/waylink_vortex_8x8_2k.png"
-dest_files=["res://.godot/imported/waylink_vortex_8x8_2k.png-8b8574b6cbf83695d082c071868a5cbc.s3tc.ctex"]
+dest_files=["res://.godot/imported/waylink_vortex_8x8_2k.png-8b8574b6cbf83695d082c071868a5cbc.s3tc.ctex", "res://.godot/imported/waylink_vortex_8x8_2k.png-8b8574b6cbf83695d082c071868a5cbc.etc2.ctex"]
 
 [params]
 

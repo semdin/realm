@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dcgv7pi6oykv4"
 path.s3tc="res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.s3tc.ctex"
+path.etc2="res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/props/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg"
-dest_files=["res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.s3tc.ctex"]
+dest_files=["res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.s3tc.ctex", "res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.etc2.ctex"]
 
 [params]
 

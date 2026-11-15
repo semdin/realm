@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cplwx38k5tga8"
 path.s3tc="res://.godot/imported/carpet.jpg-6b5af1b19110fb568fecd6caaeb97175.s3tc.ctex"
+path.etc2="res://.godot/imported/carpet.jpg-6b5af1b19110fb568fecd6caaeb97175.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/dungeons/sealed_wing/carpet.jpg"
-dest_files=["res://.godot/imported/carpet.jpg-6b5af1b19110fb568fecd6caaeb97175.s3tc.ctex"]
+dest_files=["res://.godot/imported/carpet.jpg-6b5af1b19110fb568fecd6caaeb97175.s3tc.ctex", "res://.godot/imported/carpet.jpg-6b5af1b19110fb568fecd6caaeb97175.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://befp0gi7unpo0"
 path.bptc="res://.godot/imported/hero_wizard_T_Superhero_Male_Dark.png-4d53225e05f27934b8529f86951c0090.bptc.ctex"
+path.astc="res://.godot/imported/hero_wizard_T_Superhero_Male_Dark.png-4d53225e05f27934b8529f86951c0090.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_T_Superhero_Male_Dark.png"
-dest_files=["res://.godot/imported/hero_wizard_T_Superhero_Male_Dark.png-4d53225e05f27934b8529f86951c0090.bptc.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_T_Superhero_Male_Dark.png-4d53225e05f27934b8529f86951c0090.bptc.ctex", "res://.godot/imported/hero_wizard_T_Superhero_Male_Dark.png-4d53225e05f27934b8529f86951c0090.astc.ctex"]
 
 [params]
 

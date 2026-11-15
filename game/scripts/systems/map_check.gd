@@ -111,7 +111,7 @@ func _capture(tag: String) -> void:
 	await _frames_wait(3)
 	if DisplayServer.get_name() == "headless":
 		return
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var dir := String(game._arg("--capture-dir", root.path_join("build/captures/map")))
 	if String(game.map_name) != "grounds":
 		dir = dir.path_join(String(game.map_name))
@@ -314,7 +314,7 @@ func _capture_sheet(sheet: Dictionary, tag: String, rect: Rect2) -> void:
 	if image.has_mipmaps():
 		image.clear_mipmaps()
 	var part := image.get_region(region)
-	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
+	var root := RealmPaths.root()
 	var dir := String(game._arg("--capture-dir", root.path_join("build/captures/map")))
 	if String(game.map_name) != "grounds":
 		dir = dir.path_join(String(game.map_name))

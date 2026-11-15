@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cw5k3wrngmdok"
 path.s3tc="res://.godot/imported/troll_forest_texture_pbr_20250901.jpg-5767cce15c4f3539becc63d5566446b1.s3tc.ctex"
+path.etc2="res://.godot/imported/troll_forest_texture_pbr_20250901.jpg-5767cce15c4f3539becc63d5566446b1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/troll_forest_texture_pbr_20250901.jpg"
-dest_files=["res://.godot/imported/troll_forest_texture_pbr_20250901.jpg-5767cce15c4f3539becc63d5566446b1.s3tc.ctex"]
+dest_files=["res://.godot/imported/troll_forest_texture_pbr_20250901.jpg-5767cce15c4f3539becc63d5566446b1.s3tc.ctex", "res://.godot/imported/troll_forest_texture_pbr_20250901.jpg-5767cce15c4f3539becc63d5566446b1.etc2.ctex"]
 
 [params]
 

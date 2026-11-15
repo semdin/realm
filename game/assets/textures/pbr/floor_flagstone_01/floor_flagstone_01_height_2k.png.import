@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://v3d26sohibs0"
 path.s3tc="res://.godot/imported/floor_flagstone_01_height_2k.png-63d2ea1c10c192305ee702802339b0aa.s3tc.ctex"
+path.etc2="res://.godot/imported/floor_flagstone_01_height_2k.png-63d2ea1c10c192305ee702802339b0aa.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/pbr/floor_flagstone_01/floor_flagstone_01_height_2k.png"
-dest_files=["res://.godot/imported/floor_flagstone_01_height_2k.png-63d2ea1c10c192305ee702802339b0aa.s3tc.ctex"]
+dest_files=["res://.godot/imported/floor_flagstone_01_height_2k.png-63d2ea1c10c192305ee702802339b0aa.s3tc.ctex", "res://.godot/imported/floor_flagstone_01_height_2k.png-63d2ea1c10c192305ee702802339b0aa.etc2.ctex"]
 
 [params]
 

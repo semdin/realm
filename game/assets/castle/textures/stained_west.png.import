@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ba4xedb4231f4"
 path.s3tc="res://.godot/imported/stained_west.png-d49093ac285fcb38e58034e3a99c2ee6.s3tc.ctex"
+path.etc2="res://.godot/imported/stained_west.png-d49093ac285fcb38e58034e3a99c2ee6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/castle/textures/stained_west.png"
-dest_files=["res://.godot/imported/stained_west.png-d49093ac285fcb38e58034e3a99c2ee6.s3tc.ctex"]
+dest_files=["res://.godot/imported/stained_west.png-d49093ac285fcb38e58034e3a99c2ee6.s3tc.ctex", "res://.godot/imported/stained_west.png-d49093ac285fcb38e58034e3a99c2ee6.etc2.ctex"]
 
 [params]
 

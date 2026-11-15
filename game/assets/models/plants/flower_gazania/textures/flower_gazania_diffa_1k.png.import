@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://blx6yydoi0meo"
 path.s3tc="res://.godot/imported/flower_gazania_diffa_1k.png-e98be1ed4cfae1c71772c126d02cf641.s3tc.ctex"
+path.etc2="res://.godot/imported/flower_gazania_diffa_1k.png-e98be1ed4cfae1c71772c126d02cf641.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/plants/flower_gazania/textures/flower_gazania_diffa_1k.png"
-dest_files=["res://.godot/imported/flower_gazania_diffa_1k.png-e98be1ed4cfae1c71772c126d02cf641.s3tc.ctex"]
+dest_files=["res://.godot/imported/flower_gazania_diffa_1k.png-e98be1ed4cfae1c71772c126d02cf641.s3tc.ctex", "res://.godot/imported/flower_gazania_diffa_1k.png-e98be1ed4cfae1c71772c126d02cf641.etc2.ctex"]
 
 [params]
 

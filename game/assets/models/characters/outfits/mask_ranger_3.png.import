@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cenqm6kjm85wb"
 path.s3tc="res://.godot/imported/mask_ranger_3.png-fb23d35a73bcd30204bd24bced3f0c8b.s3tc.ctex"
+path.etc2="res://.godot/imported/mask_ranger_3.png-fb23d35a73bcd30204bd24bced3f0c8b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/characters/outfits/mask_ranger_3.png"
-dest_files=["res://.godot/imported/mask_ranger_3.png-fb23d35a73bcd30204bd24bced3f0c8b.s3tc.ctex"]
+dest_files=["res://.godot/imported/mask_ranger_3.png-fb23d35a73bcd30204bd24bced3f0c8b.s3tc.ctex", "res://.godot/imported/mask_ranger_3.png-fb23d35a73bcd30204bd24bced3f0c8b.etc2.ctex"]
 
 [params]
 

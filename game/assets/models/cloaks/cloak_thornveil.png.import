@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://sr803cj1lh1k"
 path.bptc="res://.godot/imported/cloak_thornveil.png-b560a6f45762982817a80a9b2ef204df.bptc.ctex"
+path.astc="res://.godot/imported/cloak_thornveil.png-b560a6f45762982817a80a9b2ef204df.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cloaks/cloak_thornveil.png"
-dest_files=["res://.godot/imported/cloak_thornveil.png-b560a6f45762982817a80a9b2ef204df.bptc.ctex"]
+dest_files=["res://.godot/imported/cloak_thornveil.png-b560a6f45762982817a80a9b2ef204df.bptc.ctex", "res://.godot/imported/cloak_thornveil.png-b560a6f45762982817a80a9b2ef204df.astc.ctex"]
 
 [params]
 

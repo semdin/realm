@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b2r4spc0s1rvb"
 path.s3tc="res://.godot/imported/portrait_8.jpg-9bea1d86bad977888bc77ee7bdbfdab5.s3tc.ctex"
+path.etc2="res://.godot/imported/portrait_8.jpg-9bea1d86bad977888bc77ee7bdbfdab5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/castle/textures/portrait_8.jpg"
-dest_files=["res://.godot/imported/portrait_8.jpg-9bea1d86bad977888bc77ee7bdbfdab5.s3tc.ctex"]
+dest_files=["res://.godot/imported/portrait_8.jpg-9bea1d86bad977888bc77ee7bdbfdab5.s3tc.ctex", "res://.godot/imported/portrait_8.jpg-9bea1d86bad977888bc77ee7bdbfdab5.etc2.ctex"]
 
 [params]
 

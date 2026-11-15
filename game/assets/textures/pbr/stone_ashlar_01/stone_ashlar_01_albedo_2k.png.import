@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dk6i1cg2h12b3"
 path.s3tc="res://.godot/imported/stone_ashlar_01_albedo_2k.png-52261fb82a2921a3c5a89555b45e5d09.s3tc.ctex"
+path.etc2="res://.godot/imported/stone_ashlar_01_albedo_2k.png-52261fb82a2921a3c5a89555b45e5d09.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/pbr/stone_ashlar_01/stone_ashlar_01_albedo_2k.png"
-dest_files=["res://.godot/imported/stone_ashlar_01_albedo_2k.png-52261fb82a2921a3c5a89555b45e5d09.s3tc.ctex"]
+dest_files=["res://.godot/imported/stone_ashlar_01_albedo_2k.png-52261fb82a2921a3c5a89555b45e5d09.s3tc.ctex", "res://.godot/imported/stone_ashlar_01_albedo_2k.png-52261fb82a2921a3c5a89555b45e5d09.etc2.ctex"]
 
 [params]
 

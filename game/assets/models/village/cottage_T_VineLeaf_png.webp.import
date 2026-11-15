@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bcs3ngbqmju8"
 path.s3tc="res://.godot/imported/cottage_T_VineLeaf_png.webp-bb483c16e849b5dfc0e6a5bacf0468df.s3tc.ctex"
+path.etc2="res://.godot/imported/cottage_T_VineLeaf_png.webp-bb483c16e849b5dfc0e6a5bacf0468df.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/village/cottage_T_VineLeaf_png.webp"
-dest_files=["res://.godot/imported/cottage_T_VineLeaf_png.webp-bb483c16e849b5dfc0e6a5bacf0468df.s3tc.ctex"]
+dest_files=["res://.godot/imported/cottage_T_VineLeaf_png.webp-bb483c16e849b5dfc0e6a5bacf0468df.s3tc.ctex", "res://.godot/imported/cottage_T_VineLeaf_png.webp-bb483c16e849b5dfc0e6a5bacf0468df.etc2.ctex"]
 
 [params]
 

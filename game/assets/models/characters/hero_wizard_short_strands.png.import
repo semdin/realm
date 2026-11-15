@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8yfrxrivf124"
 path.bptc="res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.bptc.ctex"
+path.astc="res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.astc.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_short_strands.png"
-dest_files=["res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.bptc.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.bptc.ctex", "res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.astc.ctex"]
 
 [params]
 
