@@ -10,6 +10,9 @@ config/name="Thousand Realms"
 config/use_custom_user_dir=true
 config/custom_user_dir_name="ThousandRealms"
 run/main_scene="res://main.tscn"
+; The window, taskbar and dock icon (the launcher's emblem); exports put it
+; into the .exe and the macOS bundle too (export_presets.cfg).
+config/icon="res://assets/branding/thousand_realms_icon.png"
 config/features=PackedStringArray("4.7", "Mobile")
 
 [autoload]
