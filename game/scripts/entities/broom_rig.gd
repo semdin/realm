@@ -7,10 +7,13 @@ class_name BroomRig
 ##   SeatSocket - where the rider's hips sit (HeroView puts it under the hips)
 ##   GripSocket - the two-handed grip centre (BroomGripModifier)
 ##   TailSocket - the bristle tip (the cloak's shaft capsule, the wake)
+## The wake (BroomWake) sheds its smoke from the tip into world space while
+## the hero flies.
 ## The model is authored +Z forward and +Y up, so this node's own basis is the
 ## shaft's (`model_root_ref`, which BroomGripModifier reads).
 
 const DEFAULT_MODEL := "res://assets/models/props/brooms/broom_ashwood.glb"
+const WakeScript := preload("res://scripts/fx/broom_wake.gd")
 
 var mount_root: Node3D
 var seat_socket: Node3D
@@ -19,7 +22,7 @@ var tail_socket: Node3D
 var model_root_ref: Node3D
 var model_path := ""
 var _model: Node3D
-var _wake: FlipbookFX
+var _wake: WakeScript
 
 func _init() -> void:
 	name = "BroomRig"
@@ -42,6 +45,8 @@ func use_item(item_id: String) -> void:
 	seat_socket = _model.find_child("SeatSocket", true, false) as Node3D
 	grip_socket = _model.find_child("GripSocket", true, false) as Node3D
 	tail_socket = _model.find_child("TailSocket", true, false) as Node3D
+	if _wake != null:
+		_wake.tail = tail_socket
 
 ## The seat in this rig's own space (where the rider's hips go).
 func seat_local() -> Vector3:
@@ -49,18 +54,18 @@ func seat_local() -> Vector3:
 		return Vector3.ZERO
 	return global_transform.affine_inverse() * seat_socket.global_position
 
-## The soft mist wake behind the bristles while flying (the broom flipbooks).
+## Shed the wake while flying. It hangs beside the rig (under the hero's
+## body, world placed), not inside it: the rig hides as the rider gets off,
+## and the smoke already in the air should fade on its own.
 func set_flying(on: bool) -> void:
-	if on and _wake == null and tail_socket != null and is_inside_tree():
-		_wake = FlipbookFX.play(self, tail_socket.global_position, [
-			{"atlas": "broom_mist_8x8_1k", "size": 1.1, "height": 0.0, "fps": 24.0, "loop": true, "opacity": 0.45,
-				"fade_in": 0.4},
-			{"atlas": "broom_motes_8x8_1k", "size": 0.8, "height": 0.0, "fps": 20.0, "loop": true, "opacity": 0.6,
-				"delay": 0.2},
-		], {"life": 0.0, "name": "BroomWake"})
-		if _wake != null:
-			_wake.follow = tail_socket
-	elif not on and _wake != null:
-		if is_instance_valid(_wake):
-			_wake.queue_free()
-		_wake = null
+	if _wake == null:
+		if not on or tail_socket == null or not is_inside_tree() or DisplayServer.get_name() == "headless":
+			return
+		_wake = WakeScript.new()
+		get_parent().add_child(_wake)
+		_wake.tail = tail_socket
+	_wake.set_flying(on)
+
+## The wake (the dev checks read its `describe()`); null before the first flight.
+func wake() -> WakeScript:
+	return _wake
