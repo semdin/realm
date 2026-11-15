@@ -22,6 +22,8 @@ var drop_check: Callable
 var _accent: Panel
 var selected := false:
 	set(value):
+		if value == selected:
+			return   # a refresh sets it on every cell; the accent stays
 		selected = value
 		_update_accent()
 

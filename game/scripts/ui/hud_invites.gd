@@ -56,8 +56,12 @@ func _process(_delta: float) -> void:
 ## Show the card for `kind` from `from_name` (replacing one of the same kind);
 ## `party_size` is a group duel's head count.
 func push(kind: String, from_name: String, party_size := 1) -> InviteCard:
+	# Cards leave the stack at once: a freed card stayed a child until the
+	# frame's end, so the count below never fell and the loop never ended
+	# (four invite kinds, three cards: the game hung).
 	for card in _stack.get_children():
 		if card is InviteCard and (card as InviteCard).kind == kind:
+			_stack.remove_child(card)
 			card.queue_free()
 	var card := InviteCard.new()
 	card.setup(kind, from_name, party_size, ACCENTS.get(kind, HudKit.GOLD))
@@ -65,7 +69,9 @@ func push(kind: String, from_name: String, party_size := 1) -> InviteCard:
 	_stack.add_child(card)
 	_stack.move_child(card, 0)
 	while _stack.get_child_count() > MAX_CARDS:
-		_stack.get_child(_stack.get_child_count() - 1).queue_free()
+		var oldest := _stack.get_child(_stack.get_child_count() - 1)
+		_stack.remove_child(oldest)
+		oldest.queue_free()
 	AudioManager.play_sound_at("ui_quest", Vector3.ZERO, null, true)
 	return card
 
@@ -94,6 +100,7 @@ func clear_dungeon() -> void:
 	_dungeon_check = 0
 	for card in _stack.get_children():
 		if card is InviteCard and (card as InviteCard).kind == "dungeon":
+			_stack.remove_child(card)
 			card.queue_free()
 
 func _on_answered(kind: String, accept: bool) -> void:

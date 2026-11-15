@@ -255,6 +255,7 @@ func _refresh_tracker() -> void:
 	if str(bosses) != _bosses_key:
 		_bosses_key = str(bosses)
 		for child in _bosses.get_children():
+			_bosses.remove_child(child)   # out of the layout this frame
 			child.queue_free()
 		for boss: Array in bosses:
 			var done := bool(boss[1])

@@ -2134,6 +2134,9 @@ msgstr "Envanter değişti. Lütfen tekrar dene."
 msgid "Action already handled."
 msgstr "İşlem zaten yapıldı."
 
+msgid "That stack is full."
+msgstr "Bu yığın dolu."
+
 msgid "Missing refinement material."
 msgstr "Yükseltme malzemesi eksik."
 

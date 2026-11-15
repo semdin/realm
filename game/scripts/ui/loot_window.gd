@@ -107,38 +107,50 @@ func on_result(id: int, ok: bool, reason: String) -> void:
 	match reason:
 		"out_of_range":
 			_status.text = tr("Too far away.")
+			AudioManager.play_deny()
 		"bag_full":
 			_status.text = tr("Your bag is full.")
+			AudioManager.play_deny()
 		"gone":
 			if not ok:
 				close()
 		_:
 			_status.text = ""
 
+## Fill the cells from the chest's slots. The cells are made once and refilled:
+## every take's answer used to free and rebuild them all, which dropped the
+## hover under the pointer and left the tooltip on a cell that was gone.
 func refresh() -> void:
 	_window.title = I18n.upper(tr("Enchanted Chest") if _rare else tr("Chest"))
-	for child in _grid.get_children():
-		_grid.remove_child(child)
-		child.queue_free()
-	_slots.clear()
 	var held := 0
 	var cells := maxi(COLUMNS * 2, int(ceil(float(_items.size()) / COLUMNS)) * COLUMNS)
-	for index in cells:
+	while _slots.size() < cells:
 		var slot := UISlot.new(Vector2(SLOT_PX, SLOT_PX))
 		slot.equipment_interaction = true
 		slot.ready.connect(func(): slot.theme_type_variation = &"ArcaneSlot")
-		slot.set_meta("chest_slot", index)
-		if index < _items.size() and _items[index] is Dictionary and int(_items[index].get("amount", 0)) > 0:
-			var entry := PlayerSheet._entry(_items[index])
-			held += 1
-			slot.set_item(String(entry.id), entry)
-			slot.tooltip_text = ""
-			slot.pressed.connect(func(): take(index))
-			slot.activated.connect(func(_s): take(index))
-			slot.slot_entered.connect(_on_slot_entered)
-			slot.slot_exited.connect(func(_s): _tooltip.hide_item())
+		slot.set_meta("chest_slot", _slots.size())
+		slot.tooltip_text = ""
+		slot.pressed.connect(func():
+			if slot.item_id != "":
+				take(int(slot.get_meta("chest_slot"))))
+		slot.activated.connect(func(_s): take(int(slot.get_meta("chest_slot"))))
+		slot.slot_entered.connect(_on_slot_entered)
+		slot.slot_exited.connect(func(_s): _tooltip.hide_item())
 		_grid.add_child(slot)
 		_slots.append(slot)
+	for index in _slots.size():
+		var slot: UISlot = _slots[index]
+		slot.visible = index < cells
+		var entry := {}
+		if index < _items.size() and _items[index] is Dictionary and int(_items[index].get("amount", 0)) > 0:
+			entry = PlayerSheet._entry(_items[index])
+			held += 1
+		var id := String(entry.get("id", ""))
+		if slot.item_id != id or slot.entry != entry:
+			# the item under the pointer was taken: its tooltip goes with it
+			if slot.item_id != "" and _tooltip.visible and slot.is_inside_tree() and slot.get_global_rect().has_point(slot.get_global_mouse_position()):
+				_tooltip.hide_item()
+			slot.set_item(id, entry)
 	_take_all.disabled = held == 0
 
 ## Ask for one cell, or (-1) everything that fits.

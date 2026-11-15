@@ -47,6 +47,8 @@ var _next_label: Label
 var _options: VBoxContainer
 ## The quest rows on the card now, in order (the check reads them).
 var quest_rows: Array = []
+## The rows as last built (see _build_options).
+var _options_key := ""
 ## Placing resizes the card, which asks to place it again.
 var _placing := false
 
@@ -223,10 +225,6 @@ func _place() -> void:
 ## The NPC's quests (ready to hand in first, then new, then in progress), its
 ## service, and Goodbye.
 func _build_options() -> void:
-	for child in _options.get_children():
-		_options.remove_child(child)
-		child.queue_free()
-	quest_rows.clear()
 	var ready: Array = []
 	var fresh: Array = []
 	var going: Array = []
@@ -240,6 +238,21 @@ func _build_options() -> void:
 			fresh.append(q)
 		else:
 			going.append(q)
+	# Rebuilt only when a row would read differently: every quest update (each
+	# kill on a hunt) rebuilt the rows under the pointer, dropping its hover.
+	var key := [npc.get_instance_id()]
+	for group in [["ready", ready], ["new", fresh], ["going", going]]:
+		for q: Dictionary in group[1]:
+			key.append([group[0], q.get("id", ""), quests.progress_of(String(q.get("id", "")))])
+	for spec: Dictionary in npc.services:
+		key.append(can_serve.is_valid() and bool(can_serve.call(String(spec.get("id", "")))))
+	if str(key) == _options_key and _options.get_child_count() > 0:
+		return
+	_options_key = str(key)
+	for child in _options.get_children():
+		_options.remove_child(child)
+		child.queue_free()
+	quest_rows.clear()
 	var listed := 0
 	for group in [["ready", ready], ["new", fresh], ["going", going]]:
 		for q: Dictionary in group[1]:

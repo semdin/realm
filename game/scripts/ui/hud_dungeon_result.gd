@@ -134,6 +134,7 @@ func show_result(view: Dictionary) -> void:
 	_medal_name.add_theme_color_override("font_color", (MEDALS.get(medal, MEDALS[""]) as Color).lightened(0.2))
 	_subtitle.text = "%s - %s" % [DungeonData.display_name(dungeon_id), DungeonData.difficulty_name(difficulty_key)]
 	for child in _facts.get_children():
+		_facts.remove_child(child)   # out of the layout this frame
 		child.queue_free()
 	var medals := DungeonData.medals()
 	var par := float(view.get("par_s", 0.0))
@@ -191,6 +192,7 @@ func _show_rewards() -> void:
 	if _earned == null:
 		return
 	for child in _earned.get_children():
+		_earned.remove_child(child)   # out of the layout this frame
 		child.queue_free()
 	if rewards.is_empty():
 		return

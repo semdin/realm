@@ -59,6 +59,7 @@ func refresh(effects: Array) -> void:
 			now[kind] = maxf(float(now.get(kind, 0.0)), float(e.get("seconds", 0.0)))
 	for kind: String in _icons.keys():
 		if not now.has(kind):
+			remove_child(_icons[kind])   # the others close up this frame, not the next
 			(_icons[kind] as Node).queue_free()
 			_icons.erase(kind)
 	for kind: String in now:

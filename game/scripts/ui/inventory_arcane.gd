@@ -16,7 +16,7 @@ extends Control
 
 # i18n-begin
 const SLOT_LABELS := {"head":"Head", "chest":"Robes", "hands":"Hands", "feet":"Feet", "main_hand":"Wand", "off_hand":"Focus", "neck":"Neck", "ring_left":"Ring I", "ring_right":"Ring II", "broom":"Broom"}
-const REASONS := {"in_combat":"Wait five seconds after combat.", "casting":"Finish casting first.", "dead":"You are defeated.", "mounted":"Dismount before changing your broom.", "level_too_low":"Your level is too low for that item.", "bag_full":"No room for the replaced item.", "wrong_slot":"That item does not fit.", "item_missing":"That item is no longer available.", "stale_inventory":"Inventory changed. Please try again.", "stale_request":"Action already handled.", "no_gold":"Not enough Oril.", "no_material":"Missing refinement material.", "no_wand":"Equip a wand first.", "max_tier":"Already fully refined.", "refined":"Refined!", "enchanted":"The enchantment holds!", "enchant_failed":"The weave slipped - the scroll is spent.", "no_scroll":"You have no such scroll.", "bonus_full":"This item cannot hold more enchantments.", "no_bonus":"There is nothing to reweave yet.", "not_enchantable":"That item cannot be enchanted.", "nothing_equipped":"Equip an item in that slot first.", "not_refinable":"That item cannot be refined.", "refinement_failed":"Refinement failed.", "save_conflict":"Inventory refreshed from your saved character.", "transfer_pending":"Wait until the map loads.", "invalid_state":"Equipment temporarily unavailable.", "resource_full":"That resource is already full.", "consumed":"", "sold":"", "not_sellable":"No merchant wants that.", "destroyed":"", "not_destroyable":"Take it off before destroying it."}
+const REASONS := {"in_combat":"Wait five seconds after combat.", "casting":"Finish casting first.", "dead":"You are defeated.", "mounted":"Dismount before changing your broom.", "level_too_low":"Your level is too low for that item.", "bag_full":"No room for the replaced item.", "wrong_slot":"That item does not fit.", "item_missing":"That item is no longer available.", "stale_inventory":"Inventory changed. Please try again.", "stale":"Inventory changed. Please try again.", "stack_full":"That stack is full.", "stale_request":"Action already handled.", "no_gold":"Not enough Oril.", "no_material":"Missing refinement material.", "no_wand":"Equip a wand first.", "max_tier":"Already fully refined.", "refined":"Refined!", "enchanted":"The enchantment holds!", "enchant_failed":"The weave slipped - the scroll is spent.", "no_scroll":"You have no such scroll.", "bonus_full":"This item cannot hold more enchantments.", "no_bonus":"There is nothing to reweave yet.", "not_enchantable":"That item cannot be enchanted.", "nothing_equipped":"Equip an item in that slot first.", "not_refinable":"That item cannot be refined.", "refinement_failed":"Refinement failed.", "save_conflict":"Inventory refreshed from your saved character.", "transfer_pending":"Wait until the map loads.", "invalid_state":"Equipment temporarily unavailable.", "resource_full":"That resource is already full.", "consumed":"", "sold":"", "not_sellable":"No merchant wants that.", "destroyed":"", "not_destroyable":"Take it off before destroying it."}
 # i18n-end
 const COLUMNS := 5
 const ROWS := 8
@@ -99,6 +99,25 @@ var _destroy_text: Label
 var _destroy_entry: Dictionary = {}
 # The bag as last drawn: cell index -> the entry's key ("" = empty).
 var _cell_keys: Array = []
+## A move, equip or unequip shows at once: the cells it changes, as the
+## server's rules will leave them (bag cell int / worn slot String -> entry,
+## {} for empty), drawn over the sheet until the sheet carrying the move is
+## in. A refusal drops it and the sheet's own cells show again.
+var _predicted: Dictionary = {}
+## After an accepted answer whose sheet has not come yet: the revision then
+## (the move's sheet follows the answer on the same stream).
+var _settle_revision := -1
+var _predicted_at := 0
+## A prediction no answer ever settles (a lost connection) goes after this.
+const PREDICTION_MSEC := 3000
+## realm_rules MAX_STACK: two stacks of the same thing merge up to this.
+const MAX_STACK := 9999
+## The hovered cell's content its tooltip was last filled from.
+var _tip_shown := ""
+## For the checks: how many bag cells were refilled with other content, and
+## how many slot nodes the window has made.
+var cells_refilled := 0
+var slots_made := 0
 
 func _ready() -> void:
 	theme = UITheme.get_theme()
@@ -471,6 +490,7 @@ static func _ghost_material() -> ShaderMaterial:
 	return _ghost_mat
 
 func _make_slot(minimum: Vector2) -> UISlot:
+	slots_made += 1
 	var slot := UISlot.new(minimum)
 	slot.equipment_interaction = true
 	slot.activated.connect(_activate)
@@ -500,14 +520,19 @@ func prepare(value: PlayerSheet) -> void:
 	if not player.equipment_answer.is_connected(_answer): player.equipment_answer.connect(_answer)
 	refresh()
 
+## Redraw from the sheet (and the move on its way). Only what changed is
+## touched: a cell keeps its content, look and hover while its entry stays
+## the same, and nothing is greyed out while a request waits (the cells
+## blinked dark for the round trip on every move). Requests made meanwhile
+## are refused by `_pending` in `_can_drop` / `_activate` / `_request`.
 func refresh() -> void:
 	if not is_instance_valid(player): return
+	_settle_prediction()
 	oril_label.text = oril_text(int(player.oril))
 	for slot in _doll_slots:
-		var entry: Dictionary = player.equipment.get(slot.equipment_slot, {})
-		slot.set_item(String(entry.get("id", "")), entry)
-		slot.selected = _selection_key(slot) == _selected_key
-		slot.disabled = _pending
+		var entry := _worn(slot.equipment_slot)
+		_fill(slot, entry)
+		slot.selected = slot.item_id != "" and _selection_key(slot) == _selected_key
 		var ghost := slot.get_node_or_null("Ghost") as CanvasItem
 		if ghost != null:
 			ghost.visible = entry.is_empty()
@@ -527,34 +552,145 @@ func refresh() -> void:
 	for i in range(_bag_pool.size()):
 		var slot: UISlot = _bag_pool[i]
 		slot.visible = i < count
-		slot.selected = false
-		slot.disabled = false
-		slot.modulate = Color.WHITE
 		if i >= count:
-			slot.set_item("", {})
+			_fill(slot, {})
+			slot.selected = false
+			slot.disabled = false
 			continue
 		slot.set_meta("cell", first + i)
 		var entry: Dictionary = cells[first + i]
-		slot.set_item(String(entry.get("id", "")), entry)
+		_fill(slot, entry)
+		var locked := not entry.is_empty() and _locked(entry)
+		slot.selected = not entry.is_empty() and _selection_key(slot) == _selected_key
+		slot.disabled = locked
+		var shade := Color(1, 1, 1, 0.35) if locked else Color.WHITE   # on Kestrin's anvil
+		if slot.modulate != shade: slot.modulate = shade
 		if not entry.is_empty():
-			slot.selected = _selection_key(slot) == _selected_key
-			slot.disabled = _pending or _locked(entry)
-			if _locked(entry): slot.modulate = Color(1, 1, 1, 0.35)   # on Kestrin's anvil
 			_bag_slots.append(slot)
 	# The staged sale may have left the bag (sold, equipped, consumed).
 	if not _sell_entry.is_empty() and _bag_entry(_sell_entry).is_empty():
 		_clear_offer()
 	_sell_button.disabled = _pending or _sell_entry.is_empty()
 	# The cells are reused, so the slot under the cursor may hold another item
-	# now (a right-click swapped the worn wand into it): its tooltip follows.
+	# now (a right-click swapped the worn wand into it): its tooltip follows,
+	# refilled only when that cell's content changed.
 	if _tooltip != null and _tooltip.visible and is_instance_valid(_hover_slot):
 		if _hover_slot.visible and _hover_slot.item_id != "":
-			_on_slot_entered(_hover_slot)
+			if _content_key(_hover_slot.entry, _hover_slot.item_id) != _tip_shown:
+				_on_slot_entered(_hover_slot)
 		else:
 			_tooltip.hide_item()
 
+## Put `entry` in `slot` unless it already shows exactly that.
+func _fill(slot: UISlot, entry: Dictionary) -> void:
+	var id := String(entry.get("id", ""))
+	if slot.item_id == id and _content_key(slot.entry, id) == _content_key(entry, id):
+		slot.entry = entry   # the same item; its dictionary is the newest sheet's
+		return
+	if slot.get_parent() == item_container:
+		cells_refilled += 1
+	slot.set_item(id, entry)
+
+## What a cell shows of an entry (its cell index is not part of it).
+static func _content_key(entry: Dictionary, id: String) -> String:
+	if id == "" or entry.is_empty():
+		return ""
+	return "%s|%d|%d|%d|%s" % [id, int(entry.get("amount", 1)), int(entry.get("tier", 0)), int(entry.get("uid", 0)),
+		str(entry.get("bonuses", []))]
+
 func _on_inventory_changed() -> void:
 	if visible: refresh()
+	else: _settle_prediction()
+
+# --------------------------------------------------------------- prediction
+
+## The worn piece in `slot` as shown (the prediction over the sheet).
+func _worn(slot: String) -> Dictionary:
+	if _predicted.has(slot):
+		return _predicted[slot]
+	return player.equipment.get(slot, {})
+
+## Bag cell `cell` as shown.
+func _held(cell: int) -> Dictionary:
+	if _predicted.has(cell):
+		return _predicted[cell]
+	return player.cells.get(cell, {})
+
+## Bag cell `cell` or worn slot `slot` as the sheet has it.
+func _server_at(where: Variant) -> Dictionary:
+	if where is String:
+		return player.equipment.get(where, {})
+	return player.cells.get(int(where), {})
+
+## What the server's rules (realm_rules items.rs move_item) will make of a
+## move from `from` to `to` (bag cell int or worn slot String): the two
+## cells, or {} when the move cannot be foreseen or will be refused.
+func _foresee(from: Variant, to: Variant) -> Dictionary:
+	if typeof(from) == typeof(to) and from == to:
+		return {}
+	var moving := _server_at(from)
+	if moving.is_empty():
+		return {}
+	var there := _server_at(to)
+	# What goes into a slot must fit it and its wearer; otherwise the server
+	# says why and nothing moved.
+	for pair in [[moving, to], [there, from]]:
+		var item: Dictionary = pair[0]
+		if pair[1] is String and not item.is_empty():
+			if not ItemRules.fits(String(item.id), String(pair[1])) or ItemRules.required_level(String(item.id)) > int(player.level):
+				return {}
+	var out := {}
+	if from is int and to is int and not there.is_empty() and int(there.get("uid", 0)) == 0 \
+			and int(moving.get("uid", 0)) == 0 and String(there.id) == String(moving.id) \
+			and int(there.get("tier", 0)) == int(moving.get("tier", 0)):
+		# Two stacks of the same thing merge.
+		var room := MAX_STACK - int(there.get("amount", 1))
+		if room <= 0:
+			return {}
+		var carried := mini(room, int(moving.get("amount", 1)))
+		var merged := there.duplicate(true)
+		merged["amount"] = int(there.get("amount", 1)) + carried
+		out[to] = merged
+		var rest := int(moving.get("amount", 1)) - carried
+		var left := moving.duplicate(true)
+		left["amount"] = rest
+		out[from] = left if rest > 0 else {}
+		return out
+	out[to] = _placed(moving, to)
+	out[from] = _placed(there, from)
+	return out
+
+## `entry` as it would sit in `where` (a bag entry carries its cell).
+static func _placed(entry: Dictionary, where: Variant) -> Dictionary:
+	if entry.is_empty():
+		return {}
+	var copy := entry.duplicate(true)
+	if where is int:
+		copy["cell"] = where
+	else:
+		copy.erase("cell")
+	return copy
+
+## The prediction ends once the sheet shows the move: at the answer when the
+## sheet already matches it, else with the next sheet after the answer. A
+## refusal ends it at once (in `_answer`).
+func _settle_prediction() -> void:
+	if _predicted.is_empty():
+		return
+	var done := Time.get_ticks_msec() - _predicted_at > PREDICTION_MSEC
+	if not done and not _pending:
+		done = _matches_sheet() or (_settle_revision >= 0 and player.revision() != _settle_revision)
+	if done:
+		_predicted.clear()
+		_settle_revision = -1
+
+func _matches_sheet() -> bool:
+	for where in _predicted:
+		var mine: Dictionary = _predicted[where]
+		var theirs := _server_at(where)
+		if _content_key(mine, String(mine.get("id", ""))) != _content_key(theirs, String(theirs.get("id", ""))):
+			return false
+	return true
 
 ## A bag entry's identity across answers: its instance uid, or id and tier for
 ## a stack (the n-th such stack when there are several).
@@ -574,7 +710,7 @@ func _arrange_bag() -> Array:
 	_cell_keys.clear()
 	var seen := {}
 	for i in range(total):
-		var entry: Dictionary = player.cells.get(i, {})
+		var entry := _held(i)
 		cells.append(entry)
 		_cell_keys.append(_item_key(entry, seen) if not entry.is_empty() else "")
 	return cells
@@ -657,6 +793,7 @@ static func _mid_attack(stats: Dictionary, key: String) -> float:
 func _on_slot_entered(slot: UISlot) -> void:
 	_hover_slot = slot
 	if slot.item_id == "" or _tooltip == null: return
+	_tip_shown = _content_key(slot.entry, slot.item_id)
 	_tooltip.show_item(slot.item_id, slot.entry)
 	if slot != _offer_slot and is_instance_valid(player):
 		if _merchant.visible and slot.equipment_slot == "":
@@ -910,8 +1047,22 @@ func _confirm_destroy() -> void:
 func _request(operation: String, slot: String, entry: Dictionary = {}, cell := -1) -> void:
 	if _pending or not is_instance_valid(player): return
 	_last_operation = operation
+	# The cells the move changes, as PlayerSheet.submit will send it.
+	var foreseen := {}
+	var from := int(entry.get("cell", -1))
+	match operation:
+		"move":
+			if from >= 0 and cell >= 0: foreseen = _foresee(from, cell)
+		"equip":
+			if from >= 0: foreseen = _foresee(from, slot)
+		"unequip":
+			var to := cell if cell >= 0 and not player.cells.has(cell) else player.free_cell()
+			if to >= 0: foreseen = _foresee(slot, to)
 	_pending_id = player.submit(operation, slot, entry, cell)
 	_pending = _pending_id != 0
+	_predicted = foreseen if _pending else {}
+	_settle_revision = -1
+	_predicted_at = Time.get_ticks_msec()
 	refresh()
 
 func _answer(answer: Dictionary) -> void:
@@ -919,6 +1070,10 @@ func _answer(answer: Dictionary) -> void:
 	_pending = false
 	var ok: bool = answer.get("ok", false)
 	var reason := String(answer.get("reason", ""))
+	if not ok:
+		_predicted.clear()   # refused: the sheet's cells are the truth
+	elif not _predicted.is_empty():
+		_settle_revision = player.revision()
 	if ok and reason == "sold":
 		_clear_offer()
 		if not _sold_entry.is_empty():
@@ -970,6 +1125,11 @@ func _on_visibility_changed() -> void:
 
 func _process(_delta: float) -> void:
 	if visible and _tooltip.visible: _tooltip.follow_cursor()
+	# A request no answer came for (a lost connection) stops holding the bag,
+	# and a move it predicted shows the sheet again.
+	if (_pending or not _predicted.is_empty()) and Time.get_ticks_msec() - _predicted_at > PREDICTION_MSEC:
+		_pending = false
+		refresh()
 	# Oril arrive with the stats payload (auto-collected coin, quest pay),
 	# not as a bag change, so the footer follows the live number.
 	if visible and is_instance_valid(player) and oril_label != null:

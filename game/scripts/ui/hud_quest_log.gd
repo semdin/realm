@@ -21,7 +21,11 @@ var _grid: GridContainer
 var _summary: Label
 var _empty: Label
 var _shown := ""
-var _cards: Array = []   # [{panel, id}]
+var _cards: Array = []   # [{panel, id, objective}]
+## The cards' make-up last built (ids, ready, new) and the counts shown; a
+## kill that only moves a count rewrites that card's objective line.
+var _shown_cards := ""
+var _dirty := true
 var _t := 0.0
 var _placed := false
 
@@ -55,7 +59,7 @@ func _ready() -> void:
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(hint)
-	quests.quest_updated.connect(func(): _shown = "")
+	quests.quest_updated.connect(func(): _dirty = true)
 	hide()
 
 func toggle() -> void:
@@ -68,6 +72,7 @@ func open() -> void:
 	show()
 	card.open()
 	_shown = ""
+	_shown_cards = ""
 	_refresh()
 	_layout()
 
@@ -88,7 +93,8 @@ func _process(delta: float) -> void:
 	if not visible:
 		return
 	_t += delta
-	_refresh()
+	if _dirty:
+		_refresh()
 	var pulse := 0.5 + 0.5 * sin(_t * 5.0)
 	for entry: Dictionary in _cards:
 		var id := String(entry.id)
@@ -102,22 +108,39 @@ func _process(delta: float) -> void:
 		else:
 			box.border_color = Color(HudKit.GOLD.r, HudKit.GOLD.g, HudKit.GOLD.b, 0.35)
 
+## Only what changed: the cards are rebuilt when quests come, finish or are
+## read; a count that moves (every kill on a hunting quest) rewrites its line.
+## The rebuild used to run on every quest update, and its old cards stayed in
+## the grid until the frame's end, so the new ones were laid out after them
+## for a frame (the log jumped).
 func _refresh() -> void:
+	_dirty = false
 	var entries: Array = quests.log_entries()
-	var key := str(entries.map(func(q): return [q.id, quests.progress_of(String(q.id)), quests.is_ready(String(q.id)), quests.is_new(String(q.id))]))
+	var cards := str(entries.map(func(q): return [q.id, quests.is_ready(String(q.id)), quests.is_new(String(q.id))]))
+	var key := cards + str(entries.map(func(q): return quests.progress_of(String(q.id)))) + str(quests.done_count())
 	if key == _shown:
 		return
 	_shown = key
-	for child in _grid.get_children():
-		child.queue_free()
-	_cards.clear()
 	var ready := 0
 	for q: Dictionary in entries:
 		if quests.is_ready(String(q.id)):
 			ready += 1
-		_grid.add_child(_card(q))
-	_empty.visible = entries.is_empty()
 	_summary.text = tr("%d open  ·  %d ready to claim  ·  %d completed") % [entries.size() - ready, ready, quests.done_count()]
+	_empty.visible = entries.is_empty()
+	if cards == _shown_cards:
+		for i in _cards.size():
+			var line := quests.objective_text(entries[i])
+			var label := _cards[i].objective as Label
+			if label.text != line:
+				label.text = line
+		return
+	_shown_cards = cards
+	for child in _grid.get_children():
+		_grid.remove_child(child)
+		child.queue_free()
+	_cards.clear()
+	for q: Dictionary in entries:
+		_grid.add_child(_card(q))
 
 func _card(q: Dictionary) -> Control:
 	var id := String(q.get("id", ""))
@@ -146,7 +169,8 @@ func _card(q: Dictionary) -> Control:
 	var tag := I18n.upper(tr("Ready")) if quests.is_ready(id) else (I18n.upper(tr("New")) if quests.is_new(id) else tr("Lv. %d") % int(q.get("level", 1)))
 	col.add_child(_ink(tag + "  ·  " + I18n.t(String(q.get("chapter", ""))), 11, Color(0.42, 0.25, 0.08), HudKit.title()))
 	col.add_child(_ink(I18n.t(String(q.get("title", ""))), 16, Color(0.36, 0.12, 0.05), HudKit.bold()))
-	col.add_child(_ink(quests.objective_text(q), 13, ink, HudKit.body()))
+	var objective := _ink(quests.objective_text(q), 13, ink, HudKit.body())
+	col.add_child(objective)
 	var reward := tr("%d EXP  ·  %d Oril") % [int(q.get("reward_exp", 0)), int(q.get("reward_gold", 0))]
 	var items := QuestManager.reward_items_text(q)
 	if items != "":
@@ -157,7 +181,7 @@ func _card(q: Dictionary) -> Control:
 		claim.focus_mode = Control.FOCUS_NONE
 		claim.pressed.connect(func(): quests.claim(id))
 		col.add_child(claim)
-	_cards.append({"panel": panel, "id": id})
+	_cards.append({"panel": panel, "id": id, "objective": objective})
 	return panel
 
 func _ink(text: String, size: int, colour: Color, font: Font) -> Label:

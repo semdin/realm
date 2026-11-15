@@ -237,6 +237,7 @@ func show_species(sp: String) -> void:
 	for row in _list.get_children():
 		(row as Button).button_pressed = row.name == "Row_" + sp
 	for child in _detail.get_children():
+		_detail.remove_child(child)   # out of the layout this frame
 		child.queue_free()
 	var e := _entry(sp)
 	if e.is_empty():

@@ -238,10 +238,17 @@ func press_rise(here: bool) -> void:
 ## The server's "reward": a kill's experience, the killer's oril, items taken
 ## from a chest, a claimed quest's pay (house reputation with it: a toast with
 ## the crest and the words over the hero).
+##
+## Sounds: a kill's oril comes with nearly every kill, so it only toasts (the
+## coin on each one was noise); a quest's pay (every quest gives house
+## reputation, a kill never does) rings the coin. Items from a chest sounded
+## when the take was asked for (the chest window, Z), so their reward is
+## quiet; items in a quest's pay add nothing over its coin.
 func on_reward(event: Dictionary) -> void:
 	var exp := int(event.get("exp", 0))
 	var oril := int(event.get("oril", 0))
 	var rep := int(event.get("rep", 0))
+	var quest_pay := rep > 0
 	if rep > 0:
 		var house := String(session.sheet().get("house", ""))
 		var text := tr("+%d %s Reputation") % [rep, HudQuestScroll.house_name(house)]
@@ -252,6 +259,7 @@ func on_reward(event: Dictionary) -> void:
 		toast(tr("+%d EXP") % exp, Color(0.5, 1.0, 0.6), "stat_exp")
 	if oril > 0:
 		toast(tr("+%d Oril") % oril, Color(1.0, 0.85, 0.35), "oril")
+	if quest_pay:
 		AudioManager.play_sound_at("ui_coin", Vector3.ZERO, null, true)
 	var items: Array = event.get("items", [])
 	for entry in items:
@@ -260,8 +268,6 @@ func on_reward(event: Dictionary) -> void:
 			var item_name := I18n.t(String(Items.item(item_id).get("name", item_id)))
 			toast("+%s x%d" % [item_name, int(entry.get("amount", 1))], Color(0.75, 0.95, 0.75),
 				item_id if UITheme.icon_for(item_id) != null else "ui_pickup")
-	if not items.is_empty():
-		AudioManager.play_sound_at("ui_loot", Vector3.ZERO, null, true)
 
 ## The level the sheet carries; a rise is the level-up moment: the toast, the
 ## chime, the words over the hero and the pillar and banner.
@@ -327,6 +333,9 @@ func _process(_delta: float) -> void:
 		if not is_instance_valid(entry["label"]):
 			_toasts.erase(entry)
 		elif now > float(entry["until"]):
+			# out of the box now: freed at the frame's end, the rows under it
+			# moved up a frame late (the toasts jumped)
+			_toast_box.remove_child(entry["row"])
 			(entry["row"] as Node).queue_free()
 			_toasts.erase(entry)
 	if _toasts.is_empty() and _toast_panel.visible:
@@ -339,9 +348,15 @@ func _process(_delta: float) -> void:
 			_on_risen()
 	if _death_panel.visible:
 		_update_death_panel()
-	var sheet: Dictionary = session.sheet()
-	if not sheet.is_empty():
-		_follow_level(int(sheet["level"]))
+	# the PlayerSheet's copy: session.sheet() rebuilds the whole sheet per call
+	var sheet: PlayerSheet = hud.get("sheet") if hud != null else null
+	if sheet != null:
+		if sheet.revision() >= 0:
+			_follow_level(sheet.level)
+	else:
+		var data: Dictionary = session.sheet()
+		if not data.is_empty():
+			_follow_level(int(data["level"]))
 
 func _now() -> float:
 	return float(Time.get_ticks_msec()) / 1000.0

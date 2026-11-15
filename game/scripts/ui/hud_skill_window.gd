@@ -522,6 +522,7 @@ class SkillCard extends PanelContainer:
 	var train_button: Button
 	var seal: SkillMark
 	var locked := false
+	var _grade_key := ""
 	var hovered := false:
 		set(value):
 			if value != hovered:
@@ -609,6 +610,24 @@ class SkillCard extends PanelContainer:
 		slot.unusable = locked or lv <= 0
 		lock.visible = locked
 		name_label.add_theme_color_override("font_color", Color(0.553, 0.541, 0.514) if locked else HudKit.GOLD_LT)
+		# The grade line is remade only when it reads differently (any point
+		# spent anywhere used to remake every card's line).
+		var grade_key := "%s|%s|%s|%d" % [locked, trainable, master, lv]
+		if grade_key != _grade_key:
+			_grade_key = grade_key
+			_fill_grade(trainable, master, lv, top)
+		pips.visible = trainable
+		pips.filled = 0 if locked else lv
+		pips.top = top
+		pips.glow = can
+		train_button.visible = trainable and not master
+		train_button.disabled = not can
+		seal.visible = not locked and (master or not trainable)
+		seal.modulate.a = 0.85 if master else 0.45
+		if was_locked != locked:
+			_restyle()
+
+	func _fill_grade(trainable: bool, master: bool, lv: int, top: int) -> void:
 		for child in grade.get_children():
 			grade.remove_child(child)
 			child.queue_free()
@@ -624,16 +643,6 @@ class SkillCard extends PanelContainer:
 		else:
 			grade.add_child(HudKit.label(tr("Level %d") % lv, 13, HudKit.TEXT_DIM, HudKit.body(), 0))
 			grade.add_child(HudKit.label("/ %d" % top, 13, HudSkillWindow.FAINT, HudKit.body(), 0))
-		pips.visible = trainable
-		pips.filled = 0 if locked else lv
-		pips.top = top
-		pips.glow = can
-		train_button.visible = trainable and not master
-		train_button.disabled = not can
-		seal.visible = not locked and (master or not trainable)
-		seal.modulate.a = 0.85 if master else 0.45
-		if was_locked != locked:
-			_restyle()
 
 	func _tag(text: String) -> PanelContainer:
 		var tag := PanelContainer.new()

@@ -30,6 +30,7 @@ func _ready() -> void:
 func open_for(who: Node) -> void:
 	player = who
 	for child in _list.get_children():
+		_list.remove_child(child)   # out of the layout this frame
 		child.queue_free()
 	buttons.clear()
 	var level := int(player.get("level")) if is_instance_valid(player) else 1

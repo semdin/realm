@@ -550,9 +550,12 @@ func _process(delta: float) -> void:
 		_pulse += delta
 		_coin_box.shadow_size = int(round(2.0 + 4.0 * (0.5 + 0.5 * sin(_pulse * TAU / 1.8))))
 
+## The free status points the last refresh read (the pulse asked the
+## session for the whole sheet every frame).
 func _free_points() -> int:
-	var sheet: Dictionary = session.sheet() if session != null else {}
-	return int(sheet.get("attribute_points", 0))
+	return _free_shown
+
+var _free_shown := 0
 
 ## The attribute card under the pointer lights its border.
 func _hover_cards() -> void:
@@ -580,6 +583,7 @@ func _refresh() -> void:
 	var exp_max := maxi(1, int(sheet.get("exp_next", 1)))
 	var exp_line := "%s / %s  ·  %.1f%%" % [oril_text.call(exp_now), oril_text.call(exp_max), floorf(1000.0 * exp_now / exp_max) / 10.0]
 	var free := int(sheet.get("attribute_points", 0))
+	_free_shown = free
 	var attributes: Dictionary = sheet.get("attributes", {})
 	var stats: Dictionary = session.derived_stats()
 	var texts := _stat_texts(sheet, stats)

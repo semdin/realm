@@ -44,6 +44,10 @@ var _rewards: HFlowContainer
 var _claim: Control
 var _claim_btn: TextureButton
 var _tween: Tween
+## The quest, readiness and house the page was last written for: a quest
+## update that only moves the count (every kill on a hunt) leaves the story
+## and the rewards as they are and redraws the objective line.
+var _page_key := ""
 
 func _init() -> void:
 	name = "QuestScroll"
@@ -357,6 +361,11 @@ func refresh() -> void:
 	var q := quests.quest(quest_id)
 	var ready := not q.is_empty() and quests.is_ready(quest_id)
 	_claim.visible = ready
+	var page := "%s|%s|%s" % [quest_id, ready, quests.house]
+	if page == _page_key and not q.is_empty():
+		_show_progress(q, ready)
+		return
+	_page_key = page
 	for child in _rewards.get_children():
 		_rewards.remove_child(child)
 		child.queue_free()
@@ -376,15 +385,9 @@ func refresh() -> void:
 	var giver := String(q.get("giver", ""))
 	_sign.text = "— %s" % I18n.t(giver) if giver != "" else ""
 	_objective_block.visible = true
-	var count := int(q.get("count", 1))
-	var progress := mini(quests.progress_of(quest_id), count)
 	_objective.text = I18n.t(String(q.get("name", "")))
 	_objective.add_theme_color_override("font_color", RED if ready else INK)
-	_box.checked = ready or progress >= count
-	_count.visible = count > 1
-	_count.text = "%d/%d" % [progress, count]
-	_track.get_parent().visible = count > 1
-	_track.fraction = float(progress) / float(maxi(1, count))
+	_show_progress(q, ready)
 	_reward_block.visible = true
 	var oril_text: Callable = preload("res://scripts/ui/inventory_arcane.gd").oril_text
 	if int(q.get("reward_exp", 0)) > 0:
@@ -399,6 +402,16 @@ func refresh() -> void:
 		var amount := int(item.get("amount", 1))
 		var item_name := I18n.t(String(Items.item(id).get("name", id)))
 		_rewards.add_child(_reward(id, "", item_name if amount <= 1 else "%s ×%d" % [item_name, amount], true))
+
+## The objective's tick, count and track.
+func _show_progress(q: Dictionary, ready: bool) -> void:
+	var count := int(q.get("count", 1))
+	var progress := mini(quests.progress_of(quest_id), count)
+	_box.checked = ready or progress >= count
+	_count.visible = count > 1
+	_count.text = "%d/%d" % [progress, count]
+	_track.get_parent().visible = count > 1
+	_track.fraction = float(progress) / float(maxi(1, count))
 
 ## A house's shown name (houses.json), translated.
 static func house_name(house: String) -> String:

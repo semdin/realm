@@ -182,6 +182,7 @@ func refresh() -> void:
 	if _list == null:
 		return
 	for child in _list.get_children():
+		_list.remove_child(child)   # out of the layout now, not at the frame's end
 		child.queue_free()
 	travel_buttons.clear()
 	listed.clear()
@@ -280,5 +281,7 @@ func _answer(answer: Dictionary) -> void:
 		AudioManager.play_sound_at("ui_coin", Vector3.ZERO, null, true)
 	else:
 		AudioManager.play_deny()
+	# only the dust count and the Travel buttons follow a purchase (a rebuilt
+	# list dropped the hover under the pointer)
 	if visible:
-		refresh()
+		_refresh_dust()

@@ -443,9 +443,19 @@ func _refresh() -> void:
 	# Rebuild the pages only when something they show changed: the sheet also
 	# changes with every potion and every coin, and a rebuild under the
 	# pointer drops a hover or a press.
-	var stacks := player.inventory.filter(func(e): return int(e.get("uid", 0)) == 0).map(
-		func(e): return [String(e.id), int(e.amount)])
-	var shown := var_to_str([target_uid, item, int(player.oril), busy(), stacks])
+	# What the pages read of the purse and the stacks: whether the next step
+	# is affordable and the counts of its materials and the two scrolls (the
+	# whole purse and every stack rebuilt both pages on each kill's oril).
+	var step_tier := int(item.get("tier", 0))
+	var tiers: Array = ItemRules.combat().get("wand_tiers", [])
+	var affordable := true
+	var wanted := [String(_enchant_rules().get("imbue_scroll", "")), String(_enchant_rules().get("reweave_scroll", ""))]
+	if not item.is_empty() and ItemRules.refinable(String(item.id)) and step_tier < tiers.size():
+		affordable = int(player.oril) >= int((tiers[step_tier] as Dictionary).get("cost", 0))
+		for need in _step_materials(tiers[step_tier]):
+			wanted.append(String(need[0]))
+	var stacks := wanted.map(func(id): return _count(String(id)))
+	var shown := var_to_str([target_uid, item, affordable, busy(), stacks])
 	if shown == _shown_key or not visible:
 		_shown_key = shown if visible else ""
 		_show_foot()

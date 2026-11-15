@@ -451,7 +451,7 @@ func _show_skill_points(delta: float) -> void:
 	if _points_wait <= 0.0:
 		_points_wait = 0.25
 		_skill_badge.points = int(session.skill_points())
-		var data: Dictionary = session.sheet()
+		var data := _sheet_data()
 		_wants = {
 			"skills": _skill_badge.points > 0,
 			"character": int(data.get("attribute_points", 0)) > 0,
@@ -471,6 +471,12 @@ func _show_skill_points(delta: float) -> void:
 			sb.border_color = Color(HudKit.GOLD_HI, 0.4 + 0.6 * glow) if on else HudKit.GOLD.darkened(0.15)
 			sb.set_border_width_all(2 if on else 1)
 
+## The sheet as the PlayerSheet last read it: session.sheet() builds the whole
+## sheet (bag, quest log) anew on every call, 40-150 us, and this ran it each
+## frame although it only changes with a new revision.
+func _sheet_data() -> Dictionary:
+	return sheet.data if sheet != null else session.sheet()
+
 func _process(delta: float) -> void:
 	if session == null:
 		return
@@ -481,7 +487,7 @@ func _process(delta: float) -> void:
 		hp_label.text = "%d / %d" % [vitals[0], vitals[1]]
 		_mana_stat.set_value(vitals[2], vitals[3])
 		mana_label.text = "%d / %d" % [vitals[2], vitals[3]]
-	var data: Dictionary = session.sheet()
+	var data := _sheet_data()
 	if data.is_empty():
 		return
 	var level := int(data["level"])
