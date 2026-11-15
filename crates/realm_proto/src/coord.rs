@@ -114,6 +114,26 @@ pub struct RunSummary {
     pub inside: u8,
 }
 
+/// One run on a weekly board: time, medal rank, deaths, the party
+/// (name, level).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct BoardRun {
+    pub ms: u32,
+    pub rank: i8,
+    pub deaths: u16,
+    pub party: Vec<(String, u16)>,
+}
+
+/// A dungeon's fastest full clears at one difficulty this week (10 at most,
+/// fastest first).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Board {
+    pub dungeon: String,
+    pub difficulty: u8,
+    pub week: u32,
+    pub runs: Vec<BoardRun>,
+}
+
 /// Map server -> coordinator.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MapMsg {
@@ -160,6 +180,14 @@ pub enum MapMsg {
     },
     /// A dungeon map's live copies (sent whenever they change).
     Runs(Vec<RunSummary>),
+    /// A full clear for the weekly board (`party`: character, name, level).
+    RunRecord {
+        dungeon: String,
+        difficulty: u8,
+        week: u32,
+        run: BoardRun,
+        characters: Vec<u64>,
+    },
     /// A character came onto this map (or this server reconnected).
     Online {
         character: u64,
@@ -242,6 +270,17 @@ pub enum CoordMsg {
     },
     /// Every dungeon map's live copies.
     Runs(Vec<RunSummary>),
+    /// This week's boards (sent whenever one changes, and on linking).
+    Boards(Vec<Board>),
+    /// A run took first place on its board: its party earns the record
+    /// title (wherever they are) and the realm hears of it.
+    RecordSet {
+        dungeon: String,
+        difficulty: u8,
+        ms: u32,
+        names: Vec<String>,
+        characters: Vec<u64>,
+    },
     /// A line for one character on this map.
     Line {
         to: u64,

@@ -57,6 +57,11 @@ extends Node3D
 ##                                                    the rewards, and leaves by the reward exit
 ##                                                    (DungeonCheck; the servers run with
 ##                                                    --dev-dungeon-scale 0.05)
+##   [--check-guide]                                  the check walks to the Trial Hall gate, buys a
+##                                                    Trial Hall Key in the gate window's Seal Shop
+##                                                    and opens the dungeon guide with K (GuideCheck;
+##                                                    the character from --dungeon-kit
+##                                                    --dungeon-cleared normal --seals 20)
 ##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
@@ -77,7 +82,8 @@ extends Node3D
 ## A right-click on a loot chest (within 7 m) opens it; Z takes everything from
 ## the nearest chest within 6 m. Tab cycles the nearest living creatures, Esc
 ## closes a window or drops the target, I opens the bag, C the character
-## window, J the quest log, O Kestrin's workshop (anywhere); the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
+## window, J the quest log, O Kestrin's workshop (anywhere), K the dungeon
+## guide; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
 ## The map's NPCs (npcs.json) stand on the ground under their place: F talks
 ## to the nearest within TALK_KEY_REACH, a click on one talks from within the
 ## server's talk radius (less a little), and the dialogue card, the tracker,
@@ -122,6 +128,7 @@ const SocialCheckScript := "res://scripts/systems/social_check.gd"
 const DuelCheckScript := "res://scripts/systems/duel_check.gd"
 const TravelCheckScript := "res://scripts/systems/travel_check.gd"
 const DungeonCheckScript := "res://scripts/systems/dungeon_check.gd"
+const GuideCheckScript := "res://scripts/systems/guide_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -210,7 +217,8 @@ var travel: MapTravel
 var travel_check: Node = null
 ## Dungeon gates, the run tracker and the result (MapDungeon).
 var dungeon: MapDungeon
-## `--check-dungeon`: the dungeon check.
+## `--check-dungeon`: the dungeon check (`--check-guide`: the guide check, in
+## the same place: it walks and hears the same events).
 var dungeon_check: Node = null
 ## Other players' heroes by entity id.
 var heroes := {}
@@ -508,9 +516,10 @@ func _build_ui() -> void:
 	dungeon = MapDungeon.new()
 	add_child(dungeon)
 	dungeon.setup(self, map_name, root)
-	if OS.get_cmdline_user_args().has("--check-dungeon"):
-		dungeon_check = load(DungeonCheckScript).new()
-		dungeon_check.name = "DungeonCheck"
+	if OS.get_cmdline_user_args().has("--check-dungeon") or OS.get_cmdline_user_args().has("--check-guide"):
+		var guide_mode := OS.get_cmdline_user_args().has("--check-guide")
+		dungeon_check = load(GuideCheckScript if guide_mode else DungeonCheckScript).new()
+		dungeon_check.name = "GuideCheck" if guide_mode else "DungeonCheck"
 		dungeon_check.game = self
 		add_child(dungeon_check)
 	if OS.get_cmdline_user_args().has("--check-travel"):
@@ -797,6 +806,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				quest_log.toggle()
 			KEY_O:
 				workshop.toggle(sheet_view)
+			KEY_K:
+				dungeon.guide_window.toggle()
 			KEY_F:
 				if built and not travel.interact():
 					talk_to(_npc_near(TALK_KEY_REACH))
@@ -820,6 +831,8 @@ func _unhandled_input(event: InputEvent) -> void:
 					dungeon.gate_window.close()
 				elif dungeon.result_window.visible:
 					dungeon.result_window.close()
+				elif dungeon.guide_window.visible:
+					dungeon.guide_window.close()
 				elif character_window.visible:
 					character_window.card.close()
 				elif workshop.visible:

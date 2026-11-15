@@ -116,6 +116,44 @@ static func hp_scale(difficulty_id_: String, role: String, party: int) -> float:
 static func par(data: Dictionary, difficulty_id_: String) -> float:
 	return float(data.get("par_s", 1200)) * float(difficulty(difficulty_id_).get("par_mult", 1.0))
 
+## Every dungeon by id, in the table's order.
+static func all() -> Dictionary:
+	return _load().get("dungeons", {})
+
+## The seal shop's wares in order ([{item, amount, seals}]; RealmSession
+## seal_buy takes the row's index).
+static func shop() -> Array:
+	return (_load().get("rewards", {}) as Dictionary).get("shop", [])
+
+## realm_rules::dungeons medal_rank: "gold" 3, "silver" 2, "bronze" 1, else 0
+## (a clear without a medal).
+static func medal_rank(medal: String) -> int:
+	return {"gold": 3, "silver": 2, "bronze": 1}.get(medal, 0)
+
+## realm_rules Dungeons::unlocked: whether `difficulty_id_` is open to a
+## character whose best rank on each difficulty of the dungeon is `ranks[i]`
+## (-1 never cleared): easy and normal always; a harder one needs its
+## unlock_after cleared with at least its unlock_medal.
+static func unlocked(ranks: Array, difficulty_id_: String) -> bool:
+	var rules := difficulty(difficulty_id_)
+	var after := String(rules.get("unlock_after", ""))
+	if after == "":
+		return true
+	var prior := DIFFICULTIES.find(after)
+	var rank := int(ranks[prior]) if prior >= 0 and prior < ranks.size() else -1
+	return rank >= 0 and rank >= medal_rank(String(rules.get("unlock_medal", "")))
+
+## A title's English name: a dungeon's first_clear_title where one names it,
+## the weekly record's own, else the id.
+static func title_name(id: String) -> String:
+	for d: Dictionary in all().values():
+		var title: Variant = d.get("first_clear_title")
+		if title is Dictionary and String(title.get("id", "")) == id:
+			return String(title.get("name", id))
+	if id == "dungeon_record":
+		return "Record Breaker"  # i18n
+	return id
+
 ## "m:ss".
 static func clock(seconds: float) -> String:
 	var s := maxi(0, int(round(seconds)))

@@ -303,6 +303,8 @@ pub enum ClientMsg {
     DungeonStart { portal: String, difficulty: u8 },
     /// A member answers the ready check `id`.
     DungeonReady { id: u32, yes: bool },
+    /// The dungeon guide: the player's records and this week's boards.
+    DungeonGuide,
 }
 
 /// A party member as the dungeon gate sees it.
@@ -434,6 +436,16 @@ pub enum DungeonMsg {
     State(RunView),
     /// A curse mark appears on the floor.
     Hazard(HazardView),
+    /// The dungeon guide's page. `records`: (dungeon, difficulty, best rank
+    /// cleared or -1, best ms or 0, rewarded runs left today or -1);
+    /// `boards`: this week's fastest; `titles`: the player's.
+    Guide {
+        week: u32,
+        affixes: Vec<String>,
+        records: Vec<(String, u8, i8, u32, i32)>,
+        boards: Vec<crate::coord::Board>,
+        titles: Vec<String>,
+    },
     /// What the run paid this player. `helper`: no daily right left.
     Rewards {
         helper: bool,

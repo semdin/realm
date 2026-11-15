@@ -50,6 +50,9 @@ pub enum ItemOp {
     Destroy { cell: u8 },
     /// Buy an item that has a price (Hearth Dust at a hearth).
     Buy { item: String, amount: u16 },
+    /// Buy row `index` of the seal shop (dungeons.json rewards.shop) with
+    /// Dungeon Seals, at a dungeon gate.
+    SealBuy { index: u8 },
     /// Refine one step (+N).
     Refine { target: Cell },
     /// Use the scroll in `scroll` on `target`.
@@ -63,9 +66,11 @@ impl ItemOp {
         match self {
             Self::Move { from, to } => matches!(from, Cell::Worn(_)) || matches!(to, Cell::Worn(_)),
             Self::Use { .. } | Self::Destroy { .. } => false,
-            Self::Sell { .. } | Self::Buy { .. } | Self::Refine { .. } | Self::Enchant { .. } => {
-                true
-            }
+            Self::Sell { .. }
+            | Self::Buy { .. }
+            | Self::SealBuy { .. }
+            | Self::Refine { .. }
+            | Self::Enchant { .. } => true,
         }
     }
 }
@@ -81,6 +86,8 @@ pub struct ItemContext {
     /// Standing at a shop that sells what is bought (a hearth for Hearth
     /// Dust).
     pub at_shop: bool,
+    /// Standing near a dungeon gate (the seal shop).
+    pub at_dungeon_gate: bool,
 }
 
 /// What a successful operation did: a reason word for the client's message
@@ -584,6 +591,7 @@ impl Rules {
                 }
             }
             ItemOp::Buy { item, amount } => self.buy(&mut next, item, *amount, ctx)?,
+            ItemOp::SealBuy { index } => self.seal_buy(&mut next, *index, ctx)?,
             ItemOp::Refine { target } => self.refine(&mut next, *target, dice)?,
             ItemOp::Enchant { scroll, target } => {
                 self.enchant(&mut next, *scroll, *target, dice)?
@@ -705,6 +713,34 @@ impl Rules {
         Ok(Done {
             reason: "bought",
             amount: total as i64,
+        })
+    }
+
+    /// The seal shop: a row for its price in Dungeon Seals, at a gate.
+    fn seal_buy(
+        &self,
+        sheet: &mut CharacterSheet,
+        index: u8,
+        ctx: ItemContext,
+    ) -> Result<Done, &'static str> {
+        let (item, amount, price) = self
+            .dungeons
+            .rewards
+            .shop
+            .get(usize::from(index))
+            .cloned()
+            .ok_or("not_for_sale")?;
+        if !ctx.at_dungeon_gate {
+            return Err("not_at_shop");
+        }
+        if count_items(sheet, "dungeon_seal") < price {
+            return Err("no_seals");
+        }
+        add_item(sheet, self.new_item(&item, amount), self)?;
+        take_items(sheet, "dungeon_seal", price)?;
+        Ok(Done {
+            reason: "bought",
+            amount: i64::from(price),
         })
     }
 

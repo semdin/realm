@@ -217,6 +217,14 @@ impl Sim {
             CoordMsg::OpenCopy { req, spec } => self.open_copy(req, &spec),
             CoordMsg::CopyOpened { req, copy } => self.copy_opened(req, copy),
             CoordMsg::Runs(runs) => self.dungeon_runs = runs,
+            CoordMsg::Boards(boards) => self.boards = boards,
+            CoordMsg::RecordSet {
+                dungeon,
+                difficulty,
+                ms,
+                names,
+                characters,
+            } => self.record_set(&dungeon, difficulty, ms, &names, &characters),
         }
     }
 

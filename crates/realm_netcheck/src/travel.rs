@@ -140,7 +140,8 @@ impl Session {
                     | ServerMsg::Waylink(_)
                     | ServerMsg::Dungeon(_)
                     | ServerMsg::Chest { .. }
-                    | ServerMsg::LootResult { .. }),
+                    | ServerMsg::LootResult { .. }
+                    | ServerMsg::ItemResult { .. }),
                 ) => {
                     println!("[travel] {} hears {m:?}", self.map);
                     self.events.push(m);

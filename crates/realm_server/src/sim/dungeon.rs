@@ -1712,6 +1712,10 @@ impl Sim {
         if let Some(at) = chest_at {
             self.pay_run(i, def, rank, timeout, at);
         }
+        // A full clear goes on the week's board.
+        if !timeout && rank >= RANK_CLEAR {
+            self.board_run(i, def);
+        }
         self.publish(i);
         self.runs_changed();
     }
@@ -1840,6 +1844,158 @@ impl Sim {
             );
             self.send_sheet(conn);
         }
+    }
+
+    /// Sends a full clear to the coordinator's weekly board.
+    fn board_run(&mut self, i: usize, def: &realm_rules::dungeons::DungeonDef) {
+        let Some(r) = self.runs[i].as_ref() else {
+            return;
+        };
+        let Some(result) = r.result.clone() else {
+            return;
+        };
+        let roster: Vec<u64> = r.roster.iter().map(|m| m.character).collect();
+        let difficulty = r.difficulty as u8;
+        let party: Vec<(u64, String, u16)> = roster
+            .iter()
+            .filter_map(|c| {
+                let (_, e) = self.player_of(*c)?;
+                let p = self.world.get::<Player>(e)?;
+                Some((*c, p.sheet.name.clone(), p.sheet.level))
+            })
+            .collect();
+        self.coord_send(MapMsg::RunRecord {
+            dungeon: def.id.clone(),
+            difficulty,
+            week: dungeons::curse_week(super::now_unix()),
+            run: realm_proto::coord::BoardRun {
+                ms: result.time_ms,
+                rank: result.rank,
+                deaths: result.deaths,
+                party: party.iter().map(|(_, n, l)| (n.clone(), *l)).collect(),
+            },
+            characters: party.iter().map(|(c, _, _)| *c).collect(),
+        });
+    }
+
+    /// A run took first place on its board: the title for its party on
+    /// this map, and the realm hears of it.
+    pub(super) fn record_set(
+        &mut self,
+        dungeon: &str,
+        difficulty: u8,
+        ms: u32,
+        names: &[String],
+        characters: &[u64],
+    ) {
+        let tick = self.tick;
+        for c in characters {
+            let Some((conn, e)) = self.player_of(*c) else {
+                continue;
+            };
+            let earned = self.world.get_mut::<Player>(e).is_some_and(|mut p| {
+                if p.sheet
+                    .dungeons
+                    .titles
+                    .iter()
+                    .any(|t| t == "dungeon_record")
+                {
+                    return false;
+                }
+                p.sheet.dungeons.titles.push("dungeon_record".to_owned());
+                p.sheet.revision += 1;
+                p.dirty_since.get_or_insert(tick);
+                true
+            });
+            if earned {
+                self.send_sheet(conn);
+            }
+        }
+        let rules = self.rules();
+        let display = rules
+            .dungeons
+            .dungeons
+            .get(dungeon)
+            .map_or(dungeon.to_owned(), |d| d.display.clone());
+        let diff = rules
+            .dungeons
+            .difficulties
+            .get(usize::from(difficulty))
+            .map_or(String::new(), |d| d.display.clone());
+        let text = format!(
+            "{} set this week's record in {display} ({diff}): {}:{:02}!",
+            names.join(", "),
+            ms / 60_000,
+            (ms / 1000) % 60
+        );
+        let conns: Vec<ConnId> = self.clients.keys().copied().collect();
+        for conn in conns {
+            self.send_control(
+                conn,
+                &ServerMsg::Chat {
+                    channel: realm_proto::coord::CHANNEL_SYSTEM,
+                    from: String::new(),
+                    text: text.clone(),
+                    speaker: 0,
+                },
+            );
+        }
+    }
+
+    /// `ClientMsg::DungeonGuide`: the player's records, the week's boards.
+    pub(super) fn dungeon_guide(&mut self, conn: ConnId, entity: Entity) {
+        let rules = self.rules();
+        let day = dungeons::reward_day(super::now_unix());
+        let week = dungeons::curse_week(super::now_unix());
+        let Some(p) = self.world.get::<Player>(entity) else {
+            return;
+        };
+        let mut records = Vec::new();
+        for def in rules.dungeons.dungeons.values() {
+            for d in 0..DIFFICULTIES.len() {
+                records.push((
+                    def.id.clone(),
+                    d as u8,
+                    p.sheet.dungeons.rank(&def.id, d).unwrap_or(-1),
+                    p.sheet.dungeons.best_ms(&def.id, d),
+                    rules.dungeons.rights_left(&p.sheet, &def.id, d, day),
+                ));
+            }
+        }
+        let titles = p.sheet.dungeons.titles.clone();
+        let boards = self
+            .boards
+            .iter()
+            .filter(|b| b.week == week)
+            .cloned()
+            .collect();
+        self.send_control(
+            conn,
+            &ServerMsg::Dungeon(Box::new(DungeonMsg::Guide {
+                week,
+                affixes: rules.dungeons.affixes.of_week(week),
+                records,
+                boards,
+                titles,
+            })),
+        );
+    }
+
+    /// Whether `pos` stands near a gate into a dungeon on this map (the
+    /// seal shop's counter).
+    pub(super) fn near_dungeon_gate(&self, pos: Vec3) -> bool {
+        let rules = self.rules();
+        let reach = rules.dungeons.group.gather_radius;
+        rules.travel.portals.iter().any(|p| {
+            p.map == self.game.map
+                && rules
+                    .travel
+                    .maps
+                    .get(&p.to_map)
+                    .is_some_and(|m| m.instanced)
+                && planar_distance(pos, v3(p.center)) <= reach
+                && (pos.y - p.center[1]).abs() <= VERTICAL_GATHER
+        })
     }
 
     /// The final chest's contents for one member.

@@ -1,4 +1,4 @@
-//! realm_coord --bind 127.0.0.1:7900 --keys keys
+//! realm_coord --bind 127.0.0.1:7900 --keys keys [--boards <file.json>]
 //!
 //! The coordinator: who is online on which map, the parties, and what
 //! crosses maps (shouts, party lines, invitations, party views). Map servers
@@ -28,6 +28,7 @@ use std::time::{Duration, Instant};
 
 use realm_proto::SigningKey;
 use realm_proto::control::FrameReader;
+use realm_proto::coord::{Board, BoardRun};
 use realm_proto::coord::{
     CHANNEL_PARTY, CHANNEL_SHOUT, CHANNEL_SYSTEM, CoordMsg, MapMsg, PARTY_MAX, PartyCmd,
     PartyMember, PartyView, RunSummary, decode_map, encode_coord,
@@ -119,6 +120,10 @@ struct Book {
     /// Copy requests on their way to a dungeon map: ours -> (link, theirs).
     copy_requests: HashMap<u64, (u64, u64)>,
     next_request: u64,
+    /// The week's boards by (dungeon, difficulty), and where they are kept
+    /// (None: in memory only).
+    boards: HashMap<(String, u8), Board>,
+    boards_file: Option<PathBuf>,
     online: HashMap<u64, Online>,
     by_name: HashMap<String, u64>,
     parties: HashMap<u64, Party>,
@@ -147,6 +152,77 @@ impl Book {
             .get(&link)
             .map(|l| l.map.clone())
             .unwrap_or_default()
+    }
+
+    /// The week's boards, to every map.
+    fn boards_changed(&self) {
+        let mut all: Vec<Board> = self.boards.values().cloned().collect();
+        all.sort_by(|a, b| (&a.dungeon, a.difficulty).cmp(&(&b.dungeon, b.difficulty)));
+        for l in self.links.values() {
+            let _ = l.tx.send(CoordMsg::Boards(all.clone()));
+        }
+        if let Some(path) = &self.boards_file {
+            let rows: Vec<&Board> = self.boards.values().collect();
+            match serde_json::to_string(&rows) {
+                Ok(text) => {
+                    let temp = path.with_extension("json.tmp");
+                    if std::fs::write(&temp, text)
+                        .and_then(|()| std::fs::rename(&temp, path))
+                        .is_err()
+                    {
+                        eprintln!("[coord] boards could not be written to {}", path.display());
+                    }
+                }
+                Err(e) => eprintln!("[coord] boards: {e}"),
+            }
+        }
+    }
+
+    /// A full clear: onto its board (the week's ten fastest); first place
+    /// is a record the realm hears of.
+    fn board_run(
+        &mut self,
+        dungeon: String,
+        difficulty: u8,
+        week: u32,
+        run: BoardRun,
+        characters: Vec<u64>,
+    ) {
+        let key = (dungeon.clone(), difficulty);
+        let board = self.boards.entry(key).or_insert_with(|| Board {
+            dungeon: dungeon.clone(),
+            difficulty,
+            week,
+            runs: Vec::new(),
+        });
+        if board.week != week {
+            // A new week starts the board afresh (an old week's run is late).
+            if week < board.week {
+                return;
+            }
+            board.week = week;
+            board.runs.clear();
+        }
+        let at = board.runs.partition_point(|r| r.ms <= run.ms);
+        if at >= 10 {
+            return;
+        }
+        let names: Vec<String> = run.party.iter().map(|(n, _)| n.clone()).collect();
+        let ms = run.ms;
+        board.runs.insert(at, run);
+        board.runs.truncate(10);
+        if at == 0 {
+            for l in self.links.values() {
+                let _ = l.tx.send(CoordMsg::RecordSet {
+                    dungeon: dungeon.clone(),
+                    difficulty,
+                    ms,
+                    names: names.clone(),
+                    characters: characters.clone(),
+                });
+            }
+        }
+        self.boards_changed();
     }
 
     /// Every dungeon map's live copies, to every map.
@@ -675,6 +751,13 @@ impl Book {
                 self.runs.insert(link, list);
                 self.runs_changed();
             }
+            MapMsg::RunRecord {
+                dungeon,
+                difficulty,
+                week,
+                run,
+                characters,
+            } => self.board_run(dungeon, difficulty, week, run, characters),
             MapMsg::Reserve { character, map } => {
                 let answer = self.reserve(character, &map);
                 self.to_link(
@@ -850,12 +933,15 @@ impl Book {
 struct Options {
     bind: SocketAddr,
     keys: PathBuf,
+    /// Where the weekly dungeon boards are kept (none: memory only).
+    boards: Option<PathBuf>,
 }
 
 fn options() -> AnyResult<Options> {
     let mut o = Options {
         bind: "127.0.0.1:7900".parse()?,
         keys: PathBuf::from("keys"),
+        boards: None,
     };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut it = args.iter();
@@ -864,6 +950,7 @@ fn options() -> AnyResult<Options> {
         match arg.as_str() {
             "--bind" => o.bind = value.parse()?,
             "--keys" => o.keys = PathBuf::from(value),
+            "--boards" => o.boards = Some(PathBuf::from(value)),
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -912,6 +999,7 @@ async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>)
         );
         b.maps_changed();
         b.runs_changed();
+        b.boards_changed();
     }
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -961,8 +1049,20 @@ async fn main() -> AnyResult<()> {
             " (no ticket.key: travel between maps is closed)"
         }
     );
+    // The weekly boards survive a restart when kept in a file.
+    let mut boards = HashMap::new();
+    if let Some(path) = &o.boards
+        && let Ok(text) = std::fs::read_to_string(path)
+    {
+        let rows: Vec<Board> = serde_json::from_str(&text).unwrap_or_default();
+        for b in rows {
+            boards.insert((b.dungeon.clone(), b.difficulty), b);
+        }
+    }
     let book = Arc::new(Mutex::new(Book {
         ticket_key,
+        boards,
+        boards_file: o.boards.clone(),
         ..Book::default()
     }));
     {

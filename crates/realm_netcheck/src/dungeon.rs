@@ -51,6 +51,8 @@ fn seed(dir: &Path, character: u64) -> AnyResult<()> {
     let mut sheet: CharacterSheet = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
     sheet.level = 12;
     sheet.exp = 0;
+    let rules = Rules::from_content(&Content::load(&PathBuf::from("content/data"))?)?;
+    realm_rules::items::add_item(&mut sheet, rules.new_item("dungeon_seal", 20), &rules)?;
     sheet.place = Some(realm_rules::Place {
         map: "grounds".to_owned(),
         pos: [70.0, 58.3, 63.0],
@@ -136,6 +138,31 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         ));
     }
     println!("[dungeon] 1 ok: the gate lets it in, Normal open, Hard locked");
+    // The seal shop at the gate: a Trial key for its seals.
+    let price = rules.dungeons.rewards.shop.first().map_or(0, |r| r.2);
+    let revision = s.sheet.as_ref().map_or(0, |x| x.revision);
+    s.net.send_control(&ClientMsg::Item {
+        op_id: 501,
+        revision,
+        op: realm_rules::ItemOp::SealBuy { index: 0 },
+    });
+    let mut answer = None;
+    run_until(&mut s, 5.0, idle, |s| {
+        answer = s.take(|m| matches!(m, ServerMsg::ItemResult { op_id: 501, .. }));
+        answer.is_some()
+    })?;
+    run_until(&mut s, 0.5, idle, |_| false)?;
+    if !matches!(&answer, Some(ServerMsg::ItemResult { ok: true, .. }))
+        || s.count("key_trial") != 1
+        || s.count("dungeon_seal") != 20 - price
+    {
+        return fail(format!(
+            "the seal shop: {answer:?}, keys {}, seals {}",
+            s.count("key_trial"),
+            s.count("dungeon_seal")
+        ));
+    }
+    println!("[dungeon] 1b ok: a Trial key for {price} seals at the gate");
 
     // 2. Start Normal.
     s.net.send_control(&ClientMsg::DungeonStart {
@@ -415,6 +442,42 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         return fail(format!("Hard did not open: {unlocked:?}"));
     }
     println!("[dungeon] 5 ok: out by the reward exit, Hard now open");
+
+    // 6. The guide: the clear, the week's board, the record title.
+    back.net.send_control(&ClientMsg::DungeonGuide);
+    let mut guide = None;
+    run_until(&mut back, 5.0, idle, |s| {
+        guide = s.take(
+            |m| matches!(m, ServerMsg::Dungeon(x) if matches!(**x, DungeonMsg::Guide { .. })),
+        );
+        guide.is_some()
+    })?;
+    let Some(ServerMsg::Dungeon(page)) = guide else {
+        return fail("the guide never answered");
+    };
+    let DungeonMsg::Guide {
+        records,
+        boards,
+        titles,
+        ..
+    } = *page
+    else {
+        return fail("the guide never answered");
+    };
+    let cleared = records
+        .iter()
+        .any(|r| r.0 == "trial" && r.1 == 1 && r.2 >= 0 && r.3 > 0);
+    let on_board = boards
+        .iter()
+        .any(|b| b.dungeon == "trial" && b.difficulty == 1 && !b.runs.is_empty());
+    if !cleared || !on_board || !titles.iter().any(|t| t == "dungeon_record") {
+        return fail(format!(
+            "the guide: cleared {cleared}, on the board {on_board}, titles {titles:?}"
+        ));
+    }
+    println!(
+        "[dungeon] 6 ok: the guide shows the clear, the week's board and the Record Breaker title"
+    );
     if corrections > 0 {
         return fail(format!("{corrections} prediction corrections"));
     }

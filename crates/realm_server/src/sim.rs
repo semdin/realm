@@ -435,6 +435,8 @@ pub struct Sim {
     runs_told: Vec<realm_proto::coord::RunSummary>,
     /// An outer map: every dungeon map's live copies, ready checks, launches.
     dungeon_runs: Vec<realm_proto::coord::RunSummary>,
+    /// This week's dungeon boards (from the coordinator).
+    boards: Vec<realm_proto::coord::Board>,
     ready_checks: Vec<dungeon::Check>,
     launches: Vec<dungeon::Launch>,
     next_check: u32,
@@ -613,6 +615,7 @@ impl Sim {
             free_packs: Vec::new(),
             runs_told: Vec::new(),
             dungeon_runs: Vec::new(),
+            boards: Vec::new(),
             ready_checks: Vec::new(),
             launches: Vec::new(),
             next_check: 0,
@@ -1160,6 +1163,7 @@ impl Sim {
                 self.dungeon_start(conn, entity, &portal, difficulty);
             }
             ClientMsg::DungeonReady { id, yes } => self.dungeon_ready(entity, id, yes),
+            ClientMsg::DungeonGuide => self.dungeon_guide(conn, entity),
             ClientMsg::Inspect(id) => {
                 let player = self
                     .ids
@@ -1249,6 +1253,7 @@ impl Sim {
                 casting: false,
                 mounted: player.body.mounted,
                 at_shop: self.game.rules.at_hearth(&self.game.map, pos.x, pos.z),
+                at_dungeon_gate: self.near_dungeon_gate(pos),
             };
             let mut dice = ServerDice(xorshift(&mut self.dice_state) | 1);
             let result = self

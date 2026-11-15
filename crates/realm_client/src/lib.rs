@@ -1797,6 +1797,23 @@ impl RealmSession {
         })
     }
 
+    /// Buys row `index` of the seal shop (dungeons.json rewards.shop) with
+    /// Dungeon Seals; the player must stand near a dungeon gate.
+    #[func]
+    fn seal_buy(&mut self, index: i64) -> i64 {
+        self.item_request(ItemOp::SealBuy {
+            index: index.clamp(0, 255) as u8,
+        })
+    }
+
+    /// Asks for the dungeon guide (a "dungeon" game event, `event` guide).
+    #[func]
+    fn dungeon_guide(&mut self) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::DungeonGuide);
+        }
+    }
+
     #[func]
     fn refine_item(&mut self, target: i64) -> i64 {
         cell(target).map_or(0, |target| self.item_request(ItemOp::Refine { target }))

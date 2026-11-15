@@ -17,17 +17,26 @@ class_name HudDungeon
 ## the checks here only explain early what it would refuse. While open the
 ## window asks again every REFRESH_S. This week's curses come with the gate's
 ## answer (`affixes`, in order); a difficulty takes the first N of them
-## (dungeons.json difficulty.<id>.affixes). (The old window's Seal Shop tab
-## comes with the seal shop.)
+## (dungeons.json difficulty.<id>.affixes).
+##
+## Its second tab is the Seal Shop (the old window's): the Dungeon Seals in
+## the bag, then dungeons.json rewards.shop as a two-column card grid, each
+## with its Buy button (RealmSession.seal_buy; the server sells only within
+## reach of a dungeon gate and answers through the item results, as the
+## Hearth window's purchases do).
 
 const REFRESH_S := 1.5
 const WELL := Color("070b12")
 const GOOD := Color(0.498, 0.839, 0.478)
 const BAD := Color(0.937, 0.416, 0.373)
 const FAINT := Color(0.435, 0.424, 0.400)
+const SEAL := "dungeon_seal"
+const Workshop := preload("res://scripts/ui/workshop_window.gd")
 
 var session: Node
 var hud: Node
+## The player's sheet (main.gd's PlayerSheet): the item answers, the bag.
+var sheet: PlayerSheet
 
 var portal_id := ""
 var difficulty := "normal"
@@ -53,6 +62,22 @@ var verdict: Label
 var start_button: Button
 var rejoin_button: Button
 
+## "run" or "shop".
+var page := "run"
+var page_tabs: Dictionary = {}   # page id -> Workshop.TabChip
+var _run_view: VBoxContainer
+var _shop_view: VBoxContainer
+var _tab_seals: Label
+var _seals: Label
+var _shop_grid: GridContainer
+## Buy buttons by shop row (the check presses one).
+var buy_buttons: Array = []
+## The purchase waiting for its answer (op id, -1 none) and the last answer
+## ({row, item, ok, reason}; the check reads it).
+var _buy_id := -1
+var _buy_row := -1
+var last_buy: Dictionary = {}
+
 func _init() -> void:
 	super._init("Dungeon Gate", Vector2(680, 640))
 	name = "DungeonGate"
@@ -62,10 +87,14 @@ func _ready() -> void:
 	body.add_theme_constant_override("separation", 10)
 	_banner = DungeonBanner.new()
 	body.add_child(_banner)
+	_build_tabs()
 	var view := VBoxContainer.new()
 	view.add_theme_constant_override("separation", 8)
 	view.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(view)
+	_run_view = view
+	_shop_view = _build_shop()
+	body.add_child(_shop_view)
 
 	var row_cards := HBoxContainer.new()
 	row_cards.add_theme_constant_override("separation", 6)
@@ -117,6 +146,165 @@ func _ready() -> void:
 	rejoin_button.custom_minimum_size = Vector2(0, 44)
 	rejoin_button.pressed.connect(_on_rejoin)
 	row.add_child(rejoin_button)
+	if sheet != null:
+		sheet.equipment_answer.connect(_bought)
+		sheet.inventory_changed.connect(_refresh_shop)
+	show_page(page)
+
+## The Dungeon / Seal Shop tabs (the workshop's strip); the shop tab carries
+## the seal count.
+func _build_tabs() -> void:
+	var strip := VBoxContainer.new()
+	strip.add_theme_constant_override("separation", 0)
+	body.add_child(strip)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 4)
+	strip.add_child(row)
+	var pad := Control.new()
+	pad.custom_minimum_size = Vector2(2, 0)
+	row.add_child(pad)
+	for p: Array in [["run", tr("Dungeon")], ["shop", tr("Seal Shop")]]:
+		var tab := Workshop.TabChip.new(String(p[1]))
+		tab.name = "Page_" + String(p[0])
+		tab.chosen.connect(show_page.bind(String(p[0])))
+		row.add_child(tab)
+		page_tabs[String(p[0])] = tab
+	var shop_tab: Workshop.TabChip = page_tabs["shop"]
+	shop_tab.row.add_child(UITheme.icon_rect(SEAL, 16))
+	_tab_seals = HudKit.label("", 12, HudKit.GOLD_LT, HudKit.body(), 0)
+	shop_tab.row.add_child(_tab_seals)
+	var rule := ColorRect.new()
+	rule.color = HudKit.GOLD_DK
+	rule.custom_minimum_size = Vector2(0, 1)
+	strip.add_child(rule)
+
+## The seal shop page: the purse, then the wares as a two-column card grid.
+func _build_shop() -> VBoxContainer:
+	var view := VBoxContainer.new()
+	view.name = "SealShop"
+	view.add_theme_constant_override("separation", 10)
+	view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var purse := PanelContainer.new()
+	purse.add_theme_stylebox_override("panel", _box(WELL, Color("3a3122"), 5, 10))
+	view.add_child(purse)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 12)
+	purse.add_child(line)
+	line.add_child(UITheme.icon_rect(SEAL, 40))
+	var words := VBoxContainer.new()
+	words.add_theme_constant_override("separation", 0)
+	words.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	line.add_child(words)
+	_seals = HudKit.label("", 22, HudKit.GOLD_HI, HudKit.title(), 3)
+	words.add_child(_seals)
+	# Wrapped: on one line it set the whole window's width (678 of 600 in Turkish).
+	var hint := HudKit.label(tr("Dungeon Seals  ·  Normal and harder clears pay seals; a gold medal adds one"), 12, HudKit.TEXT_DIM, HudKit.body(), 0)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.custom_minimum_size.x = 200
+	words.add_child(hint)
+	_shop_grid = GridContainer.new()
+	_shop_grid.columns = 2
+	_shop_grid.add_theme_constant_override("h_separation", 6)
+	_shop_grid.add_theme_constant_override("v_separation", 6)
+	view.add_child(_shop_grid)
+	var wares := DungeonData.shop()
+	for i in wares.size():
+		var entry: Dictionary = wares[i]
+		var card := PanelContainer.new()
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		card.add_theme_stylebox_override("panel", _box(Color(0.086, 0.141, 0.227, 0.45), Color("23324c"), 5, 8))
+		_shop_grid.add_child(card)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		card.add_child(row)
+		var item_id := String(entry.get("item", ""))
+		row.add_child(UITheme.icon_rect(item_id, 38))
+		var col := VBoxContainer.new()
+		col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		col.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		col.add_theme_constant_override("separation", 2)
+		row.add_child(col)
+		var amount := int(entry.get("amount", 1))
+		var name_text := I18n.t(String(ItemRules.item(item_id).get("name", item_id)))
+		var label := HudKit.label(name_text if amount == 1 else "%s ×%d" % [name_text, amount], 14, HudKit.PARCHMENT, HudKit.body(), 0)
+		# A longer name takes a second line before it is cut.
+		label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		label.max_lines_visible = 2
+		label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		label.custom_minimum_size.x = 60
+		col.add_child(label)
+		var price := HBoxContainer.new()
+		price.add_theme_constant_override("separation", 4)
+		col.add_child(price)
+		price.add_child(UITheme.icon_rect(SEAL, 15))
+		price.add_child(HudKit.label(tr("%d seals") % int(entry.get("seals", 1)), 13, HudKit.GOLD_LT, HudKit.body(), 0))
+		var buy := HudKit.gold_button_small(tr("Buy"))
+		buy.name = "Buy_%d" % i
+		buy.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		buy.set_meta("seals", int(entry.get("seals", 1)))
+		buy.pressed.connect(buy_row.bind(i))
+		row.add_child(buy)
+		buy_buttons.append(buy)
+	return view
+
+## Show the Dungeon ("run") or the Seal Shop ("shop") page.
+func show_page(id: String) -> void:
+	page = id
+	if _run_view == null:
+		return
+	_run_view.visible = id == "run"
+	_shop_view.visible = id == "shop"
+	for p: String in page_tabs:
+		(page_tabs[p] as Workshop.TabChip).selected = p == id
+	_refresh_shop()
+
+## Dungeon Seals in the bag.
+func seal_count() -> int:
+	return _key_count(SEAL)
+
+## The purse, the tab's count and the Buy buttons (off when the seals do not
+## reach the price, or while a purchase waits for its answer).
+func _refresh_shop() -> void:
+	if _seals == null:
+		return
+	var seals := seal_count()
+	_seals.text = str(seals)
+	_tab_seals.text = str(seals)
+	for buy: Button in buy_buttons:
+		buy.disabled = _buy_id >= 0 or seals < int(buy.get_meta("seals", 1))
+
+## Buy shop row `index` (the server checks the seals, the bag and the gate).
+func buy_row(index: int) -> void:
+	if session == null or _buy_id >= 0 or index < 0 or index >= DungeonData.shop().size():
+		return
+	_buy_row = index
+	_buy_id = int(session.seal_buy(index))
+	if _buy_id <= 0:
+		_buy_id = -1
+	_refresh_shop()
+
+## An item answer: ours when it carries the purchase's op id.
+func _bought(answer: Dictionary) -> void:
+	if _buy_id < 0 or int(answer.get("request_id", -2)) != _buy_id:
+		return
+	_buy_id = -1
+	var wares := DungeonData.shop()
+	var item_id := String((wares[_buy_row] as Dictionary).get("item", "")) if _buy_row < wares.size() else ""
+	var ok := bool(answer.get("ok", false))
+	var reason := String(answer.get("reason", ""))
+	last_buy = {"row": _buy_row, "item": item_id, "ok": ok, "reason": reason}
+	var fails := {"no_seals": tr("Not enough Dungeon Seals."), "bag_full": tr("Your bag is full."),
+		"not_at_shop": tr("The seal shop is at the dungeon gates.")}
+	var text := String(fails.get(reason, tr("The gate keeper shakes his head.")))
+	if ok:
+		text = tr("%s bought.") % I18n.t(String(ItemRules.item(item_id).get("name", item_id)))
+	_notice(text, "good" if ok else "warn")
+	if ok:
+		AudioManager.play_sound_at("ui_coin", Vector3.ZERO, null, true)
+	else:
+		AudioManager.play_deny()
+	_refresh_shop()
 
 static func _box(bg: Color, border: Color, radius: int, margin: float) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()

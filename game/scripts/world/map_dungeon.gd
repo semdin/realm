@@ -15,11 +15,14 @@ class_name MapDungeon
 ##     floor (DungeonHazards, from the "hazard" events and the run views),
 ##     and the result window (HudDungeonResult) opens at the end with the
 ##     "rewards" that follow.
+##   * The guide (K, anywhere: HudDungeonGuide): the player's records and
+##     this week's boards, the server's "guide" answer.
 
 ## main.gd (session, hud).
 var game: Node
 var map_name := ""
 var gate_window: HudDungeon
+var guide_window: HudDungeonGuide
 var run_view: HudDungeonRun
 var result_window: HudDungeonResult
 var gates: DungeonGates
@@ -37,7 +40,11 @@ func setup(main: Node, map_id: String, ui_root: Control) -> void:
 	gate_window = HudDungeon.new()
 	gate_window.session = game.session
 	gate_window.hud = game.hud
+	gate_window.sheet = game.sheet_view
 	ui_root.add_child(gate_window)
+	guide_window = HudDungeonGuide.new()
+	guide_window.session = game.session
+	ui_root.add_child(guide_window)
 	result_window = HudDungeonResult.new()
 	result_window.session = game.session
 	ui_root.add_child(result_window)
@@ -100,3 +107,5 @@ func on_event(event: Dictionary) -> void:
 			result_window.on_event(event)
 		"hazard":
 			hazards.on_hazard(view)
+		"guide":
+			guide_window.on_event(event)

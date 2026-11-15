@@ -5703,3 +5703,9 @@ msgstr "Gruplar şu anda kullanılamıyor."
 
 msgid "Way to %s"
 msgstr "Geçit: %s"
+
+msgid "Your titles"
+msgstr "Unvanların"
+
+msgid "None yet"
+msgstr "Henüz yok"

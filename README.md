@@ -41,6 +41,7 @@ cargo run --release -p realm_server -- keygen keys            # dev ticket key +
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --dev-spawn-near-packs   # or --dev-spawn-near troll_forest | grak | stone_dark | training_dummy
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
 cargo run --release -p realm_coord                      # coordinator: chat, parties across maps (127.0.0.1:7900, keys/coord.key)
+cargo run --release -p realm_coord -- --boards build/boards.json   # the same, keeping the weekly dungeon boards across restarts
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900   # a map server linked to it
 cargo run --release -p realm_netcheck -- --social       # two players on two maps: invite, party, party line, shout, local stays local
 cargo run --release -p realm_netcheck -- --duel         # two players on one map: challenge, accept, fight to 1 health, result
