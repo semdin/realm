@@ -116,7 +116,13 @@ extends Node3D
 ##                                                    the dungeon guide's "Show the way to the gate"; with
 ##                                                    `aup_map.sh castle` / `caverns` and `--map castle_interior` /
 ##                                                    `--map spider_caverns` it surveys that map instead
-##   [--others-guest NAME]                            this client waits until it sees NAME, then changes its
+##   [--check-audio]                                  the sound layers (AudioCheck; build/logs/aup_audio.sh,
+##                                                    --character 901001): zone music and its cross-fade on a
+##                                                    zone change, the ambience bed, footsteps walking and none
+##                                                    standing, creature voices and the tension mix in a fight,
+##                                                    the broom's wind by speed, a hearth trip's sound; the
+##                                                    audio layer's frame cost
+##   [--others-guest NAME]                          this client waits until it sees NAME, then changes its
 ##                                                    look and takes its wand off (the second client for
 ##                                                    --check-others)
 ##   [--login-url http://127.0.0.1:7950]              the login service the front door talks to
@@ -213,6 +219,7 @@ const MenuCheckScript := "res://scripts/systems/menu_check.gd"
 const SkillsCheckScript := "res://scripts/systems/skills_check.gd"
 const OthersCheckScript := "res://scripts/systems/others_check.gd"
 const MapCheckScript := "res://scripts/systems/map_check.gd"
+const AudioCheckScript := "res://scripts/systems/audio_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -306,6 +313,10 @@ var dungeon: MapDungeon
 var way: MapWay
 ## `--check-map`: the way-finding check.
 var map_check: Node = null
+## The world's ear (zone, steps, creature voices, the fight and flight mix)
+## and `--check-audio`'s check.
+var world_audio: WorldAudio
+var audio_check: Node = null
 ## `--check-dungeon`: the dungeon check (`--check-guide`: the guide check, in
 ## the same place: it walks and hears the same events).
 var dungeon_check: Node = null
@@ -560,6 +571,9 @@ func _wants_front_door() -> bool:
 	return true
 
 func _show_front_door() -> void:
+	# the world's sound fades; the front door plays the menu theme
+	AudioManager.world_ended()
+	AudioManager.set_music_state("menu")
 	front_door = FrontDoor.new()
 	add_child(front_door)
 	front_door.setup(_arg("--login-url", LoginApi.DEFAULT_URL))
@@ -643,6 +657,9 @@ func _build_view() -> void:
 	combat.beasts = beasts
 	combat.session = session
 	add_child(combat)
+	world_audio = WorldAudio.new()
+	world_audio.game = self
+	add_child(world_audio)
 	StatusFX.warm_assets()
 	readout = Label.new()
 	# bottom right over the taskbar: the minimap holds the top right corner
@@ -719,6 +736,11 @@ func _build_ui() -> void:
 		map_check.name = "MapCheck"
 		map_check.game = self
 		add_child(map_check)
+	if OS.get_cmdline_user_args().has("--check-audio"):
+		audio_check = load(AudioCheckScript).new()
+		audio_check.name = "AudioCheck"
+		audio_check.game = self
+		add_child(audio_check)
 	var user_args := OS.get_cmdline_user_args()
 	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss") \
 			or user_args.has("--check-lair"):
@@ -1503,6 +1525,9 @@ func _show_combat() -> void:
 	combat.drawn = drawn
 	for event: Dictionary in session.take_combat_events():
 		combat.show_event(event)
+		world_audio.on_combat(event)
+		if audio_check != null:
+			audio_check.on_combat(event)
 		if duel_check != null:
 			duel_check.on_combat(event)
 		if game_menu != null:
@@ -1805,10 +1830,10 @@ func _show_notices() -> void:
 			"boss_spawned":
 				var site := _boss_site(subject)
 				text = tr("%s has appeared at %s (Lv %d)!") % [name, I18n.t(site["region"]), int(notice["value"])]
-				AudioManager.play_sound_at("stinger_boss", Vector3.ZERO, null, true)
+				AudioManager.play_stinger("stinger_boss")
 			"boss_slain":
 				text = tr("%s has fallen!") % name
-				AudioManager.play_sound_at("stinger_victory", Vector3.ZERO, null, true)
+				AudioManager.play_stinger("stinger_victory")
 			"stone_wave":
 				var stone: StoneView = _stone_named(subject)
 				if stone != null:
@@ -2325,6 +2350,10 @@ func _process(delta: float) -> void:
 	elif map_check != null:
 		forward = map_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
+	elif audio_check != null:
+		forward = audio_check.walk_intent()
+		strafe = _check_sidestep(forward > 0.0)
+		jump = audio_check.jump_intent()
 	elif menu_check != null and menu_check.walk_intent() > 0.0:
 		forward = menu_check.walk_intent()
 	elif not hud.chat.is_open():
@@ -2335,6 +2364,8 @@ func _process(delta: float) -> void:
 	var descend: bool = GameSettings.pressed("descend") and not hud.chat.is_open()
 	if travel_check != null:
 		descend = travel_check.descend_intent()
+	elif audio_check != null:
+		descend = audio_check.descend_intent()
 	session.set_intent(strafe, forward, cam_yaw, jump, descend)
 
 	var own: Dictionary = session.own_body()

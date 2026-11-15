@@ -146,6 +146,10 @@ var _haze: Dictionary = {}
 ## Seen standing before it died (a web thing already dead when it came into
 ## view does not burst again), and whether it split open.
 var _seen_alive := false
+## The replicated state this frame (STATE_*; -1 before the first) and how many
+## times the body went into an attack: WorldAudio voices both.
+var state := -1
+var attack_starts := 0
 var split_open := false
 
 ## The rig a species is drawn with (creature_views.json `rig`, "" none).
@@ -377,6 +381,9 @@ func set_cc_anim_scale(pace: float) -> void:
 	_apply_speed()
 
 func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
+	if state == STATE_ATTACKING and self.state != STATE_ATTACKING:
+		attack_starts += 1
+	self.state = state
 	if _has_last and delta > 0.0:
 		var seen := Vector2(drawn.x - _last.x, drawn.z - _last.z).length() / delta
 		_speed = lerpf(_speed, seen, minf(1.0, delta * 8.0))

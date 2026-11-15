@@ -573,15 +573,17 @@ const FOOTSTEP_BAND := 0.25
 const FOOTSTEP_ENVELOPE_DECAY := 0.0004
 
 func _scan_footsteps(delta: float) -> void:
+	# Only a stride on the ground steps: standing, airborne, swimming, riding
+	# or stunned (any port but "ground") the feet are not walking.
 	var body := owner_body()
-	if body is CharacterBody3D:
-		var horizontal := Vector2((body as CharacterBody3D).velocity.x, (body as CharacterBody3D).velocity.z).length()
-		if horizontal < FOOTSTEP_MOVE_SPEED or not (body as CharacterBody3D).is_on_floor() \
-				or _loco_port != "ground":
-			_foot_low.clear()
-			_foot_min.clear()
-			_foot_high.clear()
-			return
+	var moving: Variant = body.get("velocity") if body != null else null
+	var horizontal := Vector2((moving as Vector3).x, (moving as Vector3).z).length() if moving is Vector3 else 0.0
+	if horizontal < FOOTSTEP_MOVE_SPEED or _loco_port != "ground" \
+			or (body is CharacterBody3D and not (body as CharacterBody3D).is_on_floor()):
+		_foot_low.clear()
+		_foot_min.clear()
+		_foot_high.clear()
+		return
 	for side in ["L", "R"]:
 		var idx := RigIK.bone_index(skeleton, HeroBones.foot(side))
 		if idx < 0:
@@ -601,10 +603,11 @@ func _scan_footsteps(delta: float) -> void:
 		elif y > band:
 			_foot_low[side] = false
 
-## The body this graph poses (a sibling of the model inside Visuals).
+## The body this graph poses: the hero it belongs to (a HeroView, whose
+## `velocity` is the body's), or a CharacterBody3D above it.
 func owner_body() -> Node:
 	var node := get_parent()
-	while node != null and not (node is CharacterBody3D):
+	while node != null and not (node is CharacterBody3D or node is HeroView):
 		node = node.get_parent()
 	return node
 

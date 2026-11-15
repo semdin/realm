@@ -379,7 +379,10 @@ func _play_arrival() -> void:
 		"hearthway", "cabinet", "passage", "waylink":
 			TravelNodes.burst(game, at, kind)
 		_:
-			AudioManager.play_sound_at("door_open", at, null, false)
+			# through a door: it opens onto a hall or a dungeon, and shuts
+			# behind on the way back out (the old game's door pair)
+			var out := map_name == "grounds" or map_name == "spider_caverns"
+			AudioManager.play_sound_at("door_close" if out else "door_open", at, null, false)
 
 func _loading_title(map_id: String) -> String:
 	return I18n.upper(TravelData.display_name(map_id))

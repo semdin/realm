@@ -216,7 +216,7 @@ func _finish(event: Dictionary) -> void:
 	var colour := HudKit.GOLD_HI if result == "won" else (Color(1.0, 0.40, 0.34) if result == "lost" else HudKit.PARCHMENT)
 	_show_banner(I18n.upper(title), sub, colour)
 	if result == "won":
-		AudioManager.play_sound_at("stinger_victory", Vector3.ZERO, null, true)
+		AudioManager.play_stinger("stinger_victory")
 	else:
 		AudioManager.play_sound_at("ui_upgrade_fail" if result == "lost" else "ui_confirm", Vector3.ZERO, null, true)
 	var head := tr("Duel won") if result == "won" else (tr("Duel lost") if result == "lost" else tr("Duel drawn"))

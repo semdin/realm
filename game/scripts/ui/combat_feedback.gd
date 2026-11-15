@@ -177,7 +177,7 @@ func on_death(event: Dictionary) -> void:
 		return
 	deaths_shown += 1
 	hud.show_notice(tr("You were defeated."), "warn")
-	AudioManager.play_sound_at("stinger_death", Vector3.ZERO, null, true)
+	AudioManager.play_stinger("stinger_death")
 	if is_instance_valid(player):
 		player.set_dead(true)
 		var ft := FloatingText.spawn(player.get_parent(), player.global_position + Vector3(0, 2.4, 0),
