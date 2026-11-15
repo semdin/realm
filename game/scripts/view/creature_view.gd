@@ -18,6 +18,13 @@ class_name CreatureView
 ## the Strangling Vine's vine withers and shrinks). Threehead's stun is the
 ## sleep the chime lulls it into: its Sleep clip, a slow pale haze drifting up
 ## off each head still standing, "Asleep!" over it, no stun stars.
+##
+## A web thing (rig web_object: the Web Mother's egg sacs and cocoons) has no
+## clips: its death is the silk splitting open (SilkBurst, with the fluid
+## inside it, creature_views.json `fluid`) while the model swells, slumps
+## flat into the floor and is gone. `stretch` widens or heightens a model
+## past its uniform `scale` (a cocoon fitted round a player), `silk_alpha`
+## draws it as thin silk the body inside shows through.
 
 ## Snapshot states (realm_server sim.rs).
 const STATE_IDLE := 0
@@ -82,6 +89,10 @@ const MULTIPART := {
 }
 ## A part's own rig: no model, targeted where the server holds it.
 const PART_RIG := "boss_part"
+## The egg sacs' and cocoons' rig, and how long its split-open slump takes.
+const WEB_RIG := "web_object"
+const SPLIT_SWELL := 0.08
+const SPLIT_SLUMP := 0.42
 ## The sleep haze off a sleeping head.
 const SLEEP_TINT := Color(0.78, 0.8, 1.0)
 
@@ -132,6 +143,10 @@ var _skeleton: Skeleton3D = null
 ## Threehead asleep: the haze over each standing head (key -> GPUParticles3D).
 var asleep := false
 var _haze: Dictionary = {}
+## Seen standing before it died (a web thing already dead when it came into
+## view does not burst again), and whether it split open.
+var _seen_alive := false
+var split_open := false
 
 ## The rig a species is drawn with (creature_views.json `rig`, "" none).
 static func rig_of(id: String) -> String:
@@ -177,6 +192,11 @@ func setup(kind: int) -> bool:
 	model = scene.instantiate() as Node3D
 	_body_scale = float(view.get("boss_scale", 1.0)) if is_boss else float(view.get("scale", 1.0))
 	model.scale = Vector3.ONE * _body_scale
+	var stretch: Variant = view.get("stretch", null)
+	if stretch is Array and (stretch as Array).size() >= 3:
+		model.scale = Vector3(float(stretch[0]), float(stretch[1]), float(stretch[2])) * _body_scale
+	if view.has("silk_alpha"):
+		_thin_silk(float(view["silk_alpha"]))
 	model.position.y = float(view.get("offset_y", 0.0)) + float(view.get("hover_height", 0.0))
 	add_child(model)
 	visuals = model
@@ -209,6 +229,48 @@ func _build_droop() -> void:
 	_droop.bend_degrees = float(multipart["degrees"])
 	_droop.shrink = float(multipart["shrink"])
 	_skeleton.add_child(_droop)
+
+## The model drawn as thin silk: its materials see-through to `alpha`.
+func _thin_silk(alpha: float) -> void:
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		for i in mesh.get_surface_override_material_count():
+			var source := mesh.get_active_material(i) as BaseMaterial3D
+			if source == null:
+				continue
+			var silk := source.duplicate() as BaseMaterial3D
+			silk.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+			silk.albedo_color.a = alpha
+			mesh.set_surface_override_material(i, silk)
+
+## A web thing dies: the silk bursts (SilkBurst) and the model swells, then
+## slumps flat and wide into the floor and is hidden.
+func _split_open() -> void:
+	if split_open or model == null:
+		return
+	split_open = true
+	if not _seen_alive or DisplayServer.get_name() == "headless":
+		model.visible = false
+		return
+	var rest := model.scale
+	var box := AABB()
+	var first := true
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		var b := mesh.transform * mesh.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	var size := Vector2(maxf(box.size.x * rest.x, box.size.z * rest.z), box.size.y * rest.y)
+	var fluid := Color(0, 0, 0, 0)
+	var tint: Variant = view.get("fluid", null)
+	if tint is Array and (tint as Array).size() >= 3:
+		fluid = Color(float(tint[0]), float(tint[1]), float(tint[2]))
+	SilkBurst.play(get_parent(), global_position, size, fluid)
+	var tween := create_tween()
+	tween.tween_property(model, "scale", rest * Vector3(1.08, 1.1, 1.08), SPLIT_SWELL)
+	tween.tween_property(model, "scale", rest * Vector3(1.3, 0.04, 1.3), SPLIT_SLUMP) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tween.tween_property(model, "visible", false, 0.0)
 
 ## Which parts are down (keys L / M / R / T): their chains bend on the model,
 ## a sleeping head that went down stops breathing its haze.
@@ -329,8 +391,11 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 			_ability.clear()
 			_play("death", 0.1)
 			_update_haze()
+			if String(view.get("rig", "")) == WEB_RIG:
+				_split_open()
 		return
 	is_dead = false
+	_seen_alive = true
 	if _cc_pace <= 0.0:
 		# frozen solid: the pose and the facing it was caught in are held
 		return

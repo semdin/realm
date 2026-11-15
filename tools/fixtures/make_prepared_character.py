@@ -41,6 +41,13 @@ Godot client's --check-guide).
 the castle interior on the Sealed Wing gate (portal `fc_entry`) instead.
 `--level N` sets the level (the kit's 12 otherwise), with the health and
 mana a character of that level has, both full.
+
+    python tools/fixtures/make_prepared_character.py build/laircheck 900501 --dungeon-kit --spider-lair
+
+`--spider-lair` (with the kit; the Godot client's --check-lair) stands in
+the Blackweb Caverns by the camp's web gate into the Web Mother's Lair
+(portal `lair_entry_camp`, as realm_netcheck --lair seeds its character), at
+level 30 unless `--level` says otherwise.
 """
 import json
 import os
@@ -106,6 +113,12 @@ def main():
     if dungeon_kit and "--sealed-wing" in argv:
         # on maps.json portal fc_entry's trigger (castle_interior 65.1, 230.5, -10.4)
         sheet["place"] = {"map": "castle_interior", "pos": [65.1, 231.0, -10.4], "yaw": 0.0}
+    if dungeon_kit and "--spider-lair" in argv:
+        # just south of maps.json portal lair_entry_camp's trigger
+        # (spider_caverns -174, 1550.6, -159, radius 2.6)
+        sheet["place"] = {"map": "spider_caverns", "pos": [-172.0, 1550.6, -164.0], "yaw": 0.0}
+        if level == 0:
+            level = 30
     if level > 0:
         # realm_rules::progress grant_exp: +45 hp, +25 mana per level
         sheet["level"] = level

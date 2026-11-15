@@ -1,5 +1,5 @@
 {
-  "_about": "How each creature is drawn (the client's CreatureView): its model and scale, the clip set its animations follow (anim_set), the ground speeds its walk and run cycles were authored at (0 = play at 1x), a hover height for fliers, the boss variant's model, and the name label height. Presentation only; the server never reads it. Objects (\"object\": stone or dummy) are drawn by their own views (StoneView, DummyView): a Dark Shard's model, its glow, the height of its body and label and how tall its sky beam stands; a dummy's label height and the point its painted face turns to.",
+  "_about": "How each creature is drawn (the client's CreatureView): its model and scale, the clip set its animations follow (anim_set), the ground speeds its walk and run cycles were authored at (0 = play at 1x), a hover height for fliers, the boss variant's model, and the name label height. Presentation only; the server never reads it. Objects (\"object\": stone or dummy) are drawn by their own views (StoneView, DummyView): a Dark Shard's model, its glow, the height of its body and label and how tall its sky beam stands; a dummy's label height and the point its painted face turns to. A web thing (rig web_object: an egg sac, a cocoon) splits open when it dies, with the `fluid` tint (r, g, b) of what is inside it; `stretch` (x, y, z) widens or heightens a model past its uniform `scale`, `silk_alpha` draws it as see-through silk.",
   "black_weaver": {
     "anim_set": "spider",
     "walk_speed": 0.0,
@@ -100,7 +100,12 @@
     "model": "res://assets/models/caverns/cavern_eggs.glb",
     "scale": 0.6,
     "label_height": 1.9,
-    "rig": "web_object"
+    "rig": "web_object",
+    "fluid": [
+      0.62,
+      0.4,
+      0.92
+    ]
   },
   "threehead": {
     "anim_set": "hound",
@@ -211,7 +216,13 @@
     "run_speed": 0.0,
     "hover_height": 0.0,
     "model": "res://assets/models/caverns/cavern_cocoon.glb",
-    "scale": 2.4,
+    "scale": 1.0,
+    "stretch": [
+      2.5,
+      1.12,
+      2.7
+    ],
+    "silk_alpha": 0.72,
     "label_height": 2.8,
     "rig": "web_object"
   },

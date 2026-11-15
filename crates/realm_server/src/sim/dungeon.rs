@@ -909,7 +909,7 @@ impl Sim {
         // The cocoon: a still thing to break, part of the step.
         let entry = SpawnEntry {
             mob: c.mob.clone(),
-            role: "hatchling".to_owned(),
+            role: "object".to_owned(),
             at: {
                 let local = at - offset_of(copy);
                 [local.x, local.y, local.z]
@@ -1175,10 +1175,12 @@ impl Sim {
                     .map(|t| t.style.clone())
                     .filter(|s| !s.is_empty())
                     .unwrap_or_else(|| "spider".to_owned()),
-                arena_radius: template
-                    .map(|t| t.arena_radius)
-                    .filter(|r| *r > 0.0)
-                    .unwrap_or(26.0),
+                // A run's boss keeps to the run's leash, as in the old
+                // dungeon director: its room is gated and a wipe sends it
+                // home. The template's arena radius is the open world's
+                // (18 m left the Web Mother resetting while a cocoon held
+                // her lone foe at the front of the nest).
+                arena_radius: 0.0,
             }
         });
         let species = entries

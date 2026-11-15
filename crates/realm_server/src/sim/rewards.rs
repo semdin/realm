@@ -84,7 +84,7 @@ impl Sim {
         if self
             .world
             .get::<Mob>(mob)
-            .is_some_and(|m| m.part_of.is_some())
+            .is_some_and(|m| m.part_of.is_some() || !self.game.species[usize::from(m.species)].pays)
         {
             return;
         }

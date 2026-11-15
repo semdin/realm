@@ -99,20 +99,39 @@ fn fight(
     spare: Option<u16>,
     seconds: u64,
     mut done: impl FnMut(&Session) -> bool,
-) -> AnyResult<(bool, bool)> {
+) -> AnyResult<(bool, bool, Option<String>)> {
     let started = Instant::now();
+    // The lowest health each creature showed: one that climbs back far
+    // (a boss walking home to heal) is a reset in the middle of the fight.
+    let mut lowest: std::collections::HashMap<u32, u8> = std::collections::HashMap::new();
+    let mut healed = None;
     let mut next_cast = 0_u32;
     let mut stop = 0;
     let mut held = false;
     while started.elapsed() < Duration::from_secs(seconds) {
         if done(d) {
-            return Ok((true, held));
+            return Ok((true, held, healed));
         }
         if d.core.as_ref().is_some_and(ClientCore::locked) {
             held = true;
         }
         let me = d.pos();
         let local_ticks = d.started.elapsed().as_secs_f64() * ClientCore::HZ;
+        if let Some(c) = d.core.as_ref() {
+            for e in c.remote_entities(local_ticks) {
+                if e.kind == 0 || e.state == 3 {
+                    continue;
+                }
+                let low = lowest.entry(e.id).or_insert(e.hp);
+                *low = (*low).min(e.hp);
+                if e.hp > low.saturating_add(25) && healed.is_none() {
+                    healed = Some(format!(
+                        "creature {} (kind {}) climbed from {}% to {}%",
+                        e.id, e.kind, low, e.hp
+                    ));
+                }
+            }
+        }
         let foe = d.core.as_ref().and_then(|c| {
             let eye = me + Vec3::new(0.0, 1.5, 0.0);
             c.remote_entities(local_ticks)
@@ -151,7 +170,7 @@ fn fight(
             return fail(format!("the dungeon connection closed: {:?}", d.closed));
         }
     }
-    Ok((false, held))
+    Ok((false, held, healed))
 }
 
 fn said(s: &Session, what: &str) -> bool {
@@ -224,14 +243,14 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             (-6.0, -84.0),
             (6.0, -70.0),
         ];
-        let (hatched, _) = fight(&mut d, origin, &room, Some(sac_kind), 70, |s| {
+        let (hatched, _, _) = fight(&mut d, origin, &room, Some(sac_kind), 70, |s| {
             said(s, "egg sac splits")
         })?;
         if !hatched {
             return fail(format!("no egg sac hatched: {:?}", messages(&d)));
         }
         let before = state(&d).map_or(0, |v| v.left);
-        let (cleared, _) = fight(&mut d, origin, &room, None, 240, |s| {
+        let (cleared, _, _) = fight(&mut d, origin, &room, None, 240, |s| {
             said(s, "last sac withers")
         })?;
         if !cleared {
@@ -256,7 +275,8 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             (-8.0, -190.0),
             (8.0, -176.0),
         ];
-        let (down, held) = fight(&mut d, origin, &nest, None, 300, |s| said(s, "curls up"))?;
+        let (down, held, healed) =
+            fight(&mut d, origin, &nest, None, 300, |s| said(s, "curls up"))?;
         if !down {
             return fail(format!("the Web Mother still stands: {:?}", messages(&d)));
         }
@@ -267,6 +287,9 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         }
         if !held {
             return fail("the cocoon never held the player");
+        }
+        if let Some(h) = healed {
+            return fail(format!("a reset mid-fight: {h}"));
         }
         let pools = hazards(&d, "pool");
         if pools == 0 {

@@ -69,7 +69,16 @@ extends Node3D
 ##                                                    runs with --dev-dungeon-start threehead
 ##                                                    --dev-dungeon-scale 0.05: build/logs/dup_boss.sh)
 ##   [--check-boss-step snare]                        the Strangling Vine instead (dup_boss.sh snare)
-##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck save PNG frames
+##   [--check-lair]                                   the check goes through the Web Mother's Lair gate
+##                                                    (spider_caverns), lets the egg sacs split open
+##                                                    and clears the egg cavern (LairCheck; the
+##                                                    dungeon server runs with --dev-dungeon-start
+##                                                    eggs --dev-dungeon-scale 0.05 --dev-cocoon-solo:
+##                                                    build/logs/aup_lair.sh)
+##   [--check-lair-step queen]                        the Web Mother instead: her cocoon round the
+##                                                    player, the venom pools, her fall
+##                                                    (aup_lair.sh queen)
+##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
 ## a Waylink; Shift mounts or dismounts the broom. A trip to another map
@@ -137,6 +146,7 @@ const TravelCheckScript := "res://scripts/systems/travel_check.gd"
 const DungeonCheckScript := "res://scripts/systems/dungeon_check.gd"
 const GuideCheckScript := "res://scripts/systems/guide_check.gd"
 const BossCheckScript := "res://scripts/systems/boss_check.gd"
+const LairCheckScript := "res://scripts/systems/lair_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -525,11 +535,21 @@ func _build_ui() -> void:
 	add_child(dungeon)
 	dungeon.setup(self, map_name, root)
 	var user_args := OS.get_cmdline_user_args()
-	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss"):
-		var guide_mode := user_args.has("--check-guide")
-		var boss_mode := user_args.has("--check-boss")
-		dungeon_check = load(BossCheckScript if boss_mode else (GuideCheckScript if guide_mode else DungeonCheckScript)).new()
-		dungeon_check.name = "BossCheck" if boss_mode else ("GuideCheck" if guide_mode else "DungeonCheck")
+	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss") \
+			or user_args.has("--check-lair"):
+		var script := DungeonCheckScript
+		var check_name := "DungeonCheck"
+		if user_args.has("--check-lair"):
+			script = LairCheckScript
+			check_name = "LairCheck"
+		elif user_args.has("--check-boss"):
+			script = BossCheckScript
+			check_name = "BossCheck"
+		elif user_args.has("--check-guide"):
+			script = GuideCheckScript
+			check_name = "GuideCheck"
+		dungeon_check = load(script).new()
+		dungeon_check.name = check_name
 		dungeon_check.game = self
 		add_child(dungeon_check)
 	if OS.get_cmdline_user_args().has("--check-travel"):

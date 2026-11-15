@@ -22,6 +22,9 @@ pub struct Species {
     pub object: bool,
     /// Its loot_tables.json table (mobs.json `loot_table`).
     pub loot_table: String,
+    /// A dungeon object (an egg sac, a cocoon: mobs.json role "object"):
+    /// breaking it is the run's business and pays nothing.
+    pub pays: bool,
 }
 
 /// combat.json death: when a fallen player may rise, when it goes to town by
@@ -158,6 +161,7 @@ impl Game {
                     bolt,
                     object: false,
                     loot_table: def["loot_table"].as_str().unwrap_or("").to_owned(),
+                    pays: def["role"].as_str() != Some("object"),
                 });
             } else {
                 // A Dark Shard type's body or the training dummy.
@@ -178,6 +182,7 @@ impl Game {
                     bolt: None,
                     object: true,
                     loot_table: String::new(),
+                    pays: true,
                 });
             }
         }
