@@ -164,6 +164,8 @@ jobs:
           ./target/release/realm_server serve --map dng_trial --bind 127.0.0.1:7779 --coord 127.0.0.1:7900 --characters build/dungeoncheck --dev-dungeon-scale 0.05 > server_d.log 2>&1 &
           sleep 8
           ./target/release/realm_netcheck --dungeon --characters build/dungeoncheck
+          # Run it again from the finished copy: a fresh copy on the same map.
+          ./target/release/realm_netcheck --dungeon --replay --characters build/dungeoncheck
           kill %1 %2 %3 || true
 
       - name: A dungeon run under every curse

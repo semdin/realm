@@ -188,7 +188,10 @@ impl Sim {
             return self.travel_refused(conn, what, reason);
         }
         let character = p.sheet.id;
-        if trip.arrival.map == self.game.map {
+        // On this map and in this copy: a step. Into another copy the
+        // player leaves and joins again, so its client builds that copy.
+        let here = self.copy_of(p.body.pos);
+        if trip.arrival.map == self.game.map && (!self.instanced || trip.arrival.copy == here) {
             self.pay_trip(conn, entity, &trip);
             self.send_control(
                 conn,

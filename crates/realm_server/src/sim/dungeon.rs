@@ -175,6 +175,15 @@ pub(super) struct Check {
     pub roster: Vec<u64>,
     pub ready: Vec<u64>,
     pub ends: u32,
+    /// Another run from this finished copy (0: from the gate).
+    pub replay: u8,
+}
+
+/// Where a party must stand to go in: at the gate, or (another run) in
+/// its finished copy.
+pub(super) enum Gather {
+    Gate(realm_rules::travel::Portal),
+    Copy(u8),
 }
 
 /// A launch waiting for its copy.
@@ -194,7 +203,7 @@ type Hatching = (usize, Entity, Vec3, Vec<(String, String)>, usize);
 impl Sim {
     // ------------------------------------------------------------ helpers
 
-    fn copy_of(&self, pos: Vec3) -> u8 {
+    pub(super) fn copy_of(&self, pos: Vec3) -> u8 {
         if self.instanced { copy_at(pos.x) } else { 0 }
     }
 
@@ -315,6 +324,15 @@ impl Sim {
 
     /// The coordinator asks for a copy for this run.
     pub(super) fn open_copy(&mut self, req: u64, spec: &RunSpec) {
+        let copy = self.open_copy_here(spec);
+        self.coord_send(MapMsg::CopyOpened { req, copy });
+        if copy != 0 {
+            self.runs_changed();
+        }
+    }
+
+    /// Opens a copy for `spec` on this map; its number (0: none free).
+    fn open_copy_here(&mut self, spec: &RunSpec) -> u8 {
         let rules = self.rules();
         let free = self.runs.iter().position(Option::is_none);
         let def = rules
@@ -323,8 +341,7 @@ impl Sim {
             .get(&spec.dungeon)
             .filter(|d| d.map == self.game.map);
         let (Some(i), Some(def)) = (free, def) else {
-            self.coord_send(MapMsg::CopyOpened { req, copy: 0 });
-            return;
+            return 0;
         };
         let copy = (i + 1) as u8;
         // A character holds one run at a time: older copies let it go.
@@ -416,8 +433,7 @@ impl Sim {
             "[dungeon] copy {copy} of {} opened: {} at {} for {party} (level {})",
             spec.dungeon, diff.id, spec.ref_level, spec.ref_level
         );
-        self.coord_send(MapMsg::CopyOpened { req, copy });
-        self.runs_changed();
+        copy
     }
 
     /// Tells the coordinator this map's live copies (when they change).
@@ -2894,18 +2910,20 @@ impl Sim {
     // ------------------------------------------------------------ the gate
 
     /// Why `member` may not go in now ("" when nothing).
-    fn member_problem(
-        &self,
-        member: Entity,
-        portal: &realm_rules::travel::Portal,
-        dungeon_map: &str,
-    ) -> &'static str {
+    fn member_problem(&self, member: Entity, at: &Gather, dungeon_map: &str) -> &'static str {
         let tick = self.tick;
         let Some(p) = self.world.get::<Player>(member) else {
             return "not_gathered";
         };
-        let center = v3(portal.center);
         let gather = self.rules().dungeons.group.gather_radius;
+        let away = match at {
+            Gather::Gate(portal) => {
+                let center = v3(portal.center);
+                planar_distance(p.body.pos, center) > gather
+                    || (p.body.pos.y - center.y).abs() > VERTICAL_GATHER
+            }
+            Gather::Copy(copy) => self.copy_of(p.body.pos) != *copy,
+        };
         if p.dead_until != 0 {
             "dead"
         } else if p.trip.is_some() {
@@ -2916,14 +2934,13 @@ impl Sim {
             "in_duel"
         } else if p.last_combat != 0 && tick < p.last_combat + GATE_COMBAT_TICKS {
             "in_combat"
-        } else if planar_distance(p.body.pos, center) > gather
-            || (p.body.pos.y - center.y).abs() > VERTICAL_GATHER
-        {
+        } else if away {
             "not_gathered"
-        } else if self
-            .dungeon_runs
-            .iter()
-            .any(|r| r.roster.contains(&p.sheet.id) && r.inside > 0 && r.map != dungeon_map)
+        } else if matches!(at, Gather::Gate(_))
+            && self
+                .dungeon_runs
+                .iter()
+                .any(|r| r.roster.contains(&p.sheet.id) && r.inside > 0 && r.map != dungeon_map)
         {
             "in_run"
         } else {
@@ -2970,7 +2987,7 @@ impl Sim {
             let Some(p) = self.world.get::<Player>(*e) else {
                 continue;
             };
-            let status = self.member_problem(*e, &portal, &def.map);
+            let status = self.member_problem(*e, &Gather::Gate(portal.clone()), &def.map);
             out.push(GateMember {
                 character: *character,
                 name: p.sheet.name.clone(),
@@ -3061,7 +3078,7 @@ impl Sim {
     fn gate_check(
         &self,
         leader_entity: Entity,
-        portal: &realm_rules::travel::Portal,
+        at: &Gather,
         def: &realm_rules::dungeons::DungeonDef,
         difficulty: usize,
     ) -> Result<Vec<u64>, (&'static str, String, i32)> {
@@ -3095,7 +3112,7 @@ impl Sim {
                 return Err(("not_gathered", character.to_string(), 0));
             };
             let name = p.sheet.name.clone();
-            let problem = self.member_problem(*e, portal, &def.map);
+            let problem = self.member_problem(*e, at, &def.map);
             if !problem.is_empty() {
                 return Err((problem, name, 0));
             }
@@ -3132,6 +3149,10 @@ impl Sim {
         difficulty: u8,
     ) {
         let tick = self.tick;
+        // In a dungeon: another run from the finished copy.
+        if self.instanced {
+            return self.dungeon_replay(conn, entity, portal_id, difficulty);
+        }
         let Some((portal, def)) = self.gate_of(portal_id) else {
             return self.gate_refuse(conn, "no_portal", "", 0);
         };
@@ -3149,7 +3170,7 @@ impl Sim {
         {
             return self.gate_refuse(conn, "ready_pending", "", 0);
         }
-        let roster = match self.gate_check(entity, &portal, &def, difficulty) {
+        let roster = match self.gate_check(entity, &Gather::Gate(portal), &def, difficulty) {
             Ok(r) => r,
             Err((reason, who, value)) => return self.gate_refuse(conn, reason, &who, value),
         };
@@ -3167,6 +3188,7 @@ impl Sim {
             roster,
             ready: vec![me],
             ends,
+            replay: 0,
         };
         let view = self.ready_view(&check);
         let roster = check.roster.clone();
@@ -3221,6 +3243,9 @@ impl Sim {
         let c = &self.ready_checks[k];
         if c.ready.len() == c.roster.len() {
             let c = self.ready_checks.remove(k);
+            if c.replay != 0 {
+                return self.launch_replay(&c.portal, c.difficulty, c.leader, c.roster, c.replay);
+            }
             return self.launch(&c.portal, c.difficulty, c.leader, c.roster);
         }
         let view = self.ready_view(c);
@@ -3294,7 +3319,8 @@ impl Sim {
         let Some((leader_conn, leader_entity)) = self.player_of(leader) else {
             return;
         };
-        let checked = match self.gate_check(leader_entity, &portal, &def, difficulty) {
+        let checked = match self.gate_check(leader_entity, &Gather::Gate(portal), &def, difficulty)
+        {
             Ok(r) if r == roster => r,
             Ok(_) => return self.gate_refuse(leader_conn, "party_changed", "", 0),
             Err((reason, who, value)) => return self.gate_refuse(leader_conn, reason, &who, value),
@@ -3400,6 +3426,208 @@ impl Sim {
             .map_or_else(|| def.display.clone(), |m| m.display.clone());
         let n = l.roster.len() as u8;
         for (slot, ch) in l.roster.iter().enumerate() {
+            let Some((conn, entity)) = self.player_of(*ch) else {
+                continue;
+            };
+            self.send_control(
+                conn,
+                &ServerMsg::Dungeon(Box::new(DungeonMsg::Launch {
+                    map: def.map.clone(),
+                })),
+            );
+            let trip = Trip {
+                arrival: Arrival {
+                    map: def.map.clone(),
+                    landing: Landing::Ring {
+                        spawn: portal.to_spawn.clone(),
+                        slot: slot as u8,
+                        of: n,
+                    },
+                    kind: TripKind::Door,
+                    copy,
+                },
+                label: label.clone(),
+                cost: None,
+                combat_lock_ms: 0,
+            };
+            self.start_trip(conn, entity, trip, false);
+        }
+    }
+
+    /// The run a party gets: its members' rights, the reference level and
+    /// the week's curses for the difficulty.
+    fn run_spec(
+        &self,
+        def: &realm_rules::dungeons::DungeonDef,
+        difficulty: usize,
+        roster: &[u64],
+    ) -> RunSpec {
+        let rules = self.rules();
+        let day = dungeons::reward_day(super::now_unix());
+        let mut members = Vec::new();
+        let mut levels = Vec::new();
+        for ch in roster {
+            let Some(p) = self
+                .player_of(*ch)
+                .and_then(|(_, e)| self.world.get::<Player>(e))
+            else {
+                continue;
+            };
+            let rights = rules
+                .dungeons
+                .rights_left(&p.sheet, &def.id, difficulty, day);
+            let rewarded = rights != 0;
+            let first = rewarded && p.sheet.dungeons.last_rewarded_day != day;
+            levels.push(p.sheet.level);
+            members.push((*ch, p.sheet.name.clone(), p.sheet.level, rewarded, first));
+        }
+        let curses = usize::from(rules.dungeons.difficulties[difficulty].affixes);
+        RunSpec {
+            dungeon: def.id.clone(),
+            difficulty: difficulty as u8,
+            ref_level: rules.dungeons.ref_level(def, &levels),
+            roster: members,
+            affixes: rules
+                .dungeons
+                .affixes
+                .of_week(dungeons::curse_week(super::now_unix()))
+                .into_iter()
+                .take(curses)
+                .collect(),
+        }
+    }
+
+    /// `ClientMsg::DungeonStart` in a dungeon: the leader, standing in its
+    /// party's finished copy, asks for another run (the result window's
+    /// "run it again"); the party gathers in that copy, not at the gate.
+    fn dungeon_replay(&mut self, conn: ConnId, entity: Entity, portal_id: &str, difficulty: u8) {
+        let tick = self.tick;
+        let rules = self.rules();
+        let difficulty = usize::from(difficulty);
+        let portal = rules
+            .travel
+            .portals
+            .iter()
+            .find(|p| p.id == portal_id && p.to_map == self.game.map)
+            .cloned();
+        let def = rules.dungeons.on_map(&self.game.map).cloned();
+        let (Some(portal), Some(def)) = (portal, def) else {
+            return self.gate_refuse(conn, "no_portal", "", 0);
+        };
+        if difficulty >= DIFFICULTIES.len() {
+            return self.gate_refuse(conn, "no_portal", "", 0);
+        }
+        let Some(pos) = self.feet(entity) else { return };
+        let copy = self.copy_of(v3(pos));
+        let finished = self
+            .run_index(copy)
+            .and_then(|i| self.runs[i].as_ref())
+            .is_some_and(|r| r.complete);
+        if !finished {
+            return self.gate_refuse(conn, "not_finished", "", 0);
+        }
+        let me = self.world.get::<Player>(entity).map_or(0, |p| p.sheet.id);
+        if self.ready_checks.iter().any(|c| c.roster.contains(&me)) {
+            return self.gate_refuse(conn, "ready_pending", "", 0);
+        }
+        let roster = match self.gate_check(entity, &Gather::Copy(copy), &def, difficulty) {
+            Ok(r) => r,
+            Err((reason, who, value)) => return self.gate_refuse(conn, reason, &who, value),
+        };
+        if roster.len() == 1 {
+            return self.launch_replay(&portal.id, difficulty, me, roster, copy);
+        }
+        self.next_check += 1;
+        let ends = tick + (rules.dungeons.group.ready_s * SIM_HZ as f32) as u32;
+        let check = Check {
+            id: self.next_check,
+            portal: portal.id.clone(),
+            dungeon: def.id.clone(),
+            difficulty,
+            leader: me,
+            roster,
+            ready: vec![me],
+            ends,
+            replay: copy,
+        };
+        let view = self.ready_view(&check);
+        let roster = check.roster.clone();
+        self.ready_checks.push(check);
+        for ch in roster {
+            if let Some((c, _)) = self.player_of(ch) {
+                self.send_control(
+                    c,
+                    &ServerMsg::Dungeon(Box::new(DungeonMsg::Ready(view.clone()))),
+                );
+            }
+        }
+    }
+
+    /// Everyone agreed to run again: the rules once more, a fresh copy on
+    /// this map, the leader's keys, and the party moves into it.
+    fn launch_replay(
+        &mut self,
+        portal_id: &str,
+        difficulty: usize,
+        leader: u64,
+        roster: Vec<u64>,
+        from: u8,
+    ) {
+        let rules = self.rules();
+        let portal = rules
+            .travel
+            .portals
+            .iter()
+            .find(|p| p.id == portal_id)
+            .cloned();
+        let def = rules.dungeons.on_map(&self.game.map).cloned();
+        let (Some(portal), Some(def)) = (portal, def) else {
+            return;
+        };
+        let Some((leader_conn, leader_entity)) = self.player_of(leader) else {
+            return;
+        };
+        match self.gate_check(leader_entity, &Gather::Copy(from), &def, difficulty) {
+            Ok(r) if r == roster => {}
+            Ok(_) => return self.gate_refuse(leader_conn, "party_changed", "", 0),
+            Err((reason, who, value)) => {
+                return self.gate_refuse(leader_conn, reason, &who, value);
+            }
+        }
+        let keys = rules.dungeons.difficulties[difficulty].keys;
+        if keys > 0 && !def.key.is_empty() {
+            let held = self
+                .world
+                .get::<Player>(leader_entity)
+                .map_or(0, |p| realm_rules::items::count_items(&p.sheet, &def.key));
+            if held < keys {
+                return self.gate_refuse(leader_conn, "no_key", "", keys as i32);
+            }
+        }
+        let spec = self.run_spec(&def, difficulty, &roster);
+        let copy = self.open_copy_here(&spec);
+        if copy == 0 {
+            return self.gate_refuse(leader_conn, "map_full", "", 0);
+        }
+        self.runs_changed();
+        if keys > 0 && !def.key.is_empty() {
+            let tick = self.tick;
+            if let Some(mut p) = self.world.get_mut::<Player>(leader_entity)
+                && realm_rules::items::take_items(&mut p.sheet, &def.key, keys).is_ok()
+            {
+                p.sheet.revision += 1;
+                p.dirty_since.get_or_insert(tick);
+            }
+            self.send_sheet(leader_conn);
+        }
+        let label = rules
+            .travel
+            .maps
+            .get(&def.map)
+            .map_or_else(|| def.display.clone(), |m| m.display.clone());
+        let n = roster.len() as u8;
+        println!("[dungeon] copy {from} runs again as copy {copy} for {n}");
+        for (slot, ch) in roster.iter().enumerate() {
             let Some((conn, entity)) = self.player_of(*ch) else {
                 continue;
             };

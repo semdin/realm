@@ -411,6 +411,61 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         items.len()
     );
 
+    // With --replay: another run from the finished copy (the result
+    // window's "run it again") instead of going out: a fresh copy on the
+    // same map, the run gathering there.
+    if args.iter().any(|a| a == "--replay") {
+        let old_copy = d.copy;
+        // The gate's rule: nobody fighting in the last 5 s.
+        run_until(&mut d, 6.0, idle, |_| false)?;
+        d.events.clear();
+        d.net.send_control(&ClientMsg::DungeonStart {
+            portal: PORTAL.to_owned(),
+            difficulty: 1,
+        });
+        let mut again = match follow(&mut d, args) {
+            Ok(s) => s,
+            Err(e) => {
+                let refused: Vec<String> = d
+                    .events
+                    .iter()
+                    .filter_map(|m| match m {
+                        ServerMsg::Dungeon(x) => match &**x {
+                            DungeonMsg::Refused { reason, who, .. } => {
+                                Some(format!("{reason} {who}"))
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    })
+                    .collect();
+                return fail(format!("the replay never left: {e}; refused {refused:?}"));
+            }
+        };
+        corrections += d.corrections;
+        drop(d);
+        if again.copy == 0 || again.copy == old_copy {
+            return fail(format!(
+                "the replay landed in copy {} (was {old_copy})",
+                again.copy
+            ));
+        }
+        if !run_until(&mut again, 15.0, idle, |s| {
+            state(s).is_some_and(|v| v.phase <= 2 && v.forces == 0 && !v.complete)
+        })? {
+            return fail(format!("no fresh run in copy {}", again.copy));
+        }
+        corrections += again.corrections;
+        if corrections > 0 {
+            return fail(format!("{corrections} prediction corrections"));
+        }
+        println!(
+            "[dungeon] ok (replay): from the finished copy {old_copy} into a fresh copy {} on the same map; no corrections",
+            again.copy
+        );
+        return Ok(());
+    }
+
     // 5. Out by the reward exit; Hard is open now.
     let exit = rules
         .travel
