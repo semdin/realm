@@ -296,7 +296,7 @@ jobs:
         # and an older sheet is refused (stale).
         run: |
           docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7
-          for i in $(seq 1 30); do docker exec realm-pg pg_isready -U realm -d realm && break; sleep 1; done
+          for i in $(seq 1 30); do docker exec realm-pg pg_isready -h 127.0.0.1 -U realm -d realm && break; sleep 1; done
           mkdir -p build/persistcheck
           export REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm
           ./target/release/realm_persist --bind 127.0.0.1:7970 > persist.log 2>&1 &
@@ -325,7 +325,7 @@ jobs:
         # PostgreSQL) and the GA check (the list the service keeps).
         run: |
           docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7
-          for i in $(seq 1 30); do docker exec realm-pg pg_isready -U realm -d realm && break; sleep 1; done
+          for i in $(seq 1 30); do docker exec realm-pg pg_isready -h 127.0.0.1 -U realm -d realm && break; sleep 1; done
           export REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm
           ./target/release/realm_persist --bind 127.0.0.1:7970 > persist.log 2>&1 &
           PERSIST=$!
@@ -353,7 +353,7 @@ jobs:
         # shows, its save is counted by the persistence service.
         run: |
           docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7
-          for i in $(seq 1 30); do docker exec realm-pg pg_isready -U realm -d realm && break; sleep 1; done
+          for i in $(seq 1 30); do docker exec realm-pg pg_isready -h 127.0.0.1 -U realm -d realm && break; sleep 1; done
           export REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm
           ./target/release/realm_persist --bind 127.0.0.1:7970 > persist_m.log 2>&1 &
           PERSIST=$!
