@@ -76,6 +76,19 @@ static func set_rate(particles: GPUParticles3D, rate: float) -> void:
 	if particles != null and is_instance_valid(particles) and particles.process_material is ShaderMaterial:
 		(particles.process_material as ShaderMaterial).set_shader_parameter("rate", rate)
 
+## Born mostly inside the area (`share` of them) rather than on its edge: a
+## held patch whose edge should not read as a drawn ring.
+static func set_inner(particles: GPUParticles3D, share: float) -> void:
+	if particles != null and is_instance_valid(particles) and particles.process_material is ShaderMaterial:
+		(particles.process_material as ShaderMaterial).set_shader_parameter("inner", share)
+
+## Born anywhere on an axis-aligned strip of half extents `half` (x, z).
+static func set_band(particles: GPUParticles3D, half: Vector2) -> void:
+	if particles != null and is_instance_valid(particles) and particles.process_material is ShaderMaterial:
+		(particles.process_material as ShaderMaterial).set_shader_parameter("band", half)
+		var span := maxf(half.x, half.y) + 3.0
+		particles.visibility_aabb = AABB(Vector3(-span, -2.0, -span), Vector3(span * 2.0, particles.visibility_aabb.size.y, span * 2.0))
+
 static func set_colour(particles: GPUParticles3D, colour: Color) -> void:
 	if particles != null and is_instance_valid(particles) and particles.process_material is ShaderMaterial:
 		(particles.process_material as ShaderMaterial).set_shader_parameter("ramp", ramp(colour))

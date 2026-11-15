@@ -24,7 +24,12 @@ class_name GroundWarning
 ## The dungeon curses' marks (DungeonHazards) are the same ground in their
 ## own tint: a ring that fills to its release tick and bursts, or a held
 ## patch (`held`: the whole area burns at once, no front, no charge sound)
-## that cools away (`expire`) when it runs out.
+## that cools away (`expire`) when it runs out. A curse's mark has a ragged
+## edge: its boundary wanders with the cloud and fades out, with no line of
+## fire on it and its embers rising from all over it, not round its rim. A
+## band (`band`, half extents x and z: the Sealed Wing's breath) is the same
+## ground on an axis-aligned strip, its fire counting out from the middle line
+## and bursting on the release like a ring.
 
 const SHADER := preload("res://assets/shaders/ground_telegraph.gdshader")
 const TINT := Color(1.0, 0.38, 0.08)
@@ -52,6 +57,8 @@ var progress := 0.0
 var tint := TINT
 ## A lasting patch: no countdown, no charge, no blast.
 var held := false
+## An axis-aligned strip of these half extents (x, z) instead of a circle.
+var band := Vector2.ZERO
 var _disc: MeshInstance3D = null
 var _embers: GPUParticles3D = null
 var _light: OmniLight3D = null
@@ -72,10 +79,15 @@ static func base_material() -> ShaderMaterial:
 ## `reach` metres to the boundary (an area's radius, a cone's range),
 ## `half_angle` > 0 for a cone opening along `facing` (radians, 0 = +Z).
 ## `colour`: the fire's tint; `lasting`: a held patch (see `held`).
+## `half`: a strip of those half extents (x, z) instead (the reach is then
+## its longer half).
 static func spawn(parent: Node, center: Vector3, reach_m: float, half_angle: float, facing: float,
-		colour: Color = TINT, lasting := false) -> GroundWarning:
+		colour: Color = TINT, lasting := false, half := Vector2.ZERO) -> GroundWarning:
 	var warning := GroundWarning.new()
 	warning.name = "GroundWarning"
+	if half.x > 0.0 and half.y > 0.0:
+		warning.band = half
+		reach_m = maxf(half.x, half.y)
 	warning.reach = maxf(0.5, reach_m)
 	warning.sector = half_angle if half_angle > 0.0 else 4.0
 	warning.tint = colour
@@ -90,13 +102,22 @@ static func spawn(parent: Node, center: Vector3, reach_m: float, half_angle: flo
 ## (taller for a wide area, as a slope climbs further across it), never a flat
 ## plate a hillside would cut through.
 func _build() -> void:
-	var half_height := clampf(reach * 0.25, 0.6, 1.4)
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = reach
-	mesh.bottom_radius = reach
-	mesh.height = half_height * 2.0
-	mesh.radial_segments = 24
-	mesh.rings = 1
+	var strip := band.x > 0.0
+	# a strip down a stair needs a taller volume to lie on every step
+	var half_height := clampf(minf(band.x, band.y) * 0.4, 1.0, 3.0) if strip else clampf(reach * 0.25, 0.6, 1.4)
+	var mesh: PrimitiveMesh
+	if strip:
+		var box := BoxMesh.new()
+		box.size = Vector3(band.x * 2.0, half_height * 2.0, band.y * 2.0)
+		mesh = box
+	else:
+		var drum := CylinderMesh.new()
+		drum.top_radius = reach
+		drum.bottom_radius = reach
+		drum.height = half_height * 2.0
+		drum.radial_segments = 24
+		drum.rings = 1
+		mesh = drum
 	# a copy: the fill follows this telegraph's own progress
 	var material := base_material().duplicate() as ShaderMaterial
 	material.set_shader_parameter("radius", reach)
@@ -105,6 +126,8 @@ func _build() -> void:
 	material.set_shader_parameter("fade", 0.0)
 	material.set_shader_parameter("tint", tint)
 	material.set_shader_parameter("held", 1.0 if held else 0.0)
+	material.set_shader_parameter("band", band)
+	material.set_shader_parameter("ragged", 1.0 if held or strip else 0.0)
 	mesh.material = material
 	_disc = MeshInstance3D.new()
 	_disc.name = "Area"
@@ -115,6 +138,10 @@ func _build() -> void:
 	var low := SkillFX.quality == "low"
 	_embers = RisingMotes.make(reach, sector, tint, 16 if low else 36, 1.5, Vector2(0.4, 1.7), Vector2(0.011, 0.026))
 	RisingMotes.set_rate(_embers, 0.45 if held else 0.3)
+	if strip:
+		RisingMotes.set_band(_embers, band)
+	elif held:
+		RisingMotes.set_inner(_embers, 0.7)
 	add_child(_embers)
 	_embers.emitting = true
 	if not low:
@@ -136,7 +163,7 @@ func _audio() -> Node:
 
 func _param(parameter: String, value: Variant) -> void:
 	if _disc != null and is_instance_valid(_disc):
-		((_disc.mesh as CylinderMesh).material as ShaderMaterial).set_shader_parameter(parameter, value)
+		((_disc.mesh as PrimitiveMesh).material as ShaderMaterial).set_shader_parameter(parameter, value)
 
 ## The warning burns in over APPEAR_S instead of popping on.
 func _process(delta: float) -> void:
@@ -172,13 +199,15 @@ func release() -> void:
 	if _embers != null:
 		_embers.emitting = false
 	if SkillFX.quality != "low":
-		var burst := RisingMotes.make(reach, sector, tint, 46, 0.95, Vector2(1.6, 4.6), Vector2(0.012, 0.034), true)
+		var burst := RisingMotes.make(reach, sector, tint, 46 if band.x <= 0.0 else 90, 0.95, Vector2(1.6, 4.6), Vector2(0.012, 0.034), true)
+		if band.x > 0.0:
+			RisingMotes.set_band(burst, band)
 		add_child(burst)
 		burst.emitting = true
 	var audio := _audio()
 	if audio != null:
 		audio.call("play_sound_at", RELEASE_SOUND, global_position, self)
-	var material := (_disc.mesh as CylinderMesh).material as ShaderMaterial
+	var material := (_disc.mesh as PrimitiveMesh).material as ShaderMaterial
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(material, "shader_parameter/shock", 1.0, BLAST_S).from(0.001) \
@@ -210,7 +239,7 @@ func _cool(over_s: float) -> void:
 		_embers.emitting = false
 	if _charge != null and is_instance_valid(_charge) and _charge.get("playing") == true:
 		_charge.call("stop")
-	var material := (_disc.mesh as CylinderMesh).material as ShaderMaterial
+	var material := (_disc.mesh as PrimitiveMesh).material as ShaderMaterial
 	var tween := create_tween()
 	tween.set_parallel(true)
 	tween.tween_property(material, "shader_parameter/fade", 0.0, over_s)

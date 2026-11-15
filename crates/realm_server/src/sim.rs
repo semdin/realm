@@ -289,6 +289,12 @@ struct Mob {
     drop_scale: f32,
     /// Its windups' length multiplier (a dungeon difficulty's telegraph).
     windup_scale: f32,
+    /// A part of a multi-part boss: the body (parts neither think nor move).
+    part_of: Option<Entity>,
+    /// A multi-part boss: its parts and their bone keys.
+    parts: Vec<(Entity, String)>,
+    /// A boss's fight phase (patterns with a higher min_phase wait).
+    phase: u8,
 }
 
 /// What one client has been sent.
@@ -445,6 +451,9 @@ pub struct Sim {
     pub dev_dungeon_scale: f32,
     /// Development: every run's curses (instead of the week's).
     pub dev_dungeon_affixes: Option<Vec<String>>,
+    /// Development: a run starts at this step (those before it done, their
+    /// gates open, nothing of theirs spawned).
+    pub dev_dungeon_start: Option<String>,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -622,6 +631,7 @@ impl Sim {
             next_hazard: 0,
             dev_dungeon_scale: 1.0,
             dev_dungeon_affixes: None,
+            dev_dungeon_start: None,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -710,6 +720,9 @@ impl Sim {
                     status: status::Status::default(),
                     drop_scale: 1.0,
                     windup_scale: 1.0,
+                    part_of: None,
+                    parts: Vec::new(),
+                    phase: 1,
                 };
                 let entity = self.world.spawn(mob).id();
                 let id = self.new_id(entity);
@@ -765,6 +778,7 @@ impl Sim {
         self.expire_trips();
         self.sweep_departing();
         self.tick_runs();
+        self.follow_parts();
         self.tick_hazards();
         self.tick_checks();
         self.regenerate();

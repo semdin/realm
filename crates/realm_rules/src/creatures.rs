@@ -172,6 +172,21 @@ pub struct BossDef {
     /// The level its numbers are authored for (0: they hold at any level);
     /// a dungeon boss at another level scales by the pack strength ratio.
     pub stat_level: u32,
+    /// A multi-part boss: each part's health (before scaling).
+    pub part_hp: f32,
+    /// It enrages after this long fighting (0: never on its own).
+    pub enrage_s: f32,
+}
+
+/// A boss made of parts (Threehead's heads, the Strangling Vine's vines):
+/// each part a creature of `species` held at its bone on the body.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct PartsDef {
+    pub species: String,
+    /// (bone key, rest position in the model, which faces +z)
+    pub offsets: Vec<(String, [f32; 3])>,
+    /// The body's health is its parts' together; it falls with the last.
+    pub hp_is_sum: bool,
 }
 
 /// An encounter template (spawn_tables.json templates).
@@ -240,6 +255,8 @@ pub struct CreatureRules {
     pub dummies: Vec<[f32; 3]>,
     pub dummy_name: String,
     pub dummy_hp: f32,
+    /// Species -> its parts (a multi-part boss).
+    pub parts: BTreeMap<String, PartsDef>,
     /// Snapshot creature kinds: kind = index here + 1. The species of
     /// mobs.json sorted by id, then a body per Dark Shard type
     /// (`stone_<type>`), then `training_dummy`.
@@ -347,6 +364,24 @@ impl CreatureRules {
             Ok::<u16, String>(index)
         };
         for (id, m) in mobs["mobs"].as_object().into_iter().flatten() {
+            if m["parts"].is_object() {
+                let p = &m["parts"];
+                rules.parts.insert(
+                    id.clone(),
+                    PartsDef {
+                        species: p["species"].as_str().unwrap_or("").to_owned(),
+                        offsets: p["offsets"]
+                            .as_object()
+                            .into_iter()
+                            .flatten()
+                            .map(|(k, v)| {
+                                (k.clone(), [f(&v[0], 0.0), f(&v[1], 0.0), f(&v[2], 0.0)])
+                            })
+                            .collect(),
+                        hp_is_sum: p["hp_is_sum"].as_bool().unwrap_or(false),
+                    },
+                );
+            }
             let mut abilities = Vec::new();
             for a in m["abilities"].as_array().into_iter().flatten() {
                 let key = format!("{id}/{}", a["id"].as_str().unwrap_or("?"));
@@ -416,6 +451,8 @@ impl CreatureRules {
                     exp_reward: o["exp_reward"].as_u64().unwrap_or(0) as u32,
                     extras: rules.boss_extras.get(key).cloned().unwrap_or_default(),
                     stat_level: o["stat_level"].as_u64().unwrap_or(0) as u32,
+                    part_hp: f(&o["part_hp"], 0.0),
+                    enrage_s: f(&o["enrage_s"], 0.0),
                 },
             );
         }

@@ -5709,3 +5709,24 @@ msgstr "Unvanların"
 
 msgid "None yet"
 msgstr "Henüz yok"
+
+msgid "Asleep!"
+msgstr "Uykuda!"
+
+msgid "Ringing the sleep chime"
+msgstr "Uyku çanı çalınıyor"
+
+msgid "Threehead's %s head slumps! Threehead howls in fury!"
+msgstr "Üçbaş'ın %s başı yığılıp kaldı! Üçbaş öfkeyle uluyor!"
+
+msgid "The chime lulls Threehead to sleep! Its heads take more damage."
+msgstr "Çan Üçbaş'ı uyuttu! Başları artık daha fazla hasar alıyor."
+
+msgid "left"
+msgstr "sol"
+
+msgid "middle"
+msgstr "orta"
+
+msgid "right"
+msgstr "sağ"

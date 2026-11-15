@@ -382,8 +382,9 @@ impl Sim {
             awake += 1;
             let pack = &game.packs[mob.pack];
             let species = &game.species[usize::from(mob.species)];
-            // Dark Shards and dummies stand.
-            if species.object {
+            // Dark Shards and dummies stand, and so do a boss's parts (the
+            // body carries them).
+            if species.object || mob.part_of.is_some() {
                 continue;
             }
             let brain = &species.brain;
@@ -624,7 +625,10 @@ impl Sim {
                                 list.iter()
                                     .copied()
                                     .filter(|&i| {
-                                        rules.mobs.ability(i).is_some_and(|ab| ab.min_phase <= 1)
+                                        rules
+                                            .mobs
+                                            .ability(i)
+                                            .is_some_and(|ab| ab.min_phase <= mob.phase.max(1))
                                     })
                                     .collect()
                             })
@@ -856,6 +860,7 @@ impl Sim {
         let Some(mut m) = self.world.get_mut::<Mob>(mob) else {
             return;
         };
+        let body = m.part_of;
         m.hp = 0.0;
         m.mode = MobMode::Dead;
         m.state = STATE_DEAD;
@@ -869,6 +874,9 @@ impl Sim {
         let roll = xorshift(&mut m.rng);
         let at = m.pos;
         self.stats.kills += 1;
+        if let Some(body) = body {
+            self.part_fell(mob, body, killer);
+        }
         // A creature that falls mid-windup takes its warning with it.
         if cancelled {
             let caster = self.net_id_of(mob);
@@ -995,6 +1003,12 @@ impl Sim {
             level: m.level,
             elite: m.elite,
             boss: m.boss,
+            parts: m
+                .parts
+                .iter()
+                .map(|(e, name)| (self.net_id_of(*e), name.clone()))
+                .collect(),
+            part_of: m.part_of.map_or(0, |b| self.net_id_of(b)),
         })
     }
 
@@ -1087,6 +1101,9 @@ impl Sim {
             status: super::status::Status::default(),
             drop_scale: 1.0,
             windup_scale: 1.0,
+            part_of: None,
+            parts: Vec::new(),
+            phase: 1,
         };
         let entity = self.world.spawn(mob).id();
         let id = self.new_id(entity);

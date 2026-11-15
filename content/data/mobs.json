@@ -445,6 +445,12 @@
           "L": "VineL3",
           "R": "VineR3",
           "T": "VineT3"
+        },
+        "_offsets": "Each bone's rest position in the model (metres, the model facing +z), read from strangling_vine.glb: where the server holds the part on the body.",
+        "offsets": {
+          "L": [1.489, 2.407, 0.119],
+          "R": [-1.38, 2.409, -0.429],
+          "T": [0.083, 3.653, -0.72]
         }
       },
       "displace_resist": 1.0
@@ -499,7 +505,14 @@
           "L": "Head.L",
           "M": "Head.M",
           "R": "Head.R"
-        }
+        },
+        "_offsets": "Each bone's rest position in the model (metres, the model facing +z), read from threehead.glb. hp_is_sum: the body's health is its heads' together, and it falls with its last head.",
+        "offsets": {
+          "L": [1.191, 5.314, 3.818],
+          "M": [0.044, 5.804, 4.13],
+          "R": [-1.2, 5.29, 3.842]
+        },
+        "hp_is_sum": true
       },
       "displace_resist": 1.0
     },

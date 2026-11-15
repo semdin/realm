@@ -10,7 +10,11 @@ class_name DungeonHazards
 ##     `release_tick`;
 ##   * sticky (Sticky Ground) and pool (the Queen's venom, or a web when it
 ##     takes no health) are held patches that burn steady until `until_tick`,
-##     then cool away.
+##     then cool away;
+##   * breath (Threehead's sleeping breath down the Sealed Wing's stair) is a
+##     band (`half`: half extents x, z round `center`) that fills like a ring
+##     from `start_tick` and goes off (the push) on `release_tick`.
+## Any mark with a non-zero `half` is a band of that size, not a disc.
 ## Positions are world space (the copy's offset included). Presentation only:
 ## the server resolves every hazard on its own clock; this follows that clock
 ## (RealmSession.server_tick).
@@ -20,6 +24,7 @@ const TINTS := {
 	"storm": Color(0.55, 0.75, 1.0),
 	"sticky": Color(0.85, 0.85, 0.78),
 	"pool": Color(0.55, 0.95, 0.2),
+	"breath": Color(0.74, 0.76, 1.0),
 }
 ## A web (a pool that takes no health) is pale, as sticky ground is.
 const WEB_TINT := Color(0.85, 0.85, 0.78)
@@ -54,7 +59,16 @@ func sync(hazards: Array) -> void:
 			_add(h)
 
 static func is_ring(kind: String) -> bool:
-	return kind == "burst" or kind == "storm"
+	return kind == "burst" or kind == "storm" or kind == "breath"
+
+## A band's half extents (x, z), zero for a disc.
+static func half_of(data: Dictionary) -> Vector2:
+	var h: Variant = data.get("half", null)
+	if h is Vector2:
+		return h
+	if h is Array and (h as Array).size() >= 2:
+		return Vector2(float(h[0]), float(h[1]))
+	return Vector2.ZERO
 
 static func tint_for(data: Dictionary) -> Color:
 	var kind := String(data.get("kind", ""))
@@ -86,7 +100,7 @@ func _add(data: Dictionary) -> void:
 	var entry := {"data": data, "ring": ring, "warning": null}
 	if DisplayServer.get_name() != "headless":
 		var warning := GroundWarning.spawn(self, _center(data), float(data.get("radius", 3.0)), 0.0, 0.0,
-			tint_for(data), not ring)
+			tint_for(data), not ring, half_of(data))
 		entry["warning"] = warning
 	live[id] = entry
 	_drive(entry, now)

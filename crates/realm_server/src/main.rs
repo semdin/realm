@@ -18,7 +18,8 @@
 //!       `--public` is the address clients reach it at (default: the bind
 //!       address, 0.0.0.0 read as 127.0.0.1). `--dev-dungeon-scale F`
 //!       (checks only) multiplies dungeon creatures' health and damage;
-//!       `--dev-dungeon-affixes a,b` gives every run those curses.
+//!       `--dev-dungeon-affixes a,b` gives every run those curses;
+//!       `--dev-dungeon-start <step>` starts every run at that step.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -98,6 +99,8 @@ struct Options {
     dev_dungeon_scale: f32,
     /// Development: every run's curses.
     dev_dungeon_affixes: Option<Vec<String>>,
+    /// Development: a run starts at this step.
+    dev_dungeon_start: Option<String>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -113,6 +116,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         public: None,
         dev_dungeon_scale: 1.0,
         dev_dungeon_affixes: None,
+        dev_dungeon_start: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -133,6 +137,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--coord" => o.coord = Some(value()?),
             "--public" => o.public = Some(value()?),
             "--dev-dungeon-scale" => o.dev_dungeon_scale = value()?.parse()?,
+            "--dev-dungeon-start" => o.dev_dungeon_start = Some(value()?),
             "--dev-dungeon-affixes" => {
                 o.dev_dungeon_affixes = Some(
                     value()?
@@ -208,6 +213,7 @@ fn serve(args: &[String]) -> AnyResult<()> {
     )?;
     sim.dev_dungeon_scale = o.dev_dungeon_scale;
     sim.dev_dungeon_affixes = o.dev_dungeon_affixes.clone();
+    sim.dev_dungeon_start = o.dev_dungeon_start.clone();
     if let Some(gates) = gates {
         println!(
             "[server] {} copies, {} gates",

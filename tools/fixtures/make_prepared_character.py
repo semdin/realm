@@ -34,6 +34,13 @@ up is unlocked: `normal` opens Hard, the first difficulty with a curse
 
 `--seals N` also carries N Dungeon Seals (cell 7) for the seal shop (the
 Godot client's --check-guide).
+
+    python tools/fixtures/make_prepared_character.py build/bosscheck 900401 --dungeon-kit --sealed-wing --level 34
+
+`--sealed-wing` (with the kit; the Godot client's --check-boss) stands in
+the castle interior on the Sealed Wing gate (portal `fc_entry`) instead.
+`--level N` sets the level (the kit's 12 otherwise), with the health and
+mana a character of that level has, both full.
 """
 import json
 import os
@@ -60,6 +67,11 @@ def main():
     if "--seals" in argv:
         at = argv.index("--seals")
         seals = int(argv[at + 1])
+        del argv[at:at + 2]
+    level = 0
+    if "--level" in argv:
+        at = argv.index("--level")
+        level = int(argv[at + 1])
         del argv[at:at + 2]
     args = [a for a in argv if not a.startswith("--")]
     travel_kit = "--travel-kit" in argv
@@ -91,6 +103,16 @@ def main():
         sheet["level"] = 12
         # beside maps.json portal trial_entry (its trigger is at 70, 58, 69)
         sheet["place"] = {"map": "grounds", "pos": [70.0, 58.3, 63.0], "yaw": 0.0}
+    if dungeon_kit and "--sealed-wing" in argv:
+        # on maps.json portal fc_entry's trigger (castle_interior 65.1, 230.5, -10.4)
+        sheet["place"] = {"map": "castle_interior", "pos": [65.1, 231.0, -10.4], "yaw": 0.0}
+    if level > 0:
+        # realm_rules::progress grant_exp: +45 hp, +25 mana per level
+        sheet["level"] = level
+        sheet["base_max_hp"] = 500 + 45 * (level - 1)
+        sheet["base_max_mana"] = 300 + 25 * (level - 1)
+        sheet["hp"] = sheet["base_max_hp"]
+        sheet["mana"] = sheet["base_max_mana"]
     if seals > 0:
         bag[7] = item("dungeon_seal", seals)
     if cleared:

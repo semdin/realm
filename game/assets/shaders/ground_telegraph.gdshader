@@ -21,6 +21,14 @@ render_mode unshaded, blend_premul_alpha, depth_draw_never, depth_test_disabled,
 // where on the ground that is, and burns it - so it lies on a slope, steps
 // over a kerb and is hidden by a wall. Only surfaces that face up take it:
 // not a creature's legs.
+//
+// The dungeon curses' marks use it too: a held patch (sticky ground, a pool)
+// and a band (`band`: half extents of an axis-aligned strip, the Sealed
+// Wing's breath) have a ragged edge (`ragged`): the boundary wanders with the
+// cloud and fades out over half a metre or so, no line of fire on it. A band
+// has no front (a front across a strip read as a drawn rectangle): its whole
+// ground smoulders from the start and burns hotter and faster toward the
+// release, like a breath being drawn.
 // Premultiplied blend: the fire is light added to the ground, the char is the
 // ground darkened under it (additive alone washed out on pale stone).
 
@@ -34,6 +42,8 @@ uniform float progress = 0.0;     // 0 at the start tick, 1 at the release tick
 uniform float flash = 0.0;        // 1 on release, fading out
 uniform float shock = 0.0;        // the release's blast running out to the boundary, 0 -> 1
 uniform float held = 0.0;         // 1: a lasting patch (pool, sticky ground) - no countdown
+uniform vec2 band = vec2(0.0);    // > 0: an axis-aligned strip of these half extents (x, z), not a circle
+uniform float ragged = 0.0;       // 1: the edge wanders with the cloud and fades, no rim line
 uniform float fade = 1.0;
 
 void vertex() {
@@ -63,11 +73,6 @@ void fragment() {
 		* (1.0 - smoothstep(half_height * 0.7, half_height, abs(local.y)));
 	vec2 p = local.xz;
 
-	float r = length(p);
-	float d = sector < 3.1 ? pie(p, sector, radius) : r - radius;
-	float aa = clamp(fwidth(d), 0.004, 0.08);
-	float inside = smoothstep(aa, -aa, d);
-
 	// Three octaves of the cloud map drifting across the ground, in metres.
 	float t = TIME;
 	float n1 = texture(noise, p * 0.085 + vec2(t * 0.013, -t * 0.021)).r;
@@ -75,10 +80,30 @@ void fragment() {
 	float n3 = texture(noise, p * 0.61 + vec2(t * 0.05, t * 0.043)).r;
 	float cloud = n1 * 0.55 + n2 * 0.45;
 
+	float r = length(p);
+	float d = sector < 3.1 ? pie(p, sector, radius) : r - radius;
+	if (band.x > 0.0 && band.y > 0.0) {
+		// a strip: its distance field, and the front's measure scaled so it
+		// meets every edge together on the release tick
+		vec2 q = abs(p) - band;
+		d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
+		r = length(p / band) * radius;
+	}
+	float strip = step(0.001, band.x) * step(0.001, band.y);
+	// no front: a held patch, or a strip building to its release
+	float steady = max(held, strip);
+	// A ragged edge: the boundary pushed in and out by the cloud (metres).
+	d += ragged * ((cloud - 0.5) * 1.1 + (n3 - 0.5) * 0.4);
+	float aa = clamp(fwidth(d), 0.004, 0.08);
+	float soft = mix(aa, 0.4, ragged);
+	float inside = smoothstep(soft, -soft, d);
+	// and the fire thinning out toward it rather than standing to the edge
+	float edge_fade = mix(1.0, smoothstep(0.0, 1.1, -d), ragged);
+
 	// The fire's reach: a ragged front crawling outward.
-	float counting = 1.0 - held;
+	float counting = 1.0 - steady;
 	float reach = mix(-0.5, radius + 0.6, progress) + (cloud - 0.5) * 1.4 * smoothstep(0.0, 0.2, progress);
-	float cover = mix(smoothstep(0.25, -0.25, r - reach), 1.0, held) * inside;
+	float cover = mix(smoothstep(0.25, -0.25, r - reach), 1.0, steady) * inside;
 	float front = exp(-abs(r - reach) * 4.2) * inside * counting
 		* smoothstep(0.0, 0.06, progress) * smoothstep(1.0, 0.92, progress);
 
@@ -87,19 +112,21 @@ void fragment() {
 	float seams = 1.0 - smoothstep(0.0, 0.065, abs(n2 - 0.5 + (n3 - 0.5) * 0.3));
 	float patches = smoothstep(0.62, 0.9, cloud + (n3 - 0.5) * 0.3);
 	float flicker = 0.72 + 0.28 * sin(t * 6.0 + n1 * 25.0);
-	float bed = cover * (seams * 0.8 + patches * 0.55) * flicker;
+	float bed = cover * (seams * 0.8 + patches * 0.55) * flicker * edge_fade;
 
 	// The boundary: a line of fire, hot at its core and glowing to both sides.
-	float rim_core = smoothstep(0.045 + aa, 0.045 - aa, abs(d + 0.045)) * (0.65 + 0.35 * n3);
-	float rim_glow = exp(-abs(d) * mix(2.8, 5.5, step(0.0, d))) * (0.5 + 0.5 * n2);
-	float urgency = 0.8 + 0.2 * sin(t * (4.0 + 14.0 * progress * counting));
+	// (a ragged edge has no line: only a faint glow sunk inside it)
+	float rim_core = smoothstep(0.045 + aa, 0.045 - aa, abs(d + 0.045)) * (0.65 + 0.35 * n3) * (1.0 - ragged);
+	float rim_glow = exp(-abs(d) * mix(2.8, 5.5, step(0.0, d))) * (0.5 + 0.5 * n2)
+		* mix(1.0, 0.25 * smoothstep(0.0, 0.6, -d) * n2, ragged);
+	float urgency = 0.8 + 0.2 * sin(t * (4.0 + 14.0 * progress * max(counting, strip)));
 
 	// The release: the fire flashes and a blast runs out to the boundary.
 	float blast = exp(-abs(r - radius * mix(0.15, 1.05, shock)) * 2.6) * (1.0 - shock) * step(0.001, shock) * inside;
 
 	// (strongest just behind the front: the fire has only now passed there)
 	float fresh = 0.45 + 0.55 * smoothstep(reach - 2.2, reach, r);
-	float heat = bed * (0.3 + 0.5 * mix(progress, 0.7, held)) * mix(fresh, 1.0, held)
+	float heat = bed * (0.3 + 0.5 * mix(progress, 0.7, held)) * mix(fresh, 1.0, steady) * (1.0 + 0.6 * strip * progress)
 		+ front * 1.1
 		+ rim_glow * 0.5 * urgency + rim_core * urgency
 		+ inside * 0.03 * (0.5 + n2)
@@ -115,8 +142,8 @@ void fragment() {
 
 	// Char: the ground darkens under it, most where the fire has passed, with
 	// a sooty edge just outside the line.
-	float charred = inside * (0.14 + 0.36 * cover) * (0.6 + 0.4 * n1)
-		+ (1.0 - inside) * exp(-max(d, 0.0) * 8.0) * 0.22;
+	float charred = inside * (0.14 + 0.36 * cover) * (0.6 + 0.4 * n1) * mix(1.0, 0.35 + 0.65 * edge_fade, ragged)
+		+ (1.0 - inside) * exp(-max(d, 0.0) * 8.0) * 0.22 * (1.0 - ragged);
 
 	float k = fade * tint.a * ground;
 	ALBEDO = fire * min(heat, 1.0) * k;

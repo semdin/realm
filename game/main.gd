@@ -62,7 +62,14 @@ extends Node3D
 ##                                                    and opens the dungeon guide with K (GuideCheck;
 ##                                                    the character from --dungeon-kit
 ##                                                    --dungeon-cleared normal --seals 20)
-##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck save PNG frames
+##   [--check-boss]                                   the check goes through the Sealed Wing gate
+##                                                    (castle_interior), walks to Threehead, rings
+##                                                    the sleep chime until it sleeps and kills its
+##                                                    heads one by one (BossCheck; the dungeon server
+##                                                    runs with --dev-dungeon-start threehead
+##                                                    --dev-dungeon-scale 0.05: build/logs/dup_boss.sh)
+##   [--check-boss-step snare]                        the Strangling Vine instead (dup_boss.sh snare)
+##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
 ## a Waylink; Shift mounts or dismounts the broom. A trip to another map
@@ -129,6 +136,7 @@ const DuelCheckScript := "res://scripts/systems/duel_check.gd"
 const TravelCheckScript := "res://scripts/systems/travel_check.gd"
 const DungeonCheckScript := "res://scripts/systems/dungeon_check.gd"
 const GuideCheckScript := "res://scripts/systems/guide_check.gd"
+const BossCheckScript := "res://scripts/systems/boss_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -516,10 +524,12 @@ func _build_ui() -> void:
 	dungeon = MapDungeon.new()
 	add_child(dungeon)
 	dungeon.setup(self, map_name, root)
-	if OS.get_cmdline_user_args().has("--check-dungeon") or OS.get_cmdline_user_args().has("--check-guide"):
-		var guide_mode := OS.get_cmdline_user_args().has("--check-guide")
-		dungeon_check = load(GuideCheckScript if guide_mode else DungeonCheckScript).new()
-		dungeon_check.name = "GuideCheck" if guide_mode else "DungeonCheck"
+	var user_args := OS.get_cmdline_user_args()
+	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss"):
+		var guide_mode := user_args.has("--check-guide")
+		var boss_mode := user_args.has("--check-boss")
+		dungeon_check = load(BossCheckScript if boss_mode else (GuideCheckScript if guide_mode else DungeonCheckScript)).new()
+		dungeon_check.name = "BossCheck" if boss_mode else ("GuideCheck" if guide_mode else "DungeonCheck")
 		dungeon_check.game = self
 		add_child(dungeon_check)
 	if OS.get_cmdline_user_args().has("--check-travel"):
@@ -867,7 +877,28 @@ var _right_pressed_at := Vector2.ZERO
 
 ## What lies under the screen point `at`: {entity, point} (RealmSession.pick).
 func pick_at(at: Vector2) -> Dictionary:
-	return session.pick(camera.project_ray_origin(at), camera.project_ray_normal(at), PICK_REACH)
+	var origin := camera.project_ray_origin(at)
+	var dir := camera.project_ray_normal(at)
+	var hit: Dictionary = session.pick(origin, dir, PICK_REACH)
+	# A boss's head or vine is a ball round the point the server holds it at
+	# (session.pick knows bodies as upright cylinders from the feet), nearer
+	# than whatever the ray met first.
+	var limit := PICK_REACH if hit.is_empty() else origin.distance_to(hit["point"])
+	var best := 0
+	for id: int in part_states.keys():
+		var entry: Array = part_states[id]
+		if int(entry[0]) == CreatureView.STATE_DEAD or not drawn.has(id):
+			continue
+		var to: Vector3 = (drawn[id] as Vector3) + Vector3(0, CHEST, 0) - origin
+		var along := to.dot(dir)
+		var radius := float(entry[1])
+		if along <= 0.0 or along >= limit or to.length_squared() - along * along > radius * radius:
+			continue
+		limit = along
+		best = id
+	if best != 0:
+		return {"entity": best, "point": origin + dir * limit}
+	return hit
 
 ## A left click on the world: a creature (or a standing duel foe) under the
 ## cursor becomes the target and takes the basic cast; another player becomes
@@ -913,6 +944,77 @@ func _creature_index(id: int) -> int:
 		return -1
 	return i
 
+## ------------------------------------------------------- multi-part bosses
+
+## The parts of multi-part bosses in this frame's snapshot (rig boss_part):
+## entity -> [state, pick radius]. Each part is a creature of its own on the
+## wire, drawn by nothing of its own: its boss's model wears it.
+var part_states: Dictionary = {}
+## Part entities seen standing (one that leaves the snapshot after that is
+## down).
+var _parts_seen: Dictionary = {}
+## Species kind -> pick radius for a part kind, 0.0 for any other.
+var _part_radius: Dictionary = {}
+const PART_SIDES := {"L": "Left", "M": "Middle", "R": "Right", "T": "Upper"}
+
+## The pick radius of a part species kind (0: not a part): from the label
+## height creature_views.json gives it.
+func _part_kind_radius(species_kind: int) -> float:
+	if not _part_radius.has(species_kind):
+		var id := CreatureView.species_for_kind(species_kind)
+		var radius := 0.0
+		if CreatureView.rig_of(id) == CreatureView.PART_RIG:
+			radius = clampf(float(CreatureView.view_of(id).get("label_height", 1.5)) * 0.7, 0.6, 1.6)
+		_part_radius[species_kind] = radius
+	return float(_part_radius[species_kind])
+
+## The boss a part belongs to (0: unknown), from the part's own answer or the
+## boss's list of its parts.
+func _part_body(id: int) -> int:
+	var of := int((infos.get(id, {}) as Dictionary).get("part_of", 0))
+	if of != 0:
+		return of
+	for body_id: int in beasts.keys():
+		var body: Variant = beasts[body_id]
+		if body is CreatureView and (body as CreatureView).parts.has(id):
+			return body_id
+	return 0
+
+## A part's name: the server's own, else the species' with the part's side
+## put in ("Threehead's Head" -> "Threehead's Left Head", the old game's
+## rule), translated through I18n's composed patterns.
+func _part_title(id: int, species: String, own_name: String) -> String:
+	if own_name != "":
+		return I18n.mob_name(own_name)
+	var mobs: Variant = RealmContent.table("mobs")
+	var entry: Dictionary = (mobs as Dictionary).get("mobs", {}).get(species, {}) if mobs is Dictionary else {}
+	var display := String(entry.get("display", species.capitalize()))
+	var body: Variant = beasts.get(_part_body(id))
+	var key := String((body as CreatureView).parts.get(id, "")) if body is CreatureView else ""
+	if not PART_SIDES.has(key):
+		return I18n.mob_name(display)
+	var words := display.split(" ")
+	words.insert(words.size() - 1, String(PART_SIDES[key]))
+	return I18n.mob_name(" ".join(words))
+
+## Each multi-part boss in view bends the parts that are down: dead in the
+## snapshot, or gone from it after being seen standing.
+func _update_boss_parts() -> void:
+	for body_id: int in beasts.keys():
+		var body: Variant = beasts[body_id]
+		if not (body is CreatureView) or (body as CreatureView).parts.is_empty():
+			continue
+		var down: Array = []
+		var owned: Dictionary = (body as CreatureView).parts
+		for part: int in owned.keys():
+			var entry: Variant = part_states.get(part)
+			if entry is Array and int(entry[0]) != CreatureView.STATE_DEAD:
+				_parts_seen[part] = true
+			elif entry is Array or _parts_seen.has(part):
+				down.append(String(owned[part]))
+		down.sort()
+		(body as CreatureView).set_parts_down(down)
+
 ## Show creature `id` on the target card (0 clears the target) and ask the
 ## server what it is (its own name and its level come back as creature info).
 ## Another player whose name the client knows shows as itself.
@@ -952,6 +1054,20 @@ func _show_target_card(i: int) -> void:
 			look["rank"] = tr("Practice target")
 			look["level"] = 0
 			card = CARD_DUMMY
+		_ when part_states.has(target):
+			# a boss's head or vine: its own name and health, under its boss's
+			title = _part_title(target, species, own_name)
+			var body_id := _part_body(target)
+			var body_info: Dictionary = infos.get(body_id, {})
+			var body: Variant = beasts.get(body_id)
+			var boss_name := String(body_info.get("name", ""))
+			if boss_name == "" and body is CreatureView:
+				var mobs: Variant = RealmContent.table("mobs")
+				boss_name = String((mobs as Dictionary).get("mobs", {}).get((body as CreatureView).species, {}).get("display", "")) 					if mobs is Dictionary else ""
+			look["rank"] = I18n.mob_name(boss_name) if boss_name != "" else tr("Creature")
+			if int(look["level"]) == 0:
+				look["level"] = int(body_info.get("level", 0))
+			card = CARD_BOSS
 		_:
 			if own_name != "":
 				title = I18n.mob_name(own_name)
@@ -1113,7 +1229,8 @@ func _new_beast(id: int, kind: int) -> Node3D:
 		beast.shake = shake_camera
 	if infos.has(id):
 		beast.apply_info(infos[id])
-	if object != "" or kind & CreatureView.BOSS_BIT != 0:
+	# (a multi-part boss also says which entities are its parts)
+	if object != "" or kind & CreatureView.BOSS_BIT != 0 or (beast is CreatureView and not (beast as CreatureView).multipart.is_empty()):
 		session.inspect(id)
 	return beast
 
@@ -1876,6 +1993,7 @@ func _process(delta: float) -> void:
 	var seen_chests := {}
 	var creatures := 0
 	drawn = {session.own_entity(): me}
+	part_states = {}
 	crowd.multimesh.instance_count = positions.size()
 	for i in positions.size():
 		drawn[ids[i]] = positions[i]
@@ -1904,6 +2022,14 @@ func _process(delta: float) -> void:
 			heroes[ids[i]].set_dead(states[i] & STATE_POSE_MASK == CreatureView.STATE_DEAD)
 			continue
 		var species_kind := kinds[i] & CreatureView.SPECIES_MASK
+		var part_radius := _part_kind_radius(species_kind)
+		if part_radius > 0.0:
+			# A boss's head or vine, drawn by its boss's model. Its feet are
+			# taken CHEST under the point the server holds it at, so a bolt,
+			# a spell's aim and a damage number land on the head itself.
+			drawn[ids[i]] = positions[i] - Vector3(0, CHEST, 0)
+			part_states[ids[i]] = [states[i], part_radius]
+			continue
 		if not no_model.has(species_kind):
 			seen[ids[i]] = true
 			# a body that turned boss (or stopped being one) changes body
@@ -1949,6 +2075,7 @@ func _process(delta: float) -> void:
 				player_names.erase(id)
 				player_infos.erase(id)
 	_take_creature_info()
+	_update_boss_parts()
 	_follow_target()
 	if check_seconds > 0.0 and not check_quests:
 		_check_kill_loop()

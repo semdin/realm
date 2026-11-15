@@ -152,6 +152,7 @@ const COMPOSED := [
 	"Threehead's %s Head",
 	"Snare %s Vine",
 	"Threehead's %s head slumps!",
+	"Threehead's %s head slumps! Threehead howls in fury!",
 	"%s begins to ring the sleep chime...",
 	"A vine shrivels in the flames! %d left.",
 	"%s: a wave of creatures answers its call! (Wave %d/3)",

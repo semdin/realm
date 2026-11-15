@@ -4,6 +4,7 @@
 //! realm_netcheck --social [--server A --map A --server-b B --map-b B]   (see social.rs)
 //! realm_netcheck --travel --characters <dir>                           (see travel.rs)
 //! realm_netcheck --dungeon --characters <dir>                          (see dungeon.rs)
+//! realm_netcheck --boss threehead|snare --characters <dir>             (see boss.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -12,6 +13,7 @@
 //! correction the player would see as a snap back. Exits with an error if
 //! there was any (Phase 4 exit: none at 200 ms and 2% loss).
 
+mod boss;
 mod dungeon;
 mod social;
 mod travel;
@@ -206,6 +208,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--travel") {
         return travel::run(&args);
+    }
+    if args.iter().any(|a| a == "--boss") {
+        return boss::run(&args);
     }
     if args.iter().any(|a| a == "--dungeon") {
         return dungeon::run(&args);

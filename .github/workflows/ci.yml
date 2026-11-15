@@ -181,6 +181,28 @@ jobs:
           ./target/release/realm_netcheck --dungeon --quick --characters build/cursecheck
           kill %1 %2 %3 || true
 
+      - name: The Sealed Wing's multi-part bosses
+        if: matrix.os == 'ubuntu-26.04'
+        # Runs started at the boss (--dev-dungeon-start): the stair breath
+        # pushes, the sleep chime puts Threehead to sleep, its heads fall one
+        # by one and the body with the last; the Strangling Vine's heart is
+        # untouchable until its vines are gone. No correction.
+        run: |
+          mkdir -p build/bosscheck
+          ./target/release/realm_coord > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 --characters build/bosscheck > server_c.log 2>&1 &
+          ./target/release/realm_server serve --map dng_sealed_wing --bind 127.0.0.1:7780 --coord 127.0.0.1:7900 --characters build/bosscheck --dev-dungeon-scale 0.05 --dev-dungeon-start threehead > server_w.log 2>&1 &
+          WING=$!
+          sleep 8
+          ./target/release/realm_netcheck --boss threehead --server 127.0.0.1:7778 --characters build/bosscheck
+          kill $WING || true
+          sleep 2
+          ./target/release/realm_server serve --map dng_sealed_wing --bind 127.0.0.1:7780 --coord 127.0.0.1:7900 --characters build/bosscheck --dev-dungeon-scale 0.05 --dev-dungeon-start snare > server_w2.log 2>&1 &
+          sleep 6
+          ./target/release/realm_netcheck --boss snare --server 127.0.0.1:7778 --characters build/bosscheck
+          kill %1 %2 %4 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

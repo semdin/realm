@@ -9,6 +9,15 @@ class_name CreatureView
 ## pace). A telegraphed ability (CombatView hands it over) plays the ability's
 ## own clip pair, its windup stretched to end on the server's release tick and
 ## its strike over the recovery. It decides nothing.
+##
+## A multi-part boss (creature_views.json `rig` threehead_boss / snare_boss)
+## wears its parts on its own model: its heads or vines are separate creatures
+## on the wire (rig boss_part, drawn by nothing of their own: main.gd targets
+## and hits them where the server holds them on the body). A part that is down
+## bends that head or vine on the model (PartDroop: Threehead's head slumps,
+## the Strangling Vine's vine withers and shrinks). Threehead's stun is the
+## sleep the chime lulls it into: its Sleep clip, a slow pale haze drifting up
+## off each head still standing, "Asleep!" over it, no stun stars.
 
 ## Snapshot states (realm_server sim.rs).
 const STATE_IDLE := 0
@@ -60,6 +69,21 @@ const ELITE_BIT := 0x8000
 const ENRAGED_BIT := 0x4000
 const BOSS_BIT := 0x2000
 const SPECIES_MASK := 0x1FFF
+## The multi-part rigs: the bone chain each part key bends when the part is
+## down (root first; as the old game bent them), how far it
+## bends and the size it shrinks to, and whether the stun is a sleep.
+## (Threehead's bend is negative: a positive turn about this rig's neck X
+## lifts the head.)
+const MULTIPART := {
+	"threehead_boss": {"chains": {"L": ["Neck.L", "Head.L"], "M": ["Neck.M", "Head.M"], "R": ["Neck.R", "Head.R"]},
+		"degrees": -35.0, "shrink": 1.0, "sleeps": true, "heads": {"L": "Head.L", "M": "Head.M", "R": "Head.R"}},
+	"snare_boss": {"chains": {"L": ["VineL1", "VineL2", "VineL3", "VineL4"], "R": ["VineR1", "VineR2", "VineR3", "VineR4"],
+		"T": ["VineT1", "VineT2", "VineT3", "VineT4"]}, "degrees": 16.0, "shrink": 0.82, "sleeps": false, "heads": {}},
+}
+## A part's own rig: no model, targeted where the server holds it.
+const PART_RIG := "boss_part"
+## The sleep haze off a sleeping head.
+const SLEEP_TINT := Color(0.78, 0.8, 1.0)
 
 static var _views := {}
 
@@ -98,6 +122,23 @@ var body_radius := 0.45
 ## The telegraphed ability playing: {clip, release_at, recovery_at, phase} in
 ## seconds of Time.get_ticks_msec (empty: none).
 var _ability := {}
+## A multi-part boss: its MULTIPART entry (empty: not one), its parts as the
+## server named them (part entity -> key L / M / R / T) and the keys down.
+var multipart := {}
+var parts: Dictionary = {}
+var parts_down: Array = []
+var _droop: PartDroop = null
+var _skeleton: Skeleton3D = null
+## Threehead asleep: the haze over each standing head (key -> GPUParticles3D).
+var asleep := false
+var _haze: Dictionary = {}
+
+## The rig a species is drawn with (creature_views.json `rig`, "" none).
+static func rig_of(id: String) -> String:
+	return String(view_of(id).get("rig", ""))
+
+static func is_part_kind(kind: int) -> bool:
+	return rig_of(species_for_kind(kind)) == PART_RIG
 
 ## The species of a snapshot creature kind, in the server's own order (the
 ## mobs, then the Dark Shard bodies and the training dummy); "" when unknown.
@@ -148,7 +189,40 @@ func setup(kind: int) -> bool:
 			if anim_player.has_animation(clip):
 				anim_player.get_animation(clip).loop_mode = Animation.LOOP_LINEAR
 	_play("idle")
+	multipart = MULTIPART.get(String(view.get("rig", "")), {})
+	if not multipart.is_empty():
+		_build_droop()
+	# only a sleeping head's haze follows the model
+	set_process(false)
 	return true
+
+## The part chains' modifier on the model's skeleton.
+func _build_droop() -> void:
+	for found in model.find_children("*", "Skeleton3D", true, false):
+		_skeleton = found as Skeleton3D
+		break
+	if _skeleton == null:
+		return
+	_droop = PartDroop.new()
+	_droop.name = "PartDroop"
+	_droop.chains = multipart["chains"]
+	_droop.bend_degrees = float(multipart["degrees"])
+	_droop.shrink = float(multipart["shrink"])
+	_skeleton.add_child(_droop)
+
+## Which parts are down (keys L / M / R / T): their chains bend on the model,
+## a sleeping head that went down stops breathing its haze.
+func set_parts_down(keys: Array) -> void:
+	if keys == parts_down:
+		return
+	parts_down = keys.duplicate()
+	if _droop != null:
+		_droop.down = parts_down
+	_update_haze()
+
+## How far part `key` has slumped on the model (0..1; the check reads it).
+func part_sag(key: String) -> float:
+	return _droop.sag(key) if _droop != null else 0.0
 
 static func is_elite(kind: int) -> bool:
 	return kind & ELITE_BIT != 0
@@ -158,6 +232,11 @@ static func is_elite(kind: int) -> bool:
 ## (on top of the boss body's own), the label (and so the status looks over
 ## the head) at `label_y`, and the ground speed its walk cycle is played for.
 func apply_info(info: Dictionary) -> void:
+	if info.get("parts") is Array:
+		parts.clear()
+		for p: Variant in info["parts"]:
+			if p is Dictionary:
+				parts[int(p.get("entity", 0))] = String(p.get("name", ""))
 	var key := String(info.get("boss_key", ""))
 	if key == "" or model == null:
 		return
@@ -189,7 +268,46 @@ func set_status(bits: int) -> void:
 	if bits == status:
 		return
 	status = bits
+	if bool(multipart.get("sleeps", false)):
+		# Threehead's stun is the chime's sleep: its own look, not stars.
+		StatusFX.update(self, bits & ~StatusFX.STATUS_STUN)
+		_set_asleep(bits & StatusFX.STATUS_STUN != 0)
+		return
 	StatusFX.update(self, bits)
+
+func _set_asleep(on: bool) -> void:
+	if on == asleep:
+		return
+	asleep = on
+	if on and not is_dead and DisplayServer.get_name() != "headless":
+		FloatingText.spawn(get_parent(), global_position + Vector3.UP * (head_height + 1.2), tr("Asleep!"), SLEEP_TINT, 1.1)
+	_update_haze()
+
+## A haze of slow pale motes drifting up off every standing head while it
+## sleeps; it thins out as it wakes or the head goes down.
+func _update_haze() -> void:
+	var heads: Dictionary = multipart.get("heads", {})
+	for key: String in heads.keys():
+		var wanted := asleep and not is_dead and not parts_down.has(key)
+		var haze: GPUParticles3D = _haze.get(key)
+		if wanted and haze == null and _skeleton != null and DisplayServer.get_name() != "headless":
+			haze = RisingMotes.make(0.7, 4.0, SLEEP_TINT, 26, 3.2, Vector2(0.25, 0.75), Vector2(0.045, 0.1))
+			haze.name = "SleepHaze" + key
+			RisingMotes.set_rate(haze, 0.8)
+			add_child(haze)
+			_haze[key] = haze
+		if haze != null:
+			haze.emitting = wanted
+	set_process(not _haze.is_empty())
+
+func _process(_delta: float) -> void:
+	if _skeleton == null:
+		return
+	var heads: Dictionary = multipart.get("heads", {})
+	for key: String in _haze.keys():
+		var idx := _skeleton.find_bone(String(heads[key]))
+		if idx >= 0:
+			(_haze[key] as Node3D).global_position = _skeleton.global_transform * _skeleton.get_bone_global_pose(idx).origin
 
 ## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
 func set_cc_anim_scale(pace: float) -> void:
@@ -210,6 +328,7 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 			_stun_phase = ""
 			_ability.clear()
 			_play("death", 0.1)
+			_update_haze()
 		return
 	is_dead = false
 	if _cc_pace <= 0.0:

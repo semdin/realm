@@ -79,6 +79,15 @@ impl Sim {
     /// `mob` fell: experience to everyone who hit it lately, oril to the
     /// killer, the rest into a chest.
     pub(super) fn reward_kill(&mut self, mob: Entity) {
+        // A boss's part (a head, a vine) pays nothing of its own: the
+        // boss's fall pays everyone who hit any of it.
+        if self
+            .world
+            .get::<Mob>(mob)
+            .is_some_and(|m| m.part_of.is_some())
+        {
+            return;
+        }
         let tick = self.tick;
         let rules = self.rules();
         let Some((credit, pos, level, exp_reward, elite, boss, pack, species, drop_scale)) =

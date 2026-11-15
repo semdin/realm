@@ -715,6 +715,56 @@ impl Sim {
             );
             return 0;
         }
+        // A multi-part boss: its body takes nothing while a part stands; a
+        // blow on a part rouses the body, and a sleeping body's parts take
+        // half again as much.
+        let shielded = mob.parts.iter().any(|(p, _)| {
+            self.world
+                .get::<super::Mob>(*p)
+                .is_some_and(|x| x.mode != MobMode::Dead)
+        });
+        let body = mob.part_of;
+        if shielded {
+            let (target, attacker_id) = (self.net_id_of(victim), self.net_id_of(attacker));
+            let (at, hp) = (mob.pos, super::hp_byte(mob.hp, mob.max_hp));
+            self.provoke(victim, attacker);
+            self.event(
+                at,
+                CombatEvent::Hit {
+                    target,
+                    attacker: attacker_id,
+                    spell: spell.index,
+                    amount: 0,
+                    flags: flags | HIT_EVADE,
+                    hp,
+                },
+            );
+            return 0;
+        }
+        let raw = match body {
+            Some(b) => {
+                self.provoke(b, attacker);
+                // The blow counts on the body too (its fall pays the hitters).
+                if let Some(mut bm) = self.world.get_mut::<super::Mob>(b) {
+                    bm.credit.push(super::rewards::Credit {
+                        player: attacker,
+                        tick,
+                    });
+                    if bm.credit.len() > 64 {
+                        bm.credit.remove(0);
+                    }
+                }
+                let asleep = self
+                    .world
+                    .get::<super::Mob>(b)
+                    .is_some_and(|x| x.status.locked(tick));
+                if asleep { raw * 1.5 } else { raw }
+            }
+            None => raw,
+        };
+        let Some(mob) = self.world.get::<super::Mob>(victim) else {
+            return 0;
+        };
         let (mob_pos, mob_yaw) = (mob.pos, mob.yaw);
         let rules = self.rules();
         let combat = &rules.combat;

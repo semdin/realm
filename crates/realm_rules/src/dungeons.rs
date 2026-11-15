@@ -174,9 +174,9 @@ pub struct SpawnEntry {
     pub template: Option<String>,
     pub min_difficulty: usize,
     pub hatch: Option<Hatch>,
-    pub harp: Option<[f32; 3]>,
+    pub chime: Option<[f32; 3]>,
     /// Difficulty -> the sleep chime's scale.
-    pub harp_scale: BTreeMap<usize, f32>,
+    pub chime_scale: BTreeMap<usize, f32>,
     /// Difficulty -> marks set on the creature.
     pub marks: BTreeMap<usize, Vec<String>>,
 }
@@ -407,8 +407,8 @@ fn spawn_entry(e: &Value, what: &str) -> Result<SpawnEntry, String> {
                 })
                 .collect(),
         }),
-        harp: e["harp"].is_array().then(|| point(&e["harp"])),
-        harp_scale: per_difficulty(&e["harp_scale"])
+        chime: e["chime"].is_array().then(|| point(&e["chime"])),
+        chime_scale: per_difficulty(&e["chime_scale"])
             .into_iter()
             .map(|(d, x)| (d, f(&x, 1.0)))
             .collect(),

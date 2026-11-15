@@ -112,6 +112,11 @@ pub enum ServerMsg {
         level: u32,
         elite: bool,
         boss: bool,
+        /// A boss's parts (heads, vines: entities), with the part names
+        /// (the bone keys, L / M / R / T).
+        parts: Vec<(u32, String)>,
+        /// A part: the boss it belongs to (0: none).
+        part_of: u32,
     },
     /// What a kill or a quest paid this player: experience, oril, items
     /// (from a chest or a quest), the levels it gained, house reputation.
@@ -364,6 +369,21 @@ pub struct HazardView {
     pub release_tick: u32,
     pub until_tick: u32,
     pub hp_share: f32,
+    /// A band instead of a ring (half extents x, z around `center`; 0: a
+    /// ring). The Sealed Wing's breath.
+    pub half: [f32; 2],
+}
+
+/// The sleep chime by a sleeping guardian: where it stands and who rings
+/// it (server ticks; 0 when nobody does). `ready_tick`: it can ring again.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct ChimeView {
+    pub at: [f32; 3],
+    pub radius: f32,
+    pub ringer: u32,
+    pub start_tick: u32,
+    pub end_tick: u32,
+    pub ready_tick: u32,
 }
 
 /// A dungeon run as the players in it see it.
@@ -399,6 +419,8 @@ pub struct RunView {
     pub affixes: Vec<String>,
     /// Curse marks on the floor now (a player arriving late sees them).
     pub hazards: Vec<HazardView>,
+    /// The sleep chime, in a run that has one.
+    pub chime: Option<ChimeView>,
 }
 
 /// The dungeon gate, the ready check and a run.

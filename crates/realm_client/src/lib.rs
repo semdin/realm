@@ -1270,7 +1270,9 @@ impl RealmSession {
     /// Answers to `inspect`. A player: `entity`, `player` (true),
     /// `character`, `name`, `house`, `level`. A creature: `entity`, `boss_key` (boss_overrides key, else
     /// empty), `name` (a boss's, a Dark Shard's or a dummy's own name; empty:
-    /// the species' name), `level`, `elite`, `boss`.
+    /// the species' name), `level`, `elite`, `boss`, `parts` ([{`entity`,
+    /// `name`: bone key L / M / R / T}] on a multi-part boss) and `part_of`
+    /// (a part's boss entity, 0: none).
     #[func]
     fn take_creature_info(&mut self) -> VarArray {
         let mut out = VarArray::new();
@@ -1300,6 +1302,8 @@ impl RealmSession {
                 level,
                 elite,
                 boss,
+                parts,
+                part_of,
             } = msg
             {
                 let mut d = VarDictionary::new();
@@ -1309,6 +1313,15 @@ impl RealmSession {
                 d.set("level", &i64::from(level).to_variant());
                 d.set("elite", &elite.to_variant());
                 d.set("boss", &boss.to_variant());
+                let mut list = VarArray::new();
+                for (part, bone) in &parts {
+                    let mut p = VarDictionary::new();
+                    p.set("entity", &i64::from(*part).to_variant());
+                    p.set("name", &GString::from(bone.as_str()).to_variant());
+                    list.push(&p.to_variant());
+                }
+                d.set("parts", &list.to_variant());
+                d.set("part_of", &i64::from(part_of).to_variant());
                 out.push(&d.to_variant());
             }
         }

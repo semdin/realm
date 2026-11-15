@@ -14,7 +14,8 @@ class_name MapDungeon
 ##     step message shows on the notice band, the curses' marks burn on the
 ##     floor (DungeonHazards, from the "hazard" events and the run views),
 ##     and the result window (HudDungeonResult) opens at the end with the
-##     "rewards" that follow.
+##     "rewards" that follow. A run with a sleep chime (the Sealed Wing's, by
+##     Threehead) shows it from the run view's `chime` (SleepChime).
 ##   * The guide (K, anywhere: HudDungeonGuide): the player's records and
 ##     this week's boards, the server's "guide" answer.
 
@@ -27,6 +28,7 @@ var run_view: HudDungeonRun
 var result_window: HudDungeonResult
 var gates: DungeonGates
 var hazards: DungeonHazards
+var chime: SleepChime
 ## Step messages shown (the check reads them).
 var messages: Array = []
 ## Every dungeon event by its `event` (the check reads them).
@@ -56,6 +58,9 @@ func setup(main: Node, map_id: String, ui_root: Control) -> void:
 	hazards = DungeonHazards.new()
 	hazards.session = game.session
 	game.add_child(hazards)
+	chime = SleepChime.new()
+	chime.game = game
+	game.add_child(chime)
 
 ## The player is in a dungeon copy.
 func in_copy() -> bool:
@@ -96,6 +101,7 @@ func on_event(event: Dictionary) -> void:
 		"state":
 			run_view.on_state(view)
 			hazards.sync(view.get("hazards", []))
+			chime.sync(view.get("chime"))
 			var message := String(view.get("message", ""))
 			if message != "" and message != _message:
 				# The server words its step messages in English (dungeons.json).

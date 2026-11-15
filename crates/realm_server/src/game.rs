@@ -98,7 +98,7 @@ pub struct Game {
     pub death: DeathRules,
     /// Bottom of the map's height band: a body below it fell out of the map.
     pub y_min: f32,
-    hp_multiplier: f32,
+    pub hp_multiplier: f32,
     attack_multiplier: f32,
     strength: (f32, f32, f32),
     aggro: (f32, f32, u32),

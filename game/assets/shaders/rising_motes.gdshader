@@ -17,6 +17,8 @@ uniform float size_max = 0.026;
 uniform float stretch = 0.03;
 uniform float energy = 1.0;
 uniform float rate = 1.0;        // share of the particles alive (the countdown)
+uniform float inner = 0.2;       // share born inside the area rather than on its boundary
+uniform vec2 band = vec2(0.0);   // > 0: born anywhere on a strip of these half extents (x, z)
 uniform sampler2D ramp : repeat_disable, filter_linear;
 
 uint step_rng(inout uint s) {
@@ -41,7 +43,7 @@ void start() {
 	float span = cone ? sector : PI;
 	float a = (rand(s) * 2.0 - 1.0) * span;
 	float dist = radius;
-	if (rand(s) > 0.8) {
+	if (rand(s) < inner) {
 		dist = radius * sqrt(rand(s));
 	} else if (cone && rand(s) < 0.45) {
 		// one of the cone's straight sides
@@ -50,6 +52,9 @@ void start() {
 	}
 	dist += (rand(s) - 0.5) * 0.3;
 	vec3 at = vec3(sin(a) * dist, 0.05, cos(a) * dist);
+	if (band.x > 0.0) {
+		at = vec3((rand(s) * 2.0 - 1.0) * band.x, 0.05, (rand(s) * 2.0 - 1.0) * band.y);
+	}
 	TRANSFORM = mat4(1.0);
 	TRANSFORM[3].xyz = (EMISSION_TRANSFORM * vec4(at, 1.0)).xyz;
 	VELOCITY = vec3((rand(s) - 0.5) * 0.5, mix(rise_min, rise_max, rand(s)), (rand(s) - 0.5) * 0.5);

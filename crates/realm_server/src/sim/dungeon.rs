@@ -94,7 +94,12 @@ pub(super) struct Hazard {
     pub view: HazardView,
     pub pos: Vec3,
     pub done: bool,
+    /// A push instead of damage (the breath): direction x speed, lift.
+    pub push: Option<(Vec3, f32)>,
 }
+
+/// The sleep chime is rung from this close.
+const CHIME_RADIUS: f32 = 2.6;
 
 pub(super) struct RunMember {
     pub character: u64,
@@ -134,6 +139,21 @@ pub(super) struct Run {
     pub hazards: Vec<Hazard>,
     pub chill_next: u32,
     pub storm_next: u32,
+    pub chime: Option<Chime>,
+    /// Per dungeon hazard (the breath): when it next blows.
+    pub breath_next: Vec<u32>,
+}
+
+/// The sleep chime by a sleeping guardian (Threehead).
+pub(super) struct Chime {
+    pub at: Vec3,
+    pub scale: f32,
+    pub body: Entity,
+    pub ringer: Option<Entity>,
+    pub combat_at_start: u32,
+    pub start: u32,
+    pub end: u32,
+    pub ready: u32,
 }
 
 /// A ready check on an outer map.
@@ -374,6 +394,8 @@ impl Sim {
             hazards: Vec::new(),
             chill_next: 0,
             storm_next: 0,
+            chime: None,
+            breath_next: vec![0; def.hazards.len()],
         });
         println!(
             "[dungeon] copy {copy} of {} opened: {} at {} for {party} (level {})",
@@ -491,6 +513,14 @@ impl Sim {
                 .filter(|h| !h.done)
                 .map(|h| h.view.clone())
                 .collect(),
+            chime: r.chime.as_ref().map(|c| realm_proto::control::ChimeView {
+                at: [c.at.x, c.at.y, c.at.z],
+                radius: CHIME_RADIUS,
+                ringer: c.ringer.map_or(0, |e| self.net_id_of(e)),
+                start_tick: if c.ringer.is_some() { c.start } else { 0 },
+                end_tick: if c.ringer.is_some() { c.end } else { 0 },
+                ready_tick: c.ready,
+            }),
         }
     }
 
@@ -638,6 +668,19 @@ impl Sim {
                     r.storm_next = tick
                         + (a.num("storm", "every_s", 12.0) * hazard_mult * SIM_HZ as f32) as u32;
                     self.set_gate(i, "start", true);
+                    // Development: straight to a step, those before it done.
+                    if let Some(start) = self.dev_dungeon_start.clone()
+                        && let Some(k) = def.steps.iter().position(|s| s.id == start)
+                    {
+                        for s in 0..k {
+                            if let Some(r) = self.runs[i].as_mut() {
+                                r.done[s] = true;
+                            }
+                            for g in def.steps[s].open.clone() {
+                                self.set_gate(i, &g, true);
+                            }
+                        }
+                    }
                 }
                 return;
             }
@@ -646,6 +689,8 @@ impl Sim {
         }
         self.credit_forces(i);
         self.curse_tick(i);
+        self.chime_tick(i);
+        self.breath_tick(i, &def);
         self.wipe_lock(i, &def);
         // The chain: steps in order, the first unmet one waits.
         let difficulty = self.runs[i].as_ref().map_or(0, |r| r.difficulty);
@@ -1075,6 +1120,9 @@ impl Sim {
             status: super::status::Status::default(),
             drop_scale: 1.0,
             windup_scale: 1.0,
+            part_of: None,
+            parts: Vec::new(),
+            phase: 1,
         };
         let entity = self.world.spawn(mob).id();
         let id = self.new_id(entity);
@@ -1085,7 +1133,471 @@ impl Sim {
         if let (Some(exp), Some(mut m)) = (exp, self.world.get_mut::<Mob>(entity)) {
             m.exp_reward = exp;
         }
+        // A multi-part boss: its parts, at its level and scale.
+        let species_id = self.game.species[species].id.clone();
+        if let (Some(parts), Some(b)) = (rules.mobs.parts.get(&species_id), boss_def) {
+            let ratio = if b.stat_level > 0 {
+                self.game.strength_at(level) / self.game.strength_at(b.stat_level)
+            } else {
+                1.0
+            };
+            let part_hp =
+                b.part_hp * self.game.hp_multiplier * ratio * hp_scale * self.dev_dungeon_scale;
+            let part_species = self.game.species.iter().position(|x| x.id == parts.species);
+            let mut list = Vec::new();
+            for (name, _) in &parts.offsets {
+                let Some(ps) = part_species else { break };
+                let part = Mob {
+                    pack,
+                    species: ps as u16,
+                    home: at,
+                    pos: at,
+                    yaw: 0,
+                    hp: part_hp,
+                    max_hp: part_hp,
+                    level,
+                    attack_power: 0.0,
+                    attack_range: 0.0,
+                    move_speed: 0.0,
+                    elite: false,
+                    boss: false,
+                    enraged: false,
+                    pattern_next: 0,
+                    exp_reward: 0,
+                    credit: Vec::new(),
+                    mode: MobMode::Idle,
+                    attack_cd: 0.0,
+                    attack: None,
+                    attacks_made: 0,
+                    thrown: Vec::new(),
+                    hit_at: self.tick,
+                    unreachable_since: 0,
+                    next_scan: 0,
+                    next_think: self.tick,
+                    died_at: 0,
+                    rng: xorshift(&mut self.dice_state) | 1,
+                    state: STATE_IDLE,
+                    path: Vec::new(),
+                    path_goal: at,
+                    replan_at: 0,
+                    status: super::status::Status::default(),
+                    drop_scale: 0.0,
+                    windup_scale: 1.0,
+                    part_of: Some(entity),
+                    parts: Vec::new(),
+                    phase: 1,
+                };
+                let pe = self.world.spawn(part).id();
+                let pid = self.new_id(pe);
+                self.world.entity_mut(pe).insert(NetId(pid));
+                list.push((pe, name.clone()));
+            }
+            if let Some(mut m) = self.world.get_mut::<Mob>(entity) {
+                if parts.hp_is_sum {
+                    m.max_hp = part_hp * list.len() as f32;
+                    m.hp = m.max_hp;
+                }
+                m.parts = list;
+            }
+            self.follow_body(entity);
+        }
         entity
+    }
+
+    /// Holds a boss's parts at their bones (the model faces +z; the body's
+    /// yaw 0 looks along -z).
+    fn follow_body(&mut self, body: Entity) {
+        let rules = self.rules();
+        let Some((pos, yaw, species, parts)) = self
+            .world
+            .get::<Mob>(body)
+            .map(|m| (m.pos, m.yaw, usize::from(m.species), m.parts.clone()))
+        else {
+            return;
+        };
+        let Some(def) = rules.mobs.parts.get(&self.game.species[species].id) else {
+            return;
+        };
+        let turn = f32::from(yaw) * (core::f32::consts::TAU / 65_536.0) + core::f32::consts::PI;
+        let (s, c) = (libm::sinf(turn), libm::cosf(turn));
+        for (e, name) in parts {
+            let Some(o) = def
+                .offsets
+                .iter()
+                .find(|(n, _)| *n == name)
+                .map(|(_, o)| *o)
+            else {
+                continue;
+            };
+            let at = pos + Vec3::new(o[0] * c + o[2] * s, o[1], -o[0] * s + o[2] * c);
+            if let Some(mut m) = self.world.get_mut::<Mob>(e) {
+                m.pos = at;
+                m.home = at;
+                m.yaw = yaw;
+            }
+        }
+    }
+
+    /// Every tick: parts ride their bodies; a summed body's health is its
+    /// standing parts'; a body walking home after a wipe has its parts back.
+    pub(super) fn follow_parts(&mut self) {
+        if !self.instanced {
+            return;
+        }
+        let tick = self.tick;
+        let rules = self.rules();
+        let bodies: Vec<Entity> = self
+            .runs
+            .iter()
+            .flatten()
+            .flat_map(|r| {
+                r.mobs
+                    .iter()
+                    .filter(|m| m.boss_name.is_some())
+                    .map(|m| m.entity)
+            })
+            .filter(|e| {
+                self.world
+                    .get::<Mob>(*e)
+                    .is_some_and(|m| !m.parts.is_empty() && m.mode != MobMode::Dead)
+            })
+            .collect();
+        for body in bodies {
+            self.follow_body(body);
+            let Some((species, mode, parts)) = self
+                .world
+                .get::<Mob>(body)
+                .map(|m| (usize::from(m.species), m.mode, m.parts.clone()))
+            else {
+                continue;
+            };
+            let sum = rules
+                .mobs
+                .parts
+                .get(&self.game.species[species].id)
+                .is_some_and(|p| p.hp_is_sum);
+            // Home after a wipe: every part stands again.
+            if mode == MobMode::Return {
+                for (p, _) in &parts {
+                    if let Some(mut m) = self.world.get_mut::<Mob>(*p)
+                        && m.mode == MobMode::Dead
+                    {
+                        m.mode = MobMode::Idle;
+                        m.state = STATE_IDLE;
+                        m.hp = m.max_hp;
+                        m.died_at = 0;
+                    }
+                }
+                if let Some(mut m) = self.world.get_mut::<Mob>(body) {
+                    m.phase = 1;
+                }
+            }
+            if sum {
+                let hp: f32 = parts
+                    .iter()
+                    .filter_map(|(p, _)| self.world.get::<Mob>(*p))
+                    .filter(|m| m.mode != MobMode::Dead)
+                    .map(|m| m.hp)
+                    .sum();
+                if let Some(mut m) = self.world.get_mut::<Mob>(body) {
+                    m.hp = hp.max(1.0);
+                    // Below a quarter: the third phase.
+                    if m.phase >= 2 && m.hp < m.max_hp * 0.25 && m.phase < 3 {
+                        m.phase = 3;
+                    }
+                }
+                if tick.is_multiple_of(DIRECTOR_TICKS) {
+                    let frenzied = self.world.get::<Mob>(body).is_some_and(|m| m.phase == 3);
+                    if frenzied && let Some(i) = self.run_of_mob(body) {
+                        let said = self.runs[i]
+                            .as_ref()
+                            .is_some_and(|r| r.message.contains("frenzied"));
+                        if !said {
+                            self.say(
+                                i,
+                                "Threehead is frenzied - the chime holds it only briefly!",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// The run a creature of this map belongs to.
+    fn run_of_mob(&self, mob: Entity) -> Option<usize> {
+        self.runs.iter().position(|r| {
+            r.as_ref()
+                .is_some_and(|r| r.mobs.iter().any(|m| m.entity == mob))
+        })
+    }
+
+    /// A boss's part fell: its message, the next phase; the last part of a
+    /// summed boss takes the body with it, of a shielded one bares it.
+    pub(super) fn part_fell(&mut self, part: Entity, body: Entity, killer: Option<Entity>) {
+        let rules = self.rules();
+        let Some((species, parts)) = self
+            .world
+            .get::<Mob>(body)
+            .map(|m| (usize::from(m.species), m.parts.clone()))
+        else {
+            return;
+        };
+        let def = rules
+            .mobs
+            .parts
+            .get(&self.game.species[species].id)
+            .cloned()
+            .unwrap_or_default();
+        let standing = parts
+            .iter()
+            .filter(|(p, _)| *p != part)
+            .filter(|(p, _)| {
+                self.world
+                    .get::<Mob>(*p)
+                    .is_some_and(|m| m.mode != MobMode::Dead)
+            })
+            .count();
+        let name = parts
+            .iter()
+            .find(|(p, _)| *p == part)
+            .map_or("", |(_, n)| n.as_str());
+        let Some(i) = self.run_of_mob(body) else {
+            return;
+        };
+        if def.hp_is_sum {
+            let side = match name {
+                "L" => "left",
+                "R" => "right",
+                _ => "middle",
+            };
+            let first = self.world.get_mut::<Mob>(body).is_some_and(|mut m| {
+                let first = m.phase < 2;
+                m.phase = m.phase.max(2);
+                first
+            });
+            // One line: two said in one tick, the client would see the last.
+            if first {
+                self.say(
+                    i,
+                    &format!("Threehead's {side} head slumps! Threehead howls in fury!"),
+                );
+            } else {
+                self.say(i, &format!("Threehead's {side} head slumps!"));
+            }
+            if standing == 0 {
+                self.mob_died(body, killer);
+            }
+        } else if standing == 0 {
+            self.say(i, "The vines are gone - the Snare's heart is exposed!");
+        } else {
+            self.say(
+                i,
+                &format!("A vine shrivels in the flames! {standing} left."),
+            );
+        }
+    }
+
+    /// The sleep chime: a living player standing by it rings it; a fight
+    /// breaks the ringing off; rung through, the guardian sleeps.
+    fn chime_tick(&mut self, i: usize) {
+        let tick = self.tick;
+        // The chime appears with the guardian it lulls.
+        if self.runs[i].as_ref().is_some_and(|r| r.chime.is_none()) {
+            let rules = self.rules();
+            let found = self.runs[i].as_ref().and_then(|r| {
+                let def = rules.dungeons.dungeons.get(&r.dungeon)?;
+                r.mobs
+                    .iter()
+                    .filter(|m| m.boss_name.is_some())
+                    .find_map(|m| {
+                        let step = def.steps.get(m.step)?;
+                        let entry = step.spawn.iter().find(|e| e.chime.is_some())?;
+                        let scale = entry.chime_scale.get(&r.difficulty).copied().unwrap_or(1.0);
+                        Some((m.entity, v3(entry.chime?) + offset_of(r.copy), scale))
+                    })
+            });
+            if let Some((body, at, scale)) = found
+                && let Some(r) = self.runs[i].as_mut()
+            {
+                r.chime = Some(Chime {
+                    at,
+                    scale,
+                    body,
+                    ringer: None,
+                    combat_at_start: 0,
+                    start: 0,
+                    end: 0,
+                    ready: tick,
+                });
+            }
+        }
+        let Some(c) = self.runs[i].as_ref().and_then(|r| r.chime.as_ref()) else {
+            return;
+        };
+        let (at, scale, body, ringer, combat_at_start, end, ready) = (
+            c.at,
+            c.scale,
+            c.body,
+            c.ringer,
+            c.combat_at_start,
+            c.end,
+            c.ready,
+        );
+        let Some((body_mode, phase)) = self.world.get::<Mob>(body).map(|m| (m.mode, m.phase))
+        else {
+            return;
+        };
+        if body_mode == MobMode::Dead {
+            if let Some(r) = self.runs[i].as_mut() {
+                r.chime = None;
+            }
+            return;
+        }
+        let near = |p: &Player| {
+            p.dead_until == 0
+                && planar_distance(p.body.pos, at) <= CHIME_RADIUS
+                && (p.body.pos.y - at.y).abs() < 3.0
+        };
+        match ringer {
+            None => {
+                if tick < ready {
+                    return;
+                }
+                let copy = self.runs[i].as_ref().map_or(0, |r| r.copy);
+                let someone = self.in_copy(copy).into_iter().find_map(|(e, _)| {
+                    let p = self.world.get::<Player>(e)?;
+                    near(p).then(|| (e, p.last_combat, p.sheet.name.clone()))
+                });
+                if let Some((e, combat, name)) = someone {
+                    let length = (6.0 * scale * SIM_HZ as f32) as u32;
+                    if let Some(c) = self.runs[i].as_mut().and_then(|r| r.chime.as_mut()) {
+                        c.ringer = Some(e);
+                        c.combat_at_start = combat;
+                        c.start = tick;
+                        c.end = tick + length;
+                    }
+                    self.say(i, &format!("{name} begins to ring the sleep chime..."));
+                }
+            }
+            Some(e) => {
+                let holding = self
+                    .world
+                    .get::<Player>(e)
+                    .is_some_and(|p| near(p) && p.last_combat == combat_at_start);
+                if !holding {
+                    if let Some(c) = self.runs[i].as_mut().and_then(|r| r.chime.as_mut()) {
+                        c.ringer = None;
+                    }
+                    self.say(i, "The music breaks off!");
+                    return;
+                }
+                if tick < end {
+                    return;
+                }
+                let sleep = ((if phase >= 3 { 5.0 } else { 10.0 }) / scale * SIM_HZ as f32) as u32;
+                if let Some(mut m) = self.world.get_mut::<Mob>(body) {
+                    m.status.stun_until = m.status.stun_until.max(tick + sleep);
+                    m.attack = None;
+                }
+                if let Some(c) = self.runs[i].as_mut().and_then(|r| r.chime.as_mut()) {
+                    c.ringer = None;
+                    c.ready = tick + (45.0 * scale * SIM_HZ as f32) as u32;
+                }
+                self.say(
+                    i,
+                    "The chime lulls Threehead to sleep! Its heads take more damage.",
+                );
+            }
+        }
+    }
+
+    /// The dungeon's own hazards (the Sealed Wing's breath down the stair):
+    /// while their stretch of the run is on and someone stands in the band,
+    /// a warned push every so often.
+    fn breath_tick(&mut self, i: usize, def: &realm_rules::dungeons::DungeonDef) {
+        let tick = self.tick;
+        let rules = self.rules();
+        let Some((copy, difficulty)) = self.runs[i].as_ref().map(|r| (r.copy, r.difficulty)) else {
+            return;
+        };
+        let mult = rules.dungeons.difficulties[difficulty].hazard_mult;
+        let offset = offset_of(copy);
+        for (k, h) in def.hazards.iter().enumerate() {
+            let step = |id: &str| def.steps.iter().position(|s| s.id == id);
+            let on = self.runs[i].as_ref().is_some_and(|r| {
+                step(&h.from_step).is_none_or(|s| r.done[s])
+                    && step(&h.until_step).is_none_or(|s| !r.done[s])
+            });
+            if !on {
+                continue;
+            }
+            let center = Vec3::new((h.x.0 + h.x.1) * 0.5, 0.0, (h.z.0 + h.z.1) * 0.5) + offset;
+            let half = [(h.x.1 - h.x.0) * 0.5, (h.z.1 - h.z.0) * 0.5];
+            // The band's floor is where the one standing in it stands (the
+            // hazard has no height of its own).
+            let standing = self.in_copy(copy).iter().find_map(|(e, _)| {
+                self.world.get::<Player>(*e).and_then(|p| {
+                    (p.dead_until == 0
+                        && (p.body.pos.x - center.x).abs() <= half[0]
+                        && (p.body.pos.z - center.z).abs() <= half[1])
+                        .then_some(p.body.pos.y)
+                })
+            });
+            let anyone = standing.is_some();
+            let next = self.runs[i].as_ref().map_or(0, |r| r.breath_next[k]);
+            let every = (h.every_s * mult * SIM_HZ as f32) as u32;
+            if !anyone {
+                // The timer starts again when nobody is in the band.
+                if let Some(r) = self.runs[i].as_mut() {
+                    r.breath_next[k] = tick + every;
+                }
+                continue;
+            }
+            if tick < next {
+                continue;
+            }
+            let floor = standing.unwrap_or(center.y);
+            let warn = (h.warn_s * SIM_HZ as f32) as u32;
+            self.add_mark(
+                i,
+                "breath",
+                Vec3::new(center.x, floor, center.z),
+                half[0].max(half[1]),
+                (tick + warn, 0),
+                0.0,
+                half,
+                Some((Vec3::new(h.push[0], h.push[1], h.push[2]), h.lift)),
+            );
+            if let Some(r) = self.runs[i].as_mut() {
+                r.breath_next[k] = tick + every;
+            }
+            if !h.message.is_empty() {
+                self.say(i, &h.message);
+            }
+        }
+    }
+
+    /// Shoves a player (a breath, a blast): its body flies, held like a
+    /// knock so its owner's prediction takes it as the server's.
+    fn push_player(&mut self, player: Entity, push: Vec3, lift: f32) {
+        let tick = self.tick;
+        let Some(mut p) = self.world.get_mut::<Player>(player) else {
+            return;
+        };
+        if p.body.mounted || p.dead_until != 0 {
+            return;
+        }
+        let now = p.last_input_tick + 1;
+        p.body.shove = Vec3::new(push.x, 0.0, push.z);
+        if lift > 0.0 {
+            p.body.vel.y = lift;
+            p.body.on_floor = false;
+        }
+        let lock =
+            (realm_rules::creatures::shove_lock_ms(push.length(), lift) * SIM_HZ).div_ceil(1000);
+        p.afflictions.knock_until = p.afflictions.knock_until.max(tick + lock);
+        p.restraint.lock(now, now + lock);
     }
 
     /// A run's creature fell: its forces, and its experience to every
@@ -1247,6 +1759,32 @@ impl Sim {
         until: u32,
         hp_share: f32,
     ) {
+        self.add_mark(
+            i,
+            kind,
+            at,
+            radius,
+            (release, until),
+            hp_share,
+            [0.0, 0.0],
+            None,
+        );
+    }
+
+    /// A mark of any shape: a band (`half`), a push instead of damage. Its
+    /// shape goes out with it (a client keeps the first word it hears).
+    #[allow(clippy::too_many_arguments)]
+    fn add_mark(
+        &mut self,
+        i: usize,
+        kind: &str,
+        at: Vec3,
+        radius: f32,
+        (release, until): (u32, u32),
+        hp_share: f32,
+        half: [f32; 2],
+        push: Option<(Vec3, f32)>,
+    ) {
         let tick = self.tick;
         self.next_hazard += 1;
         let view = HazardView {
@@ -1258,6 +1796,7 @@ impl Sim {
             release_tick: release,
             until_tick: until,
             hp_share,
+            half,
         };
         let Some(copy) = self.runs[i].as_ref().map(|r| r.copy) else {
             return;
@@ -1267,6 +1806,7 @@ impl Sim {
                 view: view.clone(),
                 pos: at,
                 done: false,
+                push,
             });
         }
         for (_, conn) in self.in_copy(copy) {
@@ -1319,7 +1859,19 @@ impl Sim {
                 }
                 self.restat(i, k);
             }
-            if boss && diff.boss_enrage_s > 0.0 {
+            let own = self
+                .world
+                .get::<Mob>(entity)
+                .and_then(|m| {
+                    let b = self.game.packs[m.pack].boss_setup.as_ref()?;
+                    rules.mobs.bosses.get(&b.key).map(|d| d.enrage_s)
+                })
+                .unwrap_or(0.0);
+            let enrage_s = [diff.boss_enrage_s, own]
+                .into_iter()
+                .filter(|s| *s > 0.0)
+                .fold(0.0_f32, |a, s| if a == 0.0 { s } else { a.min(s) });
+            if boss && enrage_s > 0.0 {
                 let fighting = matches!(mode, MobMode::Chase(_));
                 let at_home = matches!(mode, MobMode::Idle | MobMode::Return);
                 if fighting && pulled.is_none() {
@@ -1334,7 +1886,7 @@ impl Sim {
                         m.enraged = false;
                     }
                 } else if let Some(since) = pulled
-                    && tick >= since + (diff.boss_enrage_s * SIM_HZ as f32) as u32
+                    && tick >= since + (enrage_s * SIM_HZ as f32) as u32
                     && let Some(mut m) = self.world.get_mut::<Mob>(entity)
                     && !m.enraged
                 {
@@ -1424,7 +1976,18 @@ impl Sim {
             let Some(copy) = self.runs[i].as_ref().map(|r| r.copy) else {
                 continue;
             };
-            let marks: Vec<(usize, String, Vec3, f32, u32, u32, f32)> = self.runs[i]
+            #[allow(clippy::type_complexity)]
+            let marks: Vec<(
+                usize,
+                String,
+                Vec3,
+                f32,
+                u32,
+                u32,
+                f32,
+                [f32; 2],
+                Option<(Vec3, f32)>,
+            )> = self.runs[i]
                 .as_ref()
                 .map(|r| {
                     r.hazards
@@ -1440,6 +2003,8 @@ impl Sim {
                                 h.view.release_tick,
                                 h.view.until_tick,
                                 h.view.hp_share,
+                                h.view.half,
+                                h.push,
                             )
                         })
                         .collect()
@@ -1456,14 +2021,32 @@ impl Sim {
                     (p.dead_until == 0).then_some((e, p.body.pos, p.max_hp))
                 })
                 .collect();
-            for (k, kind, at, radius, release, until, share) in marks {
+            for (k, kind, at, radius, release, until, share, half, push) in marks {
+                let band = half != [0.0, 0.0];
                 let inside: Vec<(Entity, f32)> = players
                     .iter()
                     .filter(|(_, p, _)| {
-                        planar_distance(*p, at) <= radius && (p.y - at.y).abs() < 4.0
+                        let within = if band {
+                            (p.x - at.x).abs() <= half[0] && (p.z - at.z).abs() <= half[1]
+                        } else {
+                            planar_distance(*p, at) <= radius
+                        };
+                        within && (p.y - at.y).abs() < 4.0
                     })
                     .map(|(e, _, max)| (*e, *max))
                     .collect();
+                if let Some((dir, lift)) = push {
+                    if tick < release {
+                        continue;
+                    }
+                    for (e, _) in &inside {
+                        self.push_player(*e, dir, lift);
+                    }
+                    if let Some(r) = self.runs[i].as_mut() {
+                        r.hazards[k].done = true;
+                    }
+                    continue;
+                }
                 let over = match kind.as_str() {
                     "burst" | "storm" => {
                         if tick < release {
@@ -2060,6 +2643,16 @@ impl Sim {
             return;
         };
         for m in &run.mobs {
+            let parts: Vec<Entity> = self
+                .world
+                .get::<Mob>(m.entity)
+                .map(|x| x.parts.iter().map(|(p, _)| *p).collect())
+                .unwrap_or_default();
+            for p in parts {
+                if self.world.get::<Mob>(p).is_some() {
+                    self.despawn(p);
+                }
+            }
             if self.world.get::<Mob>(m.entity).is_some() {
                 self.despawn(m.entity);
             }
