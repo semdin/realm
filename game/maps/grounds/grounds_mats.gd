@@ -58,10 +58,11 @@ static func materials() -> Dictionary:
 		"gold": gold,
 		"dark": dark,
 		"ember": _ember(),
-		"cloth_red": _cloth(Color(0.55, 0.08, 0.08)),
-		"cloth_blue": _cloth(Color(0.10, 0.20, 0.48)),
-		"cloth_green": _cloth(Color(0.10, 0.36, 0.18)),
-		"cloth_yellow": _cloth(Color(0.85, 0.65, 0.12)),
+		# the houses' own colours (house_colors.gd)
+		"cloth_red": _cloth(preload("res://scripts/content/house_colors.gd").cloth("cloth_red")),
+		"cloth_blue": _cloth(preload("res://scripts/content/house_colors.gd").cloth("cloth_blue")),
+		"cloth_green": _cloth(preload("res://scripts/content/house_colors.gd").cloth("cloth_green")),
+		"cloth_yellow": _cloth(preload("res://scripts/content/house_colors.gd").cloth("cloth_yellow")),
 		"canvas": _cloth(Color(0.55, 0.50, 0.40)),
 	}
 	return _mats

@@ -197,8 +197,8 @@ static func kit_material(slot: String) -> Material:
 			return books
 		"cloth_red", "cloth_blue", "cloth_green", "cloth_yellow", \
 				"cloth_red_dark", "cloth_blue_dark", "cloth_green_dark", "cloth_yellow_dark":
-			var base: Color = {"cloth_red": Color(0.55, 0.08, 0.07), "cloth_blue": Color(0.1, 0.18, 0.5),
-				"cloth_green": Color(0.06, 0.3, 0.16), "cloth_yellow": Color(0.78, 0.58, 0.12)}[slot.trim_suffix("_dark")]
+			# the houses' own colours (house_colors.gd)
+			var base: Color = preload("res://scripts/content/house_colors.gd").cloth(slot)
 			return _plain(base * (0.55 if slot.ends_with("_dark") else 1.0), 0.95)
 		"straw":
 			return _plain(Color(0.72, 0.6, 0.32), 1.0)
