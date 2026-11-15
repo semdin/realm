@@ -203,6 +203,29 @@ jobs:
           ./target/release/realm_netcheck --boss snare --server 127.0.0.1:7778 --characters build/bosscheck
           kill %1 %2 %4 || true
 
+      - name: The Web Mother's Lair
+        if: matrix.os == 'ubuntu-26.04'
+        # Runs started at the step (--dev-dungeon-start): egg sacs left alone
+        # hatch into weavers and the brood must fall before the gate parts;
+        # the Web Mother spins the lone player into a cocoon
+        # (--dev-cocoon-solo), wells up venom pools and falls. No death, no
+        # correction.
+        run: |
+          mkdir -p build/laircheck
+          ./target/release/realm_coord > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map spider_caverns --bind 127.0.0.1:7781 --coord 127.0.0.1:7900 --characters build/laircheck > server_s.log 2>&1 &
+          ./target/release/realm_server serve --map dng_spider_lair --bind 127.0.0.1:7782 --coord 127.0.0.1:7900 --characters build/laircheck --dev-dungeon-scale 0.05 --dev-dungeon-start eggs --dev-cocoon-solo > server_l.log 2>&1 &
+          LAIR=$!
+          sleep 8
+          ./target/release/realm_netcheck --lair eggs --server 127.0.0.1:7781 --characters build/laircheck
+          kill $LAIR || true
+          sleep 2
+          ./target/release/realm_server serve --map dng_spider_lair --bind 127.0.0.1:7782 --coord 127.0.0.1:7900 --characters build/laircheck --dev-dungeon-scale 0.05 --dev-dungeon-start queen --dev-cocoon-solo > server_l2.log 2>&1 &
+          sleep 6
+          ./target/release/realm_netcheck --lair queen --server 127.0.0.1:7781 --characters build/laircheck
+          kill %1 %2 %4 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

@@ -454,6 +454,9 @@ pub struct Sim {
     /// Development: a run starts at this step (those before it done, their
     /// gates open, nothing of theirs spawned).
     pub dev_dungeon_start: Option<String>,
+    /// Development: the Web Mother's cocoon wraps a player even alone (it
+    /// needs two otherwise).
+    pub dev_cocoon_solo: bool,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -632,6 +635,7 @@ impl Sim {
             dev_dungeon_scale: 1.0,
             dev_dungeon_affixes: None,
             dev_dungeon_start: None,
+            dev_cocoon_solo: false,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),

@@ -87,6 +87,10 @@ pub(super) struct RunMob {
     /// A boss: when its current fight began (its legendary rage counts
     /// from the pull, again after every reset).
     pub pulled_at: Option<u32>,
+    /// An egg sac: when it hatches and into what (mob, role).
+    pub hatch: Option<(u32, Vec<(String, String)>)>,
+    /// Marks the run gave it (curse_bleed: its blows bleed).
+    pub marks: Vec<String>,
 }
 
 /// A curse's mark on a run's floor.
@@ -142,6 +146,11 @@ pub(super) struct Run {
     pub chime: Option<Chime>,
     /// Per dungeon hazard (the breath): when it next blows.
     pub breath_next: Vec<u32>,
+    /// The Web Mother's cocoons: (wrapped player, cocoon, deadline, health
+    /// share lost if it is not broken in time).
+    pub cocoons: Vec<(Entity, Entity, u32, f32)>,
+    /// When a step last spoke (its line stands a while before any nag).
+    pub said_at: u32,
 }
 
 /// The sleep chime by a sleeping guardian (Threehead).
@@ -177,6 +186,10 @@ pub(super) struct Launch {
     pub keys: u32,
     pub since: u32,
 }
+
+/// An egg sac due to hatch: (its index in the run, the sac, where, what
+/// hatches (mob, role), its step).
+type Hatching = (usize, Entity, Vec3, Vec<(String, String)>, usize);
 
 impl Sim {
     // ------------------------------------------------------------ helpers
@@ -396,6 +409,8 @@ impl Sim {
             storm_next: 0,
             chime: None,
             breath_next: vec![0; def.hazards.len()],
+            cocoons: Vec::new(),
+            said_at: 0,
         });
         println!(
             "[dungeon] copy {copy} of {} opened: {} at {} for {party} (level {})",
@@ -544,10 +559,12 @@ impl Sim {
     }
 
     fn say(&mut self, i: usize, message: &str) {
+        let tick = self.tick;
         if let Some(r) = self.runs[i].as_mut()
             && !message.is_empty()
         {
             r.message = message.to_owned();
+            r.said_at = tick;
         }
     }
 
@@ -690,6 +707,7 @@ impl Sim {
         self.credit_forces(i);
         self.curse_tick(i);
         self.chime_tick(i);
+        self.lair_tick(i);
         self.breath_tick(i, &def);
         self.wipe_lock(i, &def);
         // The chain: steps in order, the first unmet one waits.
@@ -703,8 +721,11 @@ impl Sim {
                 continue;
             }
             if !self.trigger_met(i, &def, s) {
+                // The last step nags, once the line before it has stood
+                // a while.
                 if matches!(step.on, Trigger::ClearedAll)
                     && let Some(r) = self.runs[i].as_mut()
+                    && tick >= r.said_at + 10 * SIM_HZ
                 {
                     r.message =
                         "Creatures still stand - clear them all to finish the run.".to_owned();
@@ -829,9 +850,173 @@ impl Sim {
         for g in &step.close {
             self.set_gate(i, g, false);
         }
+        // The Web Mother's floor: venom pools, webs.
+        for pool in &step.pools {
+            self.lay_pool(i, pool);
+        }
+        if let Some(c) = &step.cocoon {
+            self.wrap_in_cocoon(i, s, c);
+        }
         self.say(i, &step.message);
         if step.complete {
             self.finish(i, def, false, step.chest.as_ref().map(|c| c.1));
+        }
+    }
+
+    /// A pool on the run's floor: venom that bites each second, or a web
+    /// (no bite) that slows.
+    fn lay_pool(&mut self, i: usize, pool: &realm_rules::dungeons::Pool) {
+        let tick = self.tick;
+        let Some(copy) = self.runs[i].as_ref().map(|r| r.copy) else {
+            return;
+        };
+        let at = self.settle(v3(pool.at) + offset_of(copy));
+        let share = if pool.kind == "web" {
+            0.0
+        } else {
+            pool.hp_share_s
+        };
+        let until = tick + (pool.duration_s * SIM_HZ as f32) as u32;
+        self.add_hazard(i, "pool", at, pool.radius, 0, until, share);
+    }
+
+    /// The Web Mother spins a living player into a cocoon: held fast until
+    /// the cocoon breaks, the share of its health lost if it holds out.
+    /// Only with two or more standing (one alone could never get free).
+    fn wrap_in_cocoon(&mut self, i: usize, s: usize, c: &realm_rules::dungeons::Cocoon) {
+        let tick = self.tick;
+        let Some(copy) = self.runs[i].as_ref().map(|r| r.copy) else {
+            return;
+        };
+        let living: Vec<Entity> = self
+            .in_copy(copy)
+            .into_iter()
+            .map(|(e, _)| e)
+            .filter(|e| {
+                self.world
+                    .get::<Player>(*e)
+                    .is_some_and(|p| p.dead_until == 0)
+            })
+            .collect();
+        if living.len() < 2 && !(self.dev_cocoon_solo && !living.is_empty()) {
+            return;
+        }
+        let victim = living[(xorshift(&mut self.dice_state) as usize) % living.len()];
+        let Some(at) = self.world.get::<Player>(victim).map(|p| p.body.pos) else {
+            return;
+        };
+        let hold = (c.hold_s * SIM_HZ as f32) as u32;
+        // The cocoon: a still thing to break, part of the step.
+        let entry = SpawnEntry {
+            mob: c.mob.clone(),
+            role: "hatchling".to_owned(),
+            at: {
+                let local = at - offset_of(copy);
+                [local.x, local.y, local.z]
+            },
+            ..SpawnEntry::default()
+        };
+        let before = self.runs[i].as_ref().map_or(0, |r| r.mobs.len());
+        self.spawn_step(i, s, std::slice::from_ref(&entry));
+        let Some(cocoon) = self.runs[i]
+            .as_ref()
+            .and_then(|r| r.mobs.get(before))
+            .map(|m| m.entity)
+        else {
+            return;
+        };
+        if let Some(mut p) = self.world.get_mut::<Player>(victim) {
+            let now = p.last_input_tick + 1;
+            p.restraint.lock(now, now + hold);
+            p.afflictions.stun_until = p.afflictions.stun_until.max(tick + hold);
+        }
+        if let Some(r) = self.runs[i].as_mut() {
+            r.cocoons.push((victim, cocoon, tick + hold, c.hp_share));
+        }
+    }
+
+    /// Egg sacs that stood their time hatch; cocoons broken let their
+    /// prisoner go, those that held out take their share.
+    fn lair_tick(&mut self, i: usize) {
+        let tick = self.tick;
+        // Hatching.
+        let due: Vec<Hatching> = self.runs[i]
+            .as_ref()
+            .map(|r| {
+                r.mobs
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(k, m)| {
+                        let (at, into) = m.hatch.as_ref()?;
+                        if tick < *at {
+                            return None;
+                        }
+                        let x = self.world.get::<Mob>(m.entity)?;
+                        (x.mode != MobMode::Dead)
+                            .then(|| (k, m.entity, x.pos, into.clone(), m.step))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        for (k, sac, pos, into, step) in due {
+            if let Some(r) = self.runs[i].as_mut() {
+                r.mobs[k].hatch = None;
+            }
+            self.mob_died(sac, None);
+            let copy = self.runs[i].as_ref().map_or(0, |r| r.copy);
+            let local = pos - offset_of(copy);
+            let n = into.len().max(1) as f32;
+            let entries: Vec<SpawnEntry> = into
+                .iter()
+                .enumerate()
+                .map(|(j, (mob, role))| {
+                    let a = core::f32::consts::TAU * j as f32 / n;
+                    SpawnEntry {
+                        mob: mob.clone(),
+                        role: role.clone(),
+                        at: [
+                            local.x + libm::cosf(a) * 0.75,
+                            local.y,
+                            local.z + libm::sinf(a) * 0.75,
+                        ],
+                        ..SpawnEntry::default()
+                    }
+                })
+                .collect();
+            self.spawn_step(i, step, &entries);
+            self.say(i, "An egg sac splits open!");
+        }
+        // Cocoons.
+        let cocoons = self.runs[i]
+            .as_ref()
+            .map(|r| r.cocoons.clone())
+            .unwrap_or_default();
+        let mut keep = Vec::new();
+        for (victim, cocoon, until, share) in cocoons {
+            let broken = self
+                .world
+                .get::<Mob>(cocoon)
+                .is_none_or(|m| m.mode == MobMode::Dead);
+            if broken {
+                if let Some(mut p) = self.world.get_mut::<Player>(victim) {
+                    let now = p.last_input_tick + 1;
+                    if p.restraint.lock_until > now {
+                        p.restraint.lock_until = now.max(p.restraint.lock_from);
+                    }
+                    p.afflictions.stun_until = tick;
+                }
+                continue;
+            }
+            if tick >= until {
+                let max = self.world.get::<Player>(victim).map_or(0.0, |p| p.max_hp);
+                self.wound_player(victim, victim, max * share, 0.0, false, u8::MAX);
+                self.mob_died(cocoon, None);
+                continue;
+            }
+            keep.push((victim, cocoon, until, share));
+        }
+        if let Some(r) = self.runs[i].as_mut() {
+            r.cocoons = keep;
         }
     }
 
@@ -954,6 +1139,13 @@ impl Sim {
                         stacks: 0,
                         raged: false,
                         pulled_at: None,
+                        hatch: e.hatch.as_ref().map(|h| {
+                            (
+                                self.tick + (h.after_s * SIM_HZ as f32) as u32,
+                                h.into.clone(),
+                            )
+                        }),
+                        marks: e.marks.get(&difficulty).cloned().unwrap_or_default(),
                     });
                 }
             }
@@ -963,6 +1155,10 @@ impl Sim {
     /// The pack a step's creatures belong to (reused from a closed copy
     /// when one is free).
     fn run_pack(&mut self, i: usize, s: usize, entries: &[SpawnEntry]) -> usize {
+        // A step keeps one pack (eggs that hatch, a cocoon join it).
+        if let Some(p) = self.runs[i].as_ref().and_then(|r| r.step_pack[s]) {
+            return p;
+        }
         let rules = self.rules();
         let copy = self.runs[i].as_ref().map_or(0, |r| r.copy);
         let boss_entry = entries
@@ -2097,11 +2293,18 @@ impl Sim {
         let Some(i) = self.run_index(self.copy_of(pos)) else {
             return;
         };
-        if !elite
-            || !self.runs[i]
+        // Elites under the bleeding curse, and creatures the run marked
+        // (the Web Mother on Legendary).
+        let marked = self.runs[i].as_ref().is_some_and(|r| {
+            r.mobs
+                .iter()
+                .any(|m| m.entity == mob && m.marks.iter().any(|x| x == "curse_bleed"))
+        });
+        let cursed = elite
+            && self.runs[i]
                 .as_ref()
-                .is_some_and(|r| r.affixes.iter().any(|a| a == "bleed"))
-        {
+                .is_some_and(|r| r.affixes.iter().any(|a| a == "bleed"));
+        if !marked && !cursed {
             return;
         }
         let rules = self.rules();

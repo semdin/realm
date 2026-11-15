@@ -19,7 +19,8 @@
 //!       address, 0.0.0.0 read as 127.0.0.1). `--dev-dungeon-scale F`
 //!       (checks only) multiplies dungeon creatures' health and damage;
 //!       `--dev-dungeon-affixes a,b` gives every run those curses;
-//!       `--dev-dungeon-start <step>` starts every run at that step.
+//!       `--dev-dungeon-start <step>` starts every run at that step;
+//!       `--dev-cocoon-solo` lets the Web Mother's cocoon wrap a lone player.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -101,6 +102,8 @@ struct Options {
     dev_dungeon_affixes: Option<Vec<String>>,
     /// Development: a run starts at this step.
     dev_dungeon_start: Option<String>,
+    /// Development: the cocoon wraps a lone player too.
+    dev_cocoon_solo: bool,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -117,6 +120,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         dev_dungeon_scale: 1.0,
         dev_dungeon_affixes: None,
         dev_dungeon_start: None,
+        dev_cocoon_solo: false,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -138,6 +142,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--public" => o.public = Some(value()?),
             "--dev-dungeon-scale" => o.dev_dungeon_scale = value()?.parse()?,
             "--dev-dungeon-start" => o.dev_dungeon_start = Some(value()?),
+            "--dev-cocoon-solo" => o.dev_cocoon_solo = true,
             "--dev-dungeon-affixes" => {
                 o.dev_dungeon_affixes = Some(
                     value()?
@@ -214,6 +219,7 @@ fn serve(args: &[String]) -> AnyResult<()> {
     sim.dev_dungeon_scale = o.dev_dungeon_scale;
     sim.dev_dungeon_affixes = o.dev_dungeon_affixes.clone();
     sim.dev_dungeon_start = o.dev_dungeon_start.clone();
+    sim.dev_cocoon_solo = o.dev_cocoon_solo;
     if let Some(gates) = gates {
         println!(
             "[server] {} copies, {} gates",
