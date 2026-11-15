@@ -1,0 +1,11 @@
+# Nightly base backup at 05:00 UTC (08:00 in the realm's GMT+3, its quietest hour).
+[Unit]
+Description=Nightly Thousand Realms database base backup
+
+[Timer]
+OnCalendar=*-*-* 05:00:00 UTC
+Persistent=true
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

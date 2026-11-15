@@ -1,0 +1,38 @@
+#!/bin/sh
+# realm-restore <backup dir> <latest | YYYY-MM-DD HH:MM:SS+00> <new data dir>
+#
+# Builds a PostgreSQL data folder from the newest base backup taken before the
+# target (or the newest one for "latest") and the WAL archive, set to replay
+# up to the target and then open for writes. Start PostgreSQL on it as usual
+# (`postgres -D <new data dir>` or point the service at it); it replays,
+# promotes and serves. The data folder must not exist yet: nothing is
+# overwritten. Run as the postgres user.
+set -eu
+dir="$1"
+target="$2"
+data="$3"
+[ -e "$data" ] && { echo "realm-restore: $data already exists" >&2; exit 1; }
+if [ "$target" = latest ]; then
+    base="$(ls -1 "$dir/base" | grep -v '\.part$' | sort | tail -n 1)"
+else
+    # Base folders are named by when they finished (UTC); take the newest
+    # finished before the target.
+    want="$(date -u -d "$target" +%Y%m%dT%H%M%SZ)"
+    base="$(ls -1 "$dir/base" | grep -v '\.part$' | sort | awk -v w="$want" '$0 < w' | tail -n 1)"
+fi
+[ -n "$base" ] || { echo "realm-restore: no base backup in $dir/base fits $target" >&2; exit 1; }
+echo "realm-restore: base $base, target $target"
+mkdir -p "$data"
+chmod 700 "$data"
+tar -xzf "$dir/base/$base/base.tar.gz" -C "$data"
+tar -xzf "$dir/base/$base/pg_wal.tar.gz" -C "$data/pg_wal"
+{
+    echo "# realm-restore $(date -u +%FT%TZ): base $base"
+    echo "restore_command = 'cp \"$dir/wal/%f\" \"%p\"'"
+    if [ "$target" != latest ]; then
+        echo "recovery_target_time = '$target'"
+    fi
+    echo "recovery_target_action = 'promote'"
+} >> "$data/postgresql.auto.conf"
+touch "$data/recovery.signal"
+echo "realm-restore: $data is ready; start PostgreSQL on it"

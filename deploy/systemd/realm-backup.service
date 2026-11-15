@@ -1,0 +1,19 @@
+# One base backup of the realm's PostgreSQL and the old ones pruned
+# (deploy/backup/realm-backup). Started by realm-backup.timer.
+[Unit]
+Description=Thousand Realms database base backup
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+User=postgres
+EnvironmentFile=-/etc/realm/backup.env
+ExecStart=/opt/realm/bin/realm-backup
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/realm/backup

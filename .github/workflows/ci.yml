@@ -305,6 +305,12 @@ jobs:
           kill %1 %3 || true
           docker rm -f realm-pg
 
+      - name: Database backups and point-in-time restore
+        if: matrix.os == 'ubuntu-26.04'
+        # deploy/backup as installed: WAL archiving, a base backup, a restore
+        # to a moment and to the latest, pruning (Docker, ~20 s).
+        run: bash tools/ops/backup_check.sh
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

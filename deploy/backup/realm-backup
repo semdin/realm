@@ -1,0 +1,52 @@
+#!/bin/sh
+# realm-backup: one base backup of the realm's PostgreSQL, then the old ones
+# pruned. Run as the postgres user (the realm-backup.timer does, nightly).
+#
+#   REALM_BACKUP_DIR   base backups and the WAL archive   (/var/lib/realm/backup)
+#   REALM_BACKUP_KEEP  base backups kept                  (7)
+#   REALM_BACKUP_PG    pg_basebackup connection options   (local socket, user postgres)
+#   REALM_BACKUP_SYNC  optional command run last, with the backup folder as
+#                      its argument, to copy it off the host (e.g. an rclone
+#                      sync to object storage)
+#
+# A base backup is <dir>/base/<UTC time it finished>/{base.tar.gz,pg_wal.tar.gz,
+# backup_manifest,start_wal}; with the WAL archive beside it (<dir>/wal,
+# filled by realm-wal-archive) any moment since the oldest kept base can be
+# restored (realm-restore). WAL older than the oldest kept base is removed.
+set -eu
+dir="${REALM_BACKUP_DIR:-/var/lib/realm/backup}"
+keep="${REALM_BACKUP_KEEP:-7}"
+stamp="$(date -u +%Y%m%dT%H%M%SZ)"
+part="$dir/base/$stamp.part"
+mkdir -p "$dir/base" "$dir/wal"
+# shellcheck disable=SC2086
+pg_basebackup ${REALM_BACKUP_PG:-} -D "$part" -Ft -z -X stream --checkpoint=fast --label "realm $stamp"
+# The segment the backup starts in: WAL before it is not needed to restore it.
+tar -xzOf "$part/base.tar.gz" backup_label \
+    | sed -n 's/^START WAL LOCATION: .*(file \([0-9A-F]*\)).*/\1/p' > "$part/start_wal"
+[ -s "$part/start_wal" ] || { echo "realm-backup: no start WAL in backup_label" >&2; exit 1; }
+# Named by when it finished: a restore target after that name can use it.
+base="$dir/base/$(date -u +%Y%m%dT%H%M%SZ)"
+mv "$part" "$base"
+echo "realm-backup: $base ($(du -sh "$base" | cut -f1))"
+
+# Keep the newest $keep; the WAL archive keeps what the oldest of them needs.
+ls -1 "$dir/base" | grep -v '\.part$' | sort | head -n "-$keep" | while read -r old; do
+    rm -rf "${dir:?}/base/$old"
+    echo "realm-backup: removed $old"
+done
+rm -rf "$dir"/base/*.part
+oldest="$(ls -1 "$dir/base" | sort | head -n 1)"
+if [ -n "$oldest" ]; then
+    start="$(cat "$dir/base/$oldest/start_wal")"
+    pg_archivecleanup "$dir/wal" "$start"
+    # pg_archivecleanup leaves the older backups' label files (<segment>.<offset>.backup).
+    for label in "$dir"/wal/*.backup; do
+        [ -e "$label" ] || continue
+        seg="$(basename "$label" | cut -d. -f1)"
+        [ "$seg" \< "$start" ] && rm -f "$label"
+    done
+fi
+if [ -n "${REALM_BACKUP_SYNC:-}" ]; then
+    $REALM_BACKUP_SYNC "$dir"
+fi

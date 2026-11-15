@@ -1,0 +1,20 @@
+#!/bin/sh
+# PostgreSQL's archive_command: realm-wal-archive %p %f
+# Copies one finished WAL segment into the archive and answers 0 only once it
+# is there whole: copied under a temporary name, flushed, then renamed. A
+# segment already archived is never overwritten (PostgreSQL may retry one
+# after a crash; the same bytes are fine, different bytes are an error).
+set -eu
+src="$1"
+name="$2"
+dir="${REALM_WAL_ARCHIVE:-/var/lib/realm/backup/wal}"
+dest="$dir/$name"
+if [ -f "$dest" ]; then
+    cmp -s "$src" "$dest" && exit 0
+    echo "realm-wal-archive: $name is already archived with other contents" >&2
+    exit 1
+fi
+mkdir -p "$dir"
+cp "$src" "$dest.part"
+sync "$dest.part" 2>/dev/null || sync
+mv "$dest.part" "$dest"
