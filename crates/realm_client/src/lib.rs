@@ -2060,6 +2060,10 @@ impl RealmSession {
             out.set("tick", &i64::from(core.tick()).to_variant());
             out.set("hp", &i64::from(core.own_hp()).to_variant());
         }
+        // The connection's round trip (ms; 0 until known): the ping readout.
+        if let Some(net) = self.net.as_ref() {
+            out.set("rtt_ms", &i64::from(net.rtt_ms()).to_variant());
+        }
         out
     }
 

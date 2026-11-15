@@ -37,6 +37,8 @@ pub struct NetHandle {
     runtime: tokio::runtime::Runtime,
     /// `Closed` was handed out.
     ended: std::sync::atomic::AtomicBool,
+    /// The connection's smoothed round trip in ms (0 until known).
+    rtt_ms: Arc<std::sync::atomic::AtomicU32>,
 }
 
 /// How long dropping the handle waits for the server to hear the goodbye.
@@ -79,6 +81,8 @@ impl NetHandle {
         let (shutdown, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
         let (done_tx, done) = tokio::sync::oneshot::channel::<()>();
         let name = name.to_owned();
+        let rtt_ms = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let rtt_out = rtt_ms.clone();
         runtime.spawn(async move {
             let run = async {
                 let mut endpoint =
@@ -145,8 +149,13 @@ impl NetHandle {
                         }
                     }
                 });
+                let mut every = tokio::time::interval(Duration::from_millis(500));
                 loop {
                     tokio::select! {
+                        _ = every.tick() => {
+                            let ms = connection.rtt().as_millis().min(u128::from(u32::MAX)) as u32;
+                            rtt_out.store(ms, std::sync::atomic::Ordering::Relaxed);
+                        }
                         _ = &mut shutdown_rx => {
                             // A clean goodbye: the server sees the player leave
                             // (and saves it) now, not after the idle timeout.
@@ -191,7 +200,14 @@ impl NetHandle {
             done: Some(done),
             runtime,
             ended: std::sync::atomic::AtomicBool::new(false),
+            rtt_ms,
         })
+    }
+
+    /// The connection's smoothed round trip in milliseconds (QUIC's own
+    /// estimate, from every acknowledged packet; 0 until known).
+    pub fn rtt_ms(&self) -> u32 {
+        self.rtt_ms.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// An unreliable datagram (an input packet).
