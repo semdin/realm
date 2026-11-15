@@ -122,6 +122,17 @@ extends Node3D
 ##                                                    standing, creature voices and the tension mix in a fight,
 ##                                                    the broom's wind by speed, a hearth trip's sound; the
 ##                                                    audio layer's frame cost
+##   [--check-hud2]                                   the HUD parity pieces (Hud2Check; build/logs/aup_hud2.sh,
+##                                                    --character 901101 --capture-dir build/captures/hud2): the
+##                                                    low-health edge and the pointers, every taskbar window
+##                                                    button, the character window's Status and Properties, the
+##                                                    bestiary (B), Ward Shield on the effects bar, a "[World]"
+##                                                    news line, the protected-ground cue in and out, then the
+##                                                    Trial Hall run with the target ring, the "New title" toast
+##                                                    and "Run it again" into a new copy
+##   [--check-stairs]                                 the castle's moving staircases drawn, swinging and climbed
+##                                                    (StairsCheck; build/logs/aup_stairs.sh, --map
+##                                                    castle_interior --character 901201)
 ##   [--others-guest NAME]                          this client waits until it sees NAME, then changes its
 ##                                                    look and takes its wand off (the second client for
 ##                                                    --check-others)
@@ -163,7 +174,8 @@ extends Node3D
 ## over its speaker's head (SpeechBubble). An invitation shows its card, the
 ## party its frames. A right-click on another player within HudPlayerMenu.RANGE
 ## opens the player menu (invite, duel, group duel), a left-click puts it on
-## the target card with "Invite to Party"; both need the player's name, which
+## the target card with "Invite to Party" (a ring of light lies under the
+## target: TargetRing); both need the player's name, which
 ## the client learns from the server's answer when the player comes into view.
 ## In a duel (HudDuel) a standing foe is a target like a creature: Tab takes
 ## it, a left-click on it casts, and spells aim at it.
@@ -220,6 +232,8 @@ const SkillsCheckScript := "res://scripts/systems/skills_check.gd"
 const OthersCheckScript := "res://scripts/systems/others_check.gd"
 const MapCheckScript := "res://scripts/systems/map_check.gd"
 const AudioCheckScript := "res://scripts/systems/audio_check.gd"
+const Hud2CheckScript := "res://scripts/systems/hud2_check.gd"
+const StairsCheckScript := "res://scripts/systems/stairs_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -505,6 +519,20 @@ var check_strafe_until := 0.0
 var check_strafe_side := 1.0
 ## When the next "you are stunned" notice may show.
 var _held_notice_at := 0.0
+## The mark under the current target (TargetRing), the moving staircases
+## (StairView), the screen's edge at low health (LowHpVignette), the
+## protected-ground cue (SafeZoneCue) and the bestiary (B).
+var target_ring: TargetRing
+var stairs: StairView
+var vignette: LowHpVignette
+var safe_cue: SafeZoneCue
+var bestiary: HudBestiary
+## Titles shown as earned ("New title" toasts; the check reads them).
+var titles_toasted: Array = []
+## `--check-hud2` / `--check-stairs`: the HUD parity check and the staircase
+## check.
+var hud2_check: Node = null
+var stairs_check: Node = null
 
 func _arg(name: String, fallback: String) -> String:
 	var args := OS.get_cmdline_user_args()
@@ -515,6 +543,10 @@ func _ready() -> void:
 	# the player's settings first: the interface scale, fullscreen and the keys
 	# hold for the front door as for the world
 	GameSettings.instance().apply_all()
+	# the game's own pointers, the hand over every button
+	CursorKit.apply()
+	if not get_tree().node_added.is_connected(CursorKit.point_at_buttons):
+		get_tree().node_added.connect(CursorKit.point_at_buttons)
 	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
 	check_seconds = float(_arg("--check", "0"))
 	cam_distance = float(_arg("--cam-distance", str(cam_distance)))
@@ -561,6 +593,11 @@ func _ready() -> void:
 	_build_view()
 	if trip_map != "":
 		travel.begin_arrival()
+
+## The pointers go back to the system's while the renderer still holds them
+## (a scene rebuilt for a trip installs them again).
+func _exit_tree() -> void:
+	CursorKit.release()
 
 ## The dev join is for `--character`, `--server` and the checks that play a
 ## dev character; anything else starts at the login card.
@@ -660,6 +697,11 @@ func _build_view() -> void:
 	world_audio = WorldAudio.new()
 	world_audio.game = self
 	add_child(world_audio)
+	target_ring = TargetRing.new()
+	add_child(target_ring)
+	stairs = StairView.new()
+	stairs.session = session
+	add_child(stairs)
 	StatusFX.warm_assets()
 	readout = Label.new()
 	# bottom right over the taskbar: the minimap holds the top right corner
@@ -681,6 +723,13 @@ func _build_view() -> void:
 ## The interface: a full-screen root holding the HUD ("HUD", which the windows
 ## look for) and the inventory (I).
 func _build_ui() -> void:
+	# the low-health edge under every part of the interface
+	var edge := CanvasLayer.new()
+	edge.layer = 4
+	add_child(edge)
+	vignette = LowHpVignette.new()
+	vignette.session = session
+	edge.add_child(vignette)
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
@@ -709,7 +758,6 @@ func _build_ui() -> void:
 	skill_window = HudSkillWindow.new()
 	skill_window.setup(session, sheet_view, hud)
 	root.add_child(skill_window)
-	hud.skills_button.pressed.connect(skill_window.toggle)
 	if _arg("--open-character", "") != "":
 		character_window.open.call_deferred()
 	loot_window = load(LootScript).new()
@@ -742,11 +790,20 @@ func _build_ui() -> void:
 		audio_check.game = self
 		add_child(audio_check)
 	var user_args := OS.get_cmdline_user_args()
+	if user_args.has("--check-stairs"):
+		stairs_check = load(StairsCheckScript).new()
+		stairs_check.name = "StairsCheck"
+		stairs_check.game = self
+		add_child(stairs_check)
 	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss") \
-			or user_args.has("--check-lair"):
+			or user_args.has("--check-lair") or user_args.has("--check-hud2"):
 		var script := DungeonCheckScript
 		var check_name := "DungeonCheck"
-		if user_args.has("--check-lair"):
+		if user_args.has("--check-hud2"):
+			# the HUD parity check walks the dungeon check's road (and more)
+			script = Hud2CheckScript
+			check_name = "Hud2Check"
+		elif user_args.has("--check-lair"):
 			script = LairCheckScript
 			check_name = "LairCheck"
 		elif user_args.has("--check-boss"):
@@ -788,6 +845,14 @@ func _build_ui() -> void:
 	root.add_child(game_menu)
 	game_menu.settings_requested.connect(settings_window.open)
 	settings_window.language_apply_requested.connect(game_menu.leave_to_characters)
+	bestiary = HudBestiary.new()
+	bestiary.way = way
+	bestiary.map_name = map_name
+	root.add_child(bestiary)
+	safe_cue = SafeZoneCue.new()
+	safe_cue.game = self
+	root.add_child(safe_cue)
+	_connect_taskbar()
 	_add_menu_check()
 	_build_social_ui()
 	if user_args.has("--check-skills"):
@@ -802,6 +867,21 @@ func _build_ui() -> void:
 		others_check.game = self
 		others_check.guest_of = others_guest
 		add_child(others_check)
+
+## The taskbar's window buttons open what their keys open (the menu as
+## Escape's last step does), and the Quests button pulses with a quest
+## ready to hand in.
+func _connect_taskbar() -> void:
+	var buttons: Dictionary = hud.menu_buttons
+	(buttons["workshop"] as Button).pressed.connect(func(): workshop.toggle(sheet_view))
+	(buttons["quests"] as Button).pressed.connect(quest_log.toggle)
+	(buttons["character"] as Button).pressed.connect(character_window.toggle)
+	(buttons["skills"] as Button).pressed.connect(skill_window.toggle)
+	(buttons["map"] as Button).pressed.connect(way.world_map.toggle)
+	(buttons["bestiary"] as Button).pressed.connect(bestiary.toggle)
+	(buttons["dungeons"] as Button).pressed.connect(dungeon.guide_window.toggle)
+	(buttons["menu"] as Button).pressed.connect(func(): game_menu.close() if game_menu.visible else game_menu.open())
+	hud.quests_ready = func() -> bool: return quests.needs_attention()
 
 ## The social pieces the HUD holds: the party frames know this map and push
 ## the tracker down when they grow; the player menu measures from the
@@ -1103,6 +1183,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				workshop.toggle(sheet_view)
 			"world_map":
 				way.world_map.toggle()
+			"bestiary":
+				bestiary.toggle()
 			"dungeon_guide":
 				dungeon.guide_window.toggle()
 			"interact":
@@ -1123,6 +1205,8 @@ func _unhandled_input(event: InputEvent) -> void:
 		cam_yaw -= event.relative.x * 0.005 * turn
 		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004 * turn, -1.3, 0.4)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
+		# the rotate glyph while the right button turns the camera
+		CursorKit.set_rotating(event.pressed)
 		if event.pressed:
 			_right_pressed_at = event.position
 		elif built and event.position.distance_to(_right_pressed_at) < CLICK_SLOP and not click_npc(event.position):
@@ -1517,6 +1601,29 @@ func _follow_target() -> void:
 		_show_target_card(i)
 	hud.set_target_health((others["hp"] as PackedInt32Array)[i])
 
+## The ring under the target: a creature's sized to it (a boss wide, violet),
+## another player's pale blue; a boss's head or vine rings its boss's feet.
+func _follow_ring() -> void:
+	var id := target
+	if id == 0 or not drawn.has(id):
+		target_ring.follow(0, Vector3.ZERO, 0.0, TargetRing.GOLD)
+		return
+	if _player_index(id) >= 0:
+		target_ring.follow(id, drawn[id], 1.0, TargetRing.ALLY)
+		return
+	var feet: Vector3 = drawn[id]
+	var kind := _target_kind
+	var boss := kind >= 0 and kind & CreatureView.BOSS_BIT != 0
+	var species := CreatureView.species_for_kind(kind) if kind >= 0 else ""
+	if part_states.has(id):
+		var body := _part_body(id)
+		if drawn.has(body):
+			feet = drawn[body]
+		boss = true
+	elif bool((infos.get(id, {}) as Dictionary).get("boss", false)):
+		boss = true
+	target_ring.follow(id, feet, TargetRing.radius_for(species, boss), TargetRing.BOSS if boss else TargetRing.GOLD)
+
 ## The frame's combat events, taken once and handed to everything that shows
 ## them.
 func _show_combat() -> void:
@@ -1594,6 +1701,12 @@ func _take_creature_info() -> void:
 				others_check.on_player_info(info)
 			if id == int(session.own_entity()):
 				own_ga = ga
+				# a title earned since the last answer (not the first: those
+				# were held already)
+				if not own_info.is_empty():
+					for title: Variant in info.get("titles", []):
+						if not (own_info.get("titles", []) as Array).has(title):
+							_title_earned(String(title))
 				own_info = info
 				player.set_ga(ga)
 				hud.unit_frame.set_ga(ga)
@@ -1620,6 +1733,15 @@ func _take_creature_info() -> void:
 			var i := _creature_index(id)
 			if i >= 0:
 				_show_target_card(i)
+
+## A new title (a first clear, the week's record): the old game's gold line
+## rising over the player, and a toast that stays a while.
+func _title_earned(id: String) -> void:
+	var text := tr("New title: %s") % I18n.t(DungeonData.title_name(id))
+	titles_toasted.append(id)
+	FloatingText.spawn(self, player.global_position + Vector3(0, 2.6, 0), text, Color(1.0, 0.82, 0.4), 1.6)
+	feedback.toast(text, Color(1.0, 0.82, 0.4), "ui_quest")
+	AudioManager.play_levelup()
 
 ## The kill loop's messages: a kill's reward (the toasts, the level-up moment),
 ## a chest's cells and the answers to takes (the chest window), a death (the
@@ -1820,33 +1942,59 @@ func _show_notices() -> void:
 			hud.show_notice(soon, "update")
 			hud.chat.add_system_line(soon)
 			continue
-		var subject := String(notice["subject"])
-		var name := I18n.t(subject)
-		var text := ""
-		var band := "boss"
+		var said := notice_text(notice)
+		var text := String(said[0])
 		match kind:
-			"boss_soon":
-				text = tr("%s stirs at %s - %d seconds!") % [name, I18n.t(_boss_site(subject)["region"]), int(notice["value"])]
 			"boss_spawned":
-				var site := _boss_site(subject)
-				text = tr("%s has appeared at %s (Lv %d)!") % [name, I18n.t(site["region"]), int(notice["value"])]
 				AudioManager.play_stinger("stinger_boss")
 			"boss_slain":
-				text = tr("%s has fallen!") % name
 				AudioManager.play_stinger("stinger_victory")
 			"stone_wave":
-				var stone: StoneView = _stone_named(subject)
+				var stone: StoneView = _stone_named(String(notice["subject"]))
 				if stone != null:
 					stone.on_wave()
-				text = tr("%s: a wave of creatures answers its call! (Wave %d/%d)") % [name, int(notice["value"]), int(notice["of"])]
-				band = "stone"
-			"stone_shattered":
-				var actor := String(notice.get("actor", ""))
-				var by := actor if actor != "" else tr("A brave Wizard")
-				text = tr("The %s has been shattered by %s! Riches shower the realm!") % [name, by]
-				band = "stone"
-		if text != "":
-			hud.show_notice(text, band)
+		if text == "":
+			continue
+		hud.show_notice(text, String(said[1]))
+		# The realm's own news (a world boss anywhere, a Legendary gold) is
+		# also written in the chat, as the old game did.
+		if String(notice.get("place", "")) != "":
+			hud.chat.add_system_line(tr("[World] ") + text)
+			world_lines.append(text)
+
+## World news lines written in the chat (the check reads them).
+var world_lines: Array = []
+
+## A notice in the old game's words: [text, band]. The server sends the
+## numbers (seconds, level, wave), who felled it (`actor`) and, for the
+## realm's own news, the map it came from (`place`); where a world boss
+## rises comes from the content.
+func notice_text(notice: Dictionary) -> Array:
+	var kind := String(notice.get("kind", ""))
+	var subject := String(notice.get("subject", ""))
+	var name := I18n.t(subject)
+	var actor := String(notice.get("actor", ""))
+	match kind:
+		"boss_soon":
+			return [tr("%s stirs at %s - %d seconds!") % [name, I18n.t(_boss_site(subject)["region"]), int(notice.get("value", 0))],
+				"boss"]
+		"boss_spawned":
+			return [tr("%s has appeared at %s (Lv %d)!") % [name, I18n.t(_boss_site(subject)["region"]), int(notice.get("value", 0))],
+				"boss"]
+		"boss_slain":
+			if actor != "":
+				return [tr("%s has been slain by %s!") % [name, actor], "boss"]
+			return [tr("%s has fallen!") % name, "boss"]
+		"dungeon_legend":
+			# subject: the dungeon's name; actor: who ran it
+			return [tr("%s won Legendary gold in %s!") % [actor, name], "boss"]
+		"stone_wave":
+			return [tr("%s: a wave of creatures answers its call! (Wave %d/%d)") % [name, int(notice.get("value", 0)),
+				int(notice.get("of", 0))], "stone"]
+		"stone_shattered":
+			var by := actor if actor != "" else tr("A brave Wizard")
+			return [tr("The %s has been shattered by %s! Riches shower the realm!") % [name, by], "stone"]
+	return ["", ""]
 
 ## Where world boss `boss_name` rises: {region, level} from its pack
 ## (spawn_tables.json packs with world_boss, boss_overrides for the name,
@@ -2347,6 +2495,9 @@ func _process(delta: float) -> void:
 	elif dungeon_check != null:
 		forward = dungeon_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
+	elif stairs_check != null:
+		forward = stairs_check.walk_intent()
+		strafe = _check_sidestep(forward > 0.0)
 	elif map_check != null:
 		forward = map_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
@@ -2484,6 +2635,10 @@ func _process(delta: float) -> void:
 	_update_boss_parts()
 	_follow_target()
 	plates.focus_id = target
+	_follow_ring()
+	if CursorKit.is_rotating() and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		# released over a window, where the world never heard it
+		CursorKit.set_rotating(false)
 	if check_seconds > 0.0 and not check_quests:
 		_check_kill_loop()
 		if not feedback.is_dead():

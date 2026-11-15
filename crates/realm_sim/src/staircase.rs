@@ -340,8 +340,10 @@ impl Staircase {
         )
     }
 
-    /// Every collider of this flight that is solid at `tick`, with its shape.
-    fn solid_at(&self, tick: f64, out: &mut Vec<(Pose, SharedShape)>) {
+    /// Every collider of this flight that is solid at `tick`, with its shape
+    /// (cuboids): the deck, its two railings, then the gates that are shut.
+    /// The client draws them from this, at its own fractional tick.
+    pub fn solid_at(&self, tick: f64, out: &mut Vec<(Pose, SharedShape)>) {
         let s = self.state_at(tick);
         let deck = self.to_map(self.deck_local(tick));
         let mut shape = self.shapes.iter();

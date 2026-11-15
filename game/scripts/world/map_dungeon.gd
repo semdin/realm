@@ -14,7 +14,8 @@ class_name MapDungeon
 ##     step message shows on the notice band, the curses' marks burn on the
 ##     floor (DungeonHazards, from the "hazard" events and the run views),
 ##     and the result window (HudDungeonResult) opens at the end with the
-##     "rewards" that follow. A run with a sleep chime (the Sealed Wing's, by
+##     "rewards" that follow; its "Run it again" asks for another run from
+##     the finished copy (the ready check and the launch as at the gate). A run with a sleep chime (the Sealed Wing's, by
 ##     Threehead) shows it from the run view's `chime` (SleepChime).
 ##   * The guide (K, anywhere: HudDungeonGuide): the player's records and
 ##     this week's boards, the server's "guide" answer.
@@ -86,13 +87,17 @@ func on_event(event: Dictionary) -> void:
 	events[what] = int(events.get(what, 0)) + 1
 	var view: Dictionary = event.get("view", event)
 	match what:
-		"info", "refused":
+		"info":
 			gate_window.on_event(event)
+		"refused":
+			gate_window.on_event(event)
+			result_window.on_event(event)
 		"ready":
 			gate_window.on_event(event)
 			game.hud.invites.on_dungeon_ready(view)
 		"cancelled":
 			gate_window.on_event(event)
+			result_window.on_event(event)
 			game.hud.invites.clear_dungeon()
 		"launch":
 			gate_window.on_event(event)

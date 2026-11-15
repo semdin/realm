@@ -299,10 +299,23 @@ func toast(text: String, color: Color, icon_id: String = "ui_pickup") -> void:
 	_toasts.append({"label": label, "row": row, "until": _now() + TOAST_SECONDS})
 	var canvas := get_viewport().get_visible_rect().size
 	var capacity := 2 if canvas.x < 1000 or canvas.y < 560 else TOASTS_MAX
-	while _toasts.size() > capacity:
+	# As many as the card holds: the newest at the bottom must not hang out
+	# of it (six rows of this font are taller than the card).
+	while _toasts.size() > capacity or (_toasts.size() > 1 and _rows_height() > TOAST_H - 12.0):
 		var oldest: Dictionary = _toasts.pop_front()
 		if is_instance_valid(oldest["row"]):
+			_toast_box.remove_child(oldest["row"])
 			(oldest["row"] as Node).queue_free()
+
+## The toast rows' height together, as the box lays them out.
+func _rows_height() -> float:
+	var total := 0.0
+	var rows := 0
+	for entry: Dictionary in _toasts:
+		if is_instance_valid(entry["row"]):
+			total += (entry["row"] as Control).get_combined_minimum_size().y
+			rows += 1
+	return total + 2.0 * maxf(0.0, float(rows - 1))
 
 ## ------------------------------------------------------------------ process
 

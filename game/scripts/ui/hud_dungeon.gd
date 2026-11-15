@@ -462,6 +462,8 @@ static func reason_text(reason: String, who: String, value: int) -> String:
 			return I18n.t("Stand at the gate.")
 		"no_portal":
 			return I18n.t("Start the dungeon at its gate.")
+		"not_finished":
+			return I18n.t("Finish this run before starting another.")
 		"map_unavailable":
 			return I18n.t("The dungeon could not be prepared - try again in a moment.")
 	return I18n.t("The gate stays shut.")

@@ -315,6 +315,10 @@ struct RealmSession {
     next_op: u32,
     /// Way-finding's view of the loaded map (way.rs), built on first use.
     way: way::WayCache,
+    /// The map's moving staircases for drawing: the same pure function of
+    /// the tick the core collides with (a second copy, so drawing never
+    /// touches the prediction's).
+    stair_view: realm_sim::staircase::Staircases,
 }
 
 #[godot_api]
@@ -348,6 +352,7 @@ impl INode for RealmSession {
             item_results: Vec::new(),
             next_op: 1,
             way: way::WayCache::default(),
+            stair_view: realm_sim::staircase::Staircases::default(),
         }
     }
 
@@ -441,8 +446,10 @@ impl RealmSession {
                         pack.world_copies(&[offset])
                     };
                     let gates = pack.gates(&[offset]);
+                    let stair_view = realm_data::staircases(content, pack).unwrap_or_default();
                     match (world, realm_data::staircases(content, pack), gates) {
                         (Ok(world), Ok(stairs), Ok(gates)) => {
+                            self.stair_view = stair_view;
                             let mut core = ClientCore::new(world, stairs, entity, tick);
                             if copy != 0 {
                                 core.set_gates(gates);
@@ -2106,6 +2113,50 @@ impl RealmSession {
             return None;
         }
         Some(mesh(vertices, indices))
+    }
+
+    /// The moving staircases' solid boxes as they stand now, drawn where the
+    /// player's own body is (the core's predicted tick less the part of a
+    /// tick not yet run): [{`kind` ("deck", "rail", "gate"), `flight` (its
+    /// index), `transform` (centre and rotation), `size` (full extents)}].
+    /// The deck carries the body; the gates are the shut ones only.
+    #[func]
+    fn stair_parts(&self) -> VarArray {
+        let mut out = VarArray::new();
+        let Some(core) = self.core.as_ref() else {
+            return out;
+        };
+        let tick = f64::from(core.tick()) - 1.0 + f64::from(self.clock.alpha());
+        let mut boxes = Vec::new();
+        for (flight, stair) in self.stair_view.flights.iter().enumerate() {
+            boxes.clear();
+            stair.solid_at(tick, &mut boxes);
+            for (i, (pose, shape)) in boxes.iter().enumerate() {
+                let Some(cuboid) = shape.as_cuboid() else {
+                    continue;
+                };
+                let (t, r, h) = (pose.translation, pose.rotation, cuboid.half_extents);
+                let basis = Basis::from_quaternion(Quaternion::new(r.x, r.y, r.z, r.w));
+                let mut d = VarDictionary::new();
+                let kind = match i {
+                    0 => "deck",
+                    1 | 2 => "rail",
+                    _ => "gate",
+                };
+                d.set("kind", &GString::from(kind).to_variant());
+                d.set("flight", &(flight as i64).to_variant());
+                d.set(
+                    "transform",
+                    &Transform3D::new(basis, Vector3::new(t.x, t.y, t.z)).to_variant(),
+                );
+                d.set(
+                    "size",
+                    &Vector3::new(h.x * 2.0, h.y * 2.0, h.z * 2.0).to_variant(),
+                );
+                out.push(&d.to_variant());
+            }
+        }
+        out
     }
 
     /// Every static collider as one grey mesh (programmer art until the

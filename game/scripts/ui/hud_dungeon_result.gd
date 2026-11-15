@@ -7,11 +7,13 @@ class_name HudDungeonResult
 ## earned arrives as the server's "rewards" event.
 ##
 ## "Run it again" belongs to the party leader alone (disabled for everyone
-## else; the old game wrongly offered it to all). The server has no replay
-## from inside a finished copy yet, so the button stays hidden until it does
-## (REPLAY_WIRED).
+## else; the old game wrongly offered it to all): it asks the server for
+## another run of the same dungeon and difficulty from inside the finished
+## copy (RealmSession.dungeon_start with a gate of this dungeon), and the
+## party's ready check follows as at the gate (HudInvites); "launch" takes
+## everyone into a fresh copy. A refusal says why on the notice band (the
+## gate window's words) and lets the leader ask again.
 
-const REPLAY_WIRED := false
 const MEDALS := {
 	"gold": Color(0.92, 0.74, 0.30),
 	"silver": Color(0.76, 0.80, 0.86),
@@ -29,6 +31,11 @@ var _subtitle: Label
 var _facts: GridContainer
 var _earned: VBoxContainer
 var again_button: Button
+## The run shown: its dungeon and difficulty (protocol index), and the
+## replays asked for (the check reads them).
+var dungeon_id := ""
+var difficulty := 1
+var replays_sent := 0
 
 ## The notice band's text sits around y 96-130.
 const NOTICE_CLEARANCE := 150.0
@@ -69,6 +76,7 @@ func _ready() -> void:
 	again_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	again_button.custom_minimum_size = Vector2(0, 38)
 	again_button.visible = false
+	again_button.pressed.connect(replay)
 	row.add_child(again_button)
 	var done := HudKit.button(tr("Close"), 15)
 	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -82,6 +90,9 @@ func on_event(event: Dictionary) -> void:
 		"launch":
 			close()
 			rewards = {}
+		"refused", "cancelled":
+			# the leader may ask again (the notice band says why)
+			_judge_again()
 		"rewards":
 			rewards = event
 			_show_rewards()
@@ -110,7 +121,9 @@ func _leads() -> bool:
 ## Show the run's `view` (its `result` filled in).
 func show_result(view: Dictionary) -> void:
 	var result: Dictionary = view.get("result", {})
-	var difficulty := DungeonData.difficulty_id(int(view.get("difficulty", 1)))
+	dungeon_id = String(view.get("dungeon", ""))
+	difficulty = int(view.get("difficulty", 1))
+	var difficulty_key := DungeonData.difficulty_id(difficulty)
 	medal = String(DungeonData.RANK_MEDALS.get(int(result.get("rank", -1)), ""))
 	var timeout := bool(result.get("timeout", false))
 	set_title("Time Is Up" if timeout else "Dungeon Complete")
@@ -119,7 +132,7 @@ func show_result(view: Dictionary) -> void:
 	_medal.queue_redraw()
 	_medal_name.text = String(names.get(medal, names[""]))
 	_medal_name.add_theme_color_override("font_color", (MEDALS.get(medal, MEDALS[""]) as Color).lightened(0.2))
-	_subtitle.text = "%s - %s" % [DungeonData.display_name(String(view.get("dungeon", ""))), DungeonData.difficulty_name(difficulty)]
+	_subtitle.text = "%s - %s" % [DungeonData.display_name(dungeon_id), DungeonData.difficulty_name(difficulty_key)]
 	for child in _facts.get_children():
 		child.queue_free()
 	var medals := DungeonData.medals()
@@ -139,11 +152,38 @@ func show_result(view: Dictionary) -> void:
 		elif bool(view.get("broken", false)):
 			why = tr("The party's lives ran out.")
 		_fact("", why)
-	again_button.visible = REPLAY_WIRED
-	again_button.disabled = not _leads()
+	again_button.visible = portal() != ""
+	_judge_again()
 	_show_rewards()
 	open()
 	AudioManager.play_sound_at("ui_confirm" if medal != "" else "ui_open", Vector3.ZERO, null, true)
+
+## "Run it again" is the leader's.
+func _judge_again() -> void:
+	if again_button == null:
+		return
+	again_button.disabled = not _leads()
+	again_button.tooltip_text = "" if _leads() else tr("Only the party leader can start the dungeon.")
+
+## A gate of the shown dungeon (a door on an open map into its map), the one
+## the server starts the replay from; "" when there is none.
+func portal() -> String:
+	var map := String(DungeonData.dungeon(dungeon_id).get("map", ""))
+	var all: Variant = RealmContent.table("maps")
+	for p: Dictionary in ((all as Dictionary).get("portals", []) if all is Dictionary else []):
+		if map != "" and String(p.get("to_map", "")) == map and not TravelData.instanced(String(p.get("map_id", ""))):
+			return String(p.get("id", ""))
+	return ""
+
+## "Run it again": the same dungeon and difficulty once more.
+func replay() -> void:
+	var gate := portal()
+	if session == null or gate == "" or not _leads():
+		return
+	replays_sent += 1
+	again_button.disabled = true
+	session.dungeon_start(gate, difficulty)
+	AudioManager.play_sound_at("ui_confirm", Vector3.ZERO, null, true)
 
 ## What this player earned: experience, oril, the final chest's contents (it
 ## waits at the end of the dungeon), a difficulty newly opened, a title.

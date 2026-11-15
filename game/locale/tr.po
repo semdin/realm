@@ -5949,3 +5949,53 @@ msgstr "Buradan o kapıya giden bir yol yok."
 
 msgid "The footprints lead to the gate of %s."
 msgstr "Ayak izleri %s kapısına götürüyor."
+
+msgid "Weakened"
+msgstr "Zayıfladı"
+
+msgid "Your spells deal less damage."
+msgstr "Büyülerin daha az hasar verir."
+
+msgid "Kestrin - forge the wand higher"
+msgstr "Kestrin - asanı daha da güçlendir"
+
+msgid "Quests - every open quest and reward"
+msgstr "Görevler - tüm açık görevler ve ödüller"
+
+msgid "Character - stats and status points"
+msgstr "Karakter - değerler ve durum puanları"
+
+msgid "Skills - spend skill points on your spells"
+msgstr "Beceriler - beceri puanlarını büyülerine harca"
+
+msgid "Bestiary - where every creature lives"
+msgstr "Yaratıklar - her yaratığın yaşadığı yer"
+
+msgid "Dungeons - difficulties, records and the way to each gate"
+msgstr "Zindanlar - zorluklar, rekorlar ve her kapının yolu"
+
+msgid "Menu - settings, change character, quit"
+msgstr "Menü - ayarlar, karakter değiştir, çık"
+
+msgid "[%s] Bag - the potions you carry"
+msgstr "[%s] Çanta - taşıdığın iksirler"
+
+msgid "Force (Shockwave)"
+msgstr "Kuvvet (Şok Dalgası)"
+
+msgid "World boss"
+msgstr "Dünya patronu"
+
+msgid "%s  ·  Lv %d  ·  %s"
+msgstr "%s  ·  Sv %d  ·  %s"
+
+msgid "Finish this run before starting another."
+msgstr "Yenisine başlamadan önce bu koşuyu bitir."
+
+
+
+msgid "Leaving protected ground - combat is possible"
+msgstr "Korunan bölgeden çıkıyorsun - savaş mümkün"
+
+msgid "%s set this week's record in %s (%s): %s!"
+msgstr "%s, %s (%s) zindanında bu haftanın rekorunu kırdı: %s!"

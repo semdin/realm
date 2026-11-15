@@ -127,6 +127,8 @@ func mob_name(text: String) -> String:
 
 # i18n-begin
 const COMPOSED := [
+	# a dungeon's weekly record (the map server, to the whole realm)
+	"%s set this week's record in %s (%s): %s!",
 	# the realm coordinator (parties)
 	"%s declined your party invitation.",
 	"%s is not online.",

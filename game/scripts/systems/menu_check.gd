@@ -15,9 +15,9 @@ extends Node
 ##               the menu (capture)
 ##   settings    Settings: master volume 45 % (the Master bus follows),
 ##               interface scale 115 % (the window's content scale follows),
-##               the bag key rebound to B (the next key press, consumed);
+##               the bag key rebound to G (the next key press, consumed);
 ##               a capture of each tab
-##   reopen      Escape closes the settings, B opens the bag (and I does
+##   reopen      Escape closes the settings, G opens the bag (and I does
 ##               not), Escape closes it; Escape, Settings again: the sliders
 ##               and the key row still say so, user://settings.cfg and
 ##               user://audio_settings.json hold them, and a fresh read of the
@@ -39,7 +39,7 @@ const STEP_TIMEOUT := 30.0
 const MASTER := 0.45
 const SCALE := 1.15
 const ACTION := "inventory"
-const NEW_KEY := KEY_B
+const NEW_KEY := KEY_G
 const FILES := ["user://settings.cfg", "user://audio_settings.json"]
 const WANTED := ["land", "server_had_player", "esc_closes_window", "esc_drops_target", "menu", "settings",
 	"master_volume", "ui_scale", "rebind", "tabs", "new_key_opens_bag", "kept_after_reopen", "file_saved",

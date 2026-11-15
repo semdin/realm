@@ -21,11 +21,30 @@ extends Control
 
 const NoticeScript := "res://scripts/view/notice_band.gd"
 
-## The taskbar: the bag and the skill book as full action-bar cells after the
-## quick slots, set off by a divider. While skill points are free the skill
-## book's cell pulses gold and carries their count (the old game's Skills
-## button).
+## The taskbar (the old game's): after the spells and the quick slots, the bag
+## as a full action-bar cell, then the window buttons as a block of small
+## cells (MICRO_COLUMNS x 2, as tall together as one slot), each set off by a
+## divider. A button that wants attention pulses gold: Character with status
+## points to spend, Skills with skill points (and their count), Quests with
+## a quest ready to hand in.
 const TRAY_DIVIDER := 14.0
+const MICRO_CELL := 24.0
+const MICRO_GAP := 2.0
+const MICRO_COLUMNS := 4
+## The window buttons in order: [id, icon, the GameSettings action whose key
+## it names (Escape for the menu), tooltip].
+# i18n-begin
+const MENU_BUTTONS := [
+	["workshop", "menu_kestrin", "workshop", "Kestrin - forge the wand higher"],
+	["quests", "menu_quests", "quest_log", "Quests - every open quest and reward"],
+	["character", "menu_character", "character", "Character - stats and status points"],
+	["skills", "menu_skills", "skills", "Skills - spend skill points on your spells"],
+	["map", "menu_map", "world_map", "World map"],
+	["bestiary", "menu_bestiary", "bestiary", "Bestiary - where every creature lives"],
+	["dungeons", "dungeon_seal", "dungeon_guide", "Dungeons - difficulties, records and the way to each gate"],
+	["menu", "menu_settings", "", "Menu - settings, change character, quit"],
+]
+# i18n-end
 const TARGET_CARD_H := 74.0
 ## The target card's name colour for an ordinary creature, and its health
 ## gauge's.
@@ -52,9 +71,16 @@ var mana_label: Label
 var exp_bar: ProgressBar
 var exp_label: Label
 var bag_button: Button
-## The skill window's cell on the taskbar (V); main.gd connects it.
+## The window buttons on the taskbar by id (MENU_BUTTONS); main.gd connects
+## them. `skills_button` is the skill window's (V).
+var menu_buttons: Dictionary = {}
 var skills_button: Button
 var _skill_badge: PointsBadge
+var _menu_grid: GridContainer
+## The timed effects under the unit frame (HudBuffBar).
+var buff_bar: HudBuffBar
+## Whether a quest is ready to hand in (main.gd sets it: QuestManager).
+var quests_ready: Callable
 var target_panel: Panel
 var target_name: Label
 var target_rank: Label
@@ -103,6 +129,9 @@ func setup(realm_session: Node, player_sheet: PlayerSheet, open_bag: Callable) -
 	unit_frame = HudUnitFrame.new()
 	add_child(unit_frame)
 	_build_gauges()
+	buff_bar = HudBuffBar.new()
+	buff_bar.session = session
+	add_child(buff_bar)
 	_build_tray(open_bag)
 	_build_target_card()
 	_build_social()
@@ -173,20 +202,40 @@ func _build_tray(open_bag: Callable) -> void:
 	bag_button = Button.new()
 	bag_button.name = "BagButton"
 	bag_button.focus_mode = Control.FOCUS_NONE
-	bag_button.tooltip_text = tr("[I] Bag - the potions you carry")
 	bag_button.pressed.connect(open_bag)
 	_style_menu_cell(bag_button, "menu_inventory", HudActionBar.SLOT)
 	add_child(bag_button)
-	skills_button = Button.new()
-	skills_button.name = "SkillsButton"
-	skills_button.focus_mode = Control.FOCUS_NONE
-	skills_button.tooltip_text = tr("[%s] Skills - spend skill points on your spells") % GameSettings.key_name("skills")
-	_style_menu_cell(skills_button, "menu_skills", HudActionBar.SLOT)
-	add_child(skills_button)
+	_menu_grid = GridContainer.new()
+	_menu_grid.name = "MenuButtons"
+	_menu_grid.columns = MICRO_COLUMNS
+	_menu_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_menu_grid.add_theme_constant_override("h_separation", int(MICRO_GAP))
+	_menu_grid.add_theme_constant_override("v_separation", int(MICRO_GAP))
+	add_child(_menu_grid)
+	for entry: Array in MENU_BUTTONS:
+		var button := Button.new()
+		button.name = String(entry[0]).capitalize().replace(" ", "") + "Button"
+		button.focus_mode = Control.FOCUS_NONE
+		_style_menu_cell(button, String(entry[1]), MICRO_CELL)
+		_menu_grid.add_child(button)
+		menu_buttons[String(entry[0])] = button
+	skills_button = menu_buttons["skills"]
 	_skill_badge = PointsBadge.new()
 	_skill_badge.name = "PointsBadge"
 	skills_button.add_child(_skill_badge)
 	_skill_badge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	refresh_menu_tips()
+	GameSettings.instance().changed.connect(_on_settings_changed)
+
+func _on_settings_changed(_what: String) -> void:
+	refresh_menu_tips()
+
+## Each window button's tooltip names its key as it is bound now.
+func refresh_menu_tips() -> void:
+	for entry: Array in MENU_BUTTONS:
+		var key := "Esc" if String(entry[2]) == "" else GameSettings.key_name(String(entry[2]))
+		(menu_buttons[String(entry[0])] as Button).tooltip_text = "[%s] %s" % [key, tr(String(entry[3]))]
+	bag_button.tooltip_text = tr("[%s] Bag - the potions you carry") % GameSettings.key_name("inventory")
 
 ## A taskbar button as an action-bar cell `px` wide: dark recess, a thin gold
 ## bevel that lights on hover, and the full-bleed icon inside it.
@@ -394,22 +443,33 @@ func _show_target_health(hp: int) -> void:
 var _points_wait := 0.0
 var _pulse := 0.0
 
+## What wants attention by button id, asked four times a second.
+var _wants: Dictionary = {}
+
 func _show_skill_points(delta: float) -> void:
 	_points_wait -= delta
 	if _points_wait <= 0.0:
 		_points_wait = 0.25
 		_skill_badge.points = int(session.skill_points())
-	var on := _skill_badge.points > 0
-	if not on and not bool(skills_button.get_meta("pulsing", true)):
-		return
-	skills_button.set_meta("pulsing", on)
+		var data: Dictionary = session.sheet()
+		_wants = {
+			"skills": _skill_badge.points > 0,
+			"character": int(data.get("attribute_points", 0)) > 0,
+			"quests": quests_ready.is_valid() and bool(quests_ready.call()),
+		}
 	_pulse += delta
 	var glow := 0.5 + 0.5 * sin(_pulse * 5.0)
-	skills_button.self_modulate = Color.WHITE.lerp(Color(1.6, 1.3, 0.55), glow * 0.6) if on else Color.WHITE
-	var sb := skills_button.get_theme_stylebox("normal") as StyleBoxFlat
-	if sb != null:
-		sb.border_color = Color(HudKit.GOLD_HI, 0.4 + 0.6 * glow) if on else HudKit.GOLD.darkened(0.15)
-		sb.set_border_width_all(2 if on else 1)
+	for id: String in _wants:
+		var button: Button = menu_buttons[id]
+		var on: bool = _wants[id]
+		if not on and not bool(button.get_meta("pulsing", true)):
+			continue
+		button.set_meta("pulsing", on)
+		button.self_modulate = Color.WHITE.lerp(Color(1.6, 1.3, 0.55), glow * 0.6) if on else Color.WHITE
+		var sb := button.get_theme_stylebox("normal") as StyleBoxFlat
+		if sb != null:
+			sb.border_color = Color(HudKit.GOLD_HI, 0.4 + 0.6 * glow) if on else HudKit.GOLD.darkened(0.15)
+			sb.set_border_width_all(2 if on else 1)
 
 func _process(delta: float) -> void:
 	if session == null:
@@ -467,18 +527,22 @@ func _layout() -> void:
 	exp_bar.offset_top = -14
 	exp_bar.offset_bottom = 0
 	exp_bar.custom_minimum_size = Vector2(0, 14)
+	# Buffs under the unit frame (the old game's place).
+	buff_bar.position = unit_frame.position + Vector2(HudUnitFrame.MEDALLION + 14, 112)
 	var slot := HudActionBar.SLOT
 	var bw := action_bar.bar_width()
-	var extra := TRAY_DIVIDER + slot * 2.0 + HudActionBar.GAP
+	var micro_w := MICRO_COLUMNS * MICRO_CELL + (MICRO_COLUMNS - 1) * MICRO_GAP
+	var micro_h := 2.0 * MICRO_CELL + MICRO_GAP
+	var extra := TRAY_DIVIDER + slot + TRAY_DIVIDER + micro_w
 	var bar_y := -14.0 - 12.0 - slot
 	var left := minf(-bw * 0.5, canvas.x * 0.5 - 14.0 - HudActionBar.PLATE_PAD - bw - extra)
 	_place(action_bar, Vector2(0.5, 1.0), Vector2(left, bar_y), Vector2(bw, slot))
 	action_bar.tray_extra = extra
-	action_bar.tray_dividers = [bw + TRAY_DIVIDER * 0.5]
+	action_bar.tray_dividers = [bw + TRAY_DIVIDER * 0.5, bw + TRAY_DIVIDER * 1.5 + slot]
 	action_bar.queue_redraw()
 	_place(bag_button, Vector2(0.5, 1.0), Vector2(left + bw + TRAY_DIVIDER, bar_y), Vector2(slot, slot))
-	_place(skills_button, Vector2(0.5, 1.0), Vector2(left + bw + TRAY_DIVIDER + slot + HudActionBar.GAP, bar_y),
-		Vector2(slot, slot))
+	_place(_menu_grid, Vector2(0.5, 1.0), Vector2(left + bw + TRAY_DIVIDER * 2.0 + slot, bar_y + (slot - micro_h) * 0.5),
+		Vector2(micro_w, micro_h))
 	# Chat, bottom-left; it stands on the taskbar when the two would meet.
 	var tray_top := 14.0 + 12.0 + slot + HudActionBar.PLATE_TOP
 	var tray_left := canvas.x * 0.5 + left - HudActionBar.PLATE_PAD
@@ -557,9 +621,11 @@ class PointsBadge extends Control:
 			return
 		var text := str(points)
 		var font := HudKit.bold()
-		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-		var r := 9.0
-		var box := Rect2(Vector2(size.x - maxf(r * 2.0, w + 8.0) + 4.0, -5.0), Vector2(maxf(r * 2.0, w + 8.0), r * 2.0))
+		# smaller on a small cell (the taskbar's window buttons)
+		var fs := 12 if size.x >= 40.0 else 10
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var r := 9.0 if size.x >= 40.0 else 7.0
+		var box := Rect2(Vector2(size.x - maxf(r * 2.0, w + 6.0) + 4.0, -5.0), Vector2(maxf(r * 2.0, w + 6.0), r * 2.0))
 		var sb := StyleBoxFlat.new()
 		sb.bg_color = Color(0.85, 0.62, 0.22)
 		sb.border_color = HudKit.GOLD_HI
@@ -568,5 +634,5 @@ class PointsBadge extends Control:
 		sb.shadow_color = Color(0, 0, 0, 0.6)
 		sb.shadow_size = 3
 		draw_style_box(sb, box)
-		draw_string(font, Vector2(box.position.x + (box.size.x - w) * 0.5, box.position.y + 13.5), text,
-			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.165, 0.102, 0.016))
+		draw_string(font, Vector2(box.position.x + (box.size.x - w) * 0.5, box.position.y + r + fs * 0.38), text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(0.165, 0.102, 0.016))
