@@ -28,6 +28,7 @@
 //!   POST /api/characters/create (Bearer) {name, house, look} -> {character: {id, name, house}}
 //!   POST /api/play              (Bearer) {character_id} -> {map, address, ticket (hex), expires_in_seconds}
 //!   GET  /api/health
+//!   GET  /api/status            -> {state: ONLINE|MAINTENANCE, maintenance, message} (the launcher)
 
 use std::collections::HashMap;
 use std::net::{IpAddr, SocketAddr};
@@ -660,10 +661,39 @@ async fn play(state: &Mutex<State>, account: u64, body: &Value) -> (u16, Value) 
     )
 }
 
+/// GET /api/status: what the launcher shows before play (its contract from
+/// the old service: `state` ONLINE or MAINTENANCE, `maintenance`, `message`).
+/// The realm is open while the coordinator takes logins; a coordinator in a
+/// maintenance cycle, or one that cannot be reached, is "maintenance" to a
+/// player - either way the realm is closed for now.
+async fn realm_status(state: &Mutex<State>) -> (u16, Value) {
+    let (admin, token) = {
+        let s = state.lock().await;
+        (s.coord_admin.clone(), s.service_token.clone())
+    };
+    let open = matches!(
+        realm_http::call(&admin, "GET", "/admin/maps", &[("x-service-token", &token)], &json!({})).await,
+        Ok((200, v)) if v["accepting"] == true
+    );
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    (
+        200,
+        json!({
+            "state": if open { "ONLINE" } else { "MAINTENANCE" },
+            "maintenance": !open,
+            "message": if open { "Diyar açık." } else { "Diyar şu an bakımda." },
+            "time": now,
+        }),
+    )
+}
+
 async fn route(state: &Mutex<State>, ip: IpAddr, req: Request) -> (u16, Value) {
     let path = req.path.as_str();
     match (req.method.as_str(), path) {
         ("GET", "/api/health") => (200, json!({"status": "ok", "service": "realm_login"})),
+        ("GET", "/api/status") => realm_status(state).await,
         ("POST", "/api/register") => {
             let persist = state.lock().await.persist.clone();
             match persist {
