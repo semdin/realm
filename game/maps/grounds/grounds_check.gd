@@ -20,6 +20,8 @@ extends Node
 ##   survey    the camera alone (the player stays) over the lake shore,
 ##             Orvell, the Trial gate and a hill: the art, and the pack's
 ##             shapes over it
+##   trees     the camera alone 10-18 m from one tree of every species (its
+##             LOD0): trunk on the ground, crown on the trunk; captured, timed
 ##   walk      a few metres down the lake walk (W held), the feet sampled on
 ##             the way and where it stops
 ##   memory    the process's working set, the video memory in use and the
@@ -31,6 +33,7 @@ extends Node
 ## every part passed; any part that cannot finish fails at once.
 
 const Layout := preload("res://maps/grounds/grounds_layout.gd")
+const Scatter := preload("res://maps/grounds/grounds_scatter.gd")
 const TIMEOUT := 85.0
 const JOIN_TIMEOUT := 25.0
 const FEET_TOLERANCE := 0.10
@@ -67,6 +70,21 @@ const SURVEY := [
 	# the caustics seen through it
 	["fountain_pool", "courtyard", Vector3(2.4, 3.0, 4.4), 0.9],
 ]
+## Tree close-ups: every species seen from TREE_NEAR..TREE_FAR metres (inside
+## LOD0 on every preset: the low preset's LOD0 ends at 0.6 x 36 m), the
+## instance nearest the spawn with a clear line of sight, captured and timed.
+const TREES := ["pine_a", "pine_b", "pine_c", "fir_a", "fir_b", "fir_c", "broadleaf_a", "broadleaf_b"]
+const TREE_NEAR := 10.0
+const TREE_FAR := 18.0
+## A view whose sight line passes this far (m) from every other trunk is
+## clear enough. Trunks are looked up by Terrain3D's 32 m cells.
+const TREE_CLEAR := 6.0
+const TREE_CELL := 32.0
+const TREE_BEHIND := 25.0
+## The camera stands this much (m) inside LOD0's drawn distance from the
+## cell's instances' bounds centre (Terrain3D's own cell bounds are larger:
+## 2 m inside still drew LOD1 on the low preset).
+const TREE_LOD_MARGIN := 8.0
 
 var game: Node
 var map: Node3D
@@ -137,6 +155,7 @@ func _run() -> void:
 		await _view(view)
 	await _overlay()
 	await _survey()
+	await _trees()
 	await _walk()
 	# the probe bodies are the check's own: gone before the last measure
 	if _probe_root != null:
@@ -441,6 +460,105 @@ func _survey() -> void:
 		_capture("survey_%s_pack" % spot[0])
 		shapes.queue_free()
 	_camera_at = null
+
+
+## The camera alone close to one tree of every species (TREES): the trunk on
+## the ground and the crown on it, the whole tree in frame; each captured
+## (tree_<variant>) and timed. Of the instances nearest the spawn and the
+## views where Terrain3D draws the tree's LOD0, the one whose sight line
+## passes farthest from every other trunk (TREE_CLEAR is enough).
+func _trees() -> void:
+	var spawn: Vector3 = game.session.own_position()
+	var cells: Dictionary = {}
+	var per: Dictionary = {}
+	for v: String in TREES:
+		var data := Scatter.instances(v)
+		per[v] = data
+		for k in data.size() / 5:
+			var f := Vector2(data[k * 5], data[k * 5 + 2])
+			var key := Vector2i((f / TREE_CELL).floor())
+			if not cells.has(key):
+				cells[key] = []
+			(cells[key] as Array).append(f)
+	var assets: Variant = (map.get("terrain") as Node).get("assets")
+	for v: String in TREES:
+		var data: PackedFloat32Array = per[v]
+		var bounds := (load("res://assets/terrain/vegetation/%s_lod0.res" % v) as Mesh).get_aabb()
+		var height := bounds.end.y
+		# Terrain3D draws a LOD by the distance to its cell multimesh's AABB
+		# centre (one multimesh per 32 m cell and variant), not to the tree
+		var lod0_end := 0.0
+		for i in assets.get_mesh_count():
+			var asset: Variant = assets.get_mesh_asset(i)
+			if asset != null and asset.name == v:
+				lod0_end = asset.get_lod_range(0)
+		var centres := {}
+		for k in data.size() / 5:
+			var key := Vector2i(floori(data[k * 5] / TREE_CELL), floori(data[k * 5 + 2] / TREE_CELL))
+			var box: AABB = Scatter.transform_of(data, k) * bounds
+			centres[key] = (centres[key] as AABB).merge(box) if centres.has(key) else box
+		var order: Array = []
+		for k in data.size() / 5:
+			order.append([Vector2(data[k * 5] - spawn.x, data[k * 5 + 2] - spawn.z).length(), k])
+		order.sort()
+		var shot: Array = []
+		var best := -1.0
+		for entry: Array in order.slice(0, 150):
+			var k: int = entry[1]
+			var foot := Vector3(data[k * 5], data[k * 5 + 1], data[k * 5 + 2])
+			var h := height * data[k * 5 + 4]
+			var reach := clampf(h * 0.85, TREE_NEAR, TREE_FAR)
+			var p := Vector2(foot.x, foot.z)
+			var near: Array = []
+			var c := Vector2i((p / TREE_CELL).floor())
+			for i in range(-2, 3):
+				for j in range(-2, 3):
+					near.append_array(cells.get(c + Vector2i(i, j), []))
+			var centre: Vector3 = (centres[Vector2i(floori(foot.x / TREE_CELL), floori(foot.z / TREE_CELL))] as AABB).get_center()
+			var toward := Vector2(spawn.x, spawn.z) - p
+			var base := toward.angle() if toward.length() > 1.0 else 0.0
+			for turn in 16:
+				var cam := p + Vector2.from_angle(base + turn * TAU / 16.0) * reach
+				var ground := Layout.ground(cam.x, cam.y)
+				var eye := Vector3(cam.x, maxf(ground.y, foot.y) + 1.7, cam.y)
+				if eye.distance_to(centre) > lod0_end - TREE_LOD_MARGIN:
+					continue
+				var clear := _clearance(near, p, cam)
+				if clear > best:
+					best = clear
+					var look := foot + Vector3.UP * h * 0.48
+					shot = [Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye), k, reach, h, clear,
+						eye.distance_to(centre), lod0_end]
+			if best >= TREE_CLEAR:
+				break
+		if shot.is_empty():
+			_failures.append("tree %s: no view inside its LOD0" % v)
+			continue
+		_camera_at = shot[0]
+		await _wait(1.5)
+		var timing := await _time_frames()
+		timing["instance"] = shot[1]
+		timing["metres"] = snappedf(float(shot[2]), 0.1)
+		timing["height"] = snappedf(float(shot[3]), 0.1)
+		timing["clear_m"] = snappedf(float(shot[4]), 0.1)
+		timing["cell_m"] = snappedf(float(shot[5]), 0.1)
+		timing["lod0_end"] = snappedf(float(shot[6]), 0.1)
+		_results["tree_" + v] = timing
+		_capture("tree_" + v)
+	_camera_at = null
+
+
+## How far the sight line from `cam` through the tree at `at` (and
+## TREE_BEHIND metres past it: a trunk behind would stand in for a missing
+## one) passes from the nearest other tree foot of `feet`.
+static func _clearance(feet: Array, at: Vector2, cam: Vector2) -> float:
+	var clear := INF
+	var past := at + (at - cam).normalized() * TREE_BEHIND
+	for f: Vector2 in feet:
+		if f.distance_squared_to(at) < 0.25:
+			continue
+		clear = minf(clear, f.distance_to(Geometry2D.get_closest_point_to_segment(f, cam, past)))
+	return clear
 
 
 ## The pack's colliders, translucent magenta, over the art.

@@ -11,7 +11,9 @@ extends SceneTree
 ##   ./build/lead_target/release/realm_worldc patch world/maps content/data
 ##
 ## The caverns' big stalagmite spires (the view's `spires`) are boxed here
-## from the stalag mesh, as `obstacle` boxes stacked inside the drawn rock.
+## from the stalag mesh, as `obstacle` boxes stacked inside the drawn rock;
+## a dungeon's stalagmites (the view's `stalagmites`, the Web Mother's lair)
+## the same way, as ordinary colliders.
 ##
 ## The grounds are not built: their solids are the Terrain3D instancer's
 ## trees and big rocks, read from the baked instances the view plants
@@ -63,6 +65,7 @@ const ROCK_CELLS := 40
 const ROCK_TOPS := [0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85]
 
 var _done := false
+var _raster: Dictionary = {}
 
 ## The views are built on the first frame, inside the tree (a skinned
 ## model's bounds follow its skeleton only there).
@@ -95,6 +98,9 @@ func _run() -> void:
 		var spires: Variant = view.get("spires")
 		if spires is Array and not spires.is_empty():
 			solids = solids + _spire_solids(spires)
+		var stalagmites: Variant = view.get("stalagmites")
+		if stalagmites is Array and not stalagmites.is_empty():
+			solids = solids + _stalagmite_solids(stalagmites)
 		print("map %s: %s" % [map, view.get("built_stats")])
 		var obstacles := 0
 		for s: Dictionary in solids:
@@ -142,10 +148,7 @@ func _write(path: String, text: String, count: int) -> bool:
 ## mesh placed) as obstacle boxes stacked by height band, each inside the
 ## drawn rock (DungeonView.raster_solids on the mesh's top surface).
 func _spire_solids(spires: Array) -> Array:
-	var scene: Node = (load(STALAG) as PackedScene).instantiate()
-	var mesh: Mesh = (scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh
-	scene.free()
-	var raster := DungeonView.top_raster(mesh, SPIRE_CELLS)
+	var raster := _stalag_raster()
 	var out: Array = []
 	for spire: Transform3D in spires:
 		for b: Dictionary in DungeonView.raster_solids(raster, spire, SPIRE_BANDS,
@@ -154,6 +157,26 @@ func _spire_solids(spires: Array) -> Array:
 			out.append(b)
 	print("  %d spires -> %d obstacle boxes" % [spires.size(), out.size()])
 	return out
+
+## A dungeon's stalagmites (the view's `stalagmites`: the same stalag mesh
+## placed) boxed the same way, as ordinary colliders: the dungeon director
+## places its creatures at fixed spots, none on a stalagmite.
+func _stalagmite_solids(stalagmites: Array) -> Array:
+	var raster := _stalag_raster()
+	var out: Array = []
+	for s: Dictionary in stalagmites:
+		out.append_array(DungeonView.raster_solids(raster, s["xform"], SPIRE_BANDS, String(s["note"])))
+	print("  %d stalagmites -> %d boxes" % [stalagmites.size(), out.size()])
+	return out
+
+## The stalag mesh's top surface (DungeonView.top_raster), measured once.
+func _stalag_raster() -> Dictionary:
+	if _raster.is_empty():
+		var scene: Node = (load(STALAG) as PackedScene).instantiate()
+		var mesh: Mesh = (scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh
+		scene.free()
+		_raster = DungeonView.top_raster(mesh, SPIRE_CELLS)
+	return _raster
 
 # ------------------------------------------------------------------ grounds
 
@@ -206,8 +229,9 @@ static func _box(note: String, center: Vector3, half: Vector3, yaw: float) -> Di
 		"yaw_deg": snappedf(rad_to_deg(yaw), 0.01), "obstacle": true}
 
 ## The tree's trunk as modelled: of its two near LODs the one whose trunk
-## surfaces hold the most triangles (some cooked LOD0s lost their trunk or
-## kept a few triangles of it, while LOD1 has it whole), and those surfaces.
+## surfaces hold the most triangles (the cook once collapsed some LOD0
+## trunks; they now carry LOD1's, so both measure the same), and those
+## surfaces.
 static func _trunk_mesh(variant: String) -> Array:
 	var best: Array = []
 	var most := 0

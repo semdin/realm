@@ -58,6 +58,11 @@ var built_stats: Dictionary = {}
 ## Drawn solids the old game gave no collider: [{note, center, half, yaw_deg}]
 ## in the map's own (pack) coordinates; tools write them as patches.
 var solids: Array = []
+## Baked stalagmites placed as solids: [{xform: the stalag mesh's placement
+## (pack coordinates), note}]. map_solids.gd boxes each inside its drawn rock
+## from the mesh (the caverns' spires' raster, DungeonView.raster_solids) as
+## ordinary colliders.
+var stalagmites: Array = []
 
 var _stone: Material
 var _floor_mat: Material
@@ -522,10 +527,6 @@ static func part_solids(xform: Transform3D, parts: Array, down: float, note: Str
 			"yaw_deg": snappedf(rad_to_deg(yaw), 0.01)})
 	return out
 
-## A baked stalagmite's bands: a broad foot, the flank at eye height, the
-## spire.
-const STALAG_LAYERS := [[0.0, 0.17, 0.82], [0.17, 0.42, 0.6], [0.42, 0.85, 0.38]]
-
 ## A mesh's top surface sampled on an n x n grid over its footprint (mesh
 ## space): each cell centre's highest point of the mesh (its triangles, and
 ## its vertices for cells no triangle lands on whole), then cells far under
@@ -651,17 +652,16 @@ static func raster_solids(raster: Dictionary, xform: Transform3D, bands: Array, 
 			"yaw_deg": snappedf(rad_to_deg(yaw), 0.01)})
 	return out
 
-## A static prop's solid as layered patch boxes (layered_solids) in this
-## view's (the pack's) coordinates.
-func _solid_layers(node: Node3D, layers: Array, note: String) -> void:
+## A placed baked stalagmite (a `_prop` of cavern_stalag) kept in
+## `stalagmites` for map_solids.gd to box from its mesh.
+func _stalagmite(node: Node3D, note: String) -> void:
 	if node == null:
 		return
 	var found := node.find_children("*", "MeshInstance3D", true, false)
 	if found.is_empty():
 		return
 	var mi := found[0] as MeshInstance3D
-	var xform := global_transform.affine_inverse() * mi.global_transform
-	solids.append_array(layered_solids(mi.mesh.get_aabb(), xform, layers, note))
+	stalagmites.append({"xform": global_transform.affine_inverse() * mi.global_transform, "note": note})
 
 ## A model's bounds in this view's space (axis aligned; the view is in the
 ## tree, so a skinned model's nodes give their real placement).

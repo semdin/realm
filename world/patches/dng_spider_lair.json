@@ -3,254 +3,338 @@
   "boxes": [
     {
       "center": [
-        -9.99,
-        1700.38,
-        -106.0
+        -10.13,
+        1700.24,
+        -105.99
       ],
       "half": [
-        1.99,
-        0.49,
-        1.81
+        1.18,
+        0.34,
+        1.38
       ],
-      "note": "stalagmite in the brood hall at (-10, -106) (band 0-17 %)",
+      "note": "stalagmite in the brood hall at (-10, -106) (band 0-12 %)",
       "yaw_deg": 64.58
     },
     {
       "center": [
-        -9.99,
-        1701.58,
-        -106.0
+        -10.14,
+        1701.1,
+        -106.11
       ],
       "half": [
-        1.45,
-        0.71,
-        1.33
+        0.88,
+        0.51,
+        0.52
       ],
-      "note": "stalagmite in the brood hall at (-10, -106) (band 17-42 %)",
+      "note": "stalagmite in the brood hall at (-10, -106) (band 12-30 %)",
       "yaw_deg": 64.58
     },
     {
       "center": [
-        -9.99,
-        1703.53,
-        -106.0
+        -10.12,
+        1702.18,
+        -105.5
       ],
       "half": [
-        0.92,
-        1.23,
-        0.84
+        0.4,
+        0.57,
+        0.37
       ],
-      "note": "stalagmite in the brood hall at (-10, -106) (band 42-85 %)",
+      "note": "stalagmite in the brood hall at (-10, -106) (band 30-50 %)",
       "yaw_deg": 64.58
     },
     {
       "center": [
-        9.99,
-        1700.38,
-        -134.0
+        -10.15,
+        1703.33,
+        -105.44
       ],
       "half": [
-        1.99,
-        0.49,
-        1.81
+        0.34,
+        0.57,
+        0.25
       ],
-      "note": "stalagmite in the brood hall at (10, -134) (band 0-17 %)",
+      "note": "stalagmite in the brood hall at (-10, -106) (band 50-70 %)",
+      "yaw_deg": 64.58
+    },
+    {
+      "center": [
+        10.12,
+        1700.24,
+        -134.05
+      ],
+      "half": [
+        1.18,
+        0.34,
+        1.38
+      ],
+      "note": "stalagmite in the brood hall at (10, -134) (band 0-12 %)",
       "yaw_deg": -97.13
     },
     {
       "center": [
-        9.99,
-        1701.58,
-        -134.0
+        10.17,
+        1701.1,
+        -133.94
       ],
       "half": [
-        1.45,
-        0.71,
-        1.33
+        0.88,
+        0.51,
+        0.52
       ],
-      "note": "stalagmite in the brood hall at (10, -134) (band 17-42 %)",
+      "note": "stalagmite in the brood hall at (10, -134) (band 12-30 %)",
       "yaw_deg": -97.13
     },
     {
       "center": [
-        9.99,
-        1703.53,
-        -134.0
+        9.96,
+        1702.18,
+        -134.51
       ],
       "half": [
-        0.92,
-        1.23,
-        0.84
+        0.4,
+        0.57,
+        0.37
       ],
-      "note": "stalagmite in the brood hall at (10, -134) (band 42-85 %)",
+      "note": "stalagmite in the brood hall at (10, -134) (band 30-50 %)",
       "yaw_deg": -97.13
     },
     {
       "center": [
-        -24.0,
-        1700.57,
-        -145.99
+        9.97,
+        1703.33,
+        -134.58
       ],
       "half": [
-        2.98,
-        0.73,
-        2.72
+        0.34,
+        0.57,
+        0.25
       ],
-      "note": "stalagmite at the nest's rim at (-24, -146) (band 0-17 %)",
+      "note": "stalagmite in the brood hall at (10, -134) (band 50-70 %)",
+      "yaw_deg": -97.13
+    },
+    {
+      "center": [
+        -24.13,
+        1700.36,
+        -146.15
+      ],
+      "half": [
+        1.77,
+        0.51,
+        2.07
+      ],
+      "note": "stalagmite at the nest's rim at (-24, -146) (band 0-12 %)",
       "yaw_deg": 10.18
     },
     {
       "center": [
-        -24.0,
-        1702.37,
-        -145.99
+        -23.99,
+        1701.64,
+        -146.27
       ],
       "half": [
-        2.18,
-        1.07,
-        1.99
+        1.31,
+        0.77,
+        0.78
       ],
-      "note": "stalagmite at the nest's rim at (-24, -146) (band 17-42 %)",
+      "note": "stalagmite at the nest's rim at (-24, -146) (band 12-30 %)",
       "yaw_deg": 10.18
     },
     {
       "center": [
-        -24.0,
-        1705.29,
-        -145.99
+        -24.72,
+        1703.27,
+        -145.72
       ],
       "half": [
-        1.38,
-        1.84,
-        1.26
+        0.61,
+        0.86,
+        0.55
       ],
-      "note": "stalagmite at the nest's rim at (-24, -146) (band 42-85 %)",
+      "note": "stalagmite at the nest's rim at (-24, -146) (band 30-50 %)",
       "yaw_deg": 10.18
     },
     {
       "center": [
-        23.99,
-        1700.57,
-        -148.01
+        -24.82,
+        1704.99,
+        -145.7
       ],
       "half": [
-        2.98,
-        0.73,
-        2.72
+        0.5,
+        0.86,
+        0.37
       ],
-      "note": "stalagmite at the nest's rim at (24, -148) (band 0-17 %)",
+      "note": "stalagmite at the nest's rim at (-24, -146) (band 50-70 %)",
+      "yaw_deg": 10.18
+    },
+    {
+      "center": [
+        24.15,
+        1700.36,
+        -147.87
+      ],
+      "half": [
+        1.77,
+        0.51,
+        2.07
+      ],
+      "note": "stalagmite at the nest's rim at (24, -148) (band 0-12 %)",
       "yaw_deg": -161.56
     },
     {
       "center": [
-        23.99,
-        1702.37,
-        -148.01
+        24.03,
+        1701.64,
+        -147.74
       ],
       "half": [
-        2.18,
-        1.07,
-        1.99
+        1.31,
+        0.77,
+        0.78
       ],
-      "note": "stalagmite at the nest's rim at (24, -148) (band 17-42 %)",
+      "note": "stalagmite at the nest's rim at (24, -148) (band 12-30 %)",
       "yaw_deg": -161.56
     },
     {
       "center": [
-        23.99,
-        1705.29,
-        -148.01
+        24.67,
+        1703.27,
+        -148.38
       ],
       "half": [
-        1.38,
-        1.84,
-        1.26
+        0.61,
+        0.86,
+        0.55
       ],
-      "note": "stalagmite at the nest's rim at (24, -148) (band 42-85 %)",
+      "note": "stalagmite at the nest's rim at (24, -148) (band 30-50 %)",
       "yaw_deg": -161.56
     },
     {
       "center": [
-        -25.01,
-        1700.57,
-        -206.0
+        24.76,
+        1704.99,
+        -148.42
       ],
       "half": [
-        2.98,
-        0.73,
-        2.72
+        0.5,
+        0.86,
+        0.37
       ],
-      "note": "stalagmite at the nest's rim at (-25, -206) (band 0-17 %)",
+      "note": "stalagmite at the nest's rim at (24, -148) (band 50-70 %)",
+      "yaw_deg": -161.56
+    },
+    {
+      "center": [
+        -24.82,
+        1700.36,
+        -206.08
+      ],
+      "half": [
+        1.77,
+        0.51,
+        2.07
+      ],
+      "note": "stalagmite at the nest's rim at (-25, -206) (band 0-12 %)",
       "yaw_deg": -97.46
     },
     {
       "center": [
-        -25.01,
-        1702.37,
-        -206.0
+        -24.75,
+        1701.64,
+        -205.91
       ],
       "half": [
-        2.18,
-        1.07,
-        1.99
+        1.31,
+        0.77,
+        0.78
       ],
-      "note": "stalagmite at the nest's rim at (-25, -206) (band 17-42 %)",
+      "note": "stalagmite at the nest's rim at (-25, -206) (band 12-30 %)",
       "yaw_deg": -97.46
     },
     {
       "center": [
-        -25.01,
-        1705.29,
-        -206.0
+        -25.05,
+        1703.27,
+        -206.77
       ],
       "half": [
-        1.38,
-        1.84,
-        1.26
+        0.61,
+        0.86,
+        0.55
       ],
-      "note": "stalagmite at the nest's rim at (-25, -206) (band 42-85 %)",
+      "note": "stalagmite at the nest's rim at (-25, -206) (band 30-50 %)",
       "yaw_deg": -97.46
     },
     {
       "center": [
-        25.0,
-        1700.57,
-        -203.99
+        -25.04,
+        1704.99,
+        -206.87
       ],
       "half": [
-        2.98,
-        0.73,
-        2.72
+        0.5,
+        0.86,
+        0.37
       ],
-      "note": "stalagmite at the nest's rim at (25, -204) (band 0-17 %)",
+      "note": "stalagmite at the nest's rim at (-25, -206) (band 50-70 %)",
+      "yaw_deg": -97.46
+    },
+    {
+      "center": [
+        24.92,
+        1700.36,
+        -204.18
+      ],
+      "half": [
+        1.77,
+        0.51,
+        2.07
+      ],
+      "note": "stalagmite at the nest's rim at (25, -204) (band 0-12 %)",
       "yaw_deg": -4.98
     },
     {
       "center": [
-        25.0,
-        1702.37,
-        -203.99
+        25.07,
+        1701.64,
+        -204.26
       ],
       "half": [
-        2.18,
-        1.07,
-        1.99
+        1.31,
+        0.77,
+        0.78
       ],
-      "note": "stalagmite at the nest's rim at (25, -204) (band 17-42 %)",
+      "note": "stalagmite at the nest's rim at (25, -204) (band 12-30 %)",
       "yaw_deg": -4.98
     },
     {
       "center": [
-        25.0,
-        1705.29,
-        -203.99
+        24.23,
+        1703.27,
+        -203.91
       ],
       "half": [
-        1.38,
-        1.84,
-        1.26
+        0.61,
+        0.86,
+        0.55
       ],
-      "note": "stalagmite at the nest's rim at (25, -204) (band 42-85 %)",
+      "note": "stalagmite at the nest's rim at (25, -204) (band 30-50 %)",
+      "yaw_deg": -4.98
+    },
+    {
+      "center": [
+        24.13,
+        1704.99,
+        -203.92
+      ],
+      "half": [
+        0.5,
+        0.86,
+        0.37
+      ],
+      "note": "stalagmite at the nest's rim at (25, -204) (band 50-70 %)",
       "yaw_deg": -4.98
     }
   ]

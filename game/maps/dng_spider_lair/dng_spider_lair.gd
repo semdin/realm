@@ -85,7 +85,7 @@ func _dress(f: float) -> void:
 		_torch(Vector3(17.3, f + 3.2, z), Color(0.8, 0.55, 1.0), 1.4, 13.0)
 	# The brood hall: stalagmites and bones.
 	for at in [Vector3(-10, 0, -106), Vector3(10, 0, -134)]:
-		_solid_layers(_prop(PROP % "stalag", Vector3(at.x, f, at.z), rng.randf_range(0, 360), 0.8), STALAG_LAYERS,
+		_stalagmite(_prop(PROP % "stalag", Vector3(at.x, f, at.z), rng.randf_range(0, 360), 0.8),
 			"stalagmite in the brood hall at (%.0f, %.0f)" % [at.x, at.z])
 	_prop(PROP % "bones", Vector3(8, f, -112), 60.0, 1.0)
 	for z in [-110.0, -130.0]:
@@ -97,7 +97,7 @@ func _dress(f: float) -> void:
 		var at := Vector3(cos(a) * 23.0, 0, -176.0 + sin(a) * 30.0)
 		_prop(PROP % ("eggs" if i % 2 == 0 else "cocoon"), Vector3(at.x, f, at.z), rng.randf_range(0, 360), rng.randf_range(0.7, 1.0))
 	for at in [Vector3(-24, 0, -146), Vector3(24, 0, -148), Vector3(-25, 0, -206), Vector3(25, 0, -204)]:
-		_solid_layers(_prop(PROP % "stalag", Vector3(at.x, f, at.z), rng.randf_range(0, 360), 1.2), STALAG_LAYERS,
+		_stalagmite(_prop(PROP % "stalag", Vector3(at.x, f, at.z), rng.randf_range(0, 360), 1.2),
 			"stalagmite at the nest's rim at (%.0f, %.0f)" % [at.x, at.z])
 	for z in [-150.0, -176.0, -202.0]:
 		_torch(Vector3(-27.3, f + 5.0, z), Color(0.8, 0.5, 1.0), 2.0, 16.0)
