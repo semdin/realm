@@ -8,7 +8,7 @@
 //! never an older stored copy.
 //!
 //! `FileStore` (one JSON file per character) serves development and tests;
-//! the persistence service of Phase 7 implements the same trait.
+//! `PersistStore` talks to the persistence service (realm_persist, PostgreSQL).
 
 use std::path::PathBuf;
 
@@ -105,6 +105,115 @@ impl CharacterStore for FlakyStore {
             ));
         }
         self.inner.save(sheet)
+    }
+}
+
+/// The persistence service (`realm_persist`): one TCP stream, opened on
+/// first use and again after any failure (a failed call is an error the
+/// caller already handles: a refused join, a save tried again).
+pub struct PersistStore {
+    addr: String,
+    key: [u8; 32],
+    link: std::sync::Mutex<Option<(std::net::TcpStream, realm_proto::control::FrameReader)>>,
+    next: std::sync::atomic::AtomicU64,
+}
+
+impl PersistStore {
+    pub fn new(addr: String, key: [u8; 32]) -> Self {
+        Self {
+            addr,
+            key,
+            link: std::sync::Mutex::new(None),
+            next: std::sync::atomic::AtomicU64::new(1),
+        }
+    }
+
+    fn call(
+        &self,
+        msg: &realm_proto::persist::PersistMsg,
+    ) -> Result<realm_proto::persist::PersistReply, String> {
+        use std::io::{Read, Write};
+        let mut guard = self
+            .link
+            .lock()
+            .map_err(|_| "store link poisoned".to_owned())?;
+        if guard.is_none() {
+            let addr: std::net::SocketAddr = self
+                .addr
+                .parse()
+                .map_err(|e| format!("persist address {}: {e}", self.addr))?;
+            let mut stream =
+                std::net::TcpStream::connect_timeout(&addr, std::time::Duration::from_secs(3))
+                    .map_err(|e| format!("persist {}: {e}", self.addr))?;
+            stream.set_nodelay(true).ok();
+            stream
+                .set_read_timeout(Some(std::time::Duration::from_secs(15)))
+                .ok();
+            stream
+                .write_all(&realm_proto::persist::encode_msg(
+                    &realm_proto::persist::PersistMsg::Hello { key: self.key },
+                ))
+                .map_err(|e| format!("persist hello: {e}"))?;
+            *guard = Some((stream, realm_proto::control::FrameReader::default()));
+        }
+        let result = (|| {
+            let (stream, reader) = guard.as_mut().ok_or("no link")?;
+            stream
+                .write_all(&realm_proto::persist::encode_msg(msg))
+                .map_err(|e| e.to_string())?;
+            let mut chunk = [0_u8; 64 * 1024];
+            loop {
+                if let Some(frame) = reader.next_frame().map_err(|e| format!("{e:?}"))? {
+                    return realm_proto::persist::decode_reply(&frame)
+                        .map_err(|e| format!("{e:?}"));
+                }
+                let n = stream.read(&mut chunk).map_err(|e| e.to_string())?;
+                if n == 0 {
+                    return Err("persistence service closed the link".to_owned());
+                }
+                reader.push(&chunk[..n]);
+            }
+        })();
+        if result.is_err() {
+            // Open a fresh link next time.
+            *guard = None;
+        }
+        result
+    }
+
+    fn req(&self) -> u64 {
+        self.next.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+}
+
+impl CharacterStore for PersistStore {
+    fn load(&self, id: u64) -> Result<Option<CharacterSheet>, String> {
+        let req = self.req();
+        match self.call(&realm_proto::persist::PersistMsg::Load { req, character: id })? {
+            realm_proto::persist::PersistReply::Loaded { req: r, result } if r == req => {
+                result.map(|s| s.map(|b| *b))
+            }
+            other => Err(format!("persist answered {other:?} to load {req}")),
+        }
+    }
+
+    fn save(&self, sheet: &CharacterSheet) -> Result<(), String> {
+        let req = self.req();
+        match self.call(&realm_proto::persist::PersistMsg::Save {
+            req,
+            sheet: Box::new(sheet.clone()),
+        })? {
+            realm_proto::persist::PersistReply::Saved {
+                req: r, ok, error, ..
+            } if r == req => {
+                if ok {
+                    Ok(())
+                } else {
+                    Err(format!("character {}: {error}", sheet.id))
+                }
+            }
+            other => Err(format!("persist answered {other:?} to save {req}")),
+        }
     }
 }
 

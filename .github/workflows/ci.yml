@@ -278,6 +278,33 @@ jobs:
           ./target/release/realm_netcheck --login --login-addr 127.0.0.1:7950
           kill %1 %2 %3 || true
 
+      - name: Characters in PostgreSQL (realm_persist)
+        if: matrix.os == 'ubuntu-26.04'
+        # A character saved through the persistence service lands in
+        # PostgreSQL, comes back where it left after the map server restarts,
+        # and an older sheet is refused (stale).
+        run: |
+          docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7
+          for i in $(seq 1 30); do docker exec realm-pg pg_isready -U realm -d realm && break; sleep 1; done
+          mkdir -p build/persistcheck
+          export REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm
+          ./target/release/realm_persist --bind 127.0.0.1:7970 > persist.log 2>&1 &
+          sleep 2
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --persist 127.0.0.1:7970 > server_g.log 2>&1 &
+          GROUNDS=$!
+          sleep 7
+          ./target/release/realm_netcheck --persist --persist-addr 127.0.0.1:7970 --server 127.0.0.1:7777 --restarted build/persistcheck/restarted &
+          CHECK=$!
+          while [ ! -f build/persistcheck/restarted.wanted ] && kill -0 $CHECK 2>/dev/null; do sleep 0.3; done
+          kill $GROUNDS || true
+          sleep 2
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --persist 127.0.0.1:7970 > server_g2.log 2>&1 &
+          sleep 7
+          touch build/persistcheck/restarted
+          wait $CHECK
+          kill %1 %3 || true
+          docker rm -f realm-pg
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

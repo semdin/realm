@@ -7,11 +7,12 @@
 //!       ticket.pub.
 //!   realm_server serve [--map grounds] [--bind 0.0.0.0:7777] [--keys keys]
 //!                      [--content content/data] [--maps world/maps]
-//!                      [--characters <dir>] [--coord <addr>] [--public <addr>]
+//!                      [--characters <dir> | --persist <addr>] [--coord <addr>] [--public <addr>]
 //!                      [--dev-spawn-near-packs | --dev-spawn-near <species>]
 //!       Runs one map at 30 Hz and prints a status line every 5 seconds. The
 //!       dev options spawn players next to a creature pack (of one species).
-//!       `--characters` keeps character records as JSON files there; without
+//!       `--characters` keeps character records as JSON files there,
+//!       `--persist` in the persistence service (realm_persist); without
 //!       it nothing persists (every join is a new character). Ctrl+C,
 //!       SIGTERM or Ctrl+Break saves everyone and stops. `--coord` links
 //!       it to the coordinator (travel, chat and parties across maps);
@@ -96,6 +97,8 @@ struct Options {
     /// of that species.
     dev_spawn_near: Option<String>,
     characters: Option<PathBuf>,
+    /// The persistence service (realm_persist) instead of character files.
+    persist: Option<String>,
     /// The coordinator's address (None: run alone).
     coord: Option<String>,
     /// Where clients reach this server (told to travellers).
@@ -125,6 +128,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         content: PathBuf::from("content/data"),
         dev_spawn_near: None,
         characters: None,
+        persist: None,
         coord: None,
         public: None,
         dev_dungeon_scale: 1.0,
@@ -151,6 +155,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--dev-spawn-near-packs" => o.dev_spawn_near = Some(String::new()),
             "--dev-spawn-near" => o.dev_spawn_near = Some(value()?),
             "--characters" => o.characters = Some(PathBuf::from(value()?)),
+            "--persist" => o.persist = Some(value()?),
             "--coord" => o.coord = Some(value()?),
             "--public" => o.public = Some(value()?),
             "--dev-dungeon-scale" => o.dev_dungeon_scale = value()?.parse()?,
@@ -218,15 +223,23 @@ fn serve(args: &[String]) -> AnyResult<()> {
     let tls_key = std::fs::read(o.keys.join("tls.key.der"))?;
 
     let (tx, rx) = crossbeam_channel::unbounded();
-    let character_store: Box<dyn store::CharacterStore> = match &o.characters {
-        Some(dir) => match &o.dev_fail_saves {
-            Some(flag) => Box::new(store::FlakyStore {
-                inner: store::FileStore::new(dir.clone())?,
-                flag: flag.clone(),
-            }),
-            None => Box::new(store::FileStore::new(dir.clone())?),
-        },
-        None => Box::new(store::NoStore),
+    let character_store: Box<dyn store::CharacterStore> = if let Some(addr) = &o.persist {
+        let key: [u8; 32] = std::fs::read(o.keys.join("coord.key"))?
+            .try_into()
+            .map_err(|_| "coord.key must be 32 bytes")?;
+        println!("[store] characters in the persistence service at {addr}");
+        Box::new(store::PersistStore::new(addr.clone(), key))
+    } else {
+        match &o.characters {
+            Some(dir) => match &o.dev_fail_saves {
+                Some(flag) => Box::new(store::FlakyStore {
+                    inner: store::FileStore::new(dir.clone())?,
+                    flag: flag.clone(),
+                }),
+                None => Box::new(store::FileStore::new(dir.clone())?),
+            },
+            None => Box::new(store::NoStore),
+        }
     };
     let store_jobs = store::start(character_store, tx.clone())?;
     let staircase_count = stairs.flights.len();

@@ -9,6 +9,7 @@
 //! realm_netcheck --maintenance --admin <addr> --token <t> ...          (see maintenance.rs)
 //! realm_netcheck --ga --admin <addr> --token <t> --ga-file <file> ...  (see ga.rs)
 //! realm_netcheck --login --login-addr <addr>                           (see login.rs)
+//! realm_netcheck --persist --persist-addr <addr> --server <grounds>     (see persist.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -23,6 +24,7 @@ mod ga;
 mod lair;
 mod login;
 mod maintenance;
+mod persist;
 mod social;
 mod travel;
 
@@ -231,6 +233,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--login") {
         return login::run(&args);
+    }
+    if args.iter().any(|a| a == "--persist") {
+        return persist::run(&args);
     }
     if args.iter().any(|a| a == "--dungeon") {
         return dungeon::run(&args);

@@ -15,6 +15,7 @@
 pub mod bits;
 pub mod control;
 pub mod coord;
+pub mod persist;
 pub mod ticket;
 
 use realm_sim::input::MoveInput;
