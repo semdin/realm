@@ -165,7 +165,7 @@ impl NetHandle {
                             let _ = connection.send_datagram(bytes.into());
                         }
                         read = recv.read(&mut chunk) => {
-                            let n = read.map_err(|e| e.to_string())?.ok_or("control stream closed")?;
+                            let n = read.map_err(|e| e.to_string())?.ok_or("closed by the server")?;
                             reader.push(&chunk[..n]);
                             while let Some(frame) = reader.next_frame().map_err(|e| e.to_string())? {
                                 let msg = control::decode_server(&frame).map_err(|e| e.to_string())?;

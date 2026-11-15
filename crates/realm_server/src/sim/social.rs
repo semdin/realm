@@ -225,6 +225,26 @@ impl Sim {
                 names,
                 characters,
             } => self.record_set(&dungeon, difficulty, ms, &names, &characters),
+            CoordMsg::Maintenance {
+                state,
+                reason,
+                seconds,
+            } => self.maintenance_told(state, reason, seconds),
+            CoordMsg::SaveAll { barrier } => self.save_barrier(barrier),
+            CoordMsg::DisconnectAll { barrier } => self.disconnect_all(barrier),
+            CoordMsg::Notice { kind, value } => {
+                let msg = ServerMsg::Notice {
+                    kind,
+                    subject: String::new(),
+                    actor: String::new(),
+                    value,
+                    of: 0,
+                };
+                let conns: Vec<ConnId> = self.clients.keys().copied().collect();
+                for conn in conns {
+                    self.send_control(conn, &msg);
+                }
+            }
         }
     }
 

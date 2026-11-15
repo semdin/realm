@@ -1,4 +1,10 @@
 //! realm_coord --bind 127.0.0.1:7900 --keys keys [--boards <file.json>]
+//!             [--admin 127.0.0.1:8082] [--drain-seconds 10]
+//!             [--save-min-ms 1000] [--announce-ms 10000]
+//!
+//! It also runs the realm's maintenance (maint.rs): the admin surface on
+//! `--admin` (loopback only, REALM_SERVICE_TOKEN required) begins, aborts
+//! and reports a cycle that freezes, saves and empties every map.
 //!
 //! The coordinator: who is online on which map, the parties, and what
 //! crosses maps (shouts, party lines, invitations, party views). Map servers
@@ -39,6 +45,8 @@ use realm_rules::travel::Arrival;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, mpsc};
+
+mod maint;
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -132,6 +140,8 @@ struct Book {
     next_party: u64,
     /// The view each member was last sent (only changes go out).
     sent: HashMap<u64, PartyView>,
+    /// The realm's maintenance.
+    maint: maint::Maint,
 }
 
 impl Book {
@@ -280,6 +290,16 @@ impl Book {
 
     /// A login for `character` on `link`.
     fn claim(&mut self, link: u64, conn: u64, character: u64) {
+        if !self.claim_allowed(character) {
+            self.to_link(
+                link,
+                CoordMsg::Refuse {
+                    conn,
+                    reason: "maintenance".to_owned(),
+                },
+            );
+            return;
+        }
         match self.seats.remove(&character) {
             None => self.admit(link, conn, character, None, None),
             Some(Seat::Transit { sheet, arrival, .. }) => {
@@ -383,6 +403,9 @@ impl Book {
     fn reserve(&mut self, character: u64, map: &str) -> Result<(), &'static str> {
         if self.ticket_key.is_none() {
             return Err("map_unavailable");
+        }
+        if !self.travel_allowed() {
+            return Err("maintenance");
         }
         let Some((&target, link)) = self.links.iter().find(|(_, l)| l.map == map) else {
             return Err("map_unavailable");
@@ -708,6 +731,14 @@ impl Book {
         match msg {
             MapMsg::Hello { .. } => {}
             MapMsg::Claim { conn, character } => self.claim(link, conn, character),
+            MapMsg::Saved {
+                barrier,
+                saved,
+                failed,
+            } => self.barrier_answer(link, barrier, saved, failed, 0),
+            MapMsg::Emptied { barrier, removed } => {
+                self.barrier_answer(link, barrier, 0, 0, removed);
+            }
             MapMsg::Release {
                 character,
                 account,
@@ -861,6 +892,7 @@ impl Book {
     /// are what they stored); a login waiting on it gets its seat.
     /// Travellers in transit keep their party.
     fn drop_link(&mut self, link: u64) {
+        self.barrier_link_gone(link);
         self.links.remove(&link);
         let seated: Vec<(u64, Option<(u64, u64)>)> = self
             .seats
@@ -935,6 +967,9 @@ struct Options {
     keys: PathBuf,
     /// Where the weekly dungeon boards are kept (none: memory only).
     boards: Option<PathBuf>,
+    /// The admin surface's address (loopback).
+    admin: SocketAddr,
+    settings: maint::Settings,
 }
 
 fn options() -> AnyResult<Options> {
@@ -942,6 +977,11 @@ fn options() -> AnyResult<Options> {
         bind: "127.0.0.1:7900".parse()?,
         keys: PathBuf::from("keys"),
         boards: None,
+        admin: "127.0.0.1:8082".parse()?,
+        settings: maint::Settings {
+            release: std::env::var("REALM_RELEASE").unwrap_or_default(),
+            ..maint::Settings::default()
+        },
     };
     let args: Vec<String> = std::env::args().skip(1).collect();
     let mut it = args.iter();
@@ -951,6 +991,14 @@ fn options() -> AnyResult<Options> {
             "--bind" => o.bind = value.parse()?,
             "--keys" => o.keys = PathBuf::from(value),
             "--boards" => o.boards = Some(PathBuf::from(value)),
+            "--admin" => o.admin = value.parse()?,
+            "--drain-seconds" => {
+                o.settings.drain = Duration::from_secs_f64(value.parse::<f64>()?.max(0.0));
+            }
+            "--save-min-ms" => o.settings.save_min = Duration::from_millis(value.parse()?),
+            "--announce-ms" => {
+                o.settings.announce = Duration::from_millis(value.parse::<u64>()?.max(250));
+            }
             other => return Err(format!("unknown option {other}").into()),
         }
     }
@@ -1000,6 +1048,7 @@ async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>)
         b.maps_changed();
         b.runs_changed();
         b.boards_changed();
+        b.tell_maintenance(id);
     }
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -1063,8 +1112,18 @@ async fn main() -> AnyResult<()> {
         ticket_key,
         boards,
         boards_file: o.boards.clone(),
+        maint: maint::Maint::new(o.settings.clone()),
         ..Book::default()
     }));
+    maint::start_clock(book.clone());
+    tokio::spawn(maint::serve(
+        o.admin,
+        std::env::var("REALM_SERVICE_TOKEN")
+            .unwrap_or_default()
+            .trim()
+            .to_owned(),
+        book.clone(),
+    ));
     {
         let book = book.clone();
         tokio::spawn(async move {

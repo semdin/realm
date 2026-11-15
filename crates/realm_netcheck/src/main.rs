@@ -6,6 +6,7 @@
 //! realm_netcheck --dungeon --characters <dir>                          (see dungeon.rs)
 //! realm_netcheck --boss threehead|snare --characters <dir>             (see boss.rs)
 //! realm_netcheck --lair eggs|queen --characters <dir>                  (see lair.rs)
+//! realm_netcheck --maintenance --admin <addr> --token <t> ...          (see maintenance.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -17,6 +18,7 @@
 mod boss;
 mod dungeon;
 mod lair;
+mod maintenance;
 mod social;
 mod travel;
 
@@ -216,6 +218,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--lair") {
         return lair::run(&args);
+    }
+    if args.iter().any(|a| a == "--maintenance") {
+        return maintenance::run(&args);
     }
     if args.iter().any(|a| a == "--dungeon") {
         return dungeon::run(&args);
@@ -484,6 +489,7 @@ fn main() -> AnyResult<()> {
                 NetEvent::Control(
                     realm_proto::control::ServerMsg::CreatureInfo { .. }
                     | realm_proto::control::ServerMsg::Notice { .. }
+                    | realm_proto::control::ServerMsg::Maintenance { .. }
                     | realm_proto::control::ServerMsg::Reward { .. }
                     | realm_proto::control::ServerMsg::Chest { .. }
                     | realm_proto::control::ServerMsg::LootResult { .. }

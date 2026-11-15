@@ -165,13 +165,18 @@ async fn connection(
     let mut writer = tokio::spawn(async move {
         while let Some(bytes) = control_rx.recv().await {
             if send.write_all(&bytes).await.is_err() {
-                break;
+                return;
             }
         }
+        // The simulation let this client go: what it was told last (an
+        // eviction, the maintenance notice) reaches it before the close.
+        let _ = send.finish();
+        let _ = tokio::time::timeout(Duration::from_secs(1), send.stopped()).await;
     });
 
     let mut malformed = 0_u32;
     let mut chunk = [0_u8; 4096];
+    let mut let_go = false;
     loop {
         tokio::select! {
             datagram = connection.read_datagram() => {
@@ -193,7 +198,10 @@ async fn connection(
             }
             // The writer ends when the simulation drops this connection (a
             // newer login took over, or it fell behind on reliable messages).
-            _ = &mut writer => break,
+            _ = &mut writer => {
+                let_go = true;
+                break;
+            }
             read = recv.read(&mut chunk) => {
                 let Ok(Some(n)) = read else { break };
                 reader.push(&chunk[..n]);
@@ -217,6 +225,12 @@ async fn connection(
                 }
             }
         }
+    }
+    // Let go by the simulation: the client reads to the end of its control
+    // stream (its last message) and closes; a close from here could cut
+    // that off.
+    if let_go {
+        let _ = tokio::time::timeout(Duration::from_secs(2), connection.closed()).await;
     }
     writer.abort();
     connection.close(VarInt::from_u32(0), b"bye");

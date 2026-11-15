@@ -464,7 +464,9 @@ impl RealmSession {
                 ) => {
                     self.creature_info.push(info);
                 }
-                NetEvent::Control(notice @ ServerMsg::Notice { .. }) => {
+                NetEvent::Control(
+                    notice @ (ServerMsg::Notice { .. } | ServerMsg::Maintenance { .. }),
+                ) => {
                     self.notices.push(notice);
                 }
                 NetEvent::Control(
@@ -1331,11 +1333,29 @@ impl RealmSession {
     /// What the map announced since the last call: `kind` ("boss_soon",
     /// "boss_spawned", "boss_slain", "stone_wave", "stone_shattered"),
     /// `subject` (a name), `actor` (who felled it, may be empty), `value` and
-    /// `of` (seconds to go, the boss's level, the wave of how many).
+    /// `of` (seconds to go, the boss's level, the wave of how many);
+    /// `update_soon` (`value` minutes to a restart). The realm's
+    /// maintenance comes as `kind` "maintenance" with `state` (ONLINE: a
+    /// countdown called off, ANNOUNCING, DRAINING, SAVING, DISCONNECTING,
+    /// MAINTENANCE, FAILED), `reason` and `seconds` left.
     #[func]
     fn take_notices(&mut self) -> VarArray {
         let mut out = VarArray::new();
         for msg in self.notices.drain(..) {
+            if let ServerMsg::Maintenance {
+                state,
+                reason,
+                seconds,
+            } = &msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("kind", &GString::from("maintenance").to_variant());
+                d.set("state", &GString::from(state.as_str()).to_variant());
+                d.set("reason", &GString::from(reason.as_str()).to_variant());
+                d.set("seconds", &i64::from(*seconds).to_variant());
+                out.push(&d.to_variant());
+                continue;
+            }
             if let ServerMsg::Notice {
                 kind,
                 subject,

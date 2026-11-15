@@ -226,6 +226,23 @@ jobs:
           ./target/release/realm_netcheck --lair queen --server 127.0.0.1:7781 --characters build/laircheck
           kill %1 %2 %4 || true
 
+      - name: The realm's maintenance
+        if: matrix.os == 'ubuntu-26.04'
+        # The admin surface (token only), a lone save barrier, update_soon,
+        # a countdown that refuses logins and is aborted, a store that fails
+        # (the FAILED hold: everyone connected, the world frozen; aborted, the
+        # save lands on retry) and the full cycle to MAINTENANCE with every
+        # player told, saved where they stood and let go.
+        run: |
+          mkdir -p build/maintcheck
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_coord --admin 127.0.0.1:8093 --drain-seconds 1 --save-min-ms 500 --announce-ms 1000 > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --characters build/maintcheck --dev-fail-saves build/maintcheck/FAIL_SAVES > server_g.log 2>&1 &
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 --characters build/maintcheck --dev-fail-saves build/maintcheck/FAIL_SAVES > server_c.log 2>&1 &
+          sleep 8
+          ./target/release/realm_netcheck --maintenance --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --characters build/maintcheck
+          kill %1 %2 %3 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

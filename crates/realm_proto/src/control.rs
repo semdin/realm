@@ -232,6 +232,15 @@ pub enum ServerMsg {
         value: u32,
         of: u32,
     },
+    /// The realm's maintenance: `state` (ONLINE when a countdown was called
+    /// off, ANNOUNCING with `seconds` to go, DRAINING, SAVING: the world
+    /// stands still and nothing more is done, DISCONNECTING: the connection
+    /// closes next, FAILED: held, still connected), and why.
+    Maintenance {
+        state: String,
+        reason: String,
+        seconds: u32,
+    },
 }
 
 /// A duel as one duelist sees it. Running: `duel`, `group`, `phase` (0

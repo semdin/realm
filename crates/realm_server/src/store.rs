@@ -84,6 +84,30 @@ impl CharacterStore for FileStore {
     }
 }
 
+/// Development (the maintenance check): a store whose saves fail while
+/// the `flag` file exists.
+pub struct FlakyStore {
+    pub inner: FileStore,
+    pub flag: PathBuf,
+}
+
+impl CharacterStore for FlakyStore {
+    fn load(&self, id: u64) -> Result<Option<CharacterSheet>, String> {
+        self.inner.load(id)
+    }
+
+    fn save(&self, sheet: &CharacterSheet) -> Result<(), String> {
+        if self.flag.exists() {
+            return Err(format!(
+                "character {}: saves fail while {} exists",
+                sheet.id,
+                self.flag.display()
+            ));
+        }
+        self.inner.save(sheet)
+    }
+}
+
 pub enum StoreJob {
     Load { conn: ConnId, character: u64 },
     Save(Box<CharacterSheet>),
@@ -114,6 +138,7 @@ pub fn start(
                         let saved = NetEvent::Saved {
                             character: sheet.id,
                             revision: sheet.revision,
+                            ok: result.is_ok(),
                         };
                         if events.send(saved).is_err() {
                             return;

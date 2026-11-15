@@ -33,6 +33,7 @@ mod brain;
 mod combat;
 mod duel;
 mod dungeon;
+mod maintenance;
 mod quests;
 mod rewards;
 mod social;
@@ -63,10 +64,11 @@ pub enum NetEvent {
         conn: ConnId,
         result: Result<Option<Box<CharacterSheet>>, String>,
     },
-    /// The store thread finished a save.
+    /// The store thread finished a save (`ok`: it landed).
     Saved {
         character: u64,
         revision: u64,
+        ok: bool,
     },
     Input {
         conn: ConnId,
@@ -422,6 +424,8 @@ pub struct Sim {
     /// join reads it instead of the store's older copy.
     unsaved: HashMap<u64, CharacterSheet>,
     store: crossbeam_channel::Sender<StoreJob>,
+    /// The realm's maintenance as the coordinator told it.
+    maintenance: maintenance::Maintenance,
     /// To the coordinator (None: running alone), and whether it is linked.
     coord_tx: Option<tokio::sync::mpsc::UnboundedSender<realm_proto::coord::MapMsg>>,
     coord_up: bool,
@@ -614,6 +618,7 @@ impl Sim {
             dice_state: getrandom::u32().unwrap_or(0x2545_F491) | 1,
             pending: HashMap::new(),
             unsaved: HashMap::new(),
+            maintenance: maintenance::Maintenance::default(),
             coord_tx: None,
             coord_up: false,
             duels: duel::DuelBook::default(),
@@ -759,6 +764,21 @@ impl Sim {
         for event in events {
             self.handle(event);
         }
+        self.maintenance_tick();
+        // Maintenance: idle does nothing; frozen keeps only what lets the
+        // players leave and see the world stand still.
+        if self.maintenance.idle {
+            self.tick += 1;
+            return;
+        }
+        if self.maintenance.frozen {
+            self.sweep_departing();
+            self.rebuild_grid();
+            self.dispatch_events();
+            self.snapshots();
+            self.tick += 1;
+            return;
+        }
         let mut mark = Instant::now();
         let mut lap = |section: usize, stats: &mut Stats| {
             let now = Instant::now();
@@ -835,16 +855,8 @@ impl Sim {
             NetEvent::Saved {
                 character,
                 revision,
-            } => {
-                if self
-                    .unsaved
-                    .get(&character)
-                    .is_some_and(|s| s.revision <= revision)
-                {
-                    self.unsaved.remove(&character);
-                }
-                self.departure_saved(character, revision);
-            }
+                ok,
+            } => self.save_answered(character, revision, ok),
             NetEvent::Control { conn, msg } => self.control(conn, msg),
             NetEvent::Input { conn, batch } => {
                 let Some(client) = self.clients.get_mut(&conn) else {
@@ -856,6 +868,12 @@ impl Sim {
                 let Some(mut player) = self.world.get_mut::<Player>(client.entity) else {
                     return;
                 };
+                // A frozen world takes no move; nothing is kept to replay.
+                if self.maintenance.frozen {
+                    player.pending.clear();
+                    player.last_seq = player.last_seq.max(batch.newest_seq);
+                    return;
+                }
                 let first = batch.newest_seq.wrapping_sub(batch.inputs.len() as u32 - 1);
                 // A client more than two seconds ahead of what the server ran
                 // (it stalled, or the server did) is resynchronised: its
@@ -1052,6 +1070,7 @@ impl Sim {
             copy,
         });
         self.send_sheet(conn);
+        self.tell_maintenance(conn);
         if let Some(arrival) = &arrival {
             self.arrived(conn, entity, arrival);
         }
@@ -1143,6 +1162,11 @@ impl Sim {
         let Some(entity) = self.clients.get(&conn).map(|c| c.entity) else {
             return;
         };
+        // From the save barrier on, nothing a player asks is done (the
+        // saved sheet is the final one).
+        if self.maintenance.frozen {
+            return;
+        }
         match msg {
             ClientMsg::Look(raw) => {
                 let look = self.game.rules.looks.clean(&raw);

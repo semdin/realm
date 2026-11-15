@@ -20,7 +20,9 @@
 //!       (checks only) multiplies dungeon creatures' health and damage;
 //!       `--dev-dungeon-affixes a,b` gives every run those curses;
 //!       `--dev-dungeon-start <step>` starts every run at that step;
-//!       `--dev-cocoon-solo` lets the Web Mother's cocoon wrap a lone player.
+//!       `--dev-cocoon-solo` lets the Web Mother's cocoon wrap a lone player;
+//!       `--dev-fail-saves <file>` makes every save fail while that file
+//!       exists (with `--characters`).
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -104,6 +106,8 @@ struct Options {
     dev_dungeon_start: Option<String>,
     /// Development: the cocoon wraps a lone player too.
     dev_cocoon_solo: bool,
+    /// Development: saves fail while this file exists.
+    dev_fail_saves: Option<PathBuf>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -121,6 +125,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         dev_dungeon_affixes: None,
         dev_dungeon_start: None,
         dev_cocoon_solo: false,
+        dev_fail_saves: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -143,6 +148,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--dev-dungeon-scale" => o.dev_dungeon_scale = value()?.parse()?,
             "--dev-dungeon-start" => o.dev_dungeon_start = Some(value()?),
             "--dev-cocoon-solo" => o.dev_cocoon_solo = true,
+            "--dev-fail-saves" => o.dev_fail_saves = Some(PathBuf::from(value()?)),
             "--dev-dungeon-affixes" => {
                 o.dev_dungeon_affixes = Some(
                     value()?
@@ -197,7 +203,13 @@ fn serve(args: &[String]) -> AnyResult<()> {
 
     let (tx, rx) = crossbeam_channel::unbounded();
     let character_store: Box<dyn store::CharacterStore> = match &o.characters {
-        Some(dir) => Box::new(store::FileStore::new(dir.clone())?),
+        Some(dir) => match &o.dev_fail_saves {
+            Some(flag) => Box::new(store::FlakyStore {
+                inner: store::FileStore::new(dir.clone())?,
+                flag: flag.clone(),
+            }),
+            None => Box::new(store::FileStore::new(dir.clone())?),
+        },
         None => Box::new(store::NoStore),
     };
     let store_jobs = store::start(character_store, tx.clone())?;

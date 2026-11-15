@@ -141,7 +141,9 @@ impl Session {
                     | ServerMsg::Dungeon(_)
                     | ServerMsg::Chest { .. }
                     | ServerMsg::LootResult { .. }
-                    | ServerMsg::ItemResult { .. }),
+                    | ServerMsg::ItemResult { .. }
+                    | ServerMsg::Maintenance { .. }
+                    | ServerMsg::Notice { .. }),
                 ) => {
                     println!("[travel] {} hears {m:?}", self.map);
                     self.events.push(m);

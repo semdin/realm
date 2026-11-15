@@ -219,6 +219,19 @@ pub enum MapMsg {
         from: u64,
         cmd: PartyCmd,
     },
+    /// The answer to `SaveAll`: every player here (and every one leaving)
+    /// was saved, `failed` of them without the store confirming.
+    Saved {
+        barrier: u64,
+        saved: u32,
+        failed: u32,
+    },
+    /// The answer to `DisconnectAll`: nobody is left here and every
+    /// leaver's seat was released (`removed` players were taken out).
+    Emptied {
+        barrier: u64,
+        removed: u32,
+    },
 }
 
 /// Coordinator -> map server.
@@ -303,6 +316,29 @@ pub enum CoordMsg {
     Party {
         to: u64,
         view: PartyView,
+    },
+    /// The realm's maintenance state (the old game's names: ONLINE,
+    /// ANNOUNCING, DRAINING, SAVING, DISCONNECTING, MAINTENANCE, FAILED),
+    /// why, and the seconds left of a countdown. Every player hears it.
+    /// From SAVING on the world stands still; in MAINTENANCE it is idle.
+    Maintenance {
+        state: String,
+        reason: String,
+        seconds: u32,
+    },
+    /// Save every player now (and those leaving); answer `Saved`.
+    SaveAll {
+        barrier: u64,
+    },
+    /// Tell every player the realm is going down, take them all out (saved
+    /// and released as any logout) and answer `Emptied`.
+    DisconnectAll {
+        barrier: u64,
+    },
+    /// A notice for every player (`update_soon`: `value` minutes).
+    Notice {
+        kind: String,
+        value: u32,
     },
 }
 
