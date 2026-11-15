@@ -1,5 +1,9 @@
 //! realm_worldc build <export_dir> <maps_dir> <content_dir>
 //! realm_worldc check <maps_dir> <content_dir>
+//! realm_worldc patch <maps_dir> <content_dir>
+//!
+//! `patch` adds `<maps_dir>/../patches/<map>.json` collider boxes to built
+//! packs (patch.rs; `build` adds them too) and bakes their navmesh again.
 //!
 //! `build` turns the Godot-side export (`tools/world_export`) into one map
 //! pack per map: static colliders on the world layers, terrain grids snapped
@@ -12,6 +16,7 @@
 //! the map's height band.
 
 mod nav;
+mod patch;
 
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -45,9 +50,11 @@ fn main() -> ExitCode {
                 .and_then(|()| check(Path::new(maps), Path::new(content)))
         }
         [cmd, maps, content] if cmd == "check" => check(Path::new(maps), Path::new(content)),
+        [cmd, maps, content] if cmd == "patch" => patch_packs(Path::new(maps), Path::new(content))
+            .and_then(|()| check(Path::new(maps), Path::new(content))),
         _ => {
             eprintln!(
-                "usage:\n  realm_worldc build <export_dir> <maps_dir> <content_dir>\n  realm_worldc check <maps_dir> <content_dir>"
+                "usage:\n  realm_worldc build <export_dir> <maps_dir> <content_dir>\n  realm_worldc check <maps_dir> <content_dir>\n  realm_worldc patch <maps_dir> <content_dir>"
             );
             return ExitCode::from(2);
         }
@@ -204,6 +211,34 @@ fn renamer(content_dir: &Path) -> Result<Renamer, String> {
     RenameMap::parse(&text)?.compile()
 }
 
+/// Adds the patch boxes to the built packs that have a patch, and bakes
+/// their navmesh again.
+fn patch_packs(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
+    let infos = map_infos(content_dir)?;
+    let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
+    for (map, info) in &infos {
+        let path = maps_dir.join(format!("{map}.realmmap"));
+        let mut pack = read_pack(&path)?;
+        let added = patch::apply(&mut pack, &patches, map)?;
+        if added == 0 {
+            continue;
+        }
+        let y_max = info["y_max"].as_f64().unwrap_or(1000.0) as f32;
+        let y_min = info["y_min"].as_f64().unwrap_or(-1000.0) as f32;
+        pack.world().map_err(|e| format!("{map}: {e}"))?;
+        let (navmesh, report) =
+            nav::bake(&pack, y_min, y_max).map_err(|e| format!("{map} navmesh: {e}"))?;
+        pack.nav = navmesh;
+        write_pack(&path, &pack)?;
+        println!(
+            "{map:<24} +{added} patch boxes -> {} colliders; navmesh {} polygons",
+            pack.colliders.len(),
+            report.polygons
+        );
+    }
+    Ok(())
+}
+
 fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
     let infos = map_infos(content_dir)?;
     let renamer = renamer(content_dir)?;
@@ -347,6 +382,8 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
                 yaw: (-x[2]).atan2(x[0]),
             });
         }
+        let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
+        colliders.extend(patch::boxes(&patches, map)?);
         let mut pack = MapPack {
             version: PACK_VERSION,
             map: map.clone(),
