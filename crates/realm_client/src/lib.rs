@@ -25,6 +25,9 @@ use realm_sim::FixedStep;
 use realm_sim::input::MoveInput;
 use realm_sim::pack::{HOLE, MapPack};
 
+/// Way-finding: paths, the nearest walkable point and the painted map sheet.
+mod way;
+
 struct RealmExtension;
 
 #[gdextension]
@@ -310,6 +313,8 @@ struct RealmSession {
     /// Item answers not yet taken by the view.
     item_results: Vec<(u32, bool, String, i64)>,
     next_op: u32,
+    /// Way-finding's view of the loaded map (way.rs), built on first use.
+    way: way::WayCache,
 }
 
 #[godot_api]
@@ -342,6 +347,7 @@ impl INode for RealmSession {
             sheet: None,
             item_results: Vec::new(),
             next_op: 1,
+            way: way::WayCache::default(),
         }
     }
 
@@ -2130,9 +2136,35 @@ impl RealmSession {
 }
 
 fn mesh(vertices: PackedVector3Array, indices: PackedInt32Array) -> Gd<ArrayMesh> {
+    // Normals from the triangles (area-weighted per vertex, the winding
+    // Godot draws as front): without them every face was lit with an
+    // undefined normal and some (a dome, a sliver) came out black. A
+    // vertex only on slivers points up.
+    let v = vertices.as_slice();
+    let mut sums = vec![Vector3::ZERO; v.len()];
+    for t in indices.as_slice().as_chunks::<3>().0 {
+        let (a, b, c) = (t[0] as usize, t[1] as usize, t[2] as usize);
+        if a >= v.len() || b >= v.len() || c >= v.len() {
+            continue;
+        }
+        let n = (v[c] - v[a]).cross(v[b] - v[a]);
+        for i in [a, b, c] {
+            sums[i] += n;
+        }
+    }
+    let mut normals = PackedVector3Array::new();
+    for n in sums {
+        let len = n.length();
+        normals.push(if len > 1e-9 && len.is_finite() {
+            n / len
+        } else {
+            Vector3::UP
+        });
+    }
     let mut arrays = VarArray::new();
     arrays.resize(ArrayType::MAX.ord() as usize, &Variant::nil());
     arrays.set(ArrayType::VERTEX.ord() as usize, &vertices.to_variant());
+    arrays.set(ArrayType::NORMAL.ord() as usize, &normals.to_variant());
     arrays.set(ArrayType::INDEX.ord() as usize, &indices.to_variant());
     let mut mesh = ArrayMesh::new_gd();
     mesh.add_surface_from_arrays(PrimitiveType::TRIANGLES, &arrays);

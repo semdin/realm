@@ -109,6 +109,13 @@ extends Node3D
 ##                                                    partner changes its look and takes its wand off and the
 ##                                                    check sees both on its body (OthersCheck;
 ##                                                    build/logs/aup_others.sh, --character 900811)
+##   [--check-map]                                    way-finding (MapCheck; build/logs/aup_map.sh, --character
+##                                                    900901): the minimap, the world map (M) with its markers, a
+##                                                    click that sets a waypoint, its footprints, the walk along
+##                                                    its route until it clears, the zone banner on the way, and
+##                                                    the dungeon guide's "Show the way to the gate"; with
+##                                                    `aup_map.sh castle` / `caverns` and `--map castle_interior` /
+##                                                    `--map spider_caverns` it surveys that map instead
 ##   [--others-guest NAME]                            this client waits until it sees NAME, then changes its
 ##                                                    look and takes its wand off (the second client for
 ##                                                    --check-others)
@@ -205,6 +212,7 @@ const LoginCheckScript := "res://scripts/systems/login_check.gd"
 const MenuCheckScript := "res://scripts/systems/menu_check.gd"
 const SkillsCheckScript := "res://scripts/systems/skills_check.gd"
 const OthersCheckScript := "res://scripts/systems/others_check.gd"
+const MapCheckScript := "res://scripts/systems/map_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -293,6 +301,11 @@ var travel: MapTravel
 var travel_check: Node = null
 ## Dungeon gates, the run tracker and the result (MapDungeon).
 var dungeon: MapDungeon
+## Way-finding: the minimap, the world map (M), the waypoint and its
+## footprints, the zone banner (MapWay).
+var way: MapWay
+## `--check-map`: the way-finding check.
+var map_check: Node = null
 ## `--check-dungeon`: the dungeon check (`--check-guide`: the guide check, in
 ## the same place: it walks and hears the same events).
 var dungeon_check: Node = null
@@ -632,10 +645,12 @@ func _build_view() -> void:
 	add_child(combat)
 	StatusFX.warm_assets()
 	readout = Label.new()
-	readout.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	# bottom right over the taskbar: the minimap holds the top right corner
+	readout.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
 	readout.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	readout.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	readout.offset_right = -12
-	readout.offset_top = 10
+	readout.offset_bottom = -104
 	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	readout.add_theme_font_size_override("font_size", 12)
 	var layer := CanvasLayer.new()
@@ -696,6 +711,14 @@ func _build_ui() -> void:
 	dungeon = MapDungeon.new()
 	add_child(dungeon)
 	dungeon.setup(self, map_name, root)
+	way = MapWay.new()
+	add_child(way)
+	way.setup(self, map_name, root)
+	if OS.get_cmdline_user_args().has("--check-map"):
+		map_check = load(MapCheckScript).new()
+		map_check.name = "MapCheck"
+		map_check.game = self
+		add_child(map_check)
 	var user_args := OS.get_cmdline_user_args()
 	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss") \
 			or user_args.has("--check-lair"):
@@ -928,6 +951,7 @@ func _build_map() -> void:
 	_spawn_npcs()
 	travel.on_map_built()
 	dungeon.on_map_built()
+	way.on_map_built()
 
 ## ------------------------------------------------------------------- NPCs
 
@@ -1055,6 +1079,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				quest_log.toggle()
 			"workshop":
 				workshop.toggle(sheet_view)
+			"world_map":
+				way.world_map.toggle()
 			"dungeon_guide":
 				dungeon.guide_window.toggle()
 			"interact":
@@ -2296,6 +2322,9 @@ func _process(delta: float) -> void:
 	elif dungeon_check != null:
 		forward = dungeon_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
+	elif map_check != null:
+		forward = map_check.walk_intent()
+		strafe = _check_sidestep(forward > 0.0)
 	elif menu_check != null and menu_check.walk_intent() > 0.0:
 		forward = menu_check.walk_intent()
 	elif not hud.chat.is_open():
@@ -2435,6 +2464,7 @@ func _process(delta: float) -> void:
 	_show_chat()
 	travel.tick(delta)
 	dungeon.tick(delta)
+	way.tick(delta)
 
 	var stats: Dictionary = session.stats()
 	readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d

@@ -12,13 +12,17 @@ class_name HudDungeonGuide
 ## "dungeon" event `guide`: week, affixes, records [[dungeon, difficulty,
 ## rank, best_ms, rights]], boards [{dungeon, difficulty, week, runs}],
 ## titles); the window asks on opening and on every choice. Locked is worked
-## out from the records as the server does (DungeonData.unlocked). The old
-## window's "Show the way to the gate" waits for a waypoint system.
+## out from the records as the server does (DungeonData.unlocked). "Show the
+## way to the gate" lays the waypoint to the chosen dungeon's gate (MapWay:
+## from another map the footprints lead to the door toward it) and closes
+## the window.
 
 const MEDAL_NAMES := {3: "Gold", 2: "Silver", 1: "Bronze", 0: "Cleared"}  # i18n
 const CURSE := Color(0.86, 0.62, 1.0)
 
 var session: Node
+## Set by MapWay: the waypoint to dungeon `id`'s gate (true when it was laid).
+var show_way: Callable
 var dungeon_id := ""
 var difficulty := "normal"
 ## The server's last answer ({} before the first) and how many came (the
@@ -76,6 +80,11 @@ func _ready() -> void:
 	right.add_child(_heading)
 	_band = HudKit.label("", 13, HudKit.TEXT_DIM, HudKit.body(), 3)
 	right.add_child(_band)
+	var way := HudKit.button(tr("Show the way to the gate"), 13)
+	way.name = "ShowWay"
+	way.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	way.pressed.connect(show_way_to_gate)
+	right.add_child(way)
 	var tab_row := HBoxContainer.new()
 	tab_row.add_theme_constant_override("separation", 6)
 	right.add_child(tab_row)
@@ -122,6 +131,11 @@ func open() -> void:
 	super.open()
 	_ask()
 	refresh()
+
+## The waypoint to the chosen dungeon's gate; the window closes when it is laid.
+func show_way_to_gate() -> void:
+	if show_way.is_valid() and bool(show_way.call(dungeon_id)):
+		close()
 
 func pick_dungeon(id: String) -> void:
 	dungeon_id = id

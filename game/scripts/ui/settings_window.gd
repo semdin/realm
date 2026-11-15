@@ -27,6 +27,7 @@ const ACTION_NAMES := {
 	"target_cycle": "Next target", "pickup_loot": "Pick up loot", "interact": "Talk / interact",
 	"chat": "Chat", "inventory": "Bag", "character": "Character", "quest_log": "Quests",
 	"workshop": "Kestrin's forge", "dungeon_guide": "Dungeon Guide", "skills": "Skills",
+	"world_map": "World Map",
 	"spell_1": "Spell slot 1", "spell_2": "Spell slot 2", "spell_3": "Spell slot 3",
 	"spell_4": "Spell slot 4", "spell_5": "Spell slot 5", "spell_6": "Spell slot 6",
 	"spell_7": "Spell slot 7", "spell_8": "Spell slot 8",

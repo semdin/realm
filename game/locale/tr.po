@@ -5916,3 +5916,36 @@ msgstr "[Sv.%d] %s"
 
 msgid "[%s] Skills - spend skill points on your spells"
 msgstr "[%s] Beceriler - beceri puanlarını büyülerine harca"
+
+msgid "You have reached your waypoint."
+msgstr "Hedef noktana ulaştın."
+
+msgid "1st"
+msgstr "1."
+
+msgid "2nd"
+msgstr "2."
+
+msgid "3rd"
+msgstr "3."
+
+msgid "4th"
+msgstr "4."
+
+msgid "5th"
+msgstr "5."
+
+msgid "6th"
+msgstr "6."
+
+msgid "7th"
+msgstr "7."
+
+msgid "Click: set waypoint  ·  Right-click the pin: clear  ·  Wheel: zoom  ·  Drag: move  ·  %s / Esc: close"
+msgstr "Tık: hedef koy  ·  İğneye sağ tık: kaldır  ·  Tekerlek: yakınlaştır  ·  Sürükle: kaydır  ·  %s / Esc: kapat"
+
+msgid "No way leads from here to that gate."
+msgstr "Buradan o kapıya giden bir yol yok."
+
+msgid "The footprints lead to the gate of %s."
+msgstr "Ayak izleri %s kapısına götürüyor."

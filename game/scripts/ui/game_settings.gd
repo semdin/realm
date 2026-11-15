@@ -65,6 +65,7 @@ const BINDABLE := {
 	"quest_log": KEY_J,
 	"workshop": KEY_O,
 	"dungeon_guide": KEY_K,
+	"world_map": KEY_M,
 	"skills": KEY_V,
 	"spell_1": KEY_1,
 	"spell_2": KEY_2,
