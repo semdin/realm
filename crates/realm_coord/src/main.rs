@@ -1,10 +1,11 @@
 //! realm_coord --bind 127.0.0.1:7900 --keys keys [--boards <file.json>]
-//!             [--admin 127.0.0.1:8082] [--drain-seconds 10]
+//!             [--admin 127.0.0.1:8082] [--ga <file.json>] [--drain-seconds 10]
 //!             [--save-min-ms 1000] [--announce-ms 10000]
 //!
 //! It also runs the realm's maintenance (maint.rs): the admin surface on
 //! `--admin` (loopback only, REALM_SERVICE_TOKEN required) begins, aborts
-//! and reports a cycle that freezes, saves and empties every map.
+//! and reports a cycle that freezes, saves and empties every map. It keeps
+//! the realm's game admins (`--ga`, ga.rs) and its weather.
 //!
 //! The coordinator: who is online on which map, the parties, and what
 //! crosses maps (shouts, party lines, invitations, party views). Map servers
@@ -46,6 +47,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, mpsc};
 
+mod ga;
 mod maint;
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -142,6 +144,11 @@ struct Book {
     sent: HashMap<u64, PartyView>,
     /// The realm's maintenance.
     maint: maint::Maint,
+    /// Game admins by lowercase character name, and where they are kept.
+    gas: std::collections::BTreeSet<String>,
+    ga_file: Option<PathBuf>,
+    /// The realm's weather.
+    rain: bool,
 }
 
 impl Book {
@@ -739,6 +746,8 @@ impl Book {
             MapMsg::Emptied { barrier, removed } => {
                 self.barrier_answer(link, barrier, 0, 0, removed);
             }
+            MapMsg::Ga { by, name, on } => self.ga_from_map(by, &name, on),
+            MapMsg::Weather { by, rain } => self.weather_from_map(by, rain),
             MapMsg::Release {
                 character,
                 account,
@@ -969,6 +978,8 @@ struct Options {
     boards: Option<PathBuf>,
     /// The admin surface's address (loopback).
     admin: SocketAddr,
+    /// Where the game admins are kept (none: REALM_GA only, in memory).
+    ga: Option<PathBuf>,
     settings: maint::Settings,
 }
 
@@ -978,6 +989,7 @@ fn options() -> AnyResult<Options> {
         keys: PathBuf::from("keys"),
         boards: None,
         admin: "127.0.0.1:8082".parse()?,
+        ga: None,
         settings: maint::Settings {
             release: std::env::var("REALM_RELEASE").unwrap_or_default(),
             ..maint::Settings::default()
@@ -992,6 +1004,7 @@ fn options() -> AnyResult<Options> {
             "--keys" => o.keys = PathBuf::from(value),
             "--boards" => o.boards = Some(PathBuf::from(value)),
             "--admin" => o.admin = value.parse()?,
+            "--ga" => o.ga = Some(PathBuf::from(value)),
             "--drain-seconds" => {
                 o.settings.drain = Duration::from_secs_f64(value.parse::<f64>()?.max(0.0));
             }
@@ -1049,6 +1062,7 @@ async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>)
         b.runs_changed();
         b.boards_changed();
         b.tell_maintenance(id);
+        b.tell_ga(id);
     }
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -1113,6 +1127,8 @@ async fn main() -> AnyResult<()> {
         boards,
         boards_file: o.boards.clone(),
         maint: maint::Maint::new(o.settings.clone()),
+        gas: ga::load(o.ga.as_deref()),
+        ga_file: o.ga.clone(),
         ..Book::default()
     }));
     maint::start_clock(book.clone());

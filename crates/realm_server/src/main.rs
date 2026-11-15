@@ -22,7 +22,8 @@
 //!       `--dev-dungeon-start <step>` starts every run at that step;
 //!       `--dev-cocoon-solo` lets the Web Mother's cocoon wrap a lone player;
 //!       `--dev-fail-saves <file>` makes every save fail while that file
-//!       exists (with `--characters`).
+//!       exists (with `--characters`); `--dev-ga Name,Name` makes those
+//!       characters GAs on a map without a coordinator.
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -108,6 +109,8 @@ struct Options {
     dev_cocoon_solo: bool,
     /// Development: saves fail while this file exists.
     dev_fail_saves: Option<PathBuf>,
+    /// Development: GAs of a map without a coordinator.
+    dev_ga: Vec<String>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -126,6 +129,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         dev_dungeon_start: None,
         dev_cocoon_solo: false,
         dev_fail_saves: None,
+        dev_ga: Vec::new(),
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -149,6 +153,13 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--dev-dungeon-start" => o.dev_dungeon_start = Some(value()?),
             "--dev-cocoon-solo" => o.dev_cocoon_solo = true,
             "--dev-fail-saves" => o.dev_fail_saves = Some(PathBuf::from(value()?)),
+            "--dev-ga" => {
+                o.dev_ga = value()?
+                    .split(',')
+                    .map(|n| n.trim().to_lowercase())
+                    .filter(|n| !n.is_empty())
+                    .collect();
+            }
             "--dev-dungeon-affixes" => {
                 o.dev_dungeon_affixes = Some(
                     value()?
@@ -232,6 +243,7 @@ fn serve(args: &[String]) -> AnyResult<()> {
     sim.dev_dungeon_affixes = o.dev_dungeon_affixes.clone();
     sim.dev_dungeon_start = o.dev_dungeon_start.clone();
     sim.dev_cocoon_solo = o.dev_cocoon_solo;
+    sim.admins.dev = o.dev_ga.iter().cloned().collect();
     if let Some(gates) = gates {
         println!(
             "[server] {} copies, {} gates",

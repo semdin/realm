@@ -292,6 +292,8 @@ struct RealmSession {
     /// Creature answers to `inspect` and map notices, waiting to be taken.
     creature_info: Vec<ServerMsg>,
     notices: Vec<ServerMsg>,
+    /// The realm's weather as the map last told it.
+    rain: bool,
     /// Rewards, chests, loot answers, deaths, attribute answers.
     game_events: Vec<ServerMsg>,
     /// Chat lines waiting to be taken.
@@ -328,6 +330,7 @@ impl INode for RealmSession {
             skill_results: Vec::new(),
             creature_info: Vec::new(),
             notices: Vec::new(),
+            rain: false,
             game_events: Vec::new(),
             chat: Vec::new(),
             party: realm_proto::coord::PartyView::default(),
@@ -469,6 +472,7 @@ impl RealmSession {
                 ) => {
                     self.notices.push(notice);
                 }
+                NetEvent::Control(ServerMsg::Weather { rain }) => self.rain = rain,
                 NetEvent::Control(
                     event @ (ServerMsg::Reward { .. }
                     | ServerMsg::Chest { .. }
@@ -1269,8 +1273,15 @@ impl RealmSession {
         }
     }
 
-    /// Answers to `inspect`. A player: `entity`, `player` (true),
-    /// `character`, `name`, `house`, `level`. A creature: `entity`, `boss_key` (boss_overrides key, else
+    /// Whether it rains in the realm (the view shows it outdoors).
+    #[func]
+    fn raining(&self) -> bool {
+        self.rain
+    }
+
+    /// Answers to `inspect` (and a player's info again when its GA emblem
+    /// came or went). A player: `entity`, `player` (true), `character`,
+    /// `name`, `house`, `level`, `ga`. A creature: `entity`, `boss_key` (boss_overrides key, else
     /// empty), `name` (a boss's, a Dark Shard's or a dummy's own name; empty:
     /// the species' name), `level`, `elite`, `boss`, `parts` ([{`entity`,
     /// `name`: bone key L / M / R / T}] on a multi-part boss) and `part_of`
@@ -1285,11 +1296,13 @@ impl RealmSession {
                 name,
                 house,
                 level,
+                ga,
             } = &msg
             {
                 let mut d = VarDictionary::new();
                 d.set("entity", &i64::from(*entity).to_variant());
                 d.set("player", &true.to_variant());
+                d.set("ga", &ga.to_variant());
                 d.set("character", &(*character as i64).to_variant());
                 d.set("name", &GString::from(name.as_str()).to_variant());
                 d.set("house", &GString::from(house.as_str()).to_variant());

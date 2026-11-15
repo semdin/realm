@@ -724,6 +724,7 @@ async fn route(req: Request, book: &Arc<Mutex<Book>>) -> (u16, Value) {
                 .start_barrier(Kind::Empty, false, Some(tx));
             deferred(rx).await
         }
+        ("POST", "/admin/ga") => book.lock().await.admin_ga(&req.body),
         ("POST", "/admin/announce") => {
             if req.body["kind"].as_str() != Some("update_soon") {
                 return (400, json!({"ok": false, "error": "unknown kind"}));

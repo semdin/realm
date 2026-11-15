@@ -218,7 +218,13 @@ pub enum ServerMsg {
         name: String,
         house: String,
         level: u16,
+        /// A game admin (the client shows the emblem). Sent again to
+        /// everyone on the map when it changes.
+        ga: bool,
     },
+    /// The realm's weather (on joining and whenever it changes); the
+    /// client shows it outdoors.
+    Weather { rain: bool },
     /// Something the map announces: `kind` ("boss_soon", "boss_spawned",
     /// "boss_slain", "stone_wave", "stone_shattered") about `subject` (a
     /// name; the client translates both). `actor` is the character whose

@@ -33,6 +33,7 @@ mod brain;
 mod combat;
 mod duel;
 mod dungeon;
+mod ga;
 mod maintenance;
 mod quests;
 mod rewards;
@@ -426,6 +427,8 @@ pub struct Sim {
     store: crossbeam_channel::Sender<StoreJob>,
     /// The realm's maintenance as the coordinator told it.
     maintenance: maintenance::Maintenance,
+    /// Game admins and the weather.
+    pub admins: ga::Admins,
     /// To the coordinator (None: running alone), and whether it is linked.
     coord_tx: Option<tokio::sync::mpsc::UnboundedSender<realm_proto::coord::MapMsg>>,
     coord_up: bool,
@@ -619,6 +622,7 @@ impl Sim {
             pending: HashMap::new(),
             unsaved: HashMap::new(),
             maintenance: maintenance::Maintenance::default(),
+            admins: ga::Admins::default(),
             coord_tx: None,
             coord_up: false,
             duels: duel::DuelBook::default(),
@@ -1071,6 +1075,7 @@ impl Sim {
         });
         self.send_sheet(conn);
         self.tell_maintenance(conn);
+        self.tell_weather(conn);
         if let Some(arrival) = &arrival {
             self.arrived(conn, entity, arrival);
         }
@@ -1207,17 +1212,7 @@ impl Sim {
             ClientMsg::DungeonReady { id, yes } => self.dungeon_ready(entity, id, yes),
             ClientMsg::DungeonGuide => self.dungeon_guide(conn, entity),
             ClientMsg::Inspect(id) => {
-                let player = self
-                    .ids
-                    .get(&id)
-                    .and_then(|e| self.world.get::<Player>(*e))
-                    .map(|p| ServerMsg::PlayerInfo {
-                        entity: id,
-                        character: p.sheet.id,
-                        name: p.sheet.name.clone(),
-                        house: p.sheet.house.clone(),
-                        level: p.sheet.level,
-                    });
+                let player = self.ids.get(&id).and_then(|e| self.player_info(*e));
                 let Some(info) = player.or_else(|| self.creature_info(id)) else {
                     return;
                 };

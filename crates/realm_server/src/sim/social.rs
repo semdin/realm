@@ -34,7 +34,7 @@ impl Sim {
                 .is_some_and(|tx| tx.send(msg).is_ok())
     }
 
-    fn system_line(&mut self, conn: ConnId, text: &str) {
+    pub(super) fn system_line(&mut self, conn: ConnId, text: &str) {
         self.send_control(
             conn,
             &ServerMsg::Chat {
@@ -103,6 +103,9 @@ impl Sim {
         let rest = rest.trim();
         if self.duel_command(conn, player, &word.to_lowercase(), rest) {
             return;
+        }
+        if word.eq_ignore_ascii_case("/ga") {
+            return self.ga_command(conn, player, character, rest);
         }
         let party = |cmd: PartyCmd| MapMsg::Party {
             from: character,
@@ -231,6 +234,8 @@ impl Sim {
                 seconds,
             } => self.maintenance_told(state, reason, seconds),
             CoordMsg::SaveAll { barrier } => self.save_barrier(barrier),
+            CoordMsg::Gas(names) => self.gas_told(names),
+            CoordMsg::Weather { rain } => self.weather_told(rain),
             CoordMsg::DisconnectAll { barrier } => self.disconnect_all(barrier),
             CoordMsg::Notice { kind, value } => {
                 let msg = ServerMsg::Notice {

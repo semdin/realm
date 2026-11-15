@@ -243,6 +243,22 @@ jobs:
           ./target/release/realm_netcheck --maintenance --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --characters build/maintcheck
           kill %1 %2 %3 || true
 
+      - name: Game admins and the weather
+        if: matrix.os == 'ubuntu-26.04'
+        # /ga refused to a player who is no GA; the admin surface makes one
+        # (the emblem reaches the players beside it); its rain reaches both
+        # maps and a later login; it makes another GA in game, who lists them
+        # and stops the rain; taken back, refused again; the list is kept.
+        run: |
+          mkdir -p build/gacheck
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_coord --admin 127.0.0.1:8093 --ga build/gacheck/ga.json > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 > server_g.log 2>&1 &
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 > server_c.log 2>&1 &
+          sleep 8
+          ./target/release/realm_netcheck --ga --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --ga-file build/gacheck/ga.json
+          kill %1 %2 %3 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

@@ -143,7 +143,10 @@ impl Session {
                     | ServerMsg::LootResult { .. }
                     | ServerMsg::ItemResult { .. }
                     | ServerMsg::Maintenance { .. }
-                    | ServerMsg::Notice { .. }),
+                    | ServerMsg::Notice { .. }
+                    | ServerMsg::Weather { .. }
+                    | ServerMsg::PlayerInfo { .. }
+                    | ServerMsg::Chat { .. }),
                 ) => {
                     println!("[travel] {} hears {m:?}", self.map);
                     self.events.push(m);

@@ -232,6 +232,17 @@ pub enum MapMsg {
         barrier: u64,
         removed: u32,
     },
+    /// A GA (`by`, checked here) makes `name` a GA or takes it back.
+    Ga {
+        by: u64,
+        name: String,
+        on: bool,
+    },
+    /// A GA (`by`, checked here) starts or stops the rain.
+    Weather {
+        by: u64,
+        rain: bool,
+    },
 }
 
 /// Coordinator -> map server.
@@ -339,6 +350,13 @@ pub enum CoordMsg {
     Notice {
         kind: String,
         value: u32,
+    },
+    /// The realm's game admins, by character name (lowercase); sent on
+    /// linking and whenever it changes.
+    Gas(Vec<String>),
+    /// The realm's weather; sent on linking and whenever it changes.
+    Weather {
+        rain: bool,
     },
 }
 

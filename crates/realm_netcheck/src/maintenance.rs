@@ -37,7 +37,7 @@ use crate::travel::{Session, fail, joined};
 use crate::{AnyResult, arg};
 
 /// One request to the admin surface: (status, body).
-fn http(
+pub(crate) fn http(
     admin: &str,
     method: &str,
     path: &str,
@@ -116,7 +116,7 @@ fn modified(dir: &Path, character: u64) -> Option<SystemTime> {
 }
 
 /// Logs in and waits for the join; Err(reason) when refused.
-fn login(
+pub(crate) fn login(
     address: &str,
     map: &str,
     character: u64,
@@ -128,7 +128,7 @@ fn login(
     Ok(s)
 }
 
-fn expect(
+pub(crate) fn expect(
     what: &str,
     got: (u16, Value),
     code: u16,
