@@ -1,0 +1,24 @@
+# The login service behind TLS (Let's Encrypt, renewed by Caddy).
+# Install: `import /opt/realm/current/deploy/caddy/realm-login.caddy` in
+# /etc/caddy/Caddyfile with REALM_LOGIN_HOST set for Caddy (systemctl edit
+# caddy: Environment=REALM_LOGIN_HOST=login.example.org), a DNS A record to the
+# host, ports 80/443 open. Only /api/ is served; realm_login answers on
+# loopback only and trusts X-Forwarded-For from loopback for its rate limits.
+{$REALM_LOGIN_HOST} {
+	encode gzip
+	request_body {
+		max_size 64KB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+	@api path /api/*
+	handle @api {
+		reverse_proxy 127.0.0.1:7950
+	}
+	handle {
+		respond 404
+	}
+}

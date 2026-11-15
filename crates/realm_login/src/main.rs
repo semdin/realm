@@ -718,8 +718,25 @@ async fn connection(mut stream: TcpStream, from: SocketAddr, state: Arc<Mutex<St
         }
         Err(_) => return,
     };
-    let (code, body) = route(&state, from.ip(), req).await;
+    let ip = client_ip(from.ip(), req.header("x-forwarded-for"));
+    let (code, body) = route(&state, ip, req).await;
     respond(&mut stream, code, &body).await;
+}
+
+/// The player's address for the failed-login waits. Behind the TLS proxy
+/// (Caddy, on this host) every request comes from loopback, so there the
+/// last X-Forwarded-For entry - the one the proxy itself added - is the
+/// player; Caddy drops what a player sent in that header. From anywhere
+/// else the header is the caller's own word and is ignored.
+fn client_ip(peer: IpAddr, forwarded: &str) -> IpAddr {
+    if !peer.is_loopback() {
+        return peer;
+    }
+    forwarded
+        .rsplit(',')
+        .next()
+        .and_then(|last| last.trim().parse().ok())
+        .unwrap_or(peer)
 }
 
 struct Options {

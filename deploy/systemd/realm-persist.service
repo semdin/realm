@@ -1,0 +1,39 @@
+# The persistence service: the only writer of the realm's PostgreSQL. Applies
+# the release's schema migrations when it starts.
+[Unit]
+Description=Thousand Realms persistence service
+After=network-online.target postgresql.service
+Requires=postgresql.service
+PartOf=realm.target
+
+[Service]
+Type=simple
+User=realm
+Group=realm
+EnvironmentFile=/etc/realm/realm.env
+ExecStart=/opt/realm/current/bin/realm_persist --bind 127.0.0.1:7970 --keys /var/lib/realm/keys
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=realm.target

@@ -1,0 +1,41 @@
+# The coordinator: seats, parties, cross-map chat, travel tickets, the
+# realm's maintenance and its admin surface (loopback, REALM_SERVICE_TOKEN).
+[Unit]
+Description=Thousand Realms coordinator
+After=realm-persist.service
+Wants=realm-persist.service
+PartOf=realm.target
+
+[Service]
+Type=simple
+User=realm
+Group=realm
+EnvironmentFile=/etc/realm/realm.env
+# REALM_RELEASE, written by realm-deploy when it switches releases.
+EnvironmentFile=-/var/lib/realm/release.env
+ExecStart=/opt/realm/current/bin/realm_coord --bind 127.0.0.1:7900 --keys /var/lib/realm/keys --persist 127.0.0.1:7970 --admin 127.0.0.1:8082
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=realm.target

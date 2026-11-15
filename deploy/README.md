@@ -1,7 +1,51 @@
 # deploy
 
-What runs the realm on its Linux host. Installed under `/opt/realm`
-(binaries and these scripts in `/opt/realm/bin`), secrets in `/etc/realm`.
+What runs the realm on its Linux host (Ubuntu 24.04+ / Debian 12+, x86_64).
+
+## Layout
+
+| Path | Holds |
+| --- | --- |
+| `/opt/realm/releases/<release>` | one unpacked release: `bin/`, `content/data`, `world/maps`, `deploy/`, `RELEASE` |
+| `/opt/realm/current` | the live release (a symlink; the units run through it) |
+| `/opt/realm/bin` | `realm-deploy` and the backup scripts (stable paths for PostgreSQL and systemd) |
+| `/etc/realm/realm.env` | `REALM_DATABASE_URL`, `REALM_SERVICE_TOKEN`, `REALM_PUBLIC_HOST` (generated, root:realm 0640) |
+| `/etc/realm/map-<map>.env` | `REALM_MAP_PORT` of each map server |
+| `/var/lib/realm/keys` | `ticket.key/.pub`, `tls.crt.der/.key.der` (clients pin the certificate), `coord.key` |
+| `/var/lib/realm/backup` | base backups and the WAL archive (postgres) |
+
+Services (`systemd/`), all as the unprivileged `realm` user, sandboxed, under
+`realm.target`: `realm-persist` (127.0.0.1:7970, the only database writer,
+applies schema migrations at start), `realm-coord` (127.0.0.1:7900, admin
+surface 127.0.0.1:8082), `realm-map@<map>` (QUIC on `0.0.0.0:<port>/udp`,
+SIGTERM saves everyone), `realm-login` (127.0.0.1:7950, public through
+`caddy/realm-login.caddy` with TLS). Logs: `journalctl -u 'realm-*'`.
+
+## A release
+
+`bash tools/ops/package.sh` builds the services in Docker with the pinned
+toolchain (glibc 2.36, so any supported host runs them) and writes
+`build/release/realm-<date>-<commit>.tar.gz` (~14 MB).
+
+- First time, on a fresh host as root: `tar -xzOf realm-*.tar.gz --wildcards
+  '*/deploy/install.sh' > install.sh && bash install.sh realm-*.tar.gz
+  --public-host <ip>`. It installs PostgreSQL 18 (apt.postgresql.org),
+  generates the secrets and keys, sets up archiving, the units and the map
+  list (`REALM_MAPS`, ports 7777-7782/udp, opened in ufw when it is active),
+  deploys and takes the first base backup. Running it again changes nothing
+  that exists.
+- Every release after: `/opt/realm/bin/realm-deploy realm-*.tar.gz
+  [--countdown 300] [--reason text]`. The realm's maintenance announces it,
+  closes logins, freezes and saves every map and empties it; then the
+  services restart on the new release and are verified (every map linked,
+  login healthy, `realm_netcheck --smoke` joins the grounds). A release that
+  does not verify is rolled back to the previous one by itself. The newest
+  three releases are kept.
+
+`bash tools/ops/host_rehearsal.sh` rehearses all of it on an empty database
+in a systemd container (`tools/ops/host`, ~3 min): install, the login service
+end to end, a deploy with a player online (its save lands), a broken release
+rolled back, backups.
 
 ## Database backups
 

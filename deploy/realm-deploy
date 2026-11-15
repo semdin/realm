@@ -1,0 +1,143 @@
+#!/usr/bin/env bash
+# realm-deploy <realm-<release>.tar.gz> [--countdown S] [--reason TEXT] [--no-maintenance]
+#
+# Puts a release (tools/ops/package.sh) live on the realm's host, as root:
+#   1. unpacks it to /opt/realm/releases/<release> and checks its binaries run;
+#   2. if the realm is up, runs its maintenance (the coordinator's admin
+#      surface): announced for S seconds (300), logins closed, every map
+#      frozen and saved, everyone out - and stops if that fails (abort sent);
+#   3. stops the services, points /opt/realm/current at the release, starts
+#      realm.target (realm_persist applies new schema migrations);
+#   4. verifies: every enabled map linked to the coordinator, the login
+#      service healthy, a player joins the grounds; on failure it puts the
+#      previous release back the same way and exits non-zero;
+#   5. keeps the newest REALM_KEEP_RELEASES (3) releases.
+# REALM_VERIFY_SECONDS (90) is how long the services get to come up.
+# Schema migrations only ever add, so a rollback's older binaries still run
+# on the newer schema.
+set -euo pipefail
+tarball="$1"; shift
+countdown=300
+reason="update"
+maintenance=1
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --countdown) countdown="$2"; shift 2 ;;
+        --reason) reason="$2"; shift 2 ;;
+        --no-maintenance) maintenance=0; shift ;;
+        *) echo "realm-deploy: unknown option $1" >&2; exit 2 ;;
+    esac
+done
+base=/opt/realm
+admin=http://127.0.0.1:8082
+keep="${REALM_KEEP_RELEASES:-3}"
+# shellcheck disable=SC1091
+. /etc/realm/realm.env
+say() { echo "[deploy $(date -u +%T)] $*"; }
+
+exec 9>/run/lock/realm-deploy.lock
+flock -n 9 || { echo "realm-deploy: another deploy is running" >&2; exit 1; }
+
+# 1. Unpack.
+release="$(tar -xzOf "$tarball" --wildcards '*/RELEASE' | head -n 1)"
+[ -n "$release" ] || { echo "realm-deploy: no RELEASE in $tarball" >&2; exit 1; }
+dir="$base/releases/$release"
+if [ ! -d "$dir" ]; then
+    mkdir -p "$base/releases"
+    tar --no-same-owner -xzf "$tarball" -C "$base/releases"
+    mv "$base/releases/realm-$release" "$dir"
+fi
+for b in realm_server realm_coord realm_login realm_persist realm_netcheck; do
+    # Each prints its usage (or refuses its missing options) and exits; 126/127 means it cannot run here.
+    set +e; "$dir/bin/$b" --definitely-not-an-option >/dev/null 2>&1; code=$?; set -e
+    [ "$code" -lt 126 ] || { echo "realm-deploy: $dir/bin/$b does not run on this host ($code)" >&2; exit 1; }
+done
+previous="$(readlink "$base/current" 2>/dev/null || true)"
+say "release $release (previous: ${previous:-none})"
+[ "$previous" != "$dir" ] || { say "already live"; exit 0; }
+
+status() { curl -sf -m 5 -H "x-service-token: $REALM_SERVICE_TOKEN" "$admin/admin/status" || true; }
+# A field of the status JSON: "state", or "maps" (sorted, space separated).
+field() {
+    python3 -c 'import json, sys
+try:
+    v = json.load(sys.stdin).get(sys.argv[1], "")
+except ValueError:
+    v = ""
+print(" ".join(sorted(v)) if isinstance(v, list) else v)' "$1"
+}
+
+# 2. Maintenance.
+if [ "$maintenance" = 1 ] && [ -n "$(status)" ]; then
+    body="{\"reason\":\"$(printf %s "$reason" | tr -d '"\')\",\"countdown_seconds\":$countdown}"
+    curl -sf -m 5 -X POST -H "x-service-token: $REALM_SERVICE_TOKEN" -d "$body" "$admin/admin/maintenance/begin" >/dev/null \
+        || { echo "realm-deploy: maintenance did not begin" >&2; exit 1; }
+    say "maintenance begun: $countdown s announced"
+    deadline=$((SECONDS + countdown + 120))
+    while :; do
+        state="$(status | field state)"
+        case "$state" in
+            MAINTENANCE) break ;;
+            FAILED|ABORTED|"")
+                curl -sf -m 5 -X POST -H "x-service-token: $REALM_SERVICE_TOKEN" "$admin/admin/maintenance/abort" >/dev/null || true
+                echo "realm-deploy: maintenance ended in '${state:-no answer}'; nothing was switched" >&2
+                exit 1 ;;
+        esac
+        if [ $SECONDS -gt $deadline ]; then
+            curl -sf -m 5 -X POST -H "x-service-token: $REALM_SERVICE_TOKEN" "$admin/admin/maintenance/abort" >/dev/null || true
+            echo "realm-deploy: maintenance stuck in $state; aborted, nothing was switched" >&2
+            exit 1
+        fi
+        sleep 2
+    done
+    say "everyone saved and out"
+fi
+
+# The maps install.sh enabled (realm.target wants them).
+maps() { ls /etc/systemd/system/realm.target.wants/ | sed -n 's/^realm-map@\(.*\)\.service$/\1/p' | sort; }
+switch_to() {
+    systemctl stop realm-login.service
+    systemctl stop 'realm-map@*.service'
+    systemctl stop realm-coord.service realm-persist.service
+    ln -sfn "$1" "$base/current.new"
+    mv -T "$base/current.new" "$base/current"
+    echo "REALM_RELEASE=$(cat "$1/RELEASE")" > /var/lib/realm/release.env
+    install -m 0755 "$1"/bin/realm-wal-archive "$1"/bin/realm-backup "$1"/bin/realm-restore "$base/bin/"
+    systemctl start realm.target
+}
+verify() {
+    local want got deadline
+    want="$(maps | tr '\n' ' ' | sed 's/ $//')"
+    deadline=$((SECONDS + ${REALM_VERIFY_SECONDS:-90}))
+    while :; do
+        got="$(status | field maps)"
+        if [ -n "$want" ] && [ "$got" = "$want" ] && curl -sf -m 5 http://127.0.0.1:7950/api/health >/dev/null; then
+            break
+        fi
+        [ $SECONDS -lt $deadline ] || { say "verify: maps linked '$got' (want '$want'), login health failed or slow"; return 1; }
+        sleep 1
+    done
+    port="$(sed -n 's/^REALM_MAP_PORT=//p' /etc/realm/map-grounds.env)"
+    (cd "$base/current" && timeout 30 ./bin/realm_netcheck --smoke --server "127.0.0.1:$port" --map grounds --keys /var/lib/realm/keys) \
+        || { say "verify: a player could not join the grounds"; return 1; }
+    say "verify ok: maps $got, login healthy, a player joined the grounds"
+}
+
+# 3-4. Switch and verify; back to the previous release on failure.
+switch_to "$dir"
+if ! verify; then
+    if [ -n "$previous" ]; then
+        say "rolling back to $previous"
+        switch_to "$previous"
+        verify || say "the previous release does not verify either: look at journalctl -u 'realm-*'"
+    fi
+    exit 1
+fi
+
+# 5. Prune.
+ls -1dt "$base"/releases/*/ | tail -n "+$((keep + 1))" | while read -r old; do
+    [ "${old%/}" = "$(readlink "$base/current")" ] && continue
+    rm -rf "$old"
+    say "removed $old"
+done
+say "live: $release"

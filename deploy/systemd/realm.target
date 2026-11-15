@@ -1,0 +1,9 @@
+# Every service of the realm: `systemctl start|stop realm.target`.
+# The map servers join it as realm-map@<map>.service (enabled by install.sh).
+[Unit]
+Description=Thousand Realms
+Wants=realm-persist.service realm-coord.service realm-login.service
+After=network-online.target
+
+[Install]
+WantedBy=multi-user.target

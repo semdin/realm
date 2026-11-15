@@ -49,6 +49,9 @@ REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_coord -- --admin 127.0.0.1:
 docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7   # local PostgreSQL
 REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm cargo run --release -p realm_persist   # persistence service on 127.0.0.1:7970 (map servers: --persist 127.0.0.1:7970)
 REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_login -- --characters build/characters   # login service on 127.0.0.1:7950 (the coordinator's admin surface on 127.0.0.1:8082)
+bash tools/ops/package.sh                             # the server release for the Linux host (Docker): build/release/realm-<date>-<commit>.tar.gz
+bash tools/ops/backup_check.sh                        # backups: WAL archive, base backup, point-in-time restore (Docker, ~20 s)
+bash tools/ops/host_rehearsal.sh                      # the host on an empty database in a systemd container: install, login, drain deploy, rollback, backups (~3 min; deploy/README.md)
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900   # a map server linked to it
 cargo run --release -p realm_netcheck -- --social       # two players on two maps: invite, party, party line, shout, local stays local
 cargo run --release -p realm_netcheck -- --duel         # two players on one map: challenge, accept, fight to 1 health, result

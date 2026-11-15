@@ -10,6 +10,7 @@
 //! realm_netcheck --ga --admin <addr> --token <t> --ga-file <file> ...  (see ga.rs)
 //! realm_netcheck --login --login-addr <addr> [--persist-addr <addr>]    (see login.rs)
 //! realm_netcheck --persist --persist-addr <addr> --server <grounds>     (see persist.rs)
+//! realm_netcheck --smoke --server <addr> [--map grounds]               (see smoke.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -25,6 +26,7 @@ mod lair;
 mod login;
 mod maintenance;
 mod persist;
+mod smoke;
 mod social;
 mod travel;
 
@@ -239,6 +241,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--dungeon") {
         return dungeon::run(&args);
+    }
+    if args.iter().any(|a| a == "--smoke") {
+        return smoke::run(&args);
     }
     let server: SocketAddr = arg(&args, "--server", "127.0.0.1:7800").parse()?;
     let keys = PathBuf::from(arg(&args, "--keys", "keys"));

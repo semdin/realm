@@ -1,0 +1,43 @@
+# One map server: realm-map@grounds.service etc. Its port is in
+# /etc/realm/map-<map>.env (REALM_MAP_PORT); players reach it over QUIC at
+# REALM_PUBLIC_HOST:REALM_MAP_PORT (UDP). SIGTERM saves everyone on the map
+# before it exits.
+[Unit]
+Description=Thousand Realms map server (%i)
+After=realm-persist.service realm-coord.service
+Wants=realm-persist.service realm-coord.service
+PartOf=realm.target
+
+[Service]
+Type=simple
+User=realm
+Group=realm
+EnvironmentFile=/etc/realm/realm.env
+EnvironmentFile=/etc/realm/map-%i.env
+ExecStart=/opt/realm/current/bin/realm_server serve --map %i --bind 0.0.0.0:${REALM_MAP_PORT} --public ${REALM_PUBLIC_HOST}:${REALM_MAP_PORT} --keys /var/lib/realm/keys --content /opt/realm/current/content/data --maps /opt/realm/current/world/maps --persist 127.0.0.1:7970 --coord 127.0.0.1:7900
+TimeoutStopSec=60
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=realm.target

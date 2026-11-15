@@ -1,0 +1,39 @@
+# The login service: accounts, characters, join tickets. Loopback only;
+# players reach it through Caddy (deploy/caddy/realm-login.caddy, TLS).
+[Unit]
+Description=Thousand Realms login service
+After=realm-persist.service realm-coord.service
+Wants=realm-persist.service realm-coord.service
+PartOf=realm.target
+
+[Service]
+Type=simple
+User=realm
+Group=realm
+EnvironmentFile=/etc/realm/realm.env
+ExecStart=/opt/realm/current/bin/realm_login --persist 127.0.0.1:7970 --bind 127.0.0.1:7950 --keys /var/lib/realm/keys --content /opt/realm/current/content/data --coord-admin 127.0.0.1:8082
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+UMask=0077
+
+[Install]
+WantedBy=realm.target
