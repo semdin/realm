@@ -33,6 +33,12 @@ const SECTIONS := [
 				"what": "Skin pore and iris textures (CC BY 4.0, unchanged); the skin lighting follows its skin shader (MIT).",
 			},
 			{
+				"name": "NVIDIA SimReady Assets", "by": "© NVIDIA Corporation", "licence": "CC BY 4.0",
+				"url": "https://huggingface.co/datasets/nvidia/simready-assets",
+				"licence_url": "https://creativecommons.org/licenses/by/4.0/",
+				"what": "The food, plates and kitchenware on the castle's feast and kitchen tables (decimated, re-baked onto one texture atlas and arranged into table settings).",
+			},
+			{
 				"name": "godot-rust", "by": "godot-rust developers", "licence": "MPL 2.0",
 				"url": "https://github.com/godot-rust/gdext", "licence_url": "https://mozilla.org/MPL/2.0/",
 				"what": "The bridge between the game's Rust code and the engine. The other Rust libraries are listed below.",

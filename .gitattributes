@@ -19,5 +19,7 @@ game/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
 game/**/*.ttf filter=lfs diff=lfs merge=lfs -text
 game/**/*.otf filter=lfs diff=lfs merge=lfs -text
 game/**/*.res filter=lfs diff=lfs merge=lfs -text
+# Native addon libraries (Terrain3D's dll / so / macOS framework binaries).
+game/addons/**/bin/** filter=lfs diff=lfs merge=lfs -text
 *.png binary
 *.glb binary

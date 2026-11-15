@@ -1,38 +1,61 @@
-extends MultiMeshInstance3D
+extends Node3D
 class_name StairView
 
-## The castle's moving staircases, drawn (placeholder stone like the walls
-## until the castle scene comes in Phase 6). The flights are simulated by
-## the server and by the client core for prediction (realm_sim staircase.rs:
-## a pure function of the tick); RealmSession.stair_parts gives every solid
-## box of them as the player's own body sees it this frame - the deck, its
-## two railings and the gates that are shut - and this draws each as a block,
-## with treads on the deck so it reads as a stair, every frame. Nothing here
-## collides: the core already does.
+## The castle's moving staircases, drawn with the old game's flight art. The
+## flights are simulated by the server and by the client core for prediction
+## (realm_sim staircase.rs: a pure function of the tick); RealmSession.
+## stair_parts gives every solid box of them as the player's own body sees it
+## this frame - the deck, its two railings and the gates that are shut - and
+## this poses the art on exactly those boxes every frame (no second clock: the
+## stone moves where the body is carried). Nothing here collides: the core
+## already does.
+##
+## A flight (built once per flight size, one mesh of four surfaces):
+##   the deck slab and its 0.2 m stone steps (stone ashlar, sampled in the
+##   flight's own space so it stays on the stone as it swings), an oak runner
+##   on every step, the two railings in the castle's oak and a travelling
+##   enchantment line along both deck edges. Each step's top straddles the
+##   walked slope (the deck collider) by half a step, so feet on the slope
+##   neither float nor sink more than 0.1 m.
+## The gates are drawn as the old game's ward curtains (stair_ward.gdshader),
+## not as the boxes the core collides with: on the deck's two ends and across
+## every landing a flight docks at, with a rune threshold on the landing
+## floor (stair_threshold.gdshader). A curtain stands while its gate is shut
+## (violet: sealed), rises slowly in amber over the boarding warning, and
+## sinks in gold when its gate opens.
 ##
 ## Near a flight that is swinging, or whose gates are shut for its warning
 ## before it swings, a line over the prompt says so (the old game's
 ## staircase warning): "Magical staircase: moving" / "...: gates closed".
 
-## Height of one drawn tread (metres); the walked surface is the deck's slope,
-## the treads sit on it centred, half a tread above and below.
-const TREAD := 0.2
-const STONE := Color(0.62, 0.6, 0.56)
-const TREAD_STONE := Color(0.68, 0.66, 0.61)
-const RAIL := Color(0.5, 0.47, 0.43)
-const GATE := Color(0.24, 0.23, 0.25)
+const Kit = preload("res://maps/castle_interior/castle_kit.gd")
+const WARD_SHADER := preload("res://assets/shaders/stair_ward.gdshader")
+const THRESHOLD_SHADER := preload("res://assets/shaders/stair_threshold.gdshader")
+const RUNE_TEX := "res://assets/fx/rune_band.png"
+## Ward colours: open (board now), warning (leaving - stay off), sealed.
+const WARD_OPEN := Color(1.0, 0.78, 0.36)
+const WARD_WARN := Color(1.0, 0.42, 0.12)
+const WARD_SEALED := Color(0.55, 0.32, 1.0)
+## The deck's end gates are this tall (the landing gates 1.2 m).
+const END_GATE_HEIGHT := 1.6
+## A landing curtain stands this tall over its gate's foot.
+const LANDING_WARD_HEIGHT := 2.2
+## Step height when the content does not say (maps.json staircases flight).
+const STEP_HEIGHT := 0.2
+## Seconds of the boarding warning when the content does not say.
+const WARNING_SECONDS := 2.0
 ## How near a flight's deck (metres, across and up or down) the line shows.
 const WARN_REACH := 7.0
 const WARN_RISE := 5.0
 const WARN_COLOUR := Color(1.0, 0.72, 0.36)
 
 var session: Node
-## What was drawn last frame (the check reads them): boxes by kind, treads,
+## What was drawn last frame (the check reads them): parts by kind, steps,
 ## and the decks' centres by flight.
 var counts: Dictionary = {}
 var treads := 0
 var decks: Dictionary = {}
-## Each flight's deck slab as drawn: [Transform3D, size].
+## Each flight's deck slab as posed: [Transform3D, size].
 var deck_boxes: Dictionary = {}
 ## Each flight's phase by flight ("docked", "warning", "moving", "docking").
 var phases: Dictionary = {}
@@ -40,7 +63,14 @@ var phases: Dictionary = {}
 var line_text := ""
 var _line: Label
 
-## A flight's walked surface ends as drawn now: [low, high] (the slab's top
+## flight -> {node: MeshInstance3D, steps: int, rise, run, width,
+## deck_wards: [ward], landing: {key: ward}}; ward = {node, sill, closed, warn}
+var _flights: Dictionary = {}
+var _meshes: Dictionary = {}
+var _rune: Texture2D
+var _specs: Array = []
+
+## A flight's walked surface ends as posed now: [low, high] (the slab's top
 ## at each end), [] when it is not in view.
 func deck_ends(flight: int) -> Array:
 	if not deck_boxes.has(flight):
@@ -54,17 +84,6 @@ func deck_ends(flight: int) -> Array:
 
 func _ready() -> void:
 	name = "Staircases"
-	multimesh = MultiMesh.new()
-	multimesh.transform_format = MultiMesh.TRANSFORM_3D
-	multimesh.use_colors = true
-	var box := BoxMesh.new()
-	box.size = Vector3.ONE
-	var material := StandardMaterial3D.new()
-	material.vertex_color_use_as_albedo = true
-	material.albedo_color = Color.WHITE
-	material.roughness = 0.9
-	box.material = material
-	multimesh.mesh = box
 	var layer := CanvasLayer.new()
 	layer.layer = 5
 	add_child(layer)
@@ -80,42 +99,266 @@ func _ready() -> void:
 	_line.hide()
 	layer.add_child(_line)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if session == null or String(session.status()) != "joined":
 		return
 	var parts: Array = session.stair_parts()
+	if parts.is_empty():
+		return
 	var offset: Vector3 = session.copy_offset()
-	var boxes: Array = []   # [Transform3D, Color]
 	counts = {}
 	treads = 0
 	decks = {}
 	deck_boxes = {}
 	phases = {}
+	var end_shut := {}
+	var landing_shut := {}
 	for part: Dictionary in parts:
 		var kind := String(part["kind"])
 		counts[kind] = int(counts.get(kind, 0)) + 1
+		var flight := int(part["flight"])
 		var t: Transform3D = part["transform"]
 		t.origin += offset
 		var size: Vector3 = part["size"]
-		var colour := STONE
 		match kind:
-			"rail":
-				colour = RAIL
-			"gate":
-				colour = GATE
 			"deck":
-				decks[int(part["flight"])] = t.origin
-				deck_boxes[int(part["flight"])] = [t, size]
-				phases[int(part["flight"])] = String(part.get("phase", "docked"))
-				_treads(t, size, boxes)
-		boxes.append([Transform3D(_sized(t.basis, size), t.origin), colour])
-	if multimesh.instance_count < boxes.size():
-		multimesh.instance_count = boxes.size() + 32
-	for i in boxes.size():
-		multimesh.set_instance_transform(i, boxes[i][0])
-		multimesh.set_instance_color(i, boxes[i][1])
-	multimesh.visible_instance_count = boxes.size()
+				decks[flight] = t.origin
+				deck_boxes[flight] = [t, size]
+				phases[flight] = String(part.get("phase", "docked"))
+			"gate":
+				if absf(size.y - END_GATE_HEIGHT) < 0.05:
+					end_shut[flight] = true
+				else:
+					if not landing_shut.has(flight):
+						landing_shut[flight] = []
+					landing_shut[flight].append([t, size])
+	for flight: int in deck_boxes:
+		var f := _flight(flight, deck_boxes[flight][0], deck_boxes[flight][1])
+		f["node"].transform = _flight_frame(f, deck_boxes[flight][0])
+		treads += int(f["steps"])
+		_pose_wards(f, String(phases[flight]), bool(end_shut.get(flight, false)),
+			landing_shut.get(flight, []), delta)
 	_warn(session.own_position())
+
+# ------------------------------------------------------------------ flights
+
+## The flight's frame (origin at its foot, z up the run, yaw only) from the
+## deck slab's pose: the slab is the frame's (0, 0, 0)-(0, rise, run) slope,
+## 0.3 m thick under it, tilted about x.
+static func _deck_local(rise: float, run: float) -> Transform3D:
+	var angle := atan2(rise, run)
+	var mid := Vector3(0.0, rise * 0.5, run * 0.5)
+	var up := Vector3(0.0, cos(angle), -sin(angle))
+	return Transform3D(Basis(Vector3.RIGHT, -angle), mid - up * 0.15)
+
+func _flight_frame(f: Dictionary, deck: Transform3D) -> Transform3D:
+	return deck * (f["deck_local"] as Transform3D).affine_inverse()
+
+func _flight(flight: int, deck: Transform3D, size: Vector3) -> Dictionary:
+	if _flights.has(flight):
+		return _flights[flight]
+	var spec := _spec(flight)
+	var ramp := size.z
+	var angle := asin(clampf(deck.basis.z.normalized().y, -1.0, 1.0))
+	var rise := ramp * sin(angle)
+	var run := ramp * cos(angle)
+	var width := size.x
+	var step_h := float((spec.get("flight", {}) as Dictionary).get("step_height", STEP_HEIGHT))
+	var steps := maxi(1, int(round(rise / maxf(step_h, 0.05))))
+	var node := MeshInstance3D.new()
+	node.name = "Flight%d" % flight
+	node.mesh = _flight_mesh(rise, run, width, steps)
+	add_child(node)
+	var f := {"node": node, "steps": steps, "rise": rise, "run": run, "width": width,
+		"deck_local": _deck_local(rise, run), "deck_wards": [], "landing": {},
+		"warn_s": maxf(0.4, float((spec.get("timing", {}) as Dictionary).get("warning_ms", WARNING_SECONDS * 1000.0)) / 1000.0)}
+	# the deck's end gates: across its foot and its head
+	for end in [0, 1]:
+		var at := Vector3(0.0, 0.0, -0.15) if end == 0 else Vector3(0.0, rise, run + 0.15)
+		f["deck_wards"].append(_ward(node, Transform3D(Basis(), at), width, END_GATE_HEIGHT, 0.0))
+	_flights[flight] = f
+	return f
+
+## This flight's maps.json staircase entry (castle_interior's, in order), {}
+## when the content has none.
+func _spec(flight: int) -> Dictionary:
+	if _specs.is_empty():
+		var maps: Variant = RealmContent.table("maps")
+		if maps is Dictionary:
+			for entry: Dictionary in (maps as Dictionary).get("staircases", []):
+				if String(entry.get("map_id", "")) == "castle_interior":
+					_specs.append(entry)
+	return _specs[flight] if flight < _specs.size() else {}
+
+## Deck, steps, runners, railings and edge lines in the flight's frame: one
+## mesh, a surface per material, shared by every flight of the same size.
+func _flight_mesh(rise: float, run: float, width: float, steps: int) -> ArrayMesh:
+	var key := "%.2f/%.2f/%.2f/%d" % [rise, run, width, steps]
+	if _meshes.has(key):
+		return _meshes[key]
+	var angle := atan2(rise, run)
+	var ramp := sqrt(rise * rise + run * run)
+	var mid := Vector3(0.0, rise * 0.5, run * 0.5)
+	var up := Vector3(0.0, cos(angle), -sin(angle))
+	var tilt := Basis(Vector3.RIGHT, -angle)
+	var stone := SurfaceTool.new()
+	var rail := SurfaceTool.new()
+	var runner := SurfaceTool.new()
+	var glow := SurfaceTool.new()
+	_box(stone, Vector3(width, 0.3, ramp), Transform3D(tilt, mid - up * 0.15))
+	var step_h := rise / float(steps)
+	var step_run := run / float(steps)
+	const RUNNER := 0.05
+	for i in steps:
+		# the step's top at (i + 0.5) step heights: the slope crosses it at
+		# its middle, half a step under its back edge and over its front
+		var top := (float(i) + 0.5) * step_h
+		var z := (float(i) + 0.5) * step_run
+		# one step tall: down to the slope at its front edge, and not below
+		# the deck slab's underside at its back (the underside stays smooth)
+		var body := step_h
+		_box(stone, Vector3(width - 0.1, body - RUNNER, step_run),
+			Transform3D(Basis(), Vector3(0.0, top - RUNNER - (body - RUNNER) * 0.5, z)))
+		_box(runner, Vector3(width - 0.9, RUNNER * 2.0, step_run * 0.94),
+			Transform3D(Basis(), Vector3(0.0, top - RUNNER, z)))
+	for side in [-1.0, 1.0]:
+		_box(rail, Vector3(0.16, 1.1, ramp),
+			Transform3D(tilt, mid + up * 0.55 + Vector3(side * (width * 0.5 + 0.12), 0.0, 0.0)))
+		_box(glow, Vector3(0.08, 0.05, ramp),
+			Transform3D(tilt, mid + up * 0.12 + Vector3(side * (width * 0.5 - 0.04), 0.0, 0.0)))
+	var mesh := ArrayMesh.new()
+	var materials := [
+		Kit.surface("stone_ashlar_01", Color(0.88, 0.86, 0.82), 3.0, true),
+		Kit.surface("medieval_wood", Color(0.9, 0.82, 0.74), 0.0, true),
+		Kit.surface("medieval_wood", Color(1.0, 0.86, 0.66), 0.0, true),
+		_glow_material(),
+	]
+	var tools := [stone, rail, runner, glow]
+	for k in tools.size():
+		(tools[k] as SurfaceTool).commit(mesh)
+		mesh.surface_set_material(k, materials[k])
+	_meshes[key] = mesh
+	return mesh
+
+static func _box(st: SurfaceTool, size: Vector3, xform: Transform3D) -> void:
+	var box := BoxMesh.new()
+	box.size = size
+	st.append_from(box, 0, xform)
+
+## A travelling enchantment: the one part of the ride that reads at a glance
+## from the hall floor.
+static func _glow_material() -> StandardMaterial3D:
+	var glow := StandardMaterial3D.new()
+	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	glow.albedo_color = Color(0.55, 0.85, 1.0)
+	glow.emission_enabled = true
+	glow.emission = Color(0.35, 0.7, 1.0)
+	glow.emission_energy_multiplier = 1.6
+	return glow
+
+# ------------------------------------------------------------------ wards
+
+## A ward curtain across a gate whose foot is at `at` (in `parent`'s space),
+## `width` x `height`, and when `landing_dir` is not 0 a rune threshold on
+## the floor on that side (+z / -z of the gate).
+func _ward(parent: Node3D, at: Transform3D, width: float, height: float, landing_dir: float) -> Dictionary:
+	if _rune == null:
+		_rune = load(RUNE_TEX)
+	var mat := ShaderMaterial.new()
+	mat.shader = WARD_SHADER
+	mat.set_shader_parameter("rune", _rune)
+	mat.set_shader_parameter("width_m", width)
+	mat.set_shader_parameter("height_m", height)
+	var quad := QuadMesh.new()
+	quad.size = Vector2(width, height)
+	quad.material = mat
+	var curtain := MeshInstance3D.new()
+	curtain.name = "Ward"
+	curtain.mesh = quad
+	curtain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	curtain.transform = at * Transform3D(Basis(), Vector3(0.0, height * 0.5, 0.0))
+	parent.add_child(curtain)
+	var sill: ShaderMaterial = null
+	if landing_dir != 0.0:
+		sill = ShaderMaterial.new()
+		sill.shader = THRESHOLD_SHADER
+		sill.set_shader_parameter("rune", _rune)
+		sill.set_shader_parameter("width_m", width)
+		var plane := PlaneMesh.new()
+		plane.size = Vector2(width, 2.4)
+		plane.material = sill
+		var strip := MeshInstance3D.new()
+		strip.name = "WardThreshold"
+		strip.mesh = plane
+		strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# PlaneMesh v runs toward +z; v = 0 must sit at the gate
+		var turn := Basis() if landing_dir > 0.0 else Basis(Vector3.UP, PI)
+		strip.transform = at * Transform3D(turn, Vector3(0.0, 0.03, landing_dir * 1.35))
+		parent.add_child(strip)
+	return {"node": curtain, "sill": sill, "closed": 1.0, "warn": false, "shut": true}
+
+## Every ward of a flight toward its gate's state this frame.
+func _pose_wards(f: Dictionary, phase: String, ends_shut: bool, landing: Array, delta: float) -> void:
+	var warn_s: float = f["warn_s"]
+	for ward: Dictionary in f["deck_wards"]:
+		_ease(ward, ends_shut, phase, phase == "warning", warn_s, delta)
+	# landing gates stand still at their docks: known by where they stand
+	# (an open one is not in the parts; it keeps its last place)
+	var seen := {}
+	for gate: Array in landing:
+		var t: Transform3D = gate[0]
+		var key := str(t.origin.snapped(Vector3(0.5, 0.5, 0.5)))
+		seen[key] = true
+		if not f["landing"].has(key):
+			f["landing"][key] = _landing_ward(f, t, gate[1])
+	for key: String in f["landing"]:
+		var ward: Dictionary = f["landing"][key]
+		var shut := seen.has(key)
+		# the gate of the dock the flight leaves shuts as its warning begins
+		if shut and not bool(ward["shut"]) and phase == "warning":
+			ward["warn"] = true
+		elif phase != "warning":
+			ward["warn"] = false
+		ward["shut"] = shut
+		_ease(ward, shut, phase, bool(ward["warn"]), warn_s, delta)
+
+## A landing gate's ward (its box `t`, `size`): the curtain from the gate's
+## foot, the threshold on the landing side (away from the flight's deck).
+func _landing_ward(f: Dictionary, t: Transform3D, size: Vector3) -> Dictionary:
+	var foot := Transform3D(t.basis.orthonormalized(), t.origin - t.basis.y.normalized() * size.y * 0.5)
+	# the flight runs +z from a foot gate and ends -z of a head gate; the
+	# landing lies the other way
+	var frame: Transform3D = (f["node"] as Node3D).transform
+	var head := absf(foot.origin.y - (frame.origin.y + float(f["rise"]))) < absf(foot.origin.y - frame.origin.y)
+	return _ward(self, foot, size.x, LANDING_WARD_HEIGHT, 1.0 if head else -1.0)
+
+func _ease(ward: Dictionary, shut: bool, phase: String, warning: bool, warn_s: float, delta: float) -> void:
+	var closed: float = ward["closed"]
+	var tint := WARD_OPEN
+	var pulse := 0.0
+	if not shut:
+		closed = move_toward(closed, 0.0, delta / 0.7)
+	elif warning and phase == "warning":
+		# rises over the whole warning: the height is the countdown
+		closed = move_toward(closed, 1.0, delta / warn_s)
+		tint = WARD_WARN
+		pulse = 0.5 + 0.5 * sin(Time.get_ticks_msec() / 1000.0 * 9.0)
+	else:
+		closed = move_toward(closed, 1.0, delta / 0.5)
+		tint = WARD_SEALED
+	ward["closed"] = closed
+	var node: MeshInstance3D = ward["node"]
+	node.visible = closed > 0.001
+	var mat := (node.mesh as QuadMesh).material as ShaderMaterial
+	mat.set_shader_parameter("closed", closed)
+	mat.set_shader_parameter("tint", tint)
+	mat.set_shader_parameter("pulse", pulse)
+	var sill: ShaderMaterial = ward["sill"]
+	if sill != null:
+		sill.set_shader_parameter("open", 1.0 - closed)
+		sill.set_shader_parameter("tint", tint if tint != WARD_SEALED else WARD_SEALED * 0.6)
+
+# ------------------------------------------------------------------ line
 
 ## The line for the nearest flight that is not docked within reach of `me`.
 func _warn(me: Vector3) -> void:
@@ -142,38 +385,3 @@ func _warn(me: Vector3) -> void:
 	if _line.text != text:
 		_line.text = text
 	_line.visible = text != ""
-
-## Treads on a deck slab (`t` its centre and tilt, `size` its extents): level
-## blocks from the low end to the high end, each top a quarter tread over
-## the slope at its middle (the feet on the slope neither float nor sink far).
-func _treads(t: Transform3D, size: Vector3, boxes: Array) -> void:
-	var along := t.basis.z.normalized()
-	var up := t.basis.y.normalized()
-	var top := t.origin + up * size.y * 0.5
-	var a := top - along * size.z * 0.5
-	var b := top + along * size.z * 0.5
-	var low := a if a.y <= b.y else b
-	var high := b if a.y <= b.y else a
-	var rise := high.y - low.y
-	var flat := Vector3(high.x - low.x, 0.0, high.z - low.z)
-	if rise < 0.3 or flat.length() < 0.3:
-		return
-	var n := maxi(2, int(round(rise / TREAD)))
-	var forward := flat.normalized()
-	var basis := Basis(Vector3.UP.cross(forward).normalized(), Vector3.UP, forward)
-	var step_h := rise / float(n)
-	var depth := flat.length() / float(n)
-	var width := size.x
-	for i in n:
-		var f := (float(i) + 0.5) / float(n)
-		var tread_top := low.y + rise * f + step_h * 0.25
-		var height := step_h + 0.35
-		var centre := low + flat * f
-		centre.y = tread_top - height * 0.5
-		boxes.append([Transform3D(_sized(basis, Vector3(width, height, depth)), centre),
-			TREAD_STONE if i % 2 == 0 else STONE])
-		treads += 1
-
-## A rotation with its axes stretched to the box's size (a unit box to it).
-static func _sized(b: Basis, size: Vector3) -> Basis:
-	return Basis(b.x.normalized() * size.x, b.y.normalized() * size.y, b.z.normalized() * size.z)

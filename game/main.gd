@@ -133,7 +133,12 @@ extends Node3D
 ##   [--check-stairs]                                 the castle's moving staircases drawn, swinging and climbed
 ##                                                    (StairsCheck; build/logs/aup_stairs.sh, --map
 ##                                                    castle_interior --character 901201)
-##   [--check-polish]                                 the small HUD pieces (PolishCheck; build/logs/aup_polish.sh,
+##   [--check-castle]                                 the castle interior drawn where the server's floors and
+##                                                    walls are: feet on the drawn floor, five fixed views
+##                                                    probed and captured with their frame times, memory
+##                                                    (CastleCheck; build/logs/kup_castle.sh, --map
+##                                                    castle_interior --character 901301)
+##   [--check-polish]                                the small HUD pieces (PolishCheck; build/logs/aup_polish.sh,
 ##                                                    --character 902101): the debug readout hidden, then shown
 ##                                                    by its key; the ping; the broom panel and a refused
 ##                                                    landing in the air; Alt+Enter; an arrow key walks
@@ -238,6 +243,7 @@ const MapCheckScript := "res://scripts/systems/map_check.gd"
 const AudioCheckScript := "res://scripts/systems/audio_check.gd"
 const Hud2CheckScript := "res://scripts/systems/hud2_check.gd"
 const StairsCheckScript := "res://scripts/systems/stairs_check.gd"
+const CastleCheckScript := "res://maps/castle_interior/castle_check.gd"
 const PolishCheckScript := "res://scripts/systems/polish_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
@@ -544,6 +550,7 @@ var titles_toasted: Array = []
 ## check.
 var hud2_check: Node = null
 var stairs_check: Node = null
+var castle_check: Node = null
 ## `--check-polish`: the small HUD pieces' check.
 var polish_check: Node = null
 
@@ -809,6 +816,11 @@ func _build_ui() -> void:
 		stairs_check.name = "StairsCheck"
 		stairs_check.game = self
 		add_child(stairs_check)
+	if user_args.has("--check-castle"):
+		castle_check = load(CastleCheckScript).new()
+		castle_check.name = "CastleCheck"
+		castle_check.game = self
+		add_child(castle_check)
 	if user_args.has("--check-polish"):
 		polish_check = load(PolishCheckScript).new()
 		polish_check.name = "PolishCheck"
@@ -2551,6 +2563,8 @@ func _process(delta: float) -> void:
 	elif stairs_check != null:
 		forward = stairs_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
+	elif castle_check != null:
+		forward = castle_check.walk_intent()
 	elif map_check != null:
 		forward = map_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)

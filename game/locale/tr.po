@@ -5881,6 +5881,9 @@ msgstr "Rust kütüphaneleri"
 msgid "Compiled into the game's extension; their licence texts are at the end of this page."
 msgstr "Oyunun eklentisine derlenmiştir; lisans metinleri bu sayfanın sonunda."
 
+msgid "The food, plates and kitchenware on the castle's feast and kitchen tables (decimated, re-baked onto one texture atlas and arranged into table settings)."
+msgstr "Kalenin ziyafet ve mutfak masalarındaki yiyecekler, tabaklar ve mutfak gereçleri (sadeleştirildi, tek bir doku atlasına yeniden pişirildi ve sofra düzenine yerleştirildi)."
+
 msgid "Skin pore and iris textures (CC BY 4.0, unchanged); the skin lighting follows its skin shader (MIT)."
 msgstr "Cilt gözeneği ve iris dokuları (CC BY 4.0, değiştirilmeden); cilt ışıklandırması onun cilt gölgelendiricisini izler (MIT)."
 
