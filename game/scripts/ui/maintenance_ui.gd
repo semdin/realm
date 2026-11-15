@@ -19,7 +19,9 @@ class_name MaintenanceUI
 ## `show_closed(status)` turns the session's "refused: ..." / "closed: ..."
 ## status into the end screen: the realm's emblem, a card in the arcane frame
 ## with what happened (a maintenance refusal, a logout for maintenance, a lost
-## connection) and Reconnect (the scene joins again) / Quit Game.
+## connection) and Reconnect (the scene joins again) / Quit Game. A player who
+## came in through the front door (`to_login` set by main.gd) gets Return to
+## Login instead: the login card again, saying why.
 
 const ACTIVE_STATES := ["ANNOUNCING", "DRAINING", "SAVING", "DISCONNECTING", "MAINTENANCE", "FAILED"]
 const CLOSED_STATES := ["ONLINE", "ABORTED"]
@@ -36,6 +38,9 @@ var active := false
 ## What the end screen shows: "" (none), "refused_maintenance", "maintenance"
 ## (logged out by the cycle), "lost", "refused".
 var screen_kind := ""
+## main.gd's return_to_login(kind, detail) when the player came in through
+## the login screen; unset (a dev join) the button reconnects.
+var to_login := Callable()
 
 var banner: Panel
 var title_label: Label
@@ -261,7 +266,7 @@ func _build_screen(was_in: bool) -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 16)
 	column.add_child(buttons)
-	reconnect_button = HudKit.gold_button(tr("Reconnect"), 42.0, 17)
+	reconnect_button = HudKit.gold_button(tr("Return to Login") if to_login.is_valid() else tr("Reconnect"), 42.0, 17)
 	reconnect_button.name = "Reconnect"
 	reconnect_button.custom_minimum_size.x = 200
 	reconnect_button.pressed.connect(reconnect)
@@ -287,5 +292,9 @@ static func _inset(panel: Control, margins: Vector4) -> MarginContainer:
 
 ## Join again: the scene is rebuilt and its session joins afresh (a
 ## maintenance still running refuses it, and this screen says so again).
+## Through the front door it is the login card again, with the reason.
 func reconnect() -> void:
+	if to_login.is_valid():
+		to_login.call(screen_kind, screen_detail.text if screen_detail != null else "")
+		return
 	get_tree().reload_current_scene.call_deferred()

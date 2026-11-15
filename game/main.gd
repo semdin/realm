@@ -85,7 +85,14 @@ extends Node3D
 ##                                                    countdown called off, a full cycle to the closed
 ##                                                    connection and a refused rejoin (OpsCheck;
 ##                                                    build/logs/aup_ops.sh)
-##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck save PNG frames
+##   [--check-login]                                  the check goes through the front door against the login
+##                                                    service (build/logs/aup_login.sh): registers an account,
+##                                                    sees the empty roster, creates a character in the create
+##                                                    card with a house and a look, sees it on the dais, enters
+##                                                    the world and finds its name, house and look on the sheet;
+##                                                    a second account is refused the same name (LoginCheck)
+##   [--login-url http://127.0.0.1:7950]              the login service the front door talks to
+##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck / LoginCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
 ## a Waylink; Shift mounts or dismounts the broom. A trip to another map
@@ -136,6 +143,13 @@ extends Node3D
 ## of the world: creature answers (bosses with the body and scale they wear),
 ## the map's notices, and the Dark Shards, dummies and bosses in view.
 ##
+## The front door (FrontDoor): started without `--character`, `--server` or a
+## check that needs the dev join, the game shows the login card, then the
+## character screen; Enter World takes a ticket from the login service and the
+## scene is rebuilt to join the character's map like a trip
+## (RealmSession.join_ticket, start_travel). The world's end screen then goes
+## back to the login card (return_to_login).
+##
 ## Paths to keys/, content/data and world/maps default to the realm checkout
 ## the project sits in.
 
@@ -159,6 +173,7 @@ const GuideCheckScript := "res://scripts/systems/guide_check.gd"
 const BossCheckScript := "res://scripts/systems/boss_check.gd"
 const LairCheckScript := "res://scripts/systems/lair_check.gd"
 const OpsCheckScript := "res://scripts/systems/ops_check.gd"
+const LoginCheckScript := "res://scripts/systems/login_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -382,6 +397,10 @@ var weather: RealmWeather
 var maintenance: MaintenanceUI
 ## `--check-ops`: the operations check.
 var ops_check: Node = null
+## The login card and the character screen, before any world (null in it).
+var front_door: FrontDoor = null
+## `--check-login`: the front door check (both sides of the scene reload).
+var login_check: Node = null
 ## `--check-duel` / `--duel-guest`: the duel check, told of every combat event.
 var duel_check: Node = null
 ## `--check-quests`: the check walks the first chapter (see _check_quest_walk):
@@ -447,6 +466,9 @@ func _ready() -> void:
 	var houses: Variant = ClassDB.class_call_static("RealmContent", "table", "houses")
 	if houses is Dictionary and (houses as Dictionary).has("velkar"):
 		house_color = Color.html(String(houses["velkar"].get("primary_color", "#d9661c")))
+	if trip_map == "" and _wants_front_door():
+		_show_front_door()
+		return
 	session = ClassDB.instantiate("RealmSession")
 	add_child(session)
 	var ok: bool
@@ -465,6 +487,35 @@ func _ready() -> void:
 	_build_view()
 	if trip_map != "":
 		travel.begin_arrival()
+
+## The dev join is for `--character`, `--server` and the checks that play a
+## dev character; anything else starts at the login card.
+func _wants_front_door() -> bool:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg == "--character" or arg == "--server" or arg.ends_with("-guest") 				or (arg.begins_with("--check") and arg != "--check-login"):
+			return false
+	return true
+
+func _show_front_door() -> void:
+	front_door = FrontDoor.new()
+	add_child(front_door)
+	front_door.setup(_arg("--login-url", LoginApi.DEFAULT_URL))
+	_add_login_check()
+
+func _add_login_check() -> void:
+	if OS.get_cmdline_user_args().has("--check-login"):
+		login_check = load(LoginCheckScript).new()
+		login_check.name = "LoginCheck"
+		login_check.game = self
+		add_child(login_check)
+
+## Back to the login card (the world's end screen, a check): the scene is
+## rebuilt without a world; `kind` / `detail` say why on the card.
+func return_to_login(kind := "", detail := "") -> void:
+	FrontDoor.return_kind = kind
+	FrontDoor.return_detail = detail
+	before_reload()
+	get_tree().reload_current_scene.call_deferred()
 
 func _build_view() -> void:
 	var sun := DirectionalLight3D.new()
@@ -590,6 +641,10 @@ func _build_ui() -> void:
 	maintenance = MaintenanceUI.new()
 	add_child(maintenance)
 	maintenance.setup(hud)
+	if LoginApi.token != "":
+		# in through the front door: the end screen goes back to it
+		maintenance.to_login = return_to_login
+	_add_login_check()
 	if user_args.has("--check-ops"):
 		ops_check = load(OpsCheckScript).new()
 		ops_check.name = "OpsCheck"
@@ -687,10 +742,16 @@ func toggle_inventory() -> void:
 ## The player's hero wears the look the sheet carries (applied when it
 ## changes).
 var _shown_look := {}
+var _shown_house := ""
 
 func _apply_sheet_look(sheet: Dictionary) -> void:
 	# The hand shows the worn wand (none when the slot is empty).
 	player.show_wand((sheet["equipment"] as Dictionary).get("main_hand", {}))
+	# the outfit's main cloth wears the character's house (as on the dais)
+	var house := String(sheet.get("house", ""))
+	if house != _shown_house and player.body != null:
+		_shown_house = house
+		HeroAppearance.apply_house_tint(player.body, FrontDoor.house_color(house))
 	var look: Dictionary = sheet["look"]
 	if look == _shown_look or player.body == null:
 		return
@@ -862,6 +923,9 @@ func talk_to(npc: NpcView) -> void:
 	check_talks += 1
 
 func _unhandled_input(event: InputEvent) -> void:
+	if hud == null:
+		# the front door has the keys
+		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.physical_keycode:
 			KEY_I:

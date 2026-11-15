@@ -37,6 +37,13 @@ impl Sim {
 
     pub(super) fn player_info(&self, entity: Entity) -> Option<ServerMsg> {
         let p = self.world.get::<Player>(entity)?;
+        let gear = p
+            .sheet
+            .equipment
+            .iter()
+            .enumerate()
+            .filter_map(|(i, item)| item.as_ref().map(|it| (i as u8, it.id.clone(), it.tier)))
+            .collect();
         Some(ServerMsg::PlayerInfo {
             entity: self.net_id_of(entity),
             character: p.sheet.id,
@@ -44,7 +51,49 @@ impl Sim {
             house: p.sheet.house.clone(),
             level: p.sheet.level,
             ga: self.is_ga(entity),
+            look: p.sheet.look.clone(),
+            gear,
+            rank: self.game.rules.combat.house_rank(p.sheet.house_rep),
+            titles: p.sheet.dungeons.titles.clone(),
         })
+    }
+
+    /// When what others see of a player changed (look, gear, level, rank,
+    /// titles, GA), the players near it (and it) are told again.
+    pub(super) fn refresh_info(&mut self, entity: Entity) {
+        let Some(info) = self.player_info(entity) else {
+            return;
+        };
+        let key = {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            format!("{info:?}").hash(&mut h);
+            h.finish()
+        };
+        let Some(pos) = self.world.get_mut::<Player>(entity).and_then(|mut p| {
+            if p.info_key == key {
+                return None;
+            }
+            let first = p.info_key == 0;
+            p.info_key = key;
+            // The first time is the join: those near ask for it themselves.
+            (!first).then_some(p.body.pos)
+        }) else {
+            return;
+        };
+        let near: Vec<ConnId> = self
+            .clients
+            .iter()
+            .filter(|(_, c)| {
+                self.world
+                    .get::<Player>(c.entity)
+                    .is_some_and(|q| (q.body.pos - pos).length() <= super::INTEREST_RADIUS)
+            })
+            .map(|(conn, _)| *conn)
+            .collect();
+        for conn in near {
+            self.send_control(conn, &info);
+        }
     }
 
     /// The realm's GAs changed: everyone here sees the players whose
@@ -61,13 +110,8 @@ impl Sim {
             .filter(|(e, was)| self.is_ga(*e) != *was)
             .map(|(e, _)| e)
             .collect();
-        let conns: Vec<ConnId> = self.clients.keys().copied().collect();
         for e in changed {
-            if let Some(info) = self.player_info(e) {
-                for c in &conns {
-                    self.send_control(*c, &info);
-                }
-            }
+            self.refresh_info(e);
         }
     }
 

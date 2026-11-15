@@ -446,7 +446,7 @@ msgid "Kaf Valley"
 msgstr "Kaf Vadisi"
 
 msgid "ENTER WORLD"
-msgstr "OYUNA GİR (ENTER WORLD)"
+msgstr "DİYARA GİR"
 
 msgid "Empty Slot"
 msgstr "Boş Yuva"
@@ -5763,3 +5763,78 @@ msgstr "Karakterin hâlâ yolda; birazdan tekrar dene."
 
 msgid "character could not be loaded"
 msgstr "Karakter yüklenemedi."
+
+msgid "Could not reach the login server. Check your connection and try again."
+msgstr "Giriş sunucusuna ulaşılamadı. Bağlantını kontrol edip tekrar dene."
+
+msgid "Something went wrong (%d). Please try again."
+msgstr "Bir şeyler ters gitti (%d). Lütfen tekrar dene."
+
+msgid "Account names are 3-24 letters, digits, _ or -."
+msgstr "Hesap adı 3-24 harf, rakam, _ veya - olmalı."
+
+msgid "Passwords need 8 or more characters with letters and digits."
+msgstr "Şifre en az 8 karakter olmalı ve hem harf hem rakam içermeli."
+
+msgid "That account name is taken."
+msgstr "Bu hesap adı zaten alınmış."
+
+msgid "Service unavailable."
+msgstr "Hizmet şu anda kullanılamıyor."
+
+msgid "Too many failed logins. Try again in a few minutes."
+msgstr "Çok fazla hatalı giriş denemesi. Birkaç dakika sonra tekrar dene."
+
+msgid "Invalid username or password."
+msgstr "Kullanıcı adı veya şifre hatalı."
+
+msgid "Not logged in."
+msgstr "Oturum açık değil. Lütfen yeniden giriş yap."
+
+msgid "Unknown house."
+msgstr "Bilinmeyen hane."
+
+msgid "Maximum 2 characters per account."
+msgstr "Bir hesapta en fazla 2 karakter olabilir."
+
+msgid "Character name already taken."
+msgstr "Bu karakter adı zaten alınmış."
+
+msgid "No such character."
+msgstr "Böyle bir karakter yok."
+
+msgid "The realm is not reachable right now."
+msgstr "Diyara şu anda ulaşılamıyor."
+
+msgid "Name must be 2-20 characters."
+msgstr "Ad 2-20 karakter olmalı."
+
+msgid "Spaces, hyphens and apostrophes may only stand between letters."
+msgstr "Boşluk, kısa çizgi ve kesme işareti yalnızca harflerin arasında olabilir."
+
+msgid "Names may only use letters, digits, spaces, hyphens and apostrophes."
+msgstr "Adda yalnızca harf, rakam, boşluk, kısa çizgi ve kesme işareti kullanılabilir."
+
+msgid "Names need at least one letter."
+msgstr "Adda en az bir harf olmalı."
+
+msgid "You have logged out."
+msgstr "Oturumu kapattın."
+
+msgid "The login server sent a ticket this client cannot read."
+msgstr "Giriş sunucusunun gönderdiği bilet bu istemcide okunamadı."
+
+msgid "Entering the realm…"
+msgstr "Diyara giriliyor…"
+
+msgid "Name:"
+msgstr "Ad:"
+
+msgid "Your character's name"
+msgstr "Karakterinin adı"
+
+msgid "Create"
+msgstr "Oluştur"
+
+msgid "Return to Login"
+msgstr "Giriş Ekranına Dön"

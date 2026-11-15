@@ -218,9 +218,16 @@ pub enum ServerMsg {
         name: String,
         house: String,
         level: u16,
-        /// A game admin (the client shows the emblem). Sent again to
-        /// everyone on the map when it changes.
+        /// A game admin (the client shows the emblem).
         ga: bool,
+        /// How the player looks (realm_rules looks), what it wears (slot
+        /// index, item id, tier), its house rank and the titles it earned
+        /// (dungeon first clears). Sent again to the players near it
+        /// whenever any of this changes.
+        look: Vec<(String, f32)>,
+        gear: Vec<(u8, String, u8)>,
+        rank: u8,
+        titles: Vec<String>,
     },
     /// The realm's weather (on joining and whenever it changes); the
     /// client shows it outdoors.

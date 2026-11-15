@@ -623,6 +623,36 @@ impl RealmSession {
             .map_or_else(GString::new, |(map, _, _)| GString::from(map.as_str()))
     }
 
+    /// The login service's answer to /api/play (`map`, the map server's
+    /// `address`, the signed `ticket` in hex) becomes the pending join: the
+    /// scene is rebuilt and `start_travel` connects with it, as after a trip.
+    /// False when the ticket is not hex or the address is empty.
+    #[func]
+    fn join_ticket(map: GString, address: GString, ticket_hex: GString) -> bool {
+        let hex = ticket_hex.to_string();
+        let ticket: Option<Vec<u8>> = hex
+            .len()
+            .is_multiple_of(2)
+            .then(|| {
+                (0..hex.len())
+                    .step_by(2)
+                    .map(|i| u8::from_str_radix(hex.get(i..i + 2)?, 16).ok())
+                    .collect()
+            })
+            .flatten();
+        let (map, address) = (map.to_string(), address.to_string());
+        match ticket {
+            Some(ticket) if !ticket.is_empty() && !map.is_empty() && !address.is_empty() => {
+                *PENDING_TRAVEL
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) =
+                    Some((map, address, ticket));
+                true
+            }
+            _ => false,
+        }
+    }
+
     /// Joins the map of the pending trip with its ticket (the trusted
     /// certificate from `keys_dir`, content and the map pack loaded as for
     /// `start_dev`). False (and `status`) when there is none or it fails.
@@ -1286,7 +1316,9 @@ impl RealmSession {
 
     /// Answers to `inspect` (and a player's info again when its GA emblem
     /// came or went). A player: `entity`, `player` (true), `character`,
-    /// `name`, `house`, `level`, `ga`. A creature: `entity`, `boss_key` (boss_overrides key, else
+    /// `name`, `house`, `level`, `ga`, `look` ([[key, value]...]), `gear`
+    /// ([{`slot`, `id`, `tier`}]), `rank` (house rank) and `titles`; sent
+    /// again unasked when any of it changes. A creature: `entity`, `boss_key` (boss_overrides key, else
     /// empty), `name` (a boss's, a Dark Shard's or a dummy's own name; empty:
     /// the species' name), `level`, `elite`, `boss`, `parts` ([{`entity`,
     /// `name`: bone key L / M / R / T}] on a multi-part boss) and `part_of`
@@ -1302,12 +1334,39 @@ impl RealmSession {
                 house,
                 level,
                 ga,
+                look,
+                gear,
+                rank,
+                titles,
             } = &msg
             {
                 let mut d = VarDictionary::new();
                 d.set("entity", &i64::from(*entity).to_variant());
                 d.set("player", &true.to_variant());
                 d.set("ga", &ga.to_variant());
+                let mut l = VarArray::new();
+                for (k, v) in look {
+                    let mut pair = VarArray::new();
+                    pair.push(&GString::from(k.as_str()).to_variant());
+                    pair.push(&f64::from(*v).to_variant());
+                    l.push(&pair.to_variant());
+                }
+                d.set("look", &l.to_variant());
+                let mut g = VarArray::new();
+                for (slot, id, tier) in gear {
+                    let mut item = VarDictionary::new();
+                    item.set("slot", &i64::from(*slot).to_variant());
+                    item.set("id", &GString::from(id.as_str()).to_variant());
+                    item.set("tier", &i64::from(*tier).to_variant());
+                    g.push(&item.to_variant());
+                }
+                d.set("gear", &g.to_variant());
+                d.set("rank", &i64::from(*rank).to_variant());
+                let mut t = VarArray::new();
+                for title in titles {
+                    t.push(&GString::from(title.as_str()).to_variant());
+                }
+                d.set("titles", &t.to_variant());
                 d.set("character", &(*character as i64).to_variant());
                 d.set("name", &GString::from(name.as_str()).to_variant());
                 d.set("house", &GString::from(house.as_str()).to_variant());

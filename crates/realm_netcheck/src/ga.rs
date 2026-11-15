@@ -192,6 +192,45 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         return fail(format!("the list on disk is {kept:?}"));
     }
     println!("[ga] 5 ok: B taken back and refused; the list on disk holds A only");
+
+    // 6. What others see of A, pushed when it changes.
+    b.events.clear();
+    a.net
+        .send_control(&ClientMsg::Look(vec![("hair".to_owned(), 3.0)]));
+    let looked = |s: &Session| {
+        s.events.iter().any(|m| {
+            matches!(m, ServerMsg::PlayerInfo { entity, look, .. }
+                if *entity == a_id && look.iter().any(|(k, v)| k == "hair" && *v == 3.0))
+        })
+    };
+    if !pump_all(&mut [&mut a, &mut b, &mut d], 3.0, |all| looked(all[1]))? {
+        return fail("B never saw A's new look");
+    }
+    let wand = realm_rules::Slot::MainHand as u8;
+    let revision = a.sheet.as_ref().map_or(0, |x| x.revision);
+    let free = a
+        .sheet
+        .as_ref()
+        .and_then(|x| x.bag.iter().position(Option::is_none))
+        .ok_or("no free bag cell")? as u8;
+    a.net.send_control(&ClientMsg::Item {
+        op_id: 1,
+        revision,
+        op: realm_rules::ItemOp::Move {
+            from: realm_rules::Cell::Worn(realm_rules::Slot::MainHand),
+            to: realm_rules::Cell::Bag(free),
+        },
+    });
+    let unarmed = |s: &Session| {
+        s.events.iter().any(|m| {
+            matches!(m, ServerMsg::PlayerInfo { entity, gear, .. }
+                if *entity == a_id && !gear.iter().any(|(slot, _, _)| *slot == wand))
+        })
+    };
+    if !pump_all(&mut [&mut a, &mut b, &mut d], 3.0, |all| unarmed(all[1]))? {
+        return fail("B never saw A take its wand off");
+    }
+    println!("[ga] 6 ok: A's new look and its wand taken off reached B unasked");
     println!("[ga] ok: refusal, surface grant, emblem, realm rain, in-game add/list/remove");
     Ok(())
 }

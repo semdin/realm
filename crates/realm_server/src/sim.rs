@@ -187,6 +187,8 @@ struct Player {
     life: u8,
     /// The next tick this player may chat.
     chat_ready: u32,
+    /// What the players near it were last told about it (PlayerInfo).
+    info_key: u64,
     /// Its party as the coordinator last said.
     party: realm_proto::coord::PartyView,
     /// A dead player may rise from this tick (`dead_until` is when it goes
@@ -1031,6 +1033,7 @@ impl Sim {
             last_input_tick: self.tick,
             life: 0,
             chat_ready: 0,
+            info_key: 0,
             party: realm_proto::coord::PartyView::default(),
             respawn_ready: 0,
             sheet,
@@ -1161,6 +1164,7 @@ impl Sim {
         if let Some(sheet) = self.sheet_of(entity) {
             self.send_control(conn, &ServerMsg::Sheet(Box::new(sheet)));
         }
+        self.refresh_info(entity);
     }
 
     fn control(&mut self, conn: ConnId, msg: ClientMsg) {
@@ -1289,7 +1293,11 @@ impl Sim {
                 in_combat: player.last_combat != 0 && tick < player.last_combat + COMBAT_LOCK_TICKS,
                 // A spell being drawn (wound up, not yet over): no gear
                 // change mid-cast, as in the old game; potions still go.
-                casting: player.caster.cast.as_ref().is_some_and(|c| tick < c.end_tick),
+                casting: player
+                    .caster
+                    .cast
+                    .as_ref()
+                    .is_some_and(|c| tick < c.end_tick),
                 mounted: player.body.mounted,
                 at_shop: self.game.rules.at_hearth(&self.game.map, pos.x, pos.z),
                 at_dungeon_gate: self.near_dungeon_gate(pos),
