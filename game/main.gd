@@ -78,7 +78,14 @@ extends Node3D
 ##   [--check-lair-step queen]                        the Web Mother instead: her cocoon round the
 ##                                                    player, the venom pools, her fall
 ##                                                    (aup_lair.sh queen)
-##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck save PNG frames
+##   [--check-ops]                                    the check drives the coordinator's admin surface
+##                                                    (--check-admin 127.0.0.1:8094 --check-token
+##                                                    check-token): becomes a GA, types /ga rain on and
+##                                                    off, sees an update notice, a maintenance
+##                                                    countdown called off, a full cycle to the closed
+##                                                    connection and a refused rejoin (OpsCheck;
+##                                                    build/logs/aup_ops.sh)
+##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
 ## a Waylink; Shift mounts or dismounts the broom. A trip to another map
@@ -112,6 +119,10 @@ extends Node3D
 ## the client learns from the server's answer when the player comes into view.
 ## In a duel (HudDuel) a standing foe is a target like a creature: Tab takes
 ## it, a left-click on it casts, and spells aim at it.
+## A game admin wears the GA emblem (over its head, on its unit frame and on
+## the target card); the realm's rain falls on the grounds (RealmWeather). A
+## maintenance shows its countdown banner (MaintenanceUI), and a closed
+## connection or a refused join the end screen with Reconnect and Quit Game.
 ## The check mode also fights: it targets the nearest creature, learns and casts
 ## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
 ## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
@@ -147,6 +158,7 @@ const DungeonCheckScript := "res://scripts/systems/dungeon_check.gd"
 const GuideCheckScript := "res://scripts/systems/guide_check.gd"
 const BossCheckScript := "res://scripts/systems/boss_check.gd"
 const LairCheckScript := "res://scripts/systems/lair_check.gd"
+const OpsCheckScript := "res://scripts/systems/ops_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -362,6 +374,14 @@ var check_attribute_results := {}
 var check_stones := {}
 var check_dummies := {}
 var built := false
+## The player is a game admin (its own player info's `ga`).
+var own_ga := false
+## The realm's weather here (RealmWeather) and the maintenance banner and end
+## screen (MaintenanceUI).
+var weather: RealmWeather
+var maintenance: MaintenanceUI
+## `--check-ops`: the operations check.
+var ops_check: Node = null
 ## `--check-duel` / `--duel-guest`: the duel check, told of every combat event.
 var duel_check: Node = null
 ## `--check-quests`: the check walks the first chapter (see _check_quest_walk):
@@ -448,10 +468,12 @@ func _ready() -> void:
 
 func _build_view() -> void:
 	var sun := DirectionalLight3D.new()
+	sun.name = "Sun"
 	sun.rotation = Vector3(deg_to_rad(-50), deg_to_rad(35), 0)
 	sun.shadow_enabled = true
 	add_child(sun)
 	var env := WorldEnvironment.new()
+	env.name = "WorldEnvironment"
 	env.environment = Environment.new()
 	env.environment.background_mode = Environment.BG_COLOR
 	env.environment.background_color = Color(0.55, 0.68, 0.82)
@@ -486,6 +508,9 @@ func _build_view() -> void:
 	var layer := CanvasLayer.new()
 	layer.add_child(readout)
 	add_child(layer)
+	weather = RealmWeather.new()
+	add_child(weather)
+	weather.setup(session, map_name, sun, env.environment)
 	_build_ui()
 
 ## The interface: a full-screen root holding the HUD ("HUD", which the windows
@@ -562,6 +587,14 @@ func _build_ui() -> void:
 		check.name = "WorkshopCheck"
 		check.game = self
 		add_child(check)
+	maintenance = MaintenanceUI.new()
+	add_child(maintenance)
+	maintenance.setup(hud)
+	if user_args.has("--check-ops"):
+		ops_check = load(OpsCheckScript).new()
+		ops_check.name = "OpsCheck"
+		ops_check.game = self
+		add_child(ops_check)
 	_build_social_ui()
 
 ## The social pieces the HUD holds: the party frames know this map and push
@@ -722,6 +755,9 @@ func _build_map() -> void:
 		node.position = offset
 		add_child(node)
 	built = true
+	# the player's own info: whether it is a game admin (its emblem)
+	session.inspect(session.own_entity())
+	weather.on_joined()
 	_spawn_npcs()
 	travel.on_map_built()
 	dungeon.on_map_built()
@@ -1142,7 +1178,7 @@ func _show_player_card() -> void:
 	var house := String(who["house"])
 	var rank := HudQuestScroll.house_name(house) if house != "" else ""
 	var look := {"level": int(who["level"]), "tint": PLAYER_TINT, "bar": PLAYER_BAR, "icon": "ui_target",
-		"invite": "" if in_party else who_name}
+		"invite": "" if in_party else who_name, "ga": bool(who["ga"])}
 	if in_party:
 		rank = tr("%s · Party") % rank
 	_target_foe = is_duel_foe(target)
@@ -1260,8 +1296,20 @@ func _take_creature_info() -> void:
 	for info: Dictionary in session.take_creature_info():
 		var id := int(info["entity"])
 		if bool(info.get("player", false)):
+			# the player's own answer comes too (asked at join, and again
+			# unasked when its GA emblem comes or goes)
+			var ga := bool(info.get("ga", false))
+			if id == int(session.own_entity()):
+				own_ga = ga
+				player.set_ga(ga)
+				hud.unit_frame.set_ga(ga)
+				continue
 			player_infos[id] = info
 			player_names[id] = String(info["name"])
+			if heroes.has(id):
+				heroes[id].set_ga(ga)
+			if id == target:
+				_show_player_card()
 			continue
 		infos[id] = info
 		check_infos += 1
@@ -1434,7 +1482,7 @@ func player_identity(id: int) -> Dictionary:
 	var info: Dictionary = player_infos.get(id, {})
 	var member: Dictionary = hud.party_frames.member_named(who)
 	return {"name": who, "level": int(member.get("level", info.get("level", 0))),
-		"house": String(member.get("house", info.get("house", "")))}
+		"house": String(member.get("house", info.get("house", ""))), "ga": bool(info.get("ga", false))}
 
 ## The chest window on chest `id`, when the player stands close enough.
 func open_chest_window(id: int) -> void:
@@ -1467,8 +1515,16 @@ func take_nearest_chest() -> void:
 func _show_notices() -> void:
 	for notice: Dictionary in session.take_notices():
 		var kind := String(notice["kind"])
-		var subject := String(notice["subject"])
 		check_notices[kind] = int(check_notices.get(kind, 0)) + 1
+		if kind == "maintenance":
+			maintenance.on_notice(notice)
+			continue
+		if kind == "update_soon":
+			var soon := tr("An update is on its way: the realm restarts in about %d minutes.") % int(notice["value"])
+			hud.show_notice(soon, "update")
+			hud.chat.add_system_line(soon)
+			continue
+		var subject := String(notice["subject"])
 		var name := I18n.t(subject)
 		var text := ""
 		var band := "boss"
@@ -1934,6 +1990,14 @@ func _check_quests_verdict(stats: Dictionary, sheet: Dictionary) -> void:
 	var passed := missing.is_empty() and int(stats.get("corrections", 0)) == 0 and int(stats.get("snapshots", 0)) > 0
 	get_tree().quit(0 if passed else 1)
 
+## A check (other than `--check-ops`, which looks at the end screen itself)
+## fails at once when its session is refused or closed.
+func _quits_when_closed() -> bool:
+	var args := OS.get_cmdline_user_args()
+	if args.has("--check-ops"):
+		return false
+	return check_seconds > 0.0 or Array(args).any(func(a): return String(a).begins_with("--check") or String(a).ends_with("-guest"))
+
 func _process(delta: float) -> void:
 	if session == null:
 		return
@@ -1942,8 +2006,13 @@ func _process(delta: float) -> void:
 		if readout != null:
 			readout.text = "realm: " + status
 		if (status.begins_with("refused") or status.begins_with("closed")) and not travel.leaving:
-			printerr("realm: ", status)
-			get_tree().quit(1)
+			if _quits_when_closed():
+				printerr("realm: ", status)
+				get_tree().quit(1)
+				return
+			# what the realm said last (DISCONNECTING) comes before the screen
+			_show_notices()
+			maintenance.show_closed(status, built)
 		return
 	if not built:
 		_build_map()

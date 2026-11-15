@@ -177,6 +177,7 @@ async fn connection(
     let mut malformed = 0_u32;
     let mut chunk = [0_u8; 4096];
     let mut let_go = false;
+    let mut written = false;
     loop {
         tokio::select! {
             datagram = connection.read_datagram() => {
@@ -193,13 +194,19 @@ async fn connection(
                 }
             }
             out = out_rx.recv() => {
-                let Some(bytes) = out else { break };
+                // No more snapshots: the simulation let this client go too
+                // (its control writer may still be draining).
+                let Some(bytes) = out else {
+                    let_go = true;
+                    break;
+                };
                 let _ = connection.send_datagram(bytes);
             }
             // The writer ends when the simulation drops this connection (a
             // newer login took over, or it fell behind on reliable messages).
             _ = &mut writer => {
                 let_go = true;
+                written = true;
                 break;
             }
             read = recv.read(&mut chunk) => {
@@ -230,6 +237,9 @@ async fn connection(
     // stream (its last message) and closes; a close from here could cut
     // that off.
     if let_go {
+        if !written {
+            let _ = tokio::time::timeout(Duration::from_secs(2), &mut writer).await;
+        }
         let _ = tokio::time::timeout(Duration::from_secs(2), connection.closed()).await;
     }
     writer.abort();

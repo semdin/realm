@@ -4,7 +4,8 @@ class_name HudUnitFrame
 ## The player's unit frame, top-left: a round portrait medallion (house crest in
 ## a gold ring) with the level badge under it, the name and house beside it, the
 ## purse under the gauges with the house standing (rank, title and a thin
-## reputation bar) beside it, on a plate that fades out to the right. The HP and
+## reputation bar) beside it, on a plate that fades out to the right; a game
+## admin's gilded GA emblem stands after the name. The HP and
 ## mana gauges are the HUD's own bars; this control draws the frame around them
 ## and says where they go (`gauge_rect`).
 
@@ -26,6 +27,9 @@ var _house_name := ""
 var _house_colour := HudKit.TEXT
 var _coin: Texture2D = null
 var _ring: Texture2D = null
+## A game admin (the player info's `ga`): the emblem after the name.
+var is_ga := false
+var _ga_emblem: Texture2D = null
 
 func _init() -> void:
 	name = "UnitFrame"
@@ -56,6 +60,33 @@ func set_identity(p_name: String, p_house: String, p_level: int) -> void:
 		_house_colour = Color.html(String(data["primary_color"])).lightened(0.35) if data.has("primary_color") else HudKit.TEXT
 	level = p_level
 	queue_redraw()
+
+func set_ga(on: bool) -> void:
+	if on == is_ga:
+		return
+	is_ga = on
+	if on and _ga_emblem == null:
+		_ga_emblem = ga_icon(28)
+	queue_redraw()
+
+static var _ga_icons := {}
+
+## The GA emblem resampled once to `height` px (the 512 px art drawn small on
+## a canvas would shimmer without it); the unit frame and the target card.
+static func ga_icon(height: int) -> Texture2D:
+	if _ga_icons.has(height):
+		return _ga_icons[height]
+	var out: Texture2D = null
+	if ResourceLoader.exists(HeroView.GA_EMBLEM):
+		var source := load(HeroView.GA_EMBLEM) as Texture2D
+		var img := source.get_image() if source != null else null
+		if img != null:
+			if img.is_compressed():
+				img.decompress()
+			img.resize(maxi(1, roundi(height * float(img.get_width()) / img.get_height())), height, Image.INTERPOLATE_LANCZOS)
+			out = ImageTexture.create_from_image(img)
+	_ga_icons[height] = out
+	return out
 
 func set_house_standing(rank: int, title: String, rep: int, from: int, to: int) -> void:
 	if rank == house_rank and title == house_title and rep == house_rep and from == rank_from and to == rank_to:
@@ -117,6 +148,11 @@ func _draw() -> void:
 	var np := Vector2(MEDALLION + 14, 34)
 	draw_string_outline(nf, np, player_name, HORIZONTAL_ALIGNMENT_LEFT, 170, 18, 4, Color(0, 0, 0, 0.9))
 	draw_string(nf, np, player_name, HORIZONTAL_ALIGNMENT_LEFT, 170, 18, HudKit.GOLD_HI)
+	if is_ga and _ga_emblem != null:
+		var name_w := minf(170.0, nf.get_string_size(player_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 18).x)
+		var eh := 28.0
+		var ew := eh * _ga_emblem.get_width() / maxf(1.0, _ga_emblem.get_height())
+		draw_texture_rect(_ga_emblem, Rect2(Vector2(np.x + name_w + 6.0, np.y - eh * 0.78), Vector2(ew, eh)), false)
 	if _house_name != "":
 		var hf := HudKit.bold()
 		var hw := hf.get_string_size(_house_name, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x

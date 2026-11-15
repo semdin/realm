@@ -5730,3 +5730,36 @@ msgstr "orta"
 
 msgid "right"
 msgstr "sağ"
+
+msgid "GA commands are not available right now."
+msgstr "GA komutları şu an kullanılamıyor."
+
+msgid "The world stands still while every character is saved. Do not close the game."
+msgstr "Tüm karakterler kaydedilirken dünya duruyor. Oyunu kapatma."
+
+msgid "Maintenance is on hold"
+msgstr "Bakım beklemede"
+
+msgid "The world stands still while the server is checked. Stay connected; it moves again shortly."
+msgstr "Sunucu denetlenirken dünya duruyor. Bağlı kal; birazdan yeniden hareketlenecek."
+
+msgid "Could not enter the realm"
+msgstr "Diyara girilemedi"
+
+msgid "Reconnect"
+msgstr "Tekrar Bağlan"
+
+msgid "logged in elsewhere"
+msgstr "Bu hesap başka bir yerden oyunda."
+
+msgid "client version does not match the server"
+msgstr "Oyun sürümün sunucuyla uyuşmuyor; oyunu başlatıcıdan güncelle."
+
+msgid "the server runs different content"
+msgstr "Sunucu farklı bir içerik sürümü çalıştırıyor; oyunu başlatıcıdan güncelle."
+
+msgid "still travelling; try again"
+msgstr "Karakterin hâlâ yolda; birazdan tekrar dene."
+
+msgid "character could not be loaded"
+msgstr "Karakter yüklenemedi."

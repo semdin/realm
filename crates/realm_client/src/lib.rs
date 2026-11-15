@@ -529,7 +529,12 @@ impl RealmSession {
                     amount,
                 }) => self.item_results.push((op_id, ok, reason, amount)),
                 NetEvent::Closed(reason) => {
-                    self.status = format!("closed: {reason}");
+                    // A refused join ends its connection too, in the same
+                    // pump: the refusal (why the player is not in, such as
+                    // "maintenance") is what the status keeps saying.
+                    if !self.status.starts_with("refused") {
+                        self.status = format!("closed: {reason}");
+                    }
                     self.core = None;
                 }
             }

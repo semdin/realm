@@ -57,6 +57,8 @@ var target_level: Label
 var target_hp_bar: ProgressBar
 var target_hp_text: Label
 var target_portrait: TargetPortrait
+## A game admin on the target card: the GA emblem after the name.
+var target_ga: TextureRect
 var chat: HudChat
 var party_frames: HudParty
 var invites: HudInvites
@@ -264,7 +266,13 @@ func _build_target_card() -> void:
 	target_name.clip_text = true
 	target_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	target_panel.add_child(target_name)
-	target_level = HudKit.label("", 13, HudKit.PARCHMENT, HudKit.bold(), 3)
+	target_ga = TextureRect.new()
+	target_ga.name = "TargetGA"
+	target_ga.texture = HudUnitFrame.ga_icon(24)
+	target_ga.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	target_ga.visible = false
+	target_panel.add_child(target_ga)
+	target_level =HudKit.label("", 13, HudKit.PARCHMENT, HudKit.bold(), 3)
 	target_level.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	target_level.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	target_level.set_anchors_preset(Control.PRESET_TOP_RIGHT)
@@ -328,6 +336,15 @@ func set_target(id: int, title := "", hp := 255, look := {}) -> void:
 	var bar: Color = look.get("bar", TARGET_BAR)
 	target_name.text = title
 	target_name.add_theme_color_override("font_color", tint)
+	target_ga.visible = bool(look.get("ga", false)) and target_ga.texture != null
+	target_name.offset_right = -70.0
+	if target_ga.visible:
+		var mark := target_ga.texture.get_size()
+		var room := target_panel.size.x - target_name.offset_left - 70.0 - mark.x - 6.0
+		var name_w := minf(room, HudKit.title().get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x)
+		target_name.offset_right = -70.0 - mark.x - 6.0
+		target_ga.position = Vector2(target_name.offset_left + name_w + 6.0, 5.0)
+		target_ga.size = mark
 	target_rank.text = I18n.upper(String(look.get("rank", tr("Creature"))))
 	target_rank.add_theme_color_override("font_color", tint.darkened(0.12))
 	var level := int(look.get("level", 0))

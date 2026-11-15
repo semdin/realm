@@ -193,6 +193,54 @@ func set_duel_mark(mark: int, who := "") -> void:
 	if _duel_label != null:
 		_duel_label.visible = mark != DUEL_NONE
 		_duel_label.modulate = DUEL_OUT_TINT if mark == DUEL_OUT else DUEL_FOE_TINT
+	_place_ga_emblem()
+
+## The game admin's emblem (the old game's GA badge): the gilded "GA" floating
+## slowly over a GA's head, drawn over the world. The player info's `ga`
+## (main.gd) turns it on or off; it sits higher while a duel mark is shown.
+const GA_EMBLEM := "res://assets/ui/ga_emblem.png"
+const GA_EMBLEM_HEIGHT := 2.4
+const GA_EMBLEM_OVER_MARK := 2.85
+const GA_EMBLEM_PIXEL := 0.0013
+const GA_EMBLEM_FLOAT := 0.07
+var is_ga := false
+var _ga_emblem: Sprite3D
+var _ga_float: Tween
+
+func set_ga(on: bool) -> void:
+	is_ga = on
+	if not on:
+		if _ga_emblem != null:
+			_ga_emblem.visible = false
+			_ga_float.pause()
+		return
+	if _ga_emblem == null:
+		_ga_emblem = Sprite3D.new()
+		_ga_emblem.name = "GAEmblem"
+		if ResourceLoader.exists(GA_EMBLEM):
+			_ga_emblem.texture = load(GA_EMBLEM)
+		_ga_emblem.pixel_size = GA_EMBLEM_PIXEL
+		_ga_emblem.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+		_ga_emblem.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+		_ga_emblem.shaded = false
+		_ga_emblem.no_depth_test = true
+		_ga_emblem.render_priority = 6
+		_ga_emblem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(_ga_emblem)
+		# a slow float over the head, like a GM's badge
+		_ga_float = _ga_emblem.create_tween().set_loops()
+		_ga_float.tween_property(_ga_emblem, "offset:y", GA_EMBLEM_FLOAT / GA_EMBLEM_PIXEL, 1.3) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+		_ga_float.tween_property(_ga_emblem, "offset:y", -GA_EMBLEM_FLOAT / GA_EMBLEM_PIXEL, 1.3) \
+			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+	_place_ga_emblem()
+	_ga_emblem.visible = true
+	_ga_float.play()
+
+func _place_ga_emblem() -> void:
+	if _ga_emblem != null:
+		var marked := _duel_label != null and _duel_label.visible
+		_ga_emblem.position.y = GA_EMBLEM_OVER_MARK if marked else GA_EMBLEM_HEIGHT
 
 ## Fallen or risen. A fall drops the cast and lies down in Death_A; a rise
 ## plays Revive over the standing pose.
