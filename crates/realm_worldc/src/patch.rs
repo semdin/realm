@@ -34,8 +34,7 @@ pub fn boxes(patches_dir: &Path, map: &str) -> Result<Vec<PackCollider>, String>
     let Ok(text) = std::fs::read_to_string(&path) else {
         return Ok(Vec::new());
     };
-    let doc: Value =
-        serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
+    let doc: Value = serde_json::from_str(&text).map_err(|e| format!("{}: {e}", path.display()))?;
     let mut out = Vec::new();
     for b in doc["boxes"].as_array().into_iter().flatten() {
         let center = triple(&b["center"], "center")?;
