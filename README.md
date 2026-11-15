@@ -122,6 +122,8 @@ godot --headless --path game -- --check-workshop --character 900002   # O opens 
 godot --headless --path game -- --check-social --character 900107   # with realm_coord, the map server --coord 127.0.0.1:7900 and realm_netcheck --social-partner: local line + bubble, /invite, party frame, party line and shout, /leave
 godot --headless --path game -- --social-guest "Wanderer 107" --character 900108   # a second client that says a local line and invites; the check then takes --check-invite-from "Wanderer 108" (card, player menu, accept)
 godot --path game -- --check-travel --character 900201   # with realm_coord and the grounds (7777) + castle_interior (7778) servers --coord 127.0.0.1:7900 --characters build/travelcheck and `make_prepared_character.py build/travelcheck 900201 --travel-kit`: castle door and back (loading screen, scene rebuilt per map), Hearth window to Orvell Square, broom mount/dismount, a Waylink; PNGs in build/captures/travel
+godot --path game -- --check-skills --character 900801   # with build/logs/aup_skills.sh (level 12, Stun Bolt 9): V opens the skill window, "+" raises Stun Bolt to Master and learns Shockwave, a bar click learns Disarm; levels, points and the taskbar badge follow the sheet; PNGs in build/captures/skills
+godot --path game -- --check-others --character 900811   # with build/logs/aup_others.sh: starts a second client (--others-guest, character 900812), sees its nameplate (name, level, house, title), wand, mantle and look, then its new look and empty hand after the partner changes; PNGs in build/captures/others
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
 ```

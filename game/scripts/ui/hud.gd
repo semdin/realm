@@ -21,8 +21,10 @@ extends Control
 
 const NoticeScript := "res://scripts/view/notice_band.gd"
 
-## The taskbar: the bag as a full action-bar cell after the quick slots, set off
-## by a divider.
+## The taskbar: the bag and the skill book as full action-bar cells after the
+## quick slots, set off by a divider. While skill points are free the skill
+## book's cell pulses gold and carries their count (the old game's Skills
+## button).
 const TRAY_DIVIDER := 14.0
 const TARGET_CARD_H := 74.0
 ## The target card's name colour for an ordinary creature, and its health
@@ -50,6 +52,9 @@ var mana_label: Label
 var exp_bar: ProgressBar
 var exp_label: Label
 var bag_button: Button
+## The skill window's cell on the taskbar (V); main.gd connects it.
+var skills_button: Button
+var _skill_badge: PointsBadge
 var target_panel: Panel
 var target_name: Label
 var target_rank: Label
@@ -172,6 +177,16 @@ func _build_tray(open_bag: Callable) -> void:
 	bag_button.pressed.connect(open_bag)
 	_style_menu_cell(bag_button, "menu_inventory", HudActionBar.SLOT)
 	add_child(bag_button)
+	skills_button = Button.new()
+	skills_button.name = "SkillsButton"
+	skills_button.focus_mode = Control.FOCUS_NONE
+	skills_button.tooltip_text = tr("[%s] Skills - spend skill points on your spells") % GameSettings.key_name("skills")
+	_style_menu_cell(skills_button, "menu_skills", HudActionBar.SLOT)
+	add_child(skills_button)
+	_skill_badge = PointsBadge.new()
+	_skill_badge.name = "PointsBadge"
+	skills_button.add_child(_skill_badge)
+	_skill_badge.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
 ## A taskbar button as an action-bar cell `px` wide: dark recess, a thin gold
 ## bevel that lights on hover, and the full-bleed icon inside it.
@@ -375,9 +390,31 @@ func _show_target_health(hp: int) -> void:
 
 ## ------------------------------------------------------------------ update
 
-func _process(_delta: float) -> void:
+## Free skill points: the skill book's cell pulses and shows the count.
+var _points_wait := 0.0
+var _pulse := 0.0
+
+func _show_skill_points(delta: float) -> void:
+	_points_wait -= delta
+	if _points_wait <= 0.0:
+		_points_wait = 0.25
+		_skill_badge.points = int(session.skill_points())
+	var on := _skill_badge.points > 0
+	if not on and not bool(skills_button.get_meta("pulsing", true)):
+		return
+	skills_button.set_meta("pulsing", on)
+	_pulse += delta
+	var glow := 0.5 + 0.5 * sin(_pulse * 5.0)
+	skills_button.self_modulate = Color.WHITE.lerp(Color(1.6, 1.3, 0.55), glow * 0.6) if on else Color.WHITE
+	var sb := skills_button.get_theme_stylebox("normal") as StyleBoxFlat
+	if sb != null:
+		sb.border_color = Color(HudKit.GOLD_HI, 0.4 + 0.6 * glow) if on else HudKit.GOLD.darkened(0.15)
+		sb.set_border_width_all(2 if on else 1)
+
+func _process(delta: float) -> void:
 	if session == null:
 		return
+	_show_skill_points(delta)
 	var vitals: PackedInt32Array = session.vitals()
 	if vitals[1] > 0:
 		_hp_stat.set_value(vitals[0], vitals[1])
@@ -432,7 +469,7 @@ func _layout() -> void:
 	exp_bar.custom_minimum_size = Vector2(0, 14)
 	var slot := HudActionBar.SLOT
 	var bw := action_bar.bar_width()
-	var extra := TRAY_DIVIDER + slot
+	var extra := TRAY_DIVIDER + slot * 2.0 + HudActionBar.GAP
 	var bar_y := -14.0 - 12.0 - slot
 	var left := minf(-bw * 0.5, canvas.x * 0.5 - 14.0 - HudActionBar.PLATE_PAD - bw - extra)
 	_place(action_bar, Vector2(0.5, 1.0), Vector2(left, bar_y), Vector2(bw, slot))
@@ -440,6 +477,8 @@ func _layout() -> void:
 	action_bar.tray_dividers = [bw + TRAY_DIVIDER * 0.5]
 	action_bar.queue_redraw()
 	_place(bag_button, Vector2(0.5, 1.0), Vector2(left + bw + TRAY_DIVIDER, bar_y), Vector2(slot, slot))
+	_place(skills_button, Vector2(0.5, 1.0), Vector2(left + bw + TRAY_DIVIDER + slot + HudActionBar.GAP, bar_y),
+		Vector2(slot, slot))
 	# Chat, bottom-left; it stands on the taskbar when the two would meet.
 	var tray_top := 14.0 + 12.0 + slot + HudActionBar.PLATE_TOP
 	var tray_left := canvas.x * 0.5 + left - HudActionBar.PLATE_PAD
@@ -501,3 +540,33 @@ class ExpTicks extends Control:
 			draw_line(Vector2(x, 2), Vector2(x, size.y - 1), Color(0, 0, 0, 0.55), 2.0)
 			draw_line(Vector2(x + 1, 2), Vector2(x + 1, size.y - 1), Color(1, 0.9, 0.6, 0.18), 1.0)
 		draw_line(Vector2(0, 0.5), Vector2(size.x, 0.5), Color(HudKit.GOLD.r, HudKit.GOLD.g, HudKit.GOLD.b, 0.8), 1.0)
+
+
+## The free skill points on the skill book's cell: a gold coin with the count
+## in its top-right corner, none while there are none.
+class PointsBadge extends Control:
+	var points := 0:
+		set(value):
+			if value != points:
+				points = value
+				queue_redraw()
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+	func _draw() -> void:
+		if points <= 0:
+			return
+		var text := str(points)
+		var font := HudKit.bold()
+		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+		var r := 9.0
+		var box := Rect2(Vector2(size.x - maxf(r * 2.0, w + 8.0) + 4.0, -5.0), Vector2(maxf(r * 2.0, w + 8.0), r * 2.0))
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = Color(0.85, 0.62, 0.22)
+		sb.border_color = HudKit.GOLD_HI
+		sb.set_border_width_all(1)
+		sb.set_corner_radius_all(int(r))
+		sb.shadow_color = Color(0, 0, 0, 0.6)
+		sb.shadow_size = 3
+		draw_style_box(sb, box)
+		draw_string(font, Vector2(box.position.x + (box.size.x - w) * 0.5, box.position.y + 13.5), text,
+			HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color(0.165, 0.102, 0.016))

@@ -858,7 +858,7 @@
     "mana_per_second_nisera": 10.0
   },
   "skills": {
-    "_comment": "Metin2-style skill training. Every level above 1 earns one skill point (points = level - 1 - points spent); a point raises one upgradeable skill by one level. Level 10 is Master (shown as M). Damage, cooldown and effect duration scale with the caster's level of that skill; level 1 is the unmodified spells.json value.",
+    "_comment": "Metin2-style skill training. Every character level earns one skill point (points = level - points spent; the level-1 point learns the first spell); a point raises one upgradeable skill by one level. Level 10 is Master (shown as M). Damage, cooldown and effect duration scale with the caster's level of that skill; level 1 is the unmodified spells.json value.",
     "max_level": 10,
     "master_level": 10,
     "upgradeable": [

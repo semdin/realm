@@ -98,6 +98,20 @@ extends Node3D
 ##                                                    cancelled by walking, then lands on the login card while the
 ##                                                    coordinator counts the player gone (MenuCheck;
 ##                                                    build/logs/aup_menu.sh, --character 900701)
+##   [--check-skills]                                 the check opens the skill window with V, raises a spell
+##                                                    with its "+", learns another, and sees the levels, the
+##                                                    free points and the taskbar badge follow the server's
+##                                                    sheet (SkillsCheck; build/logs/aup_skills.sh,
+##                                                    --character 900801)
+##   [--check-others]                                 the check starts a second client (--others-guest NAME,
+##                                                    character 900812) beside it, sees its nameplate (name,
+##                                                    level, house, title) and its look and wand, then the
+##                                                    partner changes its look and takes its wand off and the
+##                                                    check sees both on its body (OthersCheck;
+##                                                    build/logs/aup_others.sh, --character 900811)
+##   [--others-guest NAME]                            this client waits until it sees NAME, then changes its
+##                                                    look and takes its wand off (the second client for
+##                                                    --check-others)
 ##   [--login-url http://127.0.0.1:7950]              the login service the front door talks to
 ##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck / LoginCheck / MenuCheck save PNG frames
 ##
@@ -119,8 +133,15 @@ extends Node3D
 ## A right-click on a loot chest (within 7 m) opens it; Z takes everything from
 ## the nearest chest within 6 m. Tab cycles the nearest living creatures, Esc
 ## closes a window or drops the target, I opens the bag, C the character
-## window, J the quest log, O Kestrin's workshop (anywhere), K the dungeon
-## guide; the action bar reads 1-4, Q, E, 5, 6 and F1-F4.
+## window, V the skill window, J the quest log, O Kestrin's workshop
+## (anywhere), K the dungeon guide; the action bar reads 1-4, Q, E, 5, 6 and
+## F1-F4.
+## Over every player and creature in view floats its nameplate (Nameplates):
+## a player's name, level, house crest and newest title (its GA emblem over
+## them), a creature's level and name in its elite / boss colours. Every
+## player and creature is asked what it is (RealmSession.inspect) as it comes
+## into view; a player's answer also dresses its body (HeroView.wear: look,
+## house, wand, cloak, broom) and comes again unasked when any of it changes.
 ## The map's NPCs (npcs.json) stand on the ground under their place: F talks
 ## to the nearest within TALK_KEY_REACH, a click on one talks from within the
 ## server's talk radius (less a little), and the dialogue card, the tracker,
@@ -182,6 +203,8 @@ const LairCheckScript := "res://scripts/systems/lair_check.gd"
 const OpsCheckScript := "res://scripts/systems/ops_check.gd"
 const LoginCheckScript := "res://scripts/systems/login_check.gd"
 const MenuCheckScript := "res://scripts/systems/menu_check.gd"
+const SkillsCheckScript := "res://scripts/systems/skills_check.gd"
+const OthersCheckScript := "res://scripts/systems/others_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -292,6 +315,17 @@ var workshop: Control
 var feedback: Control
 var loot_window: Control
 var character_window: Control
+## The skill window (V).
+var skill_window: HudSkillWindow
+## The overhead nameplates of every player and creature in view.
+var plates: Nameplates
+## The player's own info (asked at join, pushed when it changes): its plate.
+var own_info := {}
+## The snapshot kind each creature's plate was drawn for (an enrage redraws it).
+var _plate_kinds := {}
+## `--check-skills` / `--check-others` (and `--others-guest`).
+var skills_check: Node = null
+var others_check: Node = null
 ## The quest log as the interface sees it (QuestManager), and its windows: the
 ## NPC dialogue card, the tracker, the log (J) and the quest scroll.
 var quests: QuestManager
@@ -577,6 +611,8 @@ func _build_view() -> void:
 	env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.environment.ambient_light_color = Color(0.5, 0.52, 0.55)
 	add_child(env)
+	plates = Nameplates.new()
+	add_child(plates)
 	player = _new_hero()
 	player.is_local_player = true
 	crowd = MultiMeshInstance3D.new()
@@ -638,6 +674,10 @@ func _build_ui() -> void:
 	character_window = load(CharacterScript).new()
 	character_window.setup(session)
 	root.add_child(character_window)
+	skill_window = HudSkillWindow.new()
+	skill_window.setup(session, sheet_view, hud)
+	root.add_child(skill_window)
+	hud.skills_button.pressed.connect(skill_window.toggle)
 	if _arg("--open-character", "") != "":
 		character_window.open.call_deferred()
 	loot_window = load(LootScript).new()
@@ -705,6 +745,18 @@ func _build_ui() -> void:
 	settings_window.language_apply_requested.connect(game_menu.leave_to_characters)
 	_add_menu_check()
 	_build_social_ui()
+	if user_args.has("--check-skills"):
+		skills_check = load(SkillsCheckScript).new()
+		skills_check.name = "SkillsCheck"
+		skills_check.game = self
+		add_child(skills_check)
+	var others_guest := _arg("--others-guest", "")
+	if user_args.has("--check-others") or others_guest != "":
+		others_check = load(OthersCheckScript).new()
+		others_check.name = "OthersCheck"
+		others_check.game = self
+		others_check.guest_of = others_guest
+		add_child(others_check)
 
 ## The social pieces the HUD holds: the party frames know this map and push
 ## the tracker down when they grow; the player menu measures from the
@@ -793,32 +845,31 @@ func toggle_inventory() -> void:
 	else:
 		inventory.open_for_player(sheet_view)
 
-## The player's hero wears the look the sheet carries (applied when it
-## changes).
-var _shown_look := {}
-var _shown_house := ""
-
+## The player's hero wears what its sheet says (HeroView.wear: the look, the
+## house's cloth as on the dais, the wand in the hand, the chest's cloak and
+## the broom it rides with its speed); only what changed is redrawn.
 func _apply_sheet_look(sheet: Dictionary) -> void:
-	# The hand shows the worn wand (none when the slot is empty).
-	player.show_wand((sheet["equipment"] as Dictionary).get("main_hand", {}))
-	# the outfit's main cloth wears the character's house (as on the dais)
-	var house := String(sheet.get("house", ""))
-	if house != _shown_house and player.body != null:
-		_shown_house = house
-		HeroAppearance.apply_house_tint(player.body, FrontDoor.house_color(house))
-	var look: Dictionary = sheet["look"]
-	if look == _shown_look or player.body == null:
-		return
-	_shown_look = look.duplicate()
-	HeroAppearance.apply_look(player.body, Looks.clean_look(look))
+	player.wear(sheet["look"], String(sheet.get("house", "")), sheet["equipment"])
 
-## The player's hero rides the broom its sheet wears (its model and speed).
-func _apply_sheet_broom(sheet: Dictionary) -> void:
-	var worn: Dictionary = (sheet["equipment"] as Dictionary).get("broom", {})
-	var id := String(worn.get("id", ""))
-	player.set_broom_item(id)
-	if id != "":
-		player.mounted_speed = float(ItemRules.item(id).get("mount_speed", player.mounted_speed))
+## Another player's body wears what its info says (the same HeroView.wear as
+## the own hero's sheet), and its plate shows who it is.
+func _dress_player(id: int) -> void:
+	var info: Dictionary = player_infos.get(id, {})
+	var hero: HeroView = heroes.get(id)
+	if info.is_empty() or hero == null:
+		return
+	hero.set_ga(bool(info.get("ga", false)))
+	hero.wear(HeroView.look_of_pairs(info.get("look", [])), String(info.get("house", "")),
+		HeroView.equipment_of_gear(info.get("gear", [])))
+	_plate_player(id, hero, info, false)
+
+## A player's plate from its info: the newest title (a dungeon's
+## first_clear_title or the weekly record's), the name, level and house.
+func _plate_player(id: int, hero: HeroView, info: Dictionary, own: bool) -> void:
+	var titles: Array = info.get("titles", [])
+	var title := I18n.t(DungeonData.title_name(String(titles[-1]))) if not titles.is_empty() else ""
+	plates.set_player(id, hero, String(info.get("name", "")), int(info.get("level", 0)), String(info.get("house", "")),
+		title, own)
 
 ## A trip to another map rebuilds the scene: the old session goes with it.
 func before_reload() -> void:
@@ -832,6 +883,7 @@ func _new_hero() -> Node3D:
 	var hero: Node3D = load(HeroViewScript).new()
 	add_child(hero)
 	hero.setup(house_color)
+	hero.screen_plate = Nameplates.enabled()
 	return hero
 
 func _capsule(color: Color) -> Mesh:
@@ -997,6 +1049,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				toggle_inventory()
 			"character":
 				character_window.toggle()
+			"skills":
+				skill_window.toggle()
 			"quest_log":
 				quest_log.toggle()
 			"workshop":
@@ -1278,12 +1332,7 @@ func _show_target_card(i: int) -> void:
 				look["level"] = int(body_info.get("level", 0))
 			card = CARD_BOSS
 		_:
-			if own_name != "":
-				title = I18n.mob_name(own_name)
-			else:
-				var mobs: Variant = RealmContent.table("mobs")
-				var entry: Dictionary = (mobs as Dictionary).get("mobs", {}).get(species, {}) if mobs is Dictionary else {}
-				title = I18n.mob_name(String(entry.get("display", species.capitalize())))
+			title = _species_title(species, own_name)
 			var enraged := kind & CreatureView.ENRAGED_BIT != 0
 			if kind & CreatureView.BOSS_BIT != 0:
 				look["rank"] = tr("World Boss")
@@ -1304,6 +1353,41 @@ func _show_target_card(i: int) -> void:
 		look["icon"] = card[2]
 	_target_kind = kind
 	hud.set_target(target, title, (others["hp"] as PackedInt32Array)[i], look)
+
+## A creature's name as the player reads it: its own (a boss's) or its
+## species' display name (mobs.json, read once: every creature that comes
+## into view asks).
+static var _mob_displays := {}
+
+static func _species_title(species: String, own_name: String) -> String:
+	if own_name != "":
+		return I18n.mob_name(own_name)
+	if _mob_displays.is_empty():
+		var mobs: Variant = RealmContent.table("mobs")
+		var entries: Dictionary = (mobs as Dictionary).get("mobs", {}) if mobs is Dictionary else {}
+		for key: String in entries:
+			_mob_displays[key] = String((entries[key] as Dictionary).get("display", ""))
+	var display := String(_mob_displays.get(species, ""))
+	return I18n.mob_name(display if display != "" else species.capitalize())
+
+## A creature's plate: level and name ("Elite" before an elite's, " • ENRAGED"
+## after an enraged one's) over its head, in its kind's colours. Objects (Dark
+## Shards, dummies) carry their own label.
+func _plate_creature(id: int, kind: int) -> void:
+	var beast := beasts.get(id) as CreatureView
+	if beast == null:
+		return
+	_plate_kinds[id] = kind
+	var info: Dictionary = infos.get(id, {})
+	var own_name := String(info.get("name", ""))
+	var title := _species_title(beast.species, own_name)
+	var elite := CreatureView.is_elite(kind)
+	if elite and own_name == "":
+		title = tr("Elite %s") % title
+	if kind & CreatureView.ENRAGED_BIT != 0:
+		title += tr(" • ENRAGED")
+	plates.set_creature(id, beast, beast.head_height + 0.45, title, int(info.get("level", 0)), elite,
+		kind & CreatureView.BOSS_BIT != 0)
 
 ## The kind the target card was drawn for (an enrage redraws it), and whether
 ## a player was drawn as a duel foe (the duel's turns redraw it).
@@ -1440,9 +1524,10 @@ func _new_beast(id: int, kind: int) -> Node3D:
 		beast.shake = shake_camera
 	if infos.has(id):
 		beast.apply_info(infos[id])
-	# (a multi-part boss also says which entities are its parts)
-	if object != "" or kind & CreatureView.BOSS_BIT != 0 or (beast is CreatureView and not (beast as CreatureView).multipart.is_empty()):
-		session.inspect(id)
+	# What it is (its level for the plate, a boss's body and size, an object's
+	# own name; a multi-part boss also says which entities are its parts),
+	# asked again each time it comes into view.
+	session.inspect(id)
 	return beast
 
 ## Answers to inspect: kept, handed to the body, and the target card redrawn
@@ -1454,15 +1539,18 @@ func _take_creature_info() -> void:
 			# the player's own answer comes too (asked at join, and again
 			# unasked when its GA emblem comes or goes)
 			var ga := bool(info.get("ga", false))
+			if others_check != null:
+				others_check.on_player_info(info)
 			if id == int(session.own_entity()):
 				own_ga = ga
+				own_info = info
 				player.set_ga(ga)
 				hud.unit_frame.set_ga(ga)
+				_plate_player(id, player, info, true)
 				continue
 			player_infos[id] = info
 			player_names[id] = String(info["name"])
-			if heroes.has(id):
-				heroes[id].set_ga(ga)
+			_dress_player(id)
 			if id == target:
 				_show_player_card()
 			continue
@@ -1471,6 +1559,8 @@ func _take_creature_info() -> void:
 		var beast: Node = beasts.get(id)
 		if beast != null:
 			beast.apply_info(info)
+			if beast is CreatureView:
+				_plate_creature(id, int(_plate_kinds.get(id, 0)))
 			if bool(info.get("boss", false)) and beast is CreatureView:
 				var body := beast as CreatureView
 				check_bosses[id] = "%s %s x%.2f" % [info.get("boss_key", ""), body.model.scene_file_path.get_file(),
@@ -2261,7 +2351,8 @@ func _process(delta: float) -> void:
 			seen[ids[i]] = true
 			if not heroes.has(ids[i]):
 				heroes[ids[i]] = _new_hero()
-				# Who it is: name, house, level (the player menu, the card).
+				# Who it is: name, house, level, look and gear (the player
+				# menu, the card, the plate, the body).
 				session.inspect(ids[i])
 			# the state byte: the pose in the low bits, STATE_MOUNTED_BIT
 			# while it rides its broom
@@ -2289,10 +2380,14 @@ func _process(delta: float) -> void:
 				var beast := _new_beast(ids[i], kinds[i])
 				if beast != null:
 					beasts[ids[i]] = beast
+					_plate_creature(ids[i], kinds[i])
 				else:
 					no_model[species_kind] = true
 			if beasts.has(ids[i]):
 				var beast: Node3D = beasts[ids[i]]
+				if int(_plate_kinds.get(ids[i], kinds[i])) != kinds[i]:
+					_plate_creature(ids[i], kinds[i])
+				plates.set_hidden(ids[i], states[i] & STATE_POSE_MASK == CreatureView.STATE_DEAD)
 				beast.set_kind(kinds[i])
 				beast.set_status(statuses[i])
 				beast.drive(positions[i], yaws[i], states[i], delta)
@@ -2323,9 +2418,12 @@ func _process(delta: float) -> void:
 				table.erase(id)
 				player_names.erase(id)
 				player_infos.erase(id)
+				plates.remove(id)
+				_plate_kinds.erase(id)
 	_take_creature_info()
 	_update_boss_parts()
 	_follow_target()
+	plates.focus_id = target
 	if check_seconds > 0.0 and not check_quests:
 		_check_kill_loop()
 		if not feedback.is_dead():
@@ -2359,7 +2457,6 @@ bag: %s" % [
 			sheet["max_mana"], sheet["oril"], (sheet["equipment"] as Dictionary).get("main_hand", {}).get("id", "-"),
 			", ".join(items)]
 		_apply_sheet_look(sheet)
-		_apply_sheet_broom(sheet)
 
 	if check_quests:
 		var now := Time.get_ticks_msec() / 1000.0

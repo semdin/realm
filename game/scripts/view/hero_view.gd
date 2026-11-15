@@ -25,7 +25,6 @@ const AIR_GRACE := 0.12
 const TURN_RATE := 14.0
 ## Below this ground speed the body keeps its facing.
 const FACE_MIN_SPEED := 0.6
-const DEFAULT_CLOAK := "cloak_wool"
 ## The upper-body clip each spell casts with (assets/animations/hero, merged by
 ## HeroAnimation.merge_extra_clips). `release` is the clip fraction where the
 ## wand hand is furthest forward, `hold` how long the cast layer owns the arm,
@@ -99,15 +98,66 @@ func show_wand(entry: Dictionary) -> void:
 	_wand_key = key
 	HeroAppearance.show_equipped_wand(body, entry)
 
+## The equipment slots in realm_rules Slot order (a player info's `gear`
+## names its slot by this index).
+const SLOT_NAMES := ["head", "chest", "hands", "feet", "main_hand", "off_hand", "neck", "ring_left",
+	"ring_right", "broom"]
+
+var _worn_look: Variant = null
+var _worn_house := ""
+var _worn_cloak := "-"
+
+## What the hero wears, from its sheet (the own player) or its player info
+## (everyone else, `equipment_of_gear`): the look, the house's cloth, the wand
+## in the hand (`main_hand`, none when empty), the chest item's cloak (none
+## without one, as in the old game) and the broom it rides. `equipment` maps
+## slot names to items ({id, tier, uid}). Each part is redrawn only when it
+## changed, so this may be called every frame.
+func wear(look: Dictionary, house: String, equipment: Dictionary) -> void:
+	if body == null:
+		return
+	show_wand(equipment.get("main_hand", {}))
+	if house != _worn_house:
+		_worn_house = house
+		HeroAppearance.apply_house_tint(body, FrontDoor.house_color(house))
+	if _worn_look == null or look != _worn_look:
+		_worn_look = look.duplicate()
+		HeroAppearance.apply_look(body, Looks.clean_look(look))
+	var chest: Dictionary = equipment.get("chest", {})
+	var cloak := String(chest.get("id", ""))
+	if cloak != _worn_cloak:
+		_worn_cloak = cloak
+		HeroAppearance.show_cloak(body, chest)
+	var broom_id := String((equipment.get("broom", {}) as Dictionary).get("id", ""))
+	set_broom_item(broom_id)
+	if broom_id != "":
+		mounted_speed = float(ItemRules.item(broom_id).get("mount_speed", mounted_speed))
+
+## A player info's `gear` ([{slot, id, tier}]) as `wear` takes it.
+static func equipment_of_gear(gear: Array) -> Dictionary:
+	var out := {}
+	for item: Dictionary in gear:
+		var slot := int(item.get("slot", -1))
+		if slot >= 0 and slot < SLOT_NAMES.size():
+			out[SLOT_NAMES[slot]] = {"id": String(item.get("id", "")), "tier": int(item.get("tier", 0))}
+	return out
+
+## A player info's `look` ([[key, value]...]) as a look dictionary.
+static func look_of_pairs(pairs: Array) -> Dictionary:
+	var out := {}
+	for pair: Variant in pairs:
+		if pair is Array and (pair as Array).size() >= 2:
+			out[String(pair[0])] = float(pair[1])
+	return out
+
 func setup(house_color: Color, look: Dictionary = {}) -> void:
 	body = HeroAppearance.spawn(self, house_color)
 	if body == null:
 		return
 	if not look.is_empty():
 		HeroAppearance.apply_look(body, look)
-	HeroAppearance.show_cloak(body, {"id": DEFAULT_CLOAK})
-	# Every hero holds the starter wand until its own gear says otherwise
-	# (other players' gear is not replicated yet).
+	# Every hero holds the starter wand until its sheet (the own player) or
+	# its player info (everyone else) says what it wears (`wear`).
 	show_wand({"id": DEFAULT_WAND})
 	var player := HeroAppearance.find_anim_player(body)
 	var skeleton := HeroAppearance._skeleton(body)
@@ -167,6 +217,16 @@ const DUEL_MARK_HEIGHT := 2.3
 const DUEL_MARK_PIXEL := 0.0009
 var duel_mark := DUEL_NONE
 var _duel_label: Label3D
+## Nameplates draws this hero's name (tinted by the duel mark) and its GA
+## emblem on screen: the 3D duel label and emblem stay the source of truth
+## (their text and visibility are still set here, and the checks read them)
+## but no camera draws them, so nothing over the head is drawn twice.
+var screen_plate := false:
+	set(on):
+		screen_plate = on
+		for drawn: VisualInstance3D in [_duel_label, _ga_emblem]:
+			if drawn != null:
+				drawn.layers = 0 if on else 1
 
 func set_duel_mark(mark: int, who := "") -> void:
 	if who != "" and _duel_label == null:
@@ -186,6 +246,8 @@ func set_duel_mark(mark: int, who := "") -> void:
 		_duel_label.render_priority = -1
 		_duel_label.outline_render_priority = -2
 		_duel_label.position.y = DUEL_MARK_HEIGHT
+		if screen_plate:
+			_duel_label.layers = 0
 		add_child(_duel_label)
 	if _duel_label != null and who != "":
 		_duel_label.text = who
@@ -226,6 +288,8 @@ func set_ga(on: bool) -> void:
 		_ga_emblem.no_depth_test = true
 		_ga_emblem.render_priority = 6
 		_ga_emblem.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if screen_plate:
+			_ga_emblem.layers = 0
 		add_child(_ga_emblem)
 		# a slow float over the head, like a GM's badge
 		_ga_float = _ga_emblem.create_tween().set_loops()

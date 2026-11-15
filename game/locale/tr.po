@@ -5910,3 +5910,9 @@ msgstr "Yürüme, koşma ve zıplama animasyonları"
 
 msgid "Generated icons, textures and spell effects"
 msgstr "Üretilmiş simgeler, dokular ve büyü efektleri"
+
+msgid "[Lv.%d] %s"
+msgstr "[Sv.%d] %s"
+
+msgid "[%s] Skills - spend skill points on your spells"
+msgstr "[%s] Beceriler - beceri puanlarını büyülerine harca"

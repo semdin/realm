@@ -18,6 +18,9 @@ class_name HudActionBar
 
 ## A spell slot was pressed (key or click) and its spell is learned.
 signal spell_requested(spell_id: String)
+## The server answered a skill point (RealmSession.take_skill_results: spell,
+## ok, reason); the skill window and the checks hear it here.
+signal skill_answered(answer: Dictionary)
 
 const SLOT := 50.0
 const GAP := 4.0
@@ -50,6 +53,8 @@ var tray_extra := 0.0
 var tray_dividers: Array = []
 ## Which spell each slot holds (the keys read it through spell_at).
 var spell_order: Array = []
+## Each spell's level as last read (a rise says so on the notice band).
+var _known_levels: Dictionary = {}
 static var _spells: Dictionary = {}
 
 static func spells() -> Dictionary:
@@ -174,6 +179,7 @@ func _process(delta: float) -> void:
 		if slow or not s.has_meta("trained"):
 			s.set_meta("trained", int(session.skill_level(spell_id)))
 			s.set_meta("total", maxf(0.01, float(session.cooldown_total(spell_id))))
+			_note_level(spell_id, int(s.get_meta("trained")))
 		var trained: int = int(s.get_meta("trained"))
 		var cd: float = session.cooldown_remaining(spell_id)
 		s.set_cooldown(cd, cd / float(s.get_meta("total")))
@@ -236,18 +242,34 @@ func _press_spell(index: int, clicked: bool) -> void:
 	else:
 		_notice(tr("Learn %s first - click its slot to spend a skill point") % shown, "info")
 
-func _on_skill_answer(answer: Dictionary) -> void:
-	var spell_id := String(answer.get("spell", ""))
+## A skill level read off the session: a rise over the last one read (the
+## bar's click, the skill window's "+") is said on the notice band, as the old
+## game's floating "Stun Bolt Lv.3" / "mastered!" said it.
+func _note_level(spell_id: String, level: int) -> void:
+	var was := int(_known_levels.get(spell_id, -1))
+	_known_levels[spell_id] = level
+	if was < 0 or level <= was or not Levels.skill_upgradeable(spell_id):
+		return
 	var shown := I18n.t(String(spells().get(spell_id, {}).get("name", spell_id)))
-	if bool(answer.get("ok", false)):
+	if was == 0:
 		_notice(tr("You learned %s!") % shown, "good")
+	elif Levels.skill_is_master(level):
+		_notice(tr("%s mastered!") % shown, "good")
+	else:
+		_notice(tr("%s Lv.%d") % [shown, level], "good")
+
+func _on_skill_answer(answer: Dictionary) -> void:
+	skill_answered.emit(answer)
+	if bool(answer.get("ok", false)):
+		# the new level is read on the next refresh (the sheet that follows)
 		for s in spell_slots:
 			s.remove_meta("trained")
 		_slow_wait = 0.0
 		return
 	# i18n-begin
 	var words := {"no_points": "No skill points left - gain a level", "max_level": "Already mastered",
-		"dead": "You are defeated", "not_a_skill": "Cannot train that now"}
+		"dead": "You are defeated", "not_a_skill": "Cannot train that now",
+		"level": "Your level is too low for that spell"}
 	# i18n-end
 	_notice(I18n.t(String(words.get(String(answer.get("reason", "")), "Cannot train that now"))), "warn")
 

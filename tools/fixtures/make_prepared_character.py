@@ -48,6 +48,18 @@ mana a character of that level has, both full.
 the Blackweb Caverns by the camp's web gate into the Web Mother's Lair
 (portal `lair_entry_camp`, as realm_netcheck --lair seeds its character), at
 level 30 unless `--level` says otherwise.
+
+    python tools/fixtures/make_prepared_character.py build/skillscheck 900801 --level 12 --skills stun_bolt:9,flame_wave:2
+
+`--skills id:level,...` writes those skill levels (realm_rules skills; the
+free points are the level minus every learned level: the Godot client's
+--check-skills).
+
+    python tools/fixtures/make_prepared_character.py build/otherscheck 900812 --level 23 --title fc_explorer --chest cloak_runed
+
+`--title ID` adds a dungeon title (dungeons.json first_clear_title ids or
+dungeon_record) and `--chest ID` wears that chest item (a cloak): the Godot
+client's --check-others partner.
 """
 import json
 import os
@@ -75,6 +87,16 @@ def main():
         at = argv.index("--seals")
         seals = int(argv[at + 1])
         del argv[at:at + 2]
+    def take(flag):
+        if flag not in argv:
+            return ""
+        at = argv.index(flag)
+        value = argv[at + 1]
+        del argv[at:at + 2]
+        return value
+    skills = take("--skills")
+    title = take("--title")
+    chest = take("--chest")
     level = 0
     if "--level" in argv:
         at = argv.index("--level")
@@ -126,6 +148,13 @@ def main():
         sheet["base_max_mana"] = 300 + 25 * (level - 1)
         sheet["hp"] = sheet["base_max_hp"]
         sheet["mana"] = sheet["base_max_mana"]
+    if skills:
+        sheet["skills"] = [[name, int(lv)] for name, lv in (pair.split(":") for pair in skills.split(","))]
+    if title:
+        log = sheet.setdefault("dungeons", {"records": [], "last_rewarded_day": 0, "titles": []})
+        log["titles"].append(title)
+    if chest:
+        equipment[1] = item(chest, uid=4244)  # chest
     if seals > 0:
         bag[7] = item("dungeon_seal", seals)
     if cleared:
@@ -133,7 +162,8 @@ def main():
         # up to `cleared`, no reward taken today.
         records = [{"dungeon": "trial", "difficulty": i, "rank": 3, "best_ms": 100000, "day": 0, "rewarded": 0}
                    for i in range(DIFFICULTIES.index(cleared) + 1)]
-        sheet["dungeons"] = {"records": records, "last_rewarded_day": 0, "titles": []}
+        titles = sheet.get("dungeons", {}).get("titles", [])
+        sheet["dungeons"] = {"records": records, "last_rewarded_day": 0, "titles": titles}
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, "%d.json" % character)
     with open(path, "w", encoding="utf-8", newline="\n") as out:

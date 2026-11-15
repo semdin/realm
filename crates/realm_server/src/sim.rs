@@ -85,6 +85,13 @@ pub enum NetEvent {
     CoordDown,
 }
 
+/// A fingerprint of a sheet's bag and gear.
+fn items_key(sheet: &CharacterSheet) -> u64 {
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    std::hash::Hash::hash(&format!("{:?}{:?}", sheet.bag, sheet.equipment), &mut h);
+    std::hash::Hasher::finish(&h)
+}
+
 /// Every player is saved once in this many ticks (30 s), spread over them.
 const AUTOSAVE_TICKS: u32 = 30 * 30;
 /// A changed sheet is saved this long after its last change (5 s).
@@ -191,6 +198,12 @@ struct Player {
     info_key: u64,
     /// The lasting effects its owner was last told of.
     effects_sent: Vec<(&'static str, u32)>,
+    /// The bag and gear its owner saw with each of its last sheets
+    /// (revision, fingerprint): an item request is stale only when the
+    /// items changed since the sheet it was made on, not when something
+    /// else did (a look, oril, a quest) - the old game's separate
+    /// inventory revision.
+    items_seen: VecDeque<(u64, u64)>,
     /// Its party as the coordinator last said.
     party: realm_proto::coord::PartyView,
     /// A dead player may rise from this tick (`dead_until` is when it goes
@@ -1057,6 +1070,7 @@ impl Sim {
             chat_ready: 0,
             info_key: 0,
             effects_sent: Vec::new(),
+            items_seen: VecDeque::new(),
             party: realm_proto::coord::PartyView::default(),
             respawn_ready: 0,
             sheet,
@@ -1212,6 +1226,13 @@ impl Sim {
             return;
         };
         if let Some(sheet) = self.sheet_of(entity) {
+            let seen = (sheet.revision, items_key(&sheet));
+            if let Some(mut p) = self.world.get_mut::<Player>(entity) {
+                p.items_seen.push_back(seen);
+                while p.items_seen.len() > 16 {
+                    p.items_seen.pop_front();
+                }
+            }
             self.send_control(conn, &ServerMsg::Sheet(Box::new(sheet)));
         }
         self.refresh_info(entity);
@@ -1283,8 +1304,13 @@ impl Sim {
             return;
         };
         let level = combat.skill_level(&player.sheet, &spell);
+        let unlocks_at = combat.spell(&spell).map_or(1, |s| s.requires_level);
         let reason = if !combat.skill_upgradeable(&spell) {
             "not_a_skill"
+        } else if player.sheet.level < unlocks_at {
+            // As the old game: a point spent below the spell's level would
+            // sit unusable until then.
+            "level"
         } else if level >= combat.skills.max_level {
             "max_level"
         } else if combat.skill_points(&player.sheet) == 0 {
@@ -1331,7 +1357,14 @@ impl Sim {
         let Some(mut sheet) = self.sheet_of(entity) else {
             return;
         };
-        let reply = if sheet.revision != revision {
+        let current = items_key(&sheet);
+        let fresh = sheet.revision == revision
+            || self.world.get::<Player>(entity).is_some_and(|p| {
+                p.items_seen
+                    .iter()
+                    .any(|(r, k)| *r == revision && *k == current)
+            });
+        let reply = if !fresh {
             Err("stale")
         } else {
             let Some(player) = self.world.get::<Player>(entity) else {
