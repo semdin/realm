@@ -23,3 +23,6 @@ game/**/*.res filter=lfs diff=lfs merge=lfs -text
 game/addons/**/bin/** filter=lfs diff=lfs merge=lfs -text
 *.png binary
 *.glb binary
+
+# The live realm's public QUIC certificate, shipped with the client (pinned).
+game/release/*.der binary

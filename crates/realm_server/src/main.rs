@@ -68,19 +68,38 @@ fn main() {
     }
 }
 
+/// A private key file: readable by its owner only (Unix 0600) from the
+/// moment it exists, whatever the umask; the public halves stay 0644.
+fn write_secret(path: &Path, bytes: &[u8]) -> AnyResult<()> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
+        options.mode(0o600);
+        // An existing file keeps its mode through open(); set it as well.
+        if path.exists() {
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+        }
+    }
+    options.open(path)?.write_all(bytes)?;
+    Ok(())
+}
+
 fn keygen(dir: &Path) -> AnyResult<()> {
     std::fs::create_dir_all(dir)?;
     let key = realm_proto::ticket::generate_key()?;
-    std::fs::write(dir.join("ticket.key"), key.to_bytes())?;
+    write_secret(&dir.join("ticket.key"), &key.to_bytes())?;
     std::fs::write(dir.join("ticket.pub"), key.verifying_key().to_bytes())?;
     let cert =
         rcgen::generate_simple_self_signed(vec!["localhost".to_owned(), "realm-dev".to_owned()])?;
     std::fs::write(dir.join("tls.crt.der"), cert.cert.der())?;
-    std::fs::write(dir.join("tls.key.der"), cert.signing_key.serialize_der())?;
+    write_secret(&dir.join("tls.key.der"), &cert.signing_key.serialize_der())?;
     // The key map servers prove to the coordinator.
     let mut coord = [0_u8; 32];
     getrandom::fill(&mut coord).map_err(|e| format!("random: {e}"))?;
-    std::fs::write(dir.join("coord.key"), coord)?;
+    write_secret(&dir.join("coord.key"), &coord)?;
     println!(
         "wrote ticket.key, ticket.pub, tls.crt.der, tls.key.der, coord.key to {}",
         dir.display()
