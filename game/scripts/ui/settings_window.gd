@@ -2,11 +2,12 @@ extends HudWindow
 class_name SettingsWindow
 
 ## Settings, opened from the Esc menu (GameSettings keeps and applies them):
-## four tabs in one window - General (language, fullscreen, interface scale,
-## mouse sensitivity, screen shake and flash), Audio (master and the four
-## buses), Controls (key rebinding) and Credits (GameCredits). The key list
-## and the credits scroll inside their tabs. Every change applies at once and
-## is saved.
+## five tabs in one window - General (language, fullscreen, interface scale,
+## mouse sensitivity, screen shake and flash), Graphics (the quality preset
+## and the time of day on the grounds), Audio (master and the four buses),
+## Controls (key rebinding) and Credits (GameCredits). The key list and the
+## credits scroll inside their tabs. Every change applies at once and is
+## saved.
 ##
 ## Key capture is explicit: a row listens only after its button is pressed,
 ## and the very next key (Escape cancels) is consumed and never reaches the
@@ -17,7 +18,7 @@ class_name SettingsWindow
 signal language_apply_requested
 
 const WINDOW_SIZE := Vector2(660, 640)
-const TABS := ["general", "audio", "controls", "credits"]
+const TABS := ["general", "graphics", "audio", "controls", "credits"]
 
 ## Player-facing names of the bindable actions.
 const ACTION_NAMES := {
@@ -33,6 +34,9 @@ const ACTION_NAMES := {
 	"spell_7": "Spell slot 7", "spell_8": "Spell slot 8",
 	"quick_1": "Quick slot 1", "quick_2": "Quick slot 2", "quick_3": "Quick slot 3", "quick_4": "Quick slot 4",
 }
+# i18n-begin
+const QUALITY_NAMES := {"low": "Low", "medium": "Medium", "high": "High"}
+# i18n-end
 const BUS_NAMES := {"Master": "Master volume", "Music": "Music", "SFX": "Effects", "UI": "Interface",
 	"Ambience": "Ambience"}
 
@@ -42,6 +46,9 @@ var sliders: Dictionary = {}
 var bind_buttons: Dictionary = {}
 var fullscreen_button: Button
 var language_picker: OptionButton
+## Settings > Graphics: the quality preset ("auto" first) and the time of day.
+var quality_picker: OptionButton
+var time_picker: OptionButton
 var status: Label
 var credits: RichTextLabel
 var listening := ""
@@ -64,12 +71,13 @@ func _ready() -> void:
 	var holder := MarginContainer.new()
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(holder)
-	var titles := {"general": tr("General"), "audio": tr("Audio"), "controls": tr("Controls"), "credits": tr("Credits")}
+	var titles := {"general": tr("General"), "graphics": tr("Graphics"), "audio": tr("Audio"), "controls": tr("Controls"),
+		"credits": tr("Credits")}
 	for key: String in TABS:
 		var b := HudKit.button(String(titles[key]), 15)
 		b.name = key.capitalize() + "Tab"
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(120, 34)
+		b.custom_minimum_size = Vector2(100, 34)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(show_page.bind(key))
 		tabs.add_child(b)
@@ -81,6 +89,7 @@ func _ready() -> void:
 		holder.add_child(page)
 		pages[key] = page
 	_build_general(pages["general"])
+	_build_graphics(pages["graphics"])
 	_build_audio(pages["audio"])
 	_build_controls(pages["controls"])
 	credits = GameCredits.build()
@@ -139,6 +148,58 @@ func _build_general(g: VBoxContainer) -> void:
 		GameSettings.SENSITIVITY_MAX, 0.05))
 	g.add_child(_slider_row("shake", tr("Screen shake"), GameSettings.INTENSITY_MIN, GameSettings.INTENSITY_MAX, 0.05))
 	g.add_child(_slider_row("flash", tr("Screen flash"), GameSettings.INTENSITY_MIN, GameSettings.INTENSITY_MAX, 0.05))
+
+func _build_graphics(g: VBoxContainer) -> void:
+	g.add_child(_section(tr("Quality")))
+	var row := _row(tr("Graphics quality"))
+	quality_picker = _picker("GraphicsQuality")
+	for choice: String in GameSettings.GRAPHICS_CHOICES:
+		quality_picker.add_item(quality_label(choice))
+	quality_picker.tooltip_text = tr("Auto picks Low on integrated graphics and High on a dedicated GPU")
+	quality_picker.item_selected.connect(func(index: int): choose_quality(String(GameSettings.GRAPHICS_CHOICES[index])))
+	row.add_child(quality_picker)
+	g.add_child(row)
+	var note := HudKit.label(tr("Low suits integrated graphics: a lower render scale, short shadows, thinner foliage and no glow. High draws everything at full resolution."),
+		13, HudKit.TEXT_DIM, HudKit.body(), 0)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	g.add_child(note)
+	g.add_child(_section(tr("Day and night")))
+	var tod_row := _row(tr("Time of day"))
+	time_picker = _picker("TimeOfDay")
+	for choice: String in GameSettings.TIME_OF_DAY_CHOICES:
+		time_picker.add_item(tr(String(DayNight.CHOICES[choice])))
+	time_picker.tooltip_text = tr("Server time follows the clock in GMT+3: day, dusk and night on the grounds")
+	time_picker.item_selected.connect(func(index: int):
+		var choice := String(GameSettings.TIME_OF_DAY_CHOICES[index])
+		GameSettings.instance().set_time_of_day(choice)
+		status.text = tr("Time of day: %s") % tr(String(DayNight.CHOICES[choice])))
+	tod_row.add_child(time_picker)
+	g.add_child(tod_row)
+
+## A drop-down styled like the language picker.
+func _picker(picker_name: String) -> OptionButton:
+	var picker := OptionButton.new()
+	picker.name = picker_name
+	picker.focus_mode = Control.FOCUS_NONE
+	picker.custom_minimum_size = Vector2(280, 32)
+	picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	HudKit.style_button(picker, 14)
+	return picker
+
+## The quality preset picked (or the check picking it): saved, and main.gd
+## applies it to the live world.
+func choose_quality(choice: String) -> void:
+	GameSettings.instance().set_graphics_quality(choice)
+	status.text = tr("Graphics: %s") % quality_name(QualityPreset.current())
+	refresh()
+
+func quality_label(choice: String) -> String:
+	if choice == "auto":
+		return tr("Auto (%s)") % quality_name(QualityPreset.detect())
+	return quality_name(choice)
+
+func quality_name(preset: String) -> String:
+	return tr(String(QUALITY_NAMES.get(preset, preset.capitalize())))
 
 func _build_audio(a: VBoxContainer) -> void:
 	a.add_child(_section(tr("Volume")))
@@ -350,6 +411,10 @@ func refresh() -> void:
 	var settings := GameSettings.instance()
 	fullscreen_button.set_pressed_no_signal(settings.fullscreen)
 	fullscreen_button.text = tr("On") if settings.fullscreen else tr("Off")
+	if quality_picker != null:
+		quality_picker.select(maxi(0, GameSettings.GRAPHICS_CHOICES.find(settings.graphics_quality)))
+	if time_picker != null:
+		time_picker.select(maxi(0, GameSettings.TIME_OF_DAY_CHOICES.find(settings.time_of_day)))
 	for key: String in sliders:
 		var v := value_of(key)
 		(sliders[key] as HSlider).set_value_no_signal(v)

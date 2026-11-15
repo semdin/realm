@@ -2,26 +2,26 @@ extends Node3D
 class_name RealmWeather
 
 ## The realm's weather on this map (the rain layer of the old game's
-## DayNight; the day and night themselves come later). The server says
-## whether it rains (RealmSession.raining(): realm-wide, a GA's `/ga rain
-## on|off`); `rain_amount` eases toward it over a few seconds.
+## DayNight). The server says whether it rains (RealmSession.raining():
+## realm-wide, a GA's `/ga rain on|off`); `rain_amount` eases toward it over a
+## few seconds.
 ##
 ## Outdoors (OUTDOOR_MAPS) rain falls round the camera: GPU particles whose
 ## streaks are soft, tapered drops of varying weight, thinned and thickened by
 ## a drifting noise map so the rain comes in gusts and sheets rather than as an
-## even grid; the light dims a little and the sky goes grey, and the rain loop
-## plays. Indoors (the castle, the caverns, a dungeon) nothing falls and the
-## loop is heard softly, as through the walls.
+## even grid, as many as the quality preset's particle budget allows; and the
+## rain loop plays. DayNight reads `rain_amount` and darkens the day with it:
+## thicker, darker clouds, a dimmer sun, thicker fog, a greyer ambient.
+## Indoors (the castle, the caverns, a dungeon) nothing falls and the loop is
+## heard softly, as through the walls.
 
 const OUTDOOR_MAPS := ["grounds"]
 const RAIN_SOUND := "res://assets/audio/ambience/rain.wav"
 const RAIN_SHADER := "res://assets/shaders/rain_streak.gdshader"
 ## Seconds the rain takes to set in or stop.
 const EASE_SECONDS := 6.0
-## How much the sun dims and the sky greys at full rain.
-const SUN_DIM := 0.38
-const STORM_SKY := Color(0.36, 0.40, 0.45)
-const STORM_AMBIENT := Color(0.42, 0.45, 0.50)
+## Drops at the full particle budget (the high preset).
+const DROPS := 6000
 const INDOOR_VOLUME := 0.25
 const OUTDOOR_VOLUME := 0.8
 
@@ -32,11 +32,8 @@ var rain_amount := 0.0
 var rain: GPUParticles3D
 var rain_sound: AudioStreamPlayer
 
-var _sun: DirectionalLight3D
-var _env: Environment
-var _sun_energy := 1.0
-var _sky := Color.BLACK
-var _ambient := Color.BLACK
+## The quality preset's particle budget (QualityPreset particle_scale).
+var _density := 1.0
 ## Until then (the first moments on the map) the rain snaps to the server's
 ## word: a map joined while it rains starts wet, not easing in.
 var _fresh_until := 0.0
@@ -44,19 +41,16 @@ var _fresh_until := 0.0
 func _init() -> void:
 	name = "Weather"
 
-## `sun` and `env` are the map's light and environment (their clear-weather
-## values are kept and the rain dims them).
-func setup(p_session: Node, map_name: String, sun: DirectionalLight3D, env: Environment) -> void:
+func setup(p_session: Node, map_name: String) -> void:
 	session = p_session
 	outdoors = OUTDOOR_MAPS.has(map_name)
-	_sun = sun
-	_env = env
-	if _sun != null:
-		_sun_energy = _sun.light_energy
-	if _env != null:
-		_sky = _env.background_color
-		_ambient = _env.ambient_light_color
+	_density = float(QualityPreset.value("particle_scale", 1.0))
 	rain_amount = 1.0 if raining() else 0.0
+	_apply()
+
+## A preset switch: the drops follow its particle budget.
+func apply_quality(preset: Dictionary) -> void:
+	_density = float(preset.get("particle_scale", 1.0))
 	_apply()
 
 ## The map is joined: for a moment the rain follows the server's word at once.
@@ -78,16 +72,11 @@ func _process(delta: float) -> void:
 
 func _apply() -> void:
 	var shown := rain_amount if outdoors else 0.0
-	if _sun != null:
-		_sun.light_energy = _sun_energy * (1.0 - SUN_DIM * shown)
-	if _env != null:
-		_env.background_color = _sky.lerp(STORM_SKY, shown * 0.75)
-		_env.ambient_light_color = _ambient.lerp(STORM_AMBIENT, shown * 0.6)
 	if shown > 0.01:
 		if rain == null:
 			_build_rain()
 		rain.emitting = true
-		rain.amount_ratio = clampf(shown, 0.05, 1.0)
+		rain.amount_ratio = clampf(shown * _density, 0.05, 1.0)
 	elif rain != null:
 		rain.emitting = false
 	var volume := rain_amount * (OUTDOOR_VOLUME if outdoors else INDOOR_VOLUME)
@@ -104,7 +93,7 @@ func _apply() -> void:
 func _build_rain() -> void:
 	rain = GPUParticles3D.new()
 	rain.name = "Rain"
-	rain.amount = 6000
+	rain.amount = DROPS
 	rain.lifetime = 1.1
 	rain.preprocess = 1.0
 	rain.local_coords = false

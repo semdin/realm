@@ -26,7 +26,8 @@ extends Node
 ##             grounds' own textures by folder (an estimate from their size
 ##             and format)
 ##
-## Captures in build/captures/grounds/. The verdict line quits 0 only when
+## Captures in build/captures/grounds/, at noon (DayNight.forced_hour) unless
+## `--time HH:MM` pins another hour. The verdict line quits 0 only when
 ## every part passed; any part that cannot finish fails at once.
 
 const Layout := preload("res://maps/grounds/grounds_layout.gd")
@@ -62,6 +63,9 @@ const SURVEY := [
 	["orvell", "orvell_square", Vector3(30.0, 22.0, 46.0), 3.0],
 	["trial_gate", Vector2(70.0, 69.0), Vector3(-10.0, 6.0, -16.0), 3.0],
 	["hill", "stone_circle", Vector3(28.0, 12.0, 30.0), 2.0],
+	# the fountain's basin from just over its rim: the water, the floor and
+	# the caustics seen through it
+	["fountain_pool", "courtyard", Vector3(2.4, 3.0, 4.4), 0.9],
 ]
 
 var game: Node
@@ -78,6 +82,10 @@ var _camera_at: Variant = null
 
 func _ready() -> void:
 	_started = _now()
+	# the art and its frame times compare run to run under one light: noon,
+	# unless `--time HH:MM` asks for another hour (DayNight)
+	if not OS.get_cmdline_user_args().has("--time"):
+		DayNight.forced_hour = 12.5
 	_run.call_deferred()
 
 

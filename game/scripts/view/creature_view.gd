@@ -202,6 +202,9 @@ func setup(kind: int) -> bool:
 	if view.has("silk_alpha"):
 		_thin_silk(float(view["silk_alpha"]))
 	model.position.y = float(view.get("offset_y", 0.0)) + float(view.get("hover_height", 0.0))
+	# the character fill (DayNight) lights the character layer: the meshes
+	# join it before they enter the world (HeroAppearance.set_character_layer)
+	HeroAppearance.set_character_layer(model)
 	add_child(model)
 	visuals = model
 	# the name label's height (creature_views.json) sits just over the head

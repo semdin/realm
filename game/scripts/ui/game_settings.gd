@@ -11,7 +11,10 @@ class_name GameSettings
 ##     main.gd's shake_camera and LevelUpFX's flash read them;
 ##   * fullscreen (also F11);
 ##   * the key bindings of the gameplay keys: main.gd, the action bar and the
-##     movement read `key(action)` instead of fixed keys.
+##     movement read `key(action)` instead of fixed keys;
+##   * the graphics quality ("auto" or a QualityPreset name; main.gd applies a
+##     change to the live world) and the time of day on the grounds (DayNight:
+##     the server clock in GMT+3, or held at one of the day's five faces).
 ##
 ## The four sound volumes and the master volume belong to AudioManager (its
 ## buses, saved in user://audio_settings.json); the window drives that one API.
@@ -41,6 +44,12 @@ const SENSITIVITY_MAX := 3.0
 const INTENSITY_DEFAULT := 1.0
 const INTENSITY_MIN := 0.0
 const INTENSITY_MAX := 1.5
+const GRAPHICS_CHOICES := ["auto", "low", "medium", "high"]
+const GRAPHICS_DEFAULT := "auto"
+## Time of day on the grounds (DayNight): the server clock in GMT+3, or held at
+## dawn, noon, afternoon, sunset or night.
+const TIME_OF_DAY_CHOICES := ["system", "dawn", "noon", "afternoon", "sunset", "night"]
+const TIME_OF_DAY_DEFAULT := "system"
 ## Master first, then AudioManager's buses.
 const VOLUMES := ["Master", "Music", "SFX", "UI", "Ambience"]
 
@@ -96,6 +105,8 @@ var mouse_sensitivity := SENSITIVITY_DEFAULT
 var shake := INTENSITY_DEFAULT
 var flash := INTENSITY_DEFAULT
 var fullscreen := false
+var graphics_quality := GRAPHICS_DEFAULT
+var time_of_day := TIME_OF_DAY_DEFAULT
 ## action -> physical keycode
 var bindings: Dictionary = {}
 var _by_key: Dictionary = {}
@@ -151,6 +162,8 @@ func load_from_disk() -> void:
 	shake = INTENSITY_DEFAULT
 	flash = INTENSITY_DEFAULT
 	fullscreen = false
+	graphics_quality = GRAPHICS_DEFAULT
+	time_of_day = TIME_OF_DAY_DEFAULT
 	bindings.clear()
 	for action: String in BINDABLE:
 		bindings[action] = int(BINDABLE[action])
@@ -164,6 +177,10 @@ func load_from_disk() -> void:
 		shake = clampf(float(config.get_value(GENERAL, "shake", INTENSITY_DEFAULT)), INTENSITY_MIN, INTENSITY_MAX)
 		flash = clampf(float(config.get_value(GENERAL, "flash", INTENSITY_DEFAULT)), INTENSITY_MIN, INTENSITY_MAX)
 		fullscreen = bool(config.get_value(GENERAL, "fullscreen", false))
+		var quality := String(config.get_value(GENERAL, "graphics_quality", GRAPHICS_DEFAULT))
+		graphics_quality = quality if GRAPHICS_CHOICES.has(quality) else GRAPHICS_DEFAULT
+		var hour := String(config.get_value(GENERAL, "time_of_day", TIME_OF_DAY_DEFAULT))
+		time_of_day = hour if TIME_OF_DAY_CHOICES.has(hour) else TIME_OF_DAY_DEFAULT
 		var taken := {}
 		for action: String in BINDABLE:
 			var stored := int(config.get_value(BINDINGS, action, int(BINDABLE[action])))
@@ -184,6 +201,8 @@ func save_to_disk() -> void:
 	config.set_value(GENERAL, "shake", shake)
 	config.set_value(GENERAL, "flash", flash)
 	config.set_value(GENERAL, "fullscreen", fullscreen)
+	config.set_value(GENERAL, "graphics_quality", graphics_quality)
+	config.set_value(GENERAL, "time_of_day", time_of_day)
 	for action: String in bindings:
 		config.set_value(BINDINGS, action, int(bindings[action]))
 	var error := config.save(SETTINGS_PATH)
@@ -243,6 +262,19 @@ func set_fullscreen(on: bool) -> void:
 	apply_window_mode()
 	save_to_disk()
 	changed.emit("fullscreen")
+
+## "auto" or a preset name; main.gd applies the result to the live world.
+func set_graphics_quality(choice: String) -> void:
+	graphics_quality = choice if GRAPHICS_CHOICES.has(choice) else GRAPHICS_DEFAULT
+	QualityPreset.choice_changed()
+	save_to_disk()
+	changed.emit("graphics_quality")
+
+## "system" (the server clock, GMT+3) or a held time; DayNight eases to it.
+func set_time_of_day(choice: String) -> void:
+	time_of_day = choice if TIME_OF_DAY_CHOICES.has(choice) else TIME_OF_DAY_DEFAULT
+	save_to_disk()
+	changed.emit("time_of_day")
 
 func toggle_fullscreen() -> void:
 	set_fullscreen(not fullscreen)

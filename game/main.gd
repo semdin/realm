@@ -138,6 +138,19 @@ extends Node3D
 ##                                                    probed and captured with their frame times, memory
 ##                                                    (CastleCheck; build/logs/kup_castle.sh, --map
 ##                                                    castle_interior --character 901301)
+##   [--check-caverns] / [--check-dungeons]           the Blackweb Caverns / the dungeon map joined drawn where
+##                                                    the server's ground and walls are: feet, fixed views probed
+##                                                    and captured with their frame times, memory (DrawnMapCheck;
+##                                                    build/logs/dup6_caverns.sh, dup6_dungeons.sh)
+##   [--check-light]                                  day and night, the rain's darkening and the quality presets
+##                                                    (LightCheck; build/logs/lup6_light.sh check): four pinned
+##                                                    hours, "/ga rain on|off", low / medium / high picked in
+##                                                    Settings > Graphics and timed; with `--map castle_interior`
+##                                                    the indoor rules (no sun, the fill on the hero)
+##   [--time 19:30]                                   pin the hour of the day's light (captures; DayNight)
+##   [--quality=low|medium|high]                      the graphics preset for this run (QualityPreset)
+##   [--shader-warmup] / [--no-shader-warmup]         warm the pipelines on a dev join too / never
+##                                                    (ShaderWarmup; a trip warms behind its loading screen)
 ##   [--check-polish]                                the small HUD pieces (PolishCheck; build/logs/aup_polish.sh,
 ##                                                    --character 902101): the debug readout hidden, then shown
 ##                                                    by its key; the ping; the broom panel and a refused
@@ -244,6 +257,8 @@ const AudioCheckScript := "res://scripts/systems/audio_check.gd"
 const Hud2CheckScript := "res://scripts/systems/hud2_check.gd"
 const StairsCheckScript := "res://scripts/systems/stairs_check.gd"
 const CastleCheckScript := "res://maps/castle_interior/castle_check.gd"
+const DrawnMapCheckScript := "res://maps/dng_common/drawn_map_check.gd"
+const LightCheckScript := "res://scripts/systems/light_check.gd"
 const PolishCheckScript := "res://scripts/systems/polish_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
@@ -491,6 +506,9 @@ var own_ga := false
 ## The realm's weather here (RealmWeather) and the maintenance banner and end
 ## screen (MaintenanceUI).
 var weather: RealmWeather
+## The hour's light, sky and fog outdoors and the character fill everywhere
+## (DayNight; the rain darkens it).
+var day_night: DayNight
 var maintenance: MaintenanceUI
 ## `--check-ops`: the operations check.
 var ops_check: Node = null
@@ -551,6 +569,10 @@ var titles_toasted: Array = []
 var hud2_check: Node = null
 var stairs_check: Node = null
 var castle_check: Node = null
+## `--check-caverns` / `--check-dungeons`: a drawn map's alignment and cost.
+var drawn_check: Node = null
+## `--check-light`: day and night, the rain's darkening, the quality presets.
+var light_check: Node = null
 ## `--check-polish`: the small HUD pieces' check.
 var polish_check: Node = null
 
@@ -738,8 +760,22 @@ func _build_view() -> void:
 	add_child(layer)
 	weather = RealmWeather.new()
 	add_child(weather)
-	weather.setup(session, map_name, sun, env.environment)
+	weather.setup(session, map_name)
+	day_night = DayNight.new()
+	add_child(day_night)
+	day_night.setup(self, map_name)
+	# the quality preset on the viewport, the sun, the camera and the weather
+	# (the map's own parts once it is built); a change in Settings applies live
+	QualityPreset.apply(self)
+	if not GameSettings.instance().changed.is_connected(_on_settings_changed):
+		GameSettings.instance().changed.connect(_on_settings_changed)
 	_build_ui()
+
+## Settings > Graphics: the quality preset applies to the live world, a held
+## time of day eases in (DayNight reads the setting).
+func _on_settings_changed(what: String) -> void:
+	if what == "graphics_quality" or what == "all":
+		QualityPreset.apply(self)
 
 ## The interface: a full-screen root holding the HUD ("HUD", which the windows
 ## look for) and the inventory (I).
@@ -816,11 +852,21 @@ func _build_ui() -> void:
 		stairs_check.name = "StairsCheck"
 		stairs_check.game = self
 		add_child(stairs_check)
+	if user_args.has("--check-light"):
+		light_check = load(LightCheckScript).new()
+		light_check.name = "LightCheck"
+		light_check.game = self
+		add_child(light_check)
 	if user_args.has("--check-castle"):
 		castle_check = load(CastleCheckScript).new()
 		castle_check.name = "CastleCheck"
 		castle_check.game = self
 		add_child(castle_check)
+	if user_args.has("--check-caverns") or user_args.has("--check-dungeons"):
+		drawn_check = load(DrawnMapCheckScript).new()
+		drawn_check.name = "DrawnMapCheck"
+		drawn_check.game = self
+		add_child(drawn_check)
 	if user_args.has("--check-polish"):
 		polish_check = load(PolishCheckScript).new()
 		polish_check.name = "PolishCheck"
@@ -1069,6 +1115,7 @@ func _build_map() -> void:
 		add_child(map_view)
 		if map_view.has_method("setup"):
 			map_view.call("setup", session, self)
+		QualityPreset.apply_map(map_view)
 	else:
 		_build_placeholder_world(offset)
 	_map_built()
@@ -1101,6 +1148,7 @@ func _map_built() -> void:
 	# the player's own info: whether it is a game admin (its emblem)
 	session.inspect(session.own_entity())
 	weather.on_joined()
+	day_night.snap()
 	_spawn_npcs()
 	travel.on_map_built()
 	dungeon.on_map_built()
@@ -2565,6 +2613,8 @@ func _process(delta: float) -> void:
 		strafe = _check_sidestep(forward > 0.0)
 	elif castle_check != null:
 		forward = castle_check.walk_intent()
+	elif drawn_check != null:
+		forward = drawn_check.walk_intent()
 	elif map_check != null:
 		forward = map_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)

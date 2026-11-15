@@ -64,6 +64,14 @@ const WALK := 1.0
 const FLOOR_H := 8.0
 
 
+## The clock faces' material: lit from behind at night, a plain painted dial
+## by day (GroundsMap.apply_daylight); at full glow under the noon sun it
+## burned to a flat white square.
+static var clock_material: StandardMaterial3D = null
+## Its glow at night.
+const CLOCK_GLOW := 0.9
+
+
 static func materials() -> Dictionary:
 	var glass := ShaderMaterial.new()
 	# Leaded glass mirroring the sky, with warm rooms behind some of the panes
@@ -74,7 +82,8 @@ static func materials() -> Dictionary:
 	clock.albedo_color = Color(0.85, 0.80, 0.62)
 	clock.emission_enabled = true
 	clock.emission = Color(1.0, 0.86, 0.55)
-	clock.emission_energy_multiplier = 0.9
+	clock.emission_energy_multiplier = CLOCK_GLOW
+	clock_material = clock
 	var door := PBR.surface("medieval_wood", Color(0.55, 0.42, 0.32), {"metres": 2.0})
 	var banner := StandardMaterial3D.new()
 	banner.albedo_color = Color(0.12, 0.22, 0.52)

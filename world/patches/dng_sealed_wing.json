@@ -1,0 +1,1265 @@
+{
+  "_comment": "Colliders for drawn solids the old dng_sealed_wing gave no collider, recorded by the map's own view (game/maps/dng_sealed_wing; written by game/maps/dng_common/map_solids.gd --write). Pack coordinates (a dungeon's copy-local ones). Applied by realm_worldc patch.",
+  "boxes": [
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        6.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, 6.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        6.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, 6.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        0.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, 0.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        0.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, 0.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -6.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -6.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -6.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -6.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -12.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -12.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -12.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -12.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -18.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -18.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -18.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -18.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -24.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -24.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -24.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -24.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -30.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -30.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -36.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -36.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -36.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -36.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -42.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -42.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -42.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -42.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -48.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -48.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -48.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -48.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -54.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -54.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -54.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -54.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1204.0,
+        -28.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -28.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1204.0,
+        -34.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -34.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -62.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -62.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -62.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -62.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -68.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -68.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -68.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -68.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -74.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -74.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -74.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -74.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -80.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -80.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -80.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -80.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -86.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -86.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -86.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -86.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -92.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -92.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -92.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -92.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -98.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -98.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -98.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -98.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -106.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -106.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -106.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -106.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -112.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -112.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -112.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -112.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -118.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -118.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -118.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -118.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -124.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -124.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -124.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -124.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -130.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -130.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -130.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -130.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -14.65,
+        1204.0,
+        -136.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-14.7, -136.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        14.65,
+        1204.0,
+        -136.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (14.7, -136.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -146.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -146.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -146.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -146.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -152.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -152.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -4.65,
+        1204.0,
+        -158.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-4.7, -158.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        4.65,
+        1204.0,
+        -158.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (4.7, -158.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1204.0,
+        -148.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -148.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1204.0,
+        -154.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -154.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -166.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -166.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -166.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -166.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -172.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -172.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -172.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -172.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -178.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -178.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -178.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -178.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -184.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -184.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -184.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -184.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -190.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -190.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -190.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -190.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -196.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -196.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -196.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -196.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -202.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -202.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -202.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -202.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -208.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -208.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -208.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -208.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -23.65,
+        1207.0,
+        -214.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (-23.6, -214.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        23.65,
+        1207.0,
+        -214.0
+      ],
+      "half": [
+        0.35,
+        7.0,
+        0.45
+      ],
+      "note": "pilaster at (23.6, -214.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -7.65,
+        1204.0,
+        -222.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-7.7, -222.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        7.65,
+        1204.0,
+        -222.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (7.7, -222.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -7.65,
+        1204.0,
+        -228.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (-7.7, -228.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        7.65,
+        1204.0,
+        -228.0
+      ],
+      "half": [
+        0.35,
+        4.0,
+        0.45
+      ],
+      "note": "pilaster at (7.7, -228.0): drawn 0.7 m proud of the wall, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -3.96,
+        1201.08,
+        -6.05
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour on the corridor's west wall, z -6",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        3.96,
+        1201.08,
+        -12.95
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour on the corridor's east wall, z -13",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -3.96,
+        1201.08,
+        -20.05
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour on the corridor's west wall, z -20",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        3.96,
+        1201.08,
+        -26.95
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour on the corridor's east wall, z -27",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -3.96,
+        1201.08,
+        -38.05
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour on the corridor's west wall, z -38",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        3.96,
+        1201.08,
+        -44.95
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour on the corridor's east wall, z -45",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -13.96,
+        1201.08,
+        -66.05
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour in the gallery's west row, z -66",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        13.96,
+        1201.08,
+        -65.95
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour in the gallery's east row, z -66",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -13.96,
+        1201.08,
+        -78.05
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour in the gallery's west row, z -78",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        13.96,
+        1201.08,
+        -77.95
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour in the gallery's east row, z -78",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -13.96,
+        1201.08,
+        -90.05
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour in the gallery's west row, z -90",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        13.96,
+        1201.08,
+        -89.95
+      ],
+      "half": [
+        0.2,
+        1.15,
+        0.47
+      ],
+      "note": "suit of armour in the gallery's east row, z -90",
+      "yaw_deg": 0
+    }
+  ]
+}

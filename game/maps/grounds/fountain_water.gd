@@ -5,8 +5,9 @@ extends RefCounted
 ## off in Blender (art/grounds/scripts/split_fountain_water.py, which also wrote
 ## the pools' exact outlines to fountain_water.glb, and cut_fountain_streams.py).
 ## This draws the live water: clear rippling pools in those outlines over a
-## dark stone floor (fountain_pool.gdshader: the floor seen through the water,
-## bent by the ripples, foam along the stone and rings where the streams land),
+## dark stone floor (fountain_pool.gdshader: the floor seen through the water
+## with caustics drifting over it, foam along the stone and rings where the
+## streams land),
 ## streaks running down each stream, and droplets splashing at the landings.
 ## Presentation only (never built on a dedicated server).
 ##
@@ -81,7 +82,6 @@ static func _pool(root: Node3D, mesh: Mesh, pool: Array, floor_mat: Material) ->
 	mat.set_shader_parameter("shallow", SHALLOW)
 	mat.set_shader_parameter("deep", DEEP)
 	mat.set_shader_parameter("clarity", 0.65)
-	mat.set_shader_parameter("refraction", 0.03)
 	mat.set_shader_parameter("edge_foam", 0.35)
 	mat.set_shader_parameter("shape", pool[1])
 	mat.set_shader_parameter("reach", pool[2])

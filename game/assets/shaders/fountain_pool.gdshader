@@ -4,15 +4,22 @@ shader_type spatial;
 // basin's octagon and the bowls' outlines. Drifting ripples, rings where the
 // streams land (`drops`, local xz), a soft band along the stone edge (`shape`
 // 0 round / 1 octagon, `reach` metres from the centre to the inner wall),
-// and the floor beneath seen through the water, bent by the ripples.
+// and the stone floor beneath (FountainWater draws it) seen through the
+// water: the water is see-through where it is shallow and from above, its own
+// colour where it is deep and towards a fresnel rim at grazing angles, with
+// caustics (light focused by the ripples) drifting over the floor.
+//
+// No screen texture: on the Mobile renderer its copy printed "Index p_mipmap
+// = 1 is out of bounds" on the first frame, and blending over the real floor
+// needs no copy of the frame at all.
 render_mode blend_mix, depth_draw_never, cull_disabled, shadows_disabled;
 
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 uniform vec4 shallow : source_color = vec4(0.55, 0.75, 0.72, 1.0);
 uniform vec4 deep : source_color = vec4(0.12, 0.32, 0.36, 1.0);
 uniform vec4 foam : source_color = vec4(0.92, 0.97, 1.0, 1.0);
 uniform float clarity = 0.5;      // 0 opaque colour .. 1 fully see-through
-uniform float refraction = 0.0;   // screen-space bend of the bottom, 0 = off
+uniform float caustics = 0.9;    // how bright the light web on the floor is
+uniform float fresnel_rim = 0.75; // how opaque the water turns at grazing angles
 uniform float ripple_scale = 3.5;
 uniform float ripple_speed = 1.0;
 uniform float ripple_strength = 9.0;
@@ -34,6 +41,24 @@ float vnoise(vec2 p) {
 	vec2 u = f * f * (3.0 - 2.0 * f);
 	return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
 		mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+
+// The light web the ripples focus on the floor: a warped, tiling interference
+// pattern (no grid: value noise showed its cells as squares through the clear
+// water), broken up by slow noise so it never repeats visibly.
+float caustic(vec2 uv, float time) {
+	vec2 p = mod(uv * 6.2831853, 6.2831853) - 250.0;
+	vec2 i = p;
+	float c = 1.0;
+	const float INTEN = 0.005;
+	for (int k = 0; k < 4; k++) {
+		float tt = time * (1.0 - 3.5 / float(k + 1));
+		i = p + vec2(cos(tt - i.x) + sin(tt + i.y), sin(tt - i.y) + cos(tt + i.x));
+		c += 1.0 / length(vec2(p.x / (sin(i.x + tt) / INTEN), p.y / (cos(i.y + tt) / INTEN)));
+	}
+	c /= 4.0;
+	c = 1.17 - pow(c, 1.4);
+	return clamp(pow(abs(c), 8.0), 0.0, 1.0);
 }
 
 void vertex() {
@@ -83,15 +108,22 @@ void fragment() {
 	vec3 water = mix(shallow.rgb, deep.rgb, depth_mix);
 	float froth = clamp(rings * 0.9 + band * edge_foam, 0.0, 1.0);
 	vec3 col = mix(water, foam.rgb, froth);
-	if (refraction > 0.0) {
-		vec2 bend = (n.xz) * refraction;
-		vec3 under = textureLod(screen_tex, SCREEN_UV + bend, 0.0).rgb;
-		// the bottom seen through the water, tinted by it and darker with depth
-		col = mix(col, under * mix(shallow.rgb, deep.rgb, depth_mix) * 1.6, clarity * (1.0 - froth));
-		ALPHA = 1.0;
-	} else {
-		ALPHA = clamp(1.0 - clarity + froth * 0.5, 0.0, 1.0);
-	}
+	// fresnel: from above the floor shows, at a grazing look the water turns
+	// to its own colour and the sky's sheen
+	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 4.0);
+	col = mix(col, shallow.rgb * 1.1, fres * 0.35);
+	// how much of the floor beneath shows: less where it is deep, none
+	// under the froth, less towards the rim
+	// (the old screen-texture path tinted the floor by the water: here the
+	// water's own colour carries a little more of the mix instead)
+	float see = clarity * 0.8 * (1.0 - depth_mix * 0.45) * (1.0 - froth) * (1.0 - fres * fresnel_rim);
+	// caustics on the floor, bent by the same ripples, fading with depth
+	vec2 cuv = p * 0.55 + n.xz * 0.6;
+	float web = caustic(cuv, TIME * 0.5 * ripple_speed);
+	web *= 0.55 + 0.45 * vnoise(p * 1.7 + vec2(t * 0.11, -t * 0.08));
+	float lit = web * caustics * (1.0 - depth_mix * 0.5) * see;
+	col = mix(col, vec3(0.72, 0.98, 0.94), clamp(lit, 0.0, 1.0));
+	ALPHA = clamp(1.0 - see + lit * 0.6, 0.0, 1.0);
 	ALBEDO = col;
 	ROUGHNESS = roughness;
 	METALLIC = 0.0;

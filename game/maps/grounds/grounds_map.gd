@@ -5,7 +5,10 @@ extends Node3D
 ## the precinct (Trial Hall, Hearth Pavilion, training yard, cave mouth), the
 ## sites (Orvell and its roads, Borin's hut, greenhouses, boathouse, station,
 ## the skyring pitch, the stone circle, the camp, the crypt, the hollow), road
-## lamps, the broom landing and the far horizon, under the old sky and sun.
+## lamps, the broom landing and the far horizon. The sky, the sun, the fog's
+## colour and the ambient follow the hour and the rain (DayNight); the quality
+## preset (QualityPreset) reaches the grounds' own parts through
+## apply_quality().
 ##
 ## main.gd instances this scene at the copy offset once the session has
 ## joined and calls setup(session, main). Every builder is the old world's,
@@ -29,7 +32,6 @@ const Sites := preload("res://maps/grounds/grounds_sites.gd")
 const Lake := preload("res://maps/grounds/grounds_lake.gd")
 const Horizon := preload("res://maps/grounds/grounds_horizon.gd")
 const Scatter := preload("res://maps/grounds/grounds_scatter.gd")
-const Quality := preload("res://maps/grounds/grounds_quality.gd")
 const TERRAIN_SCENE := "res://maps/grounds/grounds_terrain.tscn"
 ## `--check-grounds` (GroundsCheck).
 const CHECK_SCRIPT := "res://maps/grounds/grounds_check.gd"
@@ -37,9 +39,6 @@ const CHECK_SCRIPT := "res://maps/grounds/grounds_check.gd"
 ## The broom landing pad (maps.json spawn `castle_landing_pad`).
 const LANDING_PAD := Vector2(40.0, 15.0)
 const LANDING_RADIUS := 4.0
-## The sky at full rain (RealmWeather's storm sky on the procedural sky).
-const STORM_TOP := Color(0.30, 0.33, 0.37)
-const STORM_HORIZON := Color(0.42, 0.45, 0.49)
 
 var session: Node
 var main: Node
@@ -49,11 +48,6 @@ var preset: Dictionary = {}
 ## What each part of the build cost (ms), for the log and the check.
 var build_ms: Dictionary = {}
 
-var _sky: ProceduralSkyMaterial
-var _sky_top := Color.BLACK
-var _sky_horizon := Color.BLACK
-var _rain_seen := -1.0
-var _viewport_state: Dictionary = {}
 
 
 func setup(p_session: Node, p_main: Node) -> void:
@@ -64,9 +58,9 @@ func setup(p_session: Node, p_main: Node) -> void:
 			printerr("grounds check verdict: FAIL - headless: nothing is drawn (run it with a window)")
 			main.get_tree().quit(1)
 		return
-	quality = Quality.resolve()
-	preset = Quality.settings(quality)
-	Pbr.lite = bool(preset.get("lite_surfaces", false))
+	quality = QualityPreset.current()
+	preset = QualityPreset.settings()
+	Pbr.set_lite(bool(preset.get("lite_surfaces", false)))
 	var started := Time.get_ticks_usec()
 	var last := [started]
 	var lap := func(part: String) -> void:
@@ -99,14 +93,7 @@ func setup(p_session: Node, p_main: Node) -> void:
 	lap.call("lake+horizon+lamps")
 	terrain.call("plant", preset)
 	lap.call("vegetation")
-	_viewport_state = Quality.viewport_state(get_viewport())
-	Quality.apply_viewport(get_viewport(), preset)
-	Quality.apply_lighting(preset, sun, env, main.get("camera") as Camera3D)
-	Quality.apply_scenery(preset, self)
-	# the weather dims what the grounds lit (its clear-weather values again)
-	var weather: Node = main.get("weather")
-	if weather != null and weather.has_method("setup"):
-		weather.call("setup", session, "grounds", sun, env)
+	_apply_scenery(preset)
 	lap.call("quality")
 	build_ms["total"] = (Time.get_ticks_usec() - started) / 1000.0
 	var parts: Array = []
@@ -122,9 +109,6 @@ func setup(p_session: Node, p_main: Node) -> void:
 
 
 func _exit_tree() -> void:
-	if not _viewport_state.is_empty():
-		Quality.restore(get_viewport(), _viewport_state)
-		_viewport_state = {}
 	if Layout.terrain == terrain:
 		Layout.terrain = null
 
@@ -134,66 +118,82 @@ func height_at(x: float, z: float) -> float:
 	return Layout.height_at(x - position.x, z - position.z) + position.y
 
 
-func _process(_delta: float) -> void:
-	if _sky == null or main == null:
+## The quality preset (QualityPreset.apply_map, at join and on a switch in
+## Settings): the vegetation, the terrain's detail, the surfaces' light path,
+## the lamps and how far the sites are drawn.
+func apply_quality(p_preset: Dictionary) -> void:
+	if terrain == null:
 		return
-	var weather: Node = main.get("weather")
-	var rain := float(weather.get("rain_amount")) if weather != null else 0.0
-	if not is_equal_approx(rain, _rain_seen):
-		_rain_seen = rain
-		_sky.sky_top_color = _sky_top.lerp(STORM_TOP, rain * 0.8)
-		_sky.sky_horizon_color = _sky_horizon.lerp(STORM_HORIZON, rain * 0.8)
+	var same := p_preset == preset
+	preset = p_preset
+	quality = QualityPreset.current()
+	if same:
+		return
+	Pbr.set_lite(bool(preset.get("lite_surfaces", false)))
+	terrain.call("plant", preset)
+	_apply_scenery(preset)
+
+
+## The hour's light (DayNight, as the lamps change): the clock faces glow
+## from behind as the night comes and are a plain dial by day.
+func apply_daylight(night: float) -> void:
+	if Castle.clock_material != null:
+		Castle.clock_material.emission_energy_multiplier = Castle.CLOCK_GLOW * lerpf(0.08, 1.0, night)
+
+
+## The grounds' own lamps and site geometry, and their particles.
+func _apply_scenery(p_preset: Dictionary) -> void:
+	var range_scale := float(p_preset["torch_range_scale"])
+	var fade_begin := float(p_preset["lamp_fade_begin"])
+	for light: Node in get_tree().get_nodes_in_group("grounds_torch_lights"):
+		if light is OmniLight3D and is_ancestor_of(light):
+			var omni := light as OmniLight3D
+			if not omni.has_meta("base_range"):
+				omni.set_meta("base_range", omni.omni_range)
+			omni.omni_range = float(omni.get_meta("base_range")) * range_scale
+			omni.distance_fade_enabled = true
+			omni.distance_fade_begin = fade_begin
+			omni.distance_fade_length = fade_begin * 0.35
+	var site_range := float(p_preset["site_view_distance"])
+	for node: Node in get_tree().get_nodes_in_group("grounds_site_geometry"):
+		if node is GeometryInstance3D and is_ancestor_of(node):
+			var geo := node as GeometryInstance3D
+			geo.visibility_range_begin = 0.0
+			geo.visibility_range_begin_margin = 0.0
+			geo.visibility_range_end = site_range
+			geo.visibility_range_end_margin = site_range * 0.1
+			geo.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
+	QualityPreset.tune_particles(self)
 
 
 # ------------------------------------------------------------------ sky
 
-## The old grounds' sky, fog and sun on main's environment and light: a
-## procedural sky, light exponential fog plus aerial perspective with a
-## height falloff (a 2 km valley seen from a broom stays clear above the
-## haze), a softer sun with a weak specular lobe (the bare rock faces blew out
-## at grazing angles).
+## The old grounds' fog and sun on main's environment and light: light
+## exponential fog plus aerial perspective with a height falloff (a 2 km
+## valley seen from a broom stays clear above the haze), a softer sun with a
+## weak specular lobe (the bare rock faces blew out at grazing angles). The
+## sky itself, the sun's place and colour, the fog's colour and density, the
+## ambient and the exposure are DayNight's (the hour and the rain).
 func _sky_and_sun(sun: DirectionalLight3D, env: Environment) -> void:
 	if env != null:
 		env.background_mode = Environment.BG_SKY
-		if env.sky == null:
-			env.sky = Sky.new()
-		_sky = env.sky.sky_material as ProceduralSkyMaterial
-		if _sky == null:
-			_sky = ProceduralSkyMaterial.new()
-			env.sky.sky_material = _sky
-		_sky.sky_top_color = Color(0.24, 0.35, 0.49)
-		_sky.sky_horizon_color = Color(0.60, 0.66, 0.72)
-		_sky.ground_bottom_color = Color(0.20, 0.23, 0.22)
-		_sky.ground_horizon_color = Color(0.46, 0.52, 0.55)
-		_sky.sun_angle_max = 3.0
-		_sky_top = _sky.sky_top_color
-		_sky_horizon = _sky.sky_horizon_color
 		env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
 		env.ambient_light_energy = 0.62
 		env.tonemap_mode = Environment.TONE_MAPPER_ACES
-		env.tonemap_exposure = 0.86
 		env.fog_enabled = true
 		env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
-		env.fog_light_color = Color(0.66, 0.73, 0.80)
 		env.fog_light_energy = 1.0
-		env.fog_density = 0.00032
 		env.fog_height = 40.0
 		env.fog_height_density = 0.004
 		env.fog_aerial_perspective = 0.35
 		env.fog_sky_affect = 0.25
-		env.glow_enabled = true
 		env.glow_intensity = 0.16
 		env.glow_bloom = 0.0
 		env.glow_hdr_threshold = 1.35
 		env.glow_blend_mode = Environment.GLOW_BLEND_MODE_ADDITIVE
-		env.ssao_intensity = 1.35
-		env.ssao_radius = 0.9
 	if sun != null:
-		sun.light_color = Color(1.0, 0.96, 0.89)
-		sun.light_energy = 0.95
 		sun.light_specular = 0.25
 		sun.shadow_enabled = true
-		sun.rotation_degrees = Vector3(-38, -30, 0)
 		sun.directional_shadow_blend_splits = true
 		sun.shadow_normal_bias = 0.8
 

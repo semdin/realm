@@ -6029,3 +6029,18 @@ msgstr "Büyülü merdiven: hareket ediyor"
 
 msgid "New look saved - it is kept as you enter the world."
 msgstr "Yeni görünüm kaydedildi - dünyaya girdiğinde kalıcı olur."
+
+msgid "Graphics"
+msgstr "Grafik"
+
+msgid "Quality"
+msgstr "Kalite"
+
+msgid "Low suits integrated graphics: a lower render scale, short shadows, thinner foliage and no glow. High draws everything at full resolution."
+msgstr "Düşük, dahili grafik içindir: daha düşük çizim ölçeği, kısa gölgeler, seyrek bitki örtüsü, parlama yok. Yüksek her şeyi tam çözünürlükte çizer."
+
+msgid "Day and night"
+msgstr "Gece ve gündüz"
+
+msgid "Time of day: %s"
+msgstr "Gün saati: %s"

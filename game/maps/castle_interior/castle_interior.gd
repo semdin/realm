@@ -18,10 +18,13 @@ extends Node3D
 ## The moving staircases are not here: StairView draws them from the client
 ## core's own staircase poses (the ones the player's body stands on).
 ##
-## Indoors the old game's low-preset atmosphere holds: a dim warm ambient (the
-## candles and the moon light the rooms), no glow; the outdoor sun is put out
-## while this map is drawn. Occlusion culling (the walls' box occluders) is on
-## for the viewport while the castle stands and off again after.
+## Indoors the old game's atmosphere holds: a dim warm ambient (the candles
+## and the moon light the rooms), glow on the flames as the quality preset
+## allows (off on low, as outdoors: QualityPreset.apply_map calls
+## apply_quality); the outdoor sun is put out while this map is drawn and the
+## day's light (DayNight) leaves the castle alone, only the character fill on
+## the camera follows the hour. Occlusion culling (the walls' box occluders)
+## is on for the viewport while the castle stands and off again after.
 
 const Kit = preload("res://maps/castle_interior/castle_kit.gd")
 const Decor = preload("res://maps/castle_interior/castle_decor.gd")
@@ -135,6 +138,21 @@ func _dress_portals() -> int:
 			CastleFire.make(door, Vector3(side * 2.35, 3.3, 0.75), Vector2(0.3, 0.5))
 		made += 1
 	return made
+
+## The quality preset indoors (the old castle_atmosphere.gd): glow for the
+## flames follows the preset like outdoors (off on low: the flames read
+## without it, and its blur passes cost the iGPU ~0.1-0.25 ms a frame
+## indoors). The Mobile renderer has no SSAO, SSIL, SDFGI or volumetric fog,
+## so the old medium and high extras are not here, and the ambient keeps the
+## low preset's level on every preset (the old lower one leaned on SSIL).
+func apply_quality(preset: Dictionary) -> void:
+	if not is_instance_valid(_env) or _env.environment == null or _env.environment == _env_before:
+		return
+	var env := _env.environment
+	env.glow_enabled = bool(preset.get("glow", false))
+	env.glow_intensity = 0.55
+	env.glow_bloom = 0.04
+	env.glow_hdr_threshold = 1.1
 
 ## The castle's own environment (the old castle_atmosphere.gd at low): a
 ## night sky beyond the windows, a dim warm ambient, ACES.

@@ -1,0 +1,887 @@
+{
+  "_comment": "Colliders for drawn solids the old spider_caverns gave no collider, recorded by the map's own view (game/maps/spider_caverns; written by game/maps/dng_common/map_solids.gd --write). Pack coordinates (a dungeon's copy-local ones). Applied by realm_worldc patch.",
+  "boxes": [
+    {
+      "center": [
+        -178.99,
+        1551.43,
+        -181.0
+      ],
+      "half": [
+        1.83,
+        1.53,
+        1.79
+      ],
+      "note": "the explorers' tent at the camp: drawn canvas, no collider (band 0-90 %)",
+      "yaw_deg": 56.31
+    },
+    {
+      "center": [
+        -209.0,
+        1550.002,
+        -209.0
+      ],
+      "half": [
+        2.48,
+        0.215,
+        0.44
+      ],
+      "note": "crypt stair step 0: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -209.636,
+        1550.213,
+        -209.636
+      ],
+      "half": [
+        2.48,
+        0.425,
+        0.44
+      ],
+      "note": "crypt stair step 1: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -210.273,
+        1550.422,
+        -210.273
+      ],
+      "half": [
+        2.48,
+        0.635,
+        0.44
+      ],
+      "note": "crypt stair step 2: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -210.909,
+        1550.632,
+        -210.909
+      ],
+      "half": [
+        2.48,
+        0.845,
+        0.44
+      ],
+      "note": "crypt stair step 3: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -211.546,
+        1550.843,
+        -211.546
+      ],
+      "half": [
+        2.48,
+        1.055,
+        0.44
+      ],
+      "note": "crypt stair step 4: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -212.182,
+        1551.053,
+        -212.182
+      ],
+      "half": [
+        2.48,
+        1.265,
+        0.44
+      ],
+      "note": "crypt stair step 5: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -212.818,
+        1551.262,
+        -212.818
+      ],
+      "half": [
+        2.48,
+        1.475,
+        0.44
+      ],
+      "note": "crypt stair step 6: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -213.455,
+        1551.472,
+        -213.455
+      ],
+      "half": [
+        2.48,
+        1.685,
+        0.44
+      ],
+      "note": "crypt stair step 7: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -214.091,
+        1551.683,
+        -214.091
+      ],
+      "half": [
+        2.48,
+        1.895,
+        0.44
+      ],
+      "note": "crypt stair step 8: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -214.728,
+        1551.892,
+        -214.728
+      ],
+      "half": [
+        2.48,
+        2.105,
+        0.44
+      ],
+      "note": "crypt stair step 9: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -215.364,
+        1552.102,
+        -215.364
+      ],
+      "half": [
+        2.48,
+        2.315,
+        0.44
+      ],
+      "note": "crypt stair step 10: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -216.0,
+        1552.313,
+        -216.0
+      ],
+      "half": [
+        2.48,
+        2.525,
+        0.44
+      ],
+      "note": "crypt stair step 11: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -216.637,
+        1552.522,
+        -216.637
+      ],
+      "half": [
+        2.48,
+        2.735,
+        0.44
+      ],
+      "note": "crypt stair step 12: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -217.273,
+        1552.732,
+        -217.273
+      ],
+      "half": [
+        2.48,
+        2.945,
+        0.44
+      ],
+      "note": "crypt stair step 13: drawn stone, no collider",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -213.97,
+        1553.79,
+        -210.86
+      ],
+      "half": [
+        0.65,
+        3.9,
+        0.93
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 1)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -210.98,
+        1553.79,
+        -213.7
+      ],
+      "half": [
+        0.87,
+        3.9,
+        1.27
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 2)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -215.12,
+        1553.09,
+        -213.31
+      ],
+      "half": [
+        0.17,
+        3.2,
+        1.63
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 3)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -213.31,
+        1553.09,
+        -215.29
+      ],
+      "half": [
+        0.45,
+        3.2,
+        1.5
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 4)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -212.25,
+        1550.96,
+        -212.15
+      ],
+      "half": [
+        1.02,
+        1.07,
+        0.48
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 5)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -212.66,
+        1551.15,
+        -212.55
+      ],
+      "half": [
+        1.02,
+        1.26,
+        0.1
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 6)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -212.91,
+        1551.33,
+        -212.8
+      ],
+      "half": [
+        1.02,
+        1.45,
+        0.25
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 7)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -213.21,
+        1551.52,
+        -213.1
+      ],
+      "half": [
+        1.02,
+        1.63,
+        0.18
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 8)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -213.49,
+        1551.7,
+        -213.38
+      ],
+      "half": [
+        1.02,
+        1.82,
+        0.23
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 9)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -213.76,
+        1551.89,
+        -213.65
+      ],
+      "half": [
+        1.02,
+        2.0,
+        0.15
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 10)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -214.0,
+        1552.06,
+        -213.9
+      ],
+      "half": [
+        1.02,
+        2.17,
+        0.2
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 11)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -214.25,
+        1552.24,
+        -214.14
+      ],
+      "half": [
+        1.02,
+        2.36,
+        0.15
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 12)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -214.5,
+        1552.4,
+        -214.39
+      ],
+      "half": [
+        1.02,
+        2.52,
+        0.2
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 13)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -214.78,
+        1552.57,
+        -214.67
+      ],
+      "half": [
+        1.02,
+        2.69,
+        0.2
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 14)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -215.13,
+        1552.76,
+        -215.03
+      ],
+      "half": [
+        1.02,
+        2.88,
+        0.3
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 15)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        -215.4,
+        1552.91,
+        -215.29
+      ],
+      "half": [
+        1.02,
+        3.03,
+        0.07
+      ],
+      "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 16)",
+      "yaw_deg": 45.0
+    },
+    {
+      "center": [
+        191.55,
+        1524.95,
+        213.44
+      ],
+      "half": [
+        0.65,
+        3.05,
+        0.93
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 1)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        188.57,
+        1524.95,
+        216.29
+      ],
+      "half": [
+        0.87,
+        3.05,
+        1.27
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 2)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        192.7,
+        1524.25,
+        215.9
+      ],
+      "half": [
+        0.17,
+        2.35,
+        1.63
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 3)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        190.9,
+        1524.25,
+        217.88
+      ],
+      "half": [
+        0.45,
+        2.35,
+        1.5
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 4)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        189.84,
+        1522.12,
+        214.73
+      ],
+      "half": [
+        1.02,
+        0.22,
+        0.48
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 5)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        190.25,
+        1522.31,
+        215.14
+      ],
+      "half": [
+        1.02,
+        0.41,
+        0.1
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 6)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        190.49,
+        1522.49,
+        215.39
+      ],
+      "half": [
+        1.02,
+        0.6,
+        0.25
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 7)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        190.79,
+        1522.68,
+        215.69
+      ],
+      "half": [
+        1.02,
+        0.78,
+        0.18
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 8)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        191.08,
+        1522.86,
+        215.97
+      ],
+      "half": [
+        1.02,
+        0.97,
+        0.23
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 9)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        191.34,
+        1523.05,
+        216.24
+      ],
+      "half": [
+        1.02,
+        1.15,
+        0.15
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 10)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        191.59,
+        1523.22,
+        216.48
+      ],
+      "half": [
+        1.02,
+        1.33,
+        0.2
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 11)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        191.84,
+        1523.41,
+        216.73
+      ],
+      "half": [
+        1.02,
+        1.51,
+        0.15
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 12)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        192.08,
+        1523.56,
+        216.98
+      ],
+      "half": [
+        1.02,
+        1.67,
+        0.2
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 13)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        192.37,
+        1523.73,
+        217.26
+      ],
+      "half": [
+        1.02,
+        1.84,
+        0.2
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 14)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        192.72,
+        1523.93,
+        217.61
+      ],
+      "half": [
+        1.02,
+        2.03,
+        0.3
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 15)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        192.99,
+        1524.07,
+        217.88
+      ],
+      "half": [
+        1.02,
+        2.17,
+        0.07
+      ],
+      "note": "the lair_entry web gate's arch: drawn stone, no collider (part 16)",
+      "yaw_deg": -135.0
+    },
+    {
+      "center": [
+        -172.55,
+        1552.95,
+        -155.73
+      ],
+      "half": [
+        0.65,
+        3.05,
+        0.93
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 1)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -176.53,
+        1552.95,
+        -156.82
+      ],
+      "half": [
+        0.87,
+        3.05,
+        1.27
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 2)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -174.07,
+        1552.25,
+        -153.48
+      ],
+      "half": [
+        0.17,
+        2.35,
+        1.63
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 3)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -176.69,
+        1552.25,
+        -154.0
+      ],
+      "half": [
+        0.45,
+        2.35,
+        1.5
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 4)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -174.54,
+        1550.12,
+        -156.53
+      ],
+      "half": [
+        1.02,
+        0.22,
+        0.48
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 5)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -174.68,
+        1550.31,
+        -155.97
+      ],
+      "half": [
+        1.02,
+        0.41,
+        0.1
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 6)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -174.76,
+        1550.49,
+        -155.63
+      ],
+      "half": [
+        1.02,
+        0.6,
+        0.25
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 7)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -174.87,
+        1550.68,
+        -155.22
+      ],
+      "half": [
+        1.02,
+        0.78,
+        0.18
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 8)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -174.96,
+        1550.86,
+        -154.83
+      ],
+      "half": [
+        1.02,
+        0.97,
+        0.23
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 9)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.06,
+        1551.05,
+        -154.47
+      ],
+      "half": [
+        1.02,
+        1.15,
+        0.15
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 10)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.14,
+        1551.22,
+        -154.13
+      ],
+      "half": [
+        1.02,
+        1.33,
+        0.2
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 11)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.22,
+        1551.4,
+        -153.79
+      ],
+      "half": [
+        1.02,
+        1.51,
+        0.15
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 12)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.31,
+        1551.56,
+        -153.45
+      ],
+      "half": [
+        1.02,
+        1.67,
+        0.2
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 13)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.41,
+        1551.73,
+        -153.06
+      ],
+      "half": [
+        1.02,
+        1.84,
+        0.2
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 14)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.53,
+        1551.92,
+        -152.58
+      ],
+      "half": [
+        1.02,
+        2.03,
+        0.3
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 15)",
+      "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -175.62,
+        1552.07,
+        -152.22
+      ],
+      "half": [
+        1.02,
+        2.17,
+        0.07
+      ],
+      "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 16)",
+      "yaw_deg": 165.96
+    }
+  ]
+}

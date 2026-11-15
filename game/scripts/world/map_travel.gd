@@ -34,7 +34,8 @@ const FADE_IN := 0.5
 const HEARTH_DELAY := 0.7
 const PASSAGE_DELAY := 0.8
 ## The new map is drawn this many frames behind the loading screen before it
-## lifts (its first draws compile pipelines).
+## lifts (its first draws compile pipelines); with the shader warm-up
+## (ShaderWarmup) the screen lifts once that is done.
 const SETTLE_FRAMES := 8
 
 ## main.gd (session, player, hud, map_name, heroes, ground lookup).
@@ -57,6 +58,8 @@ var prompt := ""
 var leaving := false
 ## The scene is being rebuilt for this trip (the loading screen is up).
 var reloading := false
+## The shader warm-up behind the loading screen (null when none ran).
+var warmup: ShaderWarmup = null
 ## This scene was built for a trip (start_travel): the loading screen stays up
 ## until the map is drawn.
 var arrived_by_trip := false
@@ -118,9 +121,22 @@ func on_map_built() -> void:
 	nodes.build(map_name, _floor_under)
 	if arrived_by_trip:
 		MapLoadingScreen.shared(get_tree()).set_progress(85.0, tr("Almost there…"))
-		_settle_frames = SETTLE_FRAMES
+		if ShaderWarmup.wanted():
+			_warm_then_settle()
+		else:
+			_settle_frames = SETTLE_FRAMES
 	else:
 		_loading_done = true
+		if OS.get_cmdline_user_args().has("--shader-warmup"):
+			warmup = ShaderWarmup.start(game)
+
+## Behind the loading screen: every body and spell drawn once (ShaderWarmup),
+## then the settle frames and the screen lifts.
+func _warm_then_settle() -> void:
+	warmup = ShaderWarmup.start(game)
+	while is_instance_valid(warmup) and not warmup.done:
+		await get_tree().process_frame
+	_settle_frames = SETTLE_FRAMES
 
 ## The lowest surface under (x, z): the terrain, not a roof over it (a
 ## hearth stands under the Hearth Pavilion's roof). A ray from the sky steps
