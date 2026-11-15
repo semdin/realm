@@ -123,6 +123,35 @@ func _ready() -> void:
 
 ## ================================================================ the stage
 
+## A canvas-background environment is drawn by every viewport of its world
+## that draws 2D, not only the screen's: each tooltip and popup menu (a
+## Window) ran it as an empty 3D scene at its own pixel size, through ACES
+## and glow. Under 64 px (a swatch's "#ffffff" tooltip is 60 x 27) the
+## Mobile renderer's glow walks past the end of its mip chain ("Index
+## p_mipmap = 4 is out of bounds", "framebuffer is null", "uniform_set is
+## null", every frame it shows; Godot 4.7.2). The UI windows never need the
+## stage's environment, so theirs is off: they draw plain 2D, as the world's
+## do.
+func _windows_without_environment() -> void:
+	var tree := get_tree()
+	var pending: Array[Node] = [tree.root]
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		if node != tree.root:
+			_environment_off(node)
+		pending.append_array(node.get_children(true))
+	if not tree.node_added.is_connected(_environment_off):
+		tree.node_added.connect(_environment_off)
+
+func _environment_off(node: Node) -> void:
+	if node is Window:
+		RenderingServer.viewport_set_environment_mode((node as Window).get_viewport_rid(), RenderingServer.VIEWPORT_ENVIRONMENT_DISABLED)
+
+func _exit_tree() -> void:
+	var tree := get_tree()
+	if tree != null and tree.node_added.is_connected(_environment_off):
+		tree.node_added.disconnect(_environment_off)
+
 func _build_stage() -> void:
 	var env_node := WorldEnvironment.new()
 	var env := Environment.new()
@@ -138,6 +167,7 @@ func _build_stage() -> void:
 	env.glow_bloom = 0.04
 	env_node.environment = env
 	add_child(env_node)
+	_windows_without_environment()
 	var back := CanvasLayer.new()
 	back.layer = -1
 	add_child(back)
