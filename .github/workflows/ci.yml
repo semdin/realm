@@ -101,7 +101,8 @@ jobs:
           ./target/release/realm_server serve --bind 127.0.0.1:7777 --dev-spawn-near-packs > server.log 2>&1 &
           sleep 2
           ./target/release/realm_bots --count 20 --seconds 15 --ramp 20
-          kill %1 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
           grep -v '^\[net\]' server.log | tail -3
 
       - name: Prediction under latency and loss
@@ -114,7 +115,8 @@ jobs:
           ./target/release/realm_netem --listen 127.0.0.1:7800 --server 127.0.0.1:7777 --delay-ms 100 --jitter-ms 20 --loss 0.02 &
           sleep 2
           ./target/release/realm_netcheck --server 127.0.0.1:7800 --map castle_interior --seconds 30
-          kill %1 %2 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: Chat and parties across maps
         if: matrix.os == 'ubuntu-26.04'
@@ -128,7 +130,8 @@ jobs:
           ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 > server_b.log 2>&1 &
           sleep 4
           ./target/release/realm_netcheck --social
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: Travel between maps
         if: matrix.os == 'ubuntu-26.04'
@@ -146,7 +149,8 @@ jobs:
           ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 --characters build/travelcheck > server_b.log 2>&1 &
           sleep 8
           ./target/release/realm_netcheck --travel --characters build/travelcheck
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: A dungeon run
         if: matrix.os == 'ubuntu-26.04'
@@ -166,7 +170,8 @@ jobs:
           ./target/release/realm_netcheck --dungeon --characters build/dungeoncheck
           # Run it again from the finished copy: a fresh copy on the same map.
           ./target/release/realm_netcheck --dungeon --replay --characters build/dungeoncheck
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: A dungeon run under every curse
         if: matrix.os == 'ubuntu-26.04'
@@ -181,7 +186,8 @@ jobs:
           ./target/release/realm_server serve --map dng_trial --bind 127.0.0.1:7779 --coord 127.0.0.1:7900 --characters build/cursecheck --dev-dungeon-scale 0.05 --dev-dungeon-affixes burst,storm,sticky,bolster,enrage,chill,teeming,bleed > server_d.log 2>&1 &
           sleep 8
           ./target/release/realm_netcheck --dungeon --quick --characters build/cursecheck
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: The Sealed Wing's multi-part bosses
         if: matrix.os == 'ubuntu-26.04'
@@ -199,11 +205,12 @@ jobs:
           sleep 8
           ./target/release/realm_netcheck --boss threehead --server 127.0.0.1:7778 --characters build/bosscheck
           kill $WING || true
-          sleep 2
+          wait $WING || true   # gone, its port free, before the next one binds it
           ./target/release/realm_server serve --map dng_sealed_wing --bind 127.0.0.1:7780 --coord 127.0.0.1:7900 --characters build/bosscheck --dev-dungeon-scale 0.05 --dev-dungeon-start snare > server_w2.log 2>&1 &
           sleep 6
           ./target/release/realm_netcheck --boss snare --server 127.0.0.1:7778 --characters build/bosscheck
-          kill %1 %2 %4 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: The Web Mother's Lair
         if: matrix.os == 'ubuntu-26.04'
@@ -222,11 +229,12 @@ jobs:
           sleep 8
           ./target/release/realm_netcheck --lair eggs --server 127.0.0.1:7781 --characters build/laircheck
           kill $LAIR || true
-          sleep 2
+          wait $LAIR || true   # gone, its port free, before the next one binds it
           ./target/release/realm_server serve --map dng_spider_lair --bind 127.0.0.1:7782 --coord 127.0.0.1:7900 --characters build/laircheck --dev-dungeon-scale 0.05 --dev-dungeon-start queen --dev-cocoon-solo > server_l2.log 2>&1 &
           sleep 6
           ./target/release/realm_netcheck --lair queen --server 127.0.0.1:7781 --characters build/laircheck
-          kill %1 %2 %4 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: The realm's maintenance
         if: matrix.os == 'ubuntu-26.04'
@@ -243,7 +251,8 @@ jobs:
           ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 --characters build/maintcheck --dev-fail-saves build/maintcheck/FAIL_SAVES > server_c.log 2>&1 &
           sleep 8
           ./target/release/realm_netcheck --maintenance --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --characters build/maintcheck
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: Game admins and the weather
         if: matrix.os == 'ubuntu-26.04'
@@ -261,7 +270,8 @@ jobs:
           ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 > server_c.log 2>&1 &
           sleep 8
           ./target/release/realm_netcheck --ga --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --ga-file build/gacheck/ga.json
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: Login service
         if: matrix.os == 'ubuntu-26.04'
@@ -276,7 +286,8 @@ jobs:
           REALM_SERVICE_TOKEN=check-token ./target/release/realm_login --coord-admin 127.0.0.1:8093 --characters build/logincheck > login.log 2>&1 &
           sleep 8
           ./target/release/realm_netcheck --login --login-addr 127.0.0.1:7950
-          kill %1 %2 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - name: Characters in PostgreSQL (realm_persist)
         if: matrix.os == 'ubuntu-26.04'
@@ -297,12 +308,13 @@ jobs:
           CHECK=$!
           while [ ! -f build/persistcheck/restarted.wanted ] && kill -0 $CHECK 2>/dev/null; do sleep 0.3; done
           kill $GROUNDS || true
-          sleep 2
+          wait $GROUNDS || true   # gone, its port free, before the next one binds it
           ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --persist 127.0.0.1:7970 > server_g2.log 2>&1 &
           sleep 7
           touch build/persistcheck/restarted
           wait $CHECK
-          kill %1 %3 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
           docker rm -f realm-pg
 
       - name: Accounts, boards and GAs in PostgreSQL (realm_persist)
@@ -330,7 +342,8 @@ jobs:
           sleep 8
           ./target/release/realm_netcheck --login --login-addr 127.0.0.1:7950 --persist-addr 127.0.0.1:7970
           ./target/release/realm_netcheck --ga --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --persist-addr 127.0.0.1:7970
-          kill $LOGIN $CASTLE $GROUNDS $COORD $PERSIST || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
           docker rm -f realm-pg
 
       - name: Metrics and the operator panel
@@ -352,7 +365,8 @@ jobs:
           GROUNDS=$!
           sleep 6
           ./target/release/realm_netcheck --metrics --admin 127.0.0.1:8094 --token check-token --server 127.0.0.1:7777 --persist-addr 127.0.0.1:7970
-          kill $GROUNDS $COORD $PERSIST || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
           docker rm -f realm-pg
 
       - name: Database backups and point-in-time restore
@@ -369,7 +383,8 @@ jobs:
           ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 > server.log 2>&1 &
           sleep 2
           ./target/release/realm_netcheck --duel
-          kill %1 || true
+          kill $(jobs -p) 2>/dev/null || true
+          wait || true   # every server this step started is gone before the next step binds its ports
 
       - uses: actions/upload-artifact@v7.0.2
         with:
