@@ -305,6 +305,34 @@ jobs:
           kill %1 %3 || true
           docker rm -f realm-pg
 
+      - name: Accounts, boards and GAs in PostgreSQL (realm_persist)
+        if: matrix.os == 'ubuntu-26.04'
+        # The login service and the coordinator on the persistence service:
+        # the login check (accounts, the one-transaction character create,
+        # the roster, a ticket whose map loads the character from
+        # PostgreSQL) and the GA check (the list the service keeps).
+        run: |
+          docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7
+          for i in $(seq 1 30); do docker exec realm-pg pg_isready -U realm -d realm && break; sleep 1; done
+          export REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm
+          ./target/release/realm_persist --bind 127.0.0.1:7970 > persist.log 2>&1 &
+          PERSIST=$!
+          sleep 2
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_coord --admin 127.0.0.1:8093 --persist 127.0.0.1:7970 > coord.log 2>&1 &
+          COORD=$!
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --persist 127.0.0.1:7970 --dev-boss-respawn 45 > server_g.log 2>&1 &
+          GROUNDS=$!
+          ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 > server_c.log 2>&1 &
+          CASTLE=$!
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_login --coord-admin 127.0.0.1:8093 --persist 127.0.0.1:7970 > login.log 2>&1 &
+          LOGIN=$!
+          sleep 8
+          ./target/release/realm_netcheck --login --login-addr 127.0.0.1:7950 --persist-addr 127.0.0.1:7970
+          ./target/release/realm_netcheck --ga --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --persist-addr 127.0.0.1:7970
+          kill $LOGIN $CASTLE $GROUNDS $COORD $PERSIST || true
+          docker rm -f realm-pg
+
       - name: Database backups and point-in-time restore
         if: matrix.os == 'ubuntu-26.04'
         # deploy/backup as installed: WAL archiving, a base backup, a restore

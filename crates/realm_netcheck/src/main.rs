@@ -8,7 +8,7 @@
 //! realm_netcheck --lair eggs|queen --characters <dir>                  (see lair.rs)
 //! realm_netcheck --maintenance --admin <addr> --token <t> ...          (see maintenance.rs)
 //! realm_netcheck --ga --admin <addr> --token <t> --ga-file <file> ...  (see ga.rs)
-//! realm_netcheck --login --login-addr <addr>                           (see login.rs)
+//! realm_netcheck --login --login-addr <addr> [--persist-addr <addr>]    (see login.rs)
 //! realm_netcheck --persist --persist-addr <addr> --server <grounds>     (see persist.rs)
 //!
 //! One player through the real client core, playing a scripted session

@@ -1,6 +1,12 @@
-//! realm_coord --bind 127.0.0.1:7900 --keys keys [--boards <file.json>]
-//!             [--admin 127.0.0.1:8082] [--ga <file.json>] [--drain-seconds 10]
+//! realm_coord --bind 127.0.0.1:7900 --keys keys
+//!             [--persist <addr> | --boards <file.json> --ga <file.json>]
+//!             [--admin 127.0.0.1:8082] [--drain-seconds 10]
 //!             [--save-min-ms 1000] [--announce-ms 10000]
+//!
+//! The weekly boards and the game admins are kept by the persistence
+//! service with `--persist` (realm_persist, PostgreSQL; loaded at start,
+//! each change sent as it happens and tried until it lands), else in the
+//! `--boards` and `--ga` files (development, CI), else in memory only.
 //!
 //! It also runs the realm's maintenance (maint.rs): the admin surface on
 //! `--admin` (loopback only, REALM_SERVICE_TOKEN required) begins, aborts
@@ -40,6 +46,8 @@ use realm_proto::coord::{
     CHANNEL_PARTY, CHANNEL_SHOUT, CHANNEL_SYSTEM, CoordMsg, MapMsg, PARTY_MAX, PartyCmd,
     PartyMember, PartyView, RunSummary, decode_map, encode_coord,
 };
+use realm_proto::persist::client::PersistClient;
+use realm_proto::persist::{PersistMsg, PersistReply};
 use realm_proto::ticket::Ticket;
 use realm_rules::CharacterSheet;
 use realm_rules::travel::Arrival;
@@ -147,6 +155,9 @@ struct Book {
     /// Game admins by lowercase character name, and where they are kept.
     gas: std::collections::BTreeSet<String>,
     ga_file: Option<PathBuf>,
+    /// The persistence service, keeping the boards and the GAs (None: the
+    /// files above).
+    persist: Option<Arc<PersistClient>>,
     /// The realm's weather.
     rain: bool,
 }
@@ -228,6 +239,10 @@ impl Book {
         let ms = run.ms;
         board.runs.insert(at, run);
         board.runs.truncate(10);
+        if let Some(persist) = &self.persist {
+            let board = board.clone();
+            persist.keep(|req| PersistMsg::SaveBoard { req, board });
+        }
         if at == 0 {
             for l in self.links.values() {
                 let _ = l.tx.send(CoordMsg::RecordSet {
@@ -985,6 +1000,8 @@ struct Options {
     admin: SocketAddr,
     /// Where the game admins are kept (none: REALM_GA only, in memory).
     ga: Option<PathBuf>,
+    /// The persistence service keeping the boards and the game admins.
+    persist: Option<String>,
     settings: maint::Settings,
 }
 
@@ -995,6 +1012,7 @@ fn options() -> AnyResult<Options> {
         boards: None,
         admin: "127.0.0.1:8082".parse()?,
         ga: None,
+        persist: None,
         settings: maint::Settings {
             release: std::env::var("REALM_RELEASE").unwrap_or_default(),
             ..maint::Settings::default()
@@ -1010,6 +1028,7 @@ fn options() -> AnyResult<Options> {
             "--boards" => o.boards = Some(PathBuf::from(value)),
             "--admin" => o.admin = value.parse()?,
             "--ga" => o.ga = Some(PathBuf::from(value)),
+            "--persist" => o.persist = Some(value.clone()),
             "--drain-seconds" => {
                 o.settings.drain = Duration::from_secs_f64(value.parse::<f64>()?.max(0.0));
             }
@@ -1020,7 +1039,37 @@ fn options() -> AnyResult<Options> {
             other => return Err(format!("unknown option {other}").into()),
         }
     }
+    if o.persist.is_some() && (o.boards.is_some() || o.ga.is_some()) {
+        return Err("--persist keeps the boards and the GAs: no --boards or --ga".into());
+    }
     Ok(o)
+}
+
+/// The boards and the GAs kept by the persistence service (tried for a
+/// while: a coordinator without them would serve an empty realm).
+async fn load_kept(persist: &PersistClient) -> AnyResult<(Vec<Board>, Vec<String>)> {
+    let wait = Duration::from_secs(30);
+    let boards = match tokio::time::timeout(
+        wait,
+        persist.call_until_answered(|req| PersistMsg::LoadBoards { req }),
+    )
+    .await
+    {
+        Ok(Ok(PersistReply::Boards { result: Ok(b), .. })) => b,
+        Ok(other) => return Err(format!("loading the boards: {other:?}").into()),
+        Err(_) => return Err("the persistence service never gave the boards".into()),
+    };
+    let gas = match tokio::time::timeout(
+        wait,
+        persist.call_until_answered(|req| PersistMsg::LoadGas { req }),
+    )
+    .await
+    {
+        Ok(Ok(PersistReply::Gas { result: Ok(g), .. })) => g,
+        Ok(other) => return Err(format!("loading the GAs: {other:?}").into()),
+        Err(_) => return Err("the persistence service never gave the GAs".into()),
+    };
+    Ok((boards, gas))
 }
 
 async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>) -> AnyResult<()> {
@@ -1117,23 +1166,45 @@ async fn main() -> AnyResult<()> {
             " (no ticket.key: travel between maps is closed)"
         }
     );
-    // The weekly boards survive a restart when kept in a file.
-    let mut boards = HashMap::new();
-    if let Some(path) = &o.boards
-        && let Ok(text) = std::fs::read_to_string(path)
-    {
-        let rows: Vec<Board> = serde_json::from_str(&text).unwrap_or_default();
-        for b in rows {
-            boards.insert((b.dungeon.clone(), b.difficulty), b);
+    // The weekly boards and the GAs survive a restart when kept by the
+    // persistence service or in files.
+    let persist = o
+        .persist
+        .as_ref()
+        .map(|addr| PersistClient::start(addr.clone(), key));
+    let (rows, kept_gas) = match &persist {
+        Some(client) => {
+            let (rows, gas) = load_kept(client).await?;
+            println!(
+                "[coord] {} board(s) and {} GA(s) from the persistence service at {}",
+                rows.len(),
+                gas.len(),
+                o.persist.as_deref().unwrap_or_default()
+            );
+            (rows, gas)
         }
+        None => {
+            let rows: Vec<Board> = o
+                .boards
+                .as_ref()
+                .and_then(|path| std::fs::read_to_string(path).ok())
+                .map(|text| serde_json::from_str(&text).unwrap_or_default())
+                .unwrap_or_default();
+            (rows, ga::from_file(o.ga.as_deref()))
+        }
+    };
+    let mut boards = HashMap::new();
+    for b in rows {
+        boards.insert((b.dungeon.clone(), b.difficulty), b);
     }
     let book = Arc::new(Mutex::new(Book {
         ticket_key,
         boards,
         boards_file: o.boards.clone(),
         maint: maint::Maint::new(o.settings.clone()),
-        gas: ga::load(o.ga.as_deref()),
+        gas: ga::with_seed(kept_gas),
         ga_file: o.ga.clone(),
+        persist,
         ..Book::default()
     }));
     maint::start_clock(book.clone());

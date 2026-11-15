@@ -1,6 +1,9 @@
-//! `realm_netcheck --login --login-addr <addr>`: the login service end to
-//! end. Needs realm_login (its --characters the map servers' folder), the
-//! coordinator (REALM_SERVICE_TOKEN, admin surface) and the grounds server.
+//! `realm_netcheck --login --login-addr <addr> [--persist-addr <addr>]`:
+//! the login service end to end. Needs realm_login (its --characters the
+//! map servers' folder, or both on the persistence service with
+//! `--persist`), the coordinator (REALM_SERVICE_TOKEN, admin surface) and
+//! the grounds server. With `--persist-addr` the check also asks the
+//! persistence service whose the new character is.
 //!
 //! 1. account rules: bad names and passwords refused, a name taken
 //!    (whatever the case) refused;
@@ -87,7 +90,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             400,
         )?;
     }
-    want(
+    let registered = want(
         "register a",
         call(
             &login,
@@ -244,6 +247,31 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         "[login] 3 ok: name and house rules, a taken name refused across accounts, 2 made, a third refused; {} ",
         list[0]
     );
+    if args.iter().any(|a| a == "--persist-addr") {
+        let service: [u8; 32] =
+            std::fs::read(std::path::Path::new(&arg(args, "--keys", "keys")).join("coord.key"))?
+                .try_into()
+                .map_err(|_| "coord.key must be 32 bytes")?;
+        let owner = crate::persist::ask(
+            &arg(args, "--persist-addr", ""),
+            service,
+            &realm_proto::persist::PersistMsg::Owner {
+                req: 1,
+                character: id,
+            },
+        )?;
+        let account = registered["account_id"].as_u64();
+        if !matches!(&owner, realm_proto::persist::PersistReply::Owner { result: Ok(Some(o)), .. } if Some(*o) == account)
+            || id < 10_000_000
+        {
+            return fail(format!(
+                "the persistence service says {owner:?} of character {id} (account {account:?})"
+            ));
+        }
+        println!(
+            "[login] 3b ok: the persistence service holds character {id}, account {account:?}'s"
+        );
+    }
 
     // 4. Play.
     want(

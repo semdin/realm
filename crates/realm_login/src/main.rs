@@ -1,11 +1,15 @@
-//! realm_login --characters <dir> [--bind 127.0.0.1:7950] [--keys keys]
-//!             [--content content/data] [--accounts <file.json>]
+//! realm_login (--characters <dir> [--accounts <file.json>] | --persist <addr>)
+//!             [--bind 127.0.0.1:7950] [--keys keys] [--content content/data]
 //!             [--coord-admin 127.0.0.1:8082] [--start-map grounds]
 //!
 //! The login service: accounts, their characters, and the ticket a client
 //! joins its map with. It holds keys/ticket.key (map servers only hold the
-//! public half) and writes new characters into the same folder the map
-//! servers keep them in. The old game's rules, from its service contract:
+//! public half). With `--persist` the accounts and characters are kept by
+//! the persistence service (realm_persist, PostgreSQL; keys/coord.key), the
+//! map servers loading them from there too; without it (development, CI)
+//! in a JSON ledger and as new character files in the folder the map
+//! servers keep them in. Sessions and the failed-login waits are in memory
+//! either way. The old game's rules, from its service contract:
 //! account names 3-24 of [A-Za-z0-9_-], passwords of 8 or more with letters
 //! and digits, argon2id; a session lasts 24 h, five at most per account
 //! (the oldest goes); two characters per account; character names as
@@ -14,8 +18,8 @@
 //!
 //! Where a character's map is (and whether the realm takes logins) comes
 //! from the coordinator's admin surface (GET /admin/maps, with
-//! REALM_SERVICE_TOKEN). Phase 7 puts the accounts in the database and the
-//! surface behind TLS; the requests stay these:
+//! REALM_SERVICE_TOKEN). Phase 7 puts the surface behind TLS; the requests
+//! stay these:
 //!
 //!   POST /api/register          {username, password} -> {success, account_id}
 //!   POST /api/login             {username, password} -> {success, account_id, username, token, expires_in_seconds}
@@ -36,6 +40,8 @@ use argon2::password_hash::phc::PasswordHash;
 use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use realm_http::{Request, read_request, respond};
 use realm_proto::SigningKey;
+use realm_proto::persist::client::PersistClient;
+use realm_proto::persist::{PersistMsg, PersistReply};
 use realm_proto::ticket::Ticket;
 use realm_rules::names::{name_key, name_problem};
 use realm_rules::{CharacterSheet, Rules};
@@ -80,6 +86,8 @@ struct Session {
 }
 
 struct State {
+    /// The persistence service (None: the ledger and character files).
+    persist: Option<Arc<PersistClient>>,
     ledger: Ledger,
     ledger_file: PathBuf,
     characters: PathBuf,
@@ -193,6 +201,50 @@ impl State {
     }
 }
 
+fn unavailable(what: &str, e: &str) -> (u16, Value) {
+    eprintln!("[login] {what}: {e}");
+    error(503, "Service unavailable.")
+}
+
+/// `--persist`: the account goes to the persistence service.
+async fn register_persist(client: &PersistClient, body: &Value) -> (u16, Value) {
+    let name = body["username"].as_str().unwrap_or("").trim().to_owned();
+    let password = body["password"].as_str().unwrap_or("").to_owned();
+    if let Some(p) = account_problem(&name).or_else(|| password_problem(&password)) {
+        return error(400, p);
+    }
+    let hashed = tokio::task::spawn_blocking(move || {
+        Argon2::default()
+            .hash_password(password.as_bytes())
+            .map(|h| h.to_string())
+    })
+    .await;
+    let hash = match hashed {
+        Ok(Ok(h)) => h,
+        Ok(Err(e)) => return unavailable("hashing", &e.to_string()),
+        Err(e) => return unavailable("hashing", &e.to_string()),
+    };
+    let username = name.clone();
+    match client
+        .call(|req| PersistMsg::Register {
+            req,
+            username,
+            hash,
+        })
+        .await
+    {
+        Ok(PersistReply::Registered { result: Ok(id), .. }) => {
+            println!("[login] account {id} registered");
+            (200, json!({"success": true, "account_id": id}))
+        }
+        Ok(PersistReply::Registered { result: Err(e), .. }) if e == "taken" => {
+            error(409, "That account name is taken.")
+        }
+        Ok(other) => unavailable("register", &format!("{other:?}")),
+        Err(e) => unavailable("register", &e),
+    }
+}
+
 fn register(state: &mut State, body: &Value) -> (u16, Value) {
     let name = body["username"].as_str().unwrap_or("").trim();
     let password = body["password"].as_str().unwrap_or("");
@@ -231,16 +283,34 @@ fn register(state: &mut State, body: &Value) -> (u16, Value) {
 async fn login(state: &Mutex<State>, ip: IpAddr, body: &Value) -> (u16, Value) {
     let name = body["username"].as_str().unwrap_or("").trim().to_owned();
     let password = body["password"].as_str().unwrap_or("").to_owned();
-    let found = {
+    let (found, persist) = {
         let mut s = state.lock().await;
         if s.throttled(ip, &name) {
             return error(429, "Too many failed logins. Try again in a few minutes.");
         }
-        s.ledger
+        let found = s
+            .ledger
             .accounts
             .iter()
             .find(|a| a.name.eq_ignore_ascii_case(&name))
-            .map(|a| (a.id, a.name.clone(), a.hash.clone()))
+            .map(|a| (a.id, a.name.clone(), a.hash.clone()));
+        (found, s.persist.clone())
+    };
+    let found = match &persist {
+        None => found,
+        Some(client) => {
+            let username = name.clone();
+            match client
+                .call(|req| PersistMsg::FindAccount { req, username })
+                .await
+            {
+                Ok(PersistReply::Account {
+                    result: Ok(row), ..
+                }) => row.map(|a| (a.id, a.username, a.hash)),
+                Ok(other) => return unavailable("login", &format!("{other:?}")),
+                Err(e) => return unavailable("login", &e),
+            }
+        }
     };
     // Hashing takes a while: never under the lock.
     let verified = match &found {
@@ -266,6 +336,16 @@ async fn login(state: &Mutex<State>, ip: IpAddr, body: &Value) -> (u16, Value) {
     let Ok(t) = token() else {
         return error(503, "Service unavailable.");
     };
+    if let Some(client) = &persist {
+        match client
+            .call(|req| PersistMsg::TouchAccount { req, account })
+            .await
+        {
+            Ok(PersistReply::Done { result: Ok(()), .. }) => {}
+            Ok(other) => eprintln!("[login] last login of {account}: {other:?}"),
+            Err(e) => eprintln!("[login] last login of {account}: {e}"),
+        }
+    }
     let now = Instant::now();
     s.sessions.retain(|_, x| x.expires > now);
     let mut mine: Vec<(String, Instant)> = s
@@ -299,6 +379,131 @@ async fn login(state: &Mutex<State>, ip: IpAddr, body: &Value) -> (u16, Value) {
     )
 }
 
+/// `--persist`: the roster from the persistence service.
+async fn list_persist(client: &PersistClient, start_map: &str, account: u64) -> (u16, Value) {
+    let roster = match client
+        .call(|req| PersistMsg::Characters { req, account })
+        .await
+    {
+        Ok(PersistReply::Characters { result: Ok(r), .. }) => r,
+        Ok(other) => return unavailable("characters", &format!("{other:?}")),
+        Err(e) => return unavailable("characters", &e),
+    };
+    let characters: Vec<Value> = roster
+        .into_iter()
+        .map(|c| {
+            let look: Vec<Value> = c.look.iter().map(|(k, v)| json!([k, v])).collect();
+            json!({
+                "id": c.id,
+                "name": c.name,
+                "house": c.house,
+                "level": c.level,
+                "map": c.map.unwrap_or_else(|| start_map.to_owned()),
+                "look": look,
+            })
+        })
+        .collect();
+    (200, json!({"success": true, "characters": characters}))
+}
+
+/// A new character's name, house and look as asked for.
+type NewCharacter = (String, String, Vec<(String, f32)>);
+
+/// The name, house and look of a new character from a create request, or
+/// why it is refused.
+fn new_character_parts(houses: &[String], body: &Value) -> Result<NewCharacter, (u16, Value)> {
+    let name = body["name"].as_str().unwrap_or("").trim().to_owned();
+    let house = body["house"].as_str().unwrap_or("").to_owned();
+    if let Some(p) = name_problem(&name) {
+        return Err(error(400, p));
+    }
+    if !houses.contains(&house) {
+        return Err(error(400, "Unknown house."));
+    }
+    let raw: Vec<(String, f32)> = body["look"]
+        .as_array()
+        .map(|pairs| {
+            pairs
+                .iter()
+                .filter_map(|p| Some((p[0].as_str()?.to_owned(), p[1].as_f64()? as f32)))
+                .collect()
+        })
+        .unwrap_or_default();
+    Ok((name, house, raw))
+}
+
+/// `--persist`: the persistence service makes the character in one
+/// transaction (the count, the name, the id).
+async fn create_persist(state: &Mutex<State>, account: u64, body: &Value) -> (u16, Value) {
+    let (client, sheet) = {
+        let s = state.lock().await;
+        let Some(client) = s.persist.clone() else {
+            return error(503, "Service unavailable.");
+        };
+        let (name, house, raw) = match new_character_parts(&s.houses, body) {
+            Ok(parts) => parts,
+            Err(refused) => return refused,
+        };
+        let mut sheet = s.rules.new_character(0, &name, &house);
+        sheet.look = s.rules.looks.clean(&raw);
+        (client, sheet)
+    };
+    let (name, house) = (sheet.name.clone(), sheet.house.clone());
+    let max = MAX_CHARACTERS as u8;
+    match client
+        .call(|req| PersistMsg::CreateCharacter {
+            req,
+            account,
+            sheet: Box::new(sheet),
+            max,
+        })
+        .await
+    {
+        Ok(PersistReply::Created { result: Ok(id), .. }) => {
+            println!("[login] account {account} made character {id}");
+            (
+                200,
+                json!({"success": true, "character": {"id": id, "name": name, "house": house}}),
+            )
+        }
+        Ok(PersistReply::Created { result: Err(e), .. }) => match e.as_str() {
+            "full" => error(400, "Maximum 2 characters per account."),
+            "taken" => error(409, "Character name already taken."),
+            "no account" => error(401, "Not logged in."),
+            _ => unavailable("create", &e),
+        },
+        Ok(other) => unavailable("create", &format!("{other:?}")),
+        Err(e) => unavailable("create", &e),
+    }
+}
+
+/// `--persist`: whether `account` owns `character`, and the map it is on.
+async fn owned_map_persist(
+    client: &PersistClient,
+    account: u64,
+    character: u64,
+) -> Result<Option<Option<String>>, (u16, Value)> {
+    match client
+        .call(|req| PersistMsg::Owner { req, character })
+        .await
+    {
+        Ok(PersistReply::Owner {
+            result: Ok(Some(owner)),
+            ..
+        }) if owner == account => {}
+        Ok(PersistReply::Owner { result: Ok(_), .. }) => return Ok(None),
+        Ok(other) => return Err(unavailable("play", &format!("{other:?}"))),
+        Err(e) => return Err(unavailable("play", &e)),
+    }
+    match client.call(|req| PersistMsg::Load { req, character }).await {
+        Ok(PersistReply::Loaded {
+            result: Ok(sheet), ..
+        }) => Ok(Some(sheet.and_then(|s| s.place.map(|p| p.map)))),
+        Ok(other) => Err(unavailable("play", &format!("{other:?}"))),
+        Err(e) => Err(unavailable("play", &e)),
+    }
+}
+
 fn list(state: &State, account: u64) -> (u16, Value) {
     let Some(a) = state.ledger.accounts.iter().find(|a| a.id == account) else {
         return error(401, "Not logged in.");
@@ -327,14 +532,10 @@ fn list(state: &State, account: u64) -> (u16, Value) {
 }
 
 fn create(state: &mut State, account: u64, body: &Value) -> (u16, Value) {
-    let name = body["name"].as_str().unwrap_or("").trim().to_owned();
-    let house = body["house"].as_str().unwrap_or("").to_owned();
-    if let Some(p) = name_problem(&name) {
-        return error(400, p);
-    }
-    if !state.houses.contains(&house) {
-        return error(400, "Unknown house.");
-    }
+    let (name, house, raw) = match new_character_parts(&state.houses, body) {
+        Ok(parts) => parts,
+        Err(refused) => return refused,
+    };
     let Some(index) = state.ledger.accounts.iter().position(|a| a.id == account) else {
         return error(401, "Not logged in.");
     };
@@ -344,15 +545,6 @@ fn create(state: &mut State, account: u64, body: &Value) -> (u16, Value) {
     if state.name_taken(&name) {
         return error(409, "Character name already taken.");
     }
-    let raw: Vec<(String, f32)> = body["look"]
-        .as_array()
-        .map(|pairs| {
-            pairs
-                .iter()
-                .filter_map(|p| Some((p[0].as_str()?.to_owned(), p[1].as_f64()? as f32)))
-                .collect()
-        })
-        .unwrap_or_default();
     state.ledger.next_character = state.ledger.next_character.max(FIRST_CHARACTER);
     let mut id = state.ledger.next_character;
     // Never over a character file that is already there.
@@ -386,27 +578,37 @@ fn create(state: &mut State, account: u64, body: &Value) -> (u16, Value) {
 
 async fn play(state: &Mutex<State>, account: u64, body: &Value) -> (u16, Value) {
     let character = body["character_id"].as_u64().unwrap_or(0);
-    let (map, start, admin, service_token) = {
-        let s = state.lock().await;
-        let owns = s
-            .ledger
-            .accounts
-            .iter()
-            .any(|a| a.id == account && a.characters.iter().any(|(c, _)| *c == character));
-        if !owns {
-            return error(404, "No such character.");
+    let persist = state.lock().await.persist.clone();
+    let stored = match &persist {
+        Some(client) => match owned_map_persist(client, account, character).await {
+            Ok(owned) => owned,
+            Err(refused) => return refused,
+        },
+        None => {
+            let s = state.lock().await;
+            let owns = s
+                .ledger
+                .accounts
+                .iter()
+                .any(|a| a.id == account && a.characters.iter().any(|(c, _)| *c == character));
+            owns.then(|| {
+                s.load_sheet(character)
+                    .and_then(|sheet| sheet.place.map(|p| p.map))
+            })
         }
-        let map = s
-            .load_sheet(character)
-            .and_then(|sheet| sheet.place.map(|p| p.map))
-            .unwrap_or_else(|| s.start_map.clone());
+    };
+    let Some(map) = stored else {
+        return error(404, "No such character.");
+    };
+    let (start, admin, service_token) = {
+        let s = state.lock().await;
         (
-            map,
             s.start_map.clone(),
             s.coord_admin.clone(),
             s.service_token.clone(),
         )
     };
+    let map = map.unwrap_or_else(|| start.clone());
     let maps = match realm_http::call(
         &admin,
         "GET",
@@ -462,7 +664,13 @@ async fn route(state: &Mutex<State>, ip: IpAddr, req: Request) -> (u16, Value) {
     let path = req.path.as_str();
     match (req.method.as_str(), path) {
         ("GET", "/api/health") => (200, json!({"status": "ok", "service": "realm_login"})),
-        ("POST", "/api/register") => register(&mut *state.lock().await, &req.body),
+        ("POST", "/api/register") => {
+            let persist = state.lock().await.persist.clone();
+            match persist {
+                Some(client) => register_persist(&client, &req.body).await,
+                None => register(&mut *state.lock().await, &req.body),
+            }
+        }
         ("POST", "/api/login") => login(state, ip, &req.body).await,
         (
             "POST",
@@ -477,8 +685,23 @@ async fn route(state: &Mutex<State>, ip: IpAddr, req: Request) -> (u16, Value) {
                     state.lock().await.sessions.remove(req.bearer());
                     (200, json!({"success": true}))
                 }
-                "/api/characters/list" => list(&*state.lock().await, account),
-                "/api/characters/create" => create(&mut *state.lock().await, account, &req.body),
+                "/api/characters/list" => {
+                    let (persist, start_map) = {
+                        let s = state.lock().await;
+                        (s.persist.clone(), s.start_map.clone())
+                    };
+                    match persist {
+                        Some(client) => list_persist(&client, &start_map, account).await,
+                        None => list(&*state.lock().await, account),
+                    }
+                }
+                "/api/characters/create" => {
+                    if state.lock().await.persist.is_some() {
+                        create_persist(state, account, &req.body).await
+                    } else {
+                        create(&mut *state.lock().await, account, &req.body)
+                    }
+                }
                 _ => play(state, account, &req.body).await,
             }
         }
@@ -505,6 +728,8 @@ struct Options {
     content: PathBuf,
     characters: PathBuf,
     accounts: Option<PathBuf>,
+    /// The persistence service's address (None: the ledger and files).
+    persist: Option<String>,
     coord_admin: String,
     start_map: String,
 }
@@ -516,6 +741,7 @@ fn options() -> AnyResult<Options> {
         content: PathBuf::from("content/data"),
         characters: PathBuf::new(),
         accounts: None,
+        persist: None,
         coord_admin: "127.0.0.1:8082".to_owned(),
         start_map: "grounds".to_owned(),
     };
@@ -529,13 +755,19 @@ fn options() -> AnyResult<Options> {
             "--content" => o.content = PathBuf::from(value),
             "--characters" => o.characters = PathBuf::from(value),
             "--accounts" => o.accounts = Some(PathBuf::from(value)),
+            "--persist" => o.persist = Some(value.clone()),
             "--coord-admin" => o.coord_admin.clone_from(value),
             "--start-map" => o.start_map.clone_from(value),
             other => return Err(format!("unknown option {other}").into()),
         }
     }
-    if o.characters.as_os_str().is_empty() {
-        return Err("--characters <dir> is required".into());
+    if o.persist.is_some() && (!o.characters.as_os_str().is_empty() || o.accounts.is_some()) {
+        return Err(
+            "--persist keeps accounts and characters: no --characters or --accounts".into(),
+        );
+    }
+    if o.persist.is_none() && o.characters.as_os_str().is_empty() {
+        return Err("--characters <dir> (or --persist <addr>) is required".into());
     }
     Ok(o)
 }
@@ -553,16 +785,28 @@ async fn main() -> AnyResult<()> {
         .and_then(|h| h.as_object())
         .map(|h| h.keys().filter(|k| !k.starts_with('_')).cloned().collect())
         .unwrap_or_default();
-    std::fs::create_dir_all(&o.characters)?;
-    let ledger_file = o
-        .accounts
-        .clone()
-        .unwrap_or_else(|| o.characters.join("accounts.json"));
-    let ledger: Ledger = std::fs::read_to_string(&ledger_file)
-        .ok()
-        .map(|t| serde_json::from_str(&t))
-        .transpose()?
-        .unwrap_or_default();
+    let (persist, ledger, ledger_file) = if let Some(addr) = &o.persist {
+        let service: [u8; 32] = std::fs::read(o.keys.join("coord.key"))?
+            .try_into()
+            .map_err(|_| "coord.key must be 32 bytes")?;
+        (
+            Some(PersistClient::start(addr.clone(), service)),
+            Ledger::default(),
+            PathBuf::new(),
+        )
+    } else {
+        std::fs::create_dir_all(&o.characters)?;
+        let ledger_file = o
+            .accounts
+            .clone()
+            .unwrap_or_else(|| o.characters.join("accounts.json"));
+        let ledger: Ledger = std::fs::read_to_string(&ledger_file)
+            .ok()
+            .map(|t| serde_json::from_str(&t))
+            .transpose()?
+            .unwrap_or_default();
+        (None, ledger, ledger_file)
+    };
     let service_token = std::env::var("REALM_SERVICE_TOKEN")
         .unwrap_or_default()
         .trim()
@@ -572,13 +816,16 @@ async fn main() -> AnyResult<()> {
             "[login] REALM_SERVICE_TOKEN is empty: the realm's maps cannot be asked, nobody can play"
         );
     }
+    let kept = match &o.persist {
+        Some(addr) => format!("accounts in the persistence service at {addr}"),
+        None => format!("{} account(s)", ledger.accounts.len()),
+    };
     println!(
-        "[login] {} account(s), houses {:?}, listening on {}",
-        ledger.accounts.len(),
-        houses,
-        o.bind
+        "[login] {kept}, houses {:?}, listening on {}",
+        houses, o.bind
     );
     let state = Arc::new(Mutex::new(State {
+        persist,
         ledger,
         ledger_file,
         characters: o.characters.clone(),

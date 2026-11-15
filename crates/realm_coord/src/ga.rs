@@ -1,14 +1,15 @@
 //! Game admins and the weather, realm-wide.
 //!
-//! GAs are characters, by name (case does not matter): the list is kept in
-//! `--ga <file.json>` (an array of names) and seeded from REALM_GA (comma
-//! separated). The first GA is made through POST /admin/ga; a GA makes
+//! GAs are characters, by name (case does not matter): the list is kept by
+//! the persistence service (`--persist`) or in `--ga <file.json>` (an array
+//! of names), and seeded from REALM_GA (comma separated). The first GA is made through POST /admin/ga; a GA makes
 //! others in game with `/ga add Name`. Every map hears the list and the
 //! weather when it links and whenever they change.
 
 use std::path::Path;
 
 use realm_proto::coord::CoordMsg;
+use realm_proto::persist::PersistMsg;
 use serde_json::{Value, json};
 
 use crate::Book;
@@ -17,15 +18,17 @@ pub fn clean(name: &str) -> String {
     name.trim().to_lowercase()
 }
 
-/// The list from the file and REALM_GA.
-pub fn load(file: Option<&Path>) -> std::collections::BTreeSet<String> {
+/// The names kept in the file.
+pub fn from_file(file: Option<&Path>) -> Vec<String> {
+    file.and_then(|path| std::fs::read_to_string(path).ok())
+        .map(|text| serde_json::from_str(&text).unwrap_or_default())
+        .unwrap_or_default()
+}
+
+/// The kept names and REALM_GA.
+pub fn with_seed(kept: Vec<String>) -> std::collections::BTreeSet<String> {
     let mut out = std::collections::BTreeSet::new();
-    if let Some(path) = file
-        && let Ok(text) = std::fs::read_to_string(path)
-    {
-        let names: Vec<String> = serde_json::from_str(&text).unwrap_or_default();
-        out.extend(names.iter().map(|n| clean(n)).filter(|n| !n.is_empty()));
-    }
+    out.extend(kept.iter().map(|n| clean(n)).filter(|n| !n.is_empty()));
     if let Ok(seed) = std::env::var("REALM_GA") {
         out.extend(seed.split(',').map(clean).filter(|n| !n.is_empty()));
     }
@@ -62,6 +65,10 @@ impl Book {
         };
         if !changed {
             return false;
+        }
+        if let Some(persist) = &self.persist {
+            let name = clean(name);
+            persist.keep(|req| PersistMsg::SetGa { req, name, on });
         }
         if let Some(path) = &self.ga_file {
             let names: Vec<&String> = self.gas.iter().collect();

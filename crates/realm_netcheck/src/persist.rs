@@ -24,7 +24,8 @@ use realm_sim::input::MoveInput;
 use crate::travel::{Session, fail, idle, joined, run_until};
 use crate::{AnyResult, arg};
 
-fn ask(addr: &str, key: [u8; 32], msg: &PersistMsg) -> AnyResult<PersistReply> {
+/// One request on a fresh link (also the GA check's look at the kept list).
+pub fn ask(addr: &str, key: [u8; 32], msg: &PersistMsg) -> AnyResult<PersistReply> {
     let mut stream = TcpStream::connect(addr)?;
     stream.set_read_timeout(Some(Duration::from_secs(10)))?;
     stream.write_all(&encode_msg(&PersistMsg::Hello { key }))?;

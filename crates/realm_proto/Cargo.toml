@@ -14,6 +14,12 @@ serde.workspace = true
 postcard.workspace = true
 ed25519-dalek.workspace = true
 getrandom.workspace = true
+tokio = { workspace = true, optional = true }
+
+[features]
+# The async client of the persistence service (persist::client), for the
+# tokio services (the login service, the coordinator).
+client = ["dep:tokio"]
 
 [lints]
 workspace = true

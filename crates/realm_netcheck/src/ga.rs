@@ -1,8 +1,8 @@
 //! `realm_netcheck --ga --admin <addr> --token <t> --grounds <addr>
-//! --castle <addr> --ga-file <file>`: game admins and the weather across
-//! the realm. Needs the coordinator (REALM_SERVICE_TOKEN, its admin surface
-//! on `--admin`, `--ga <file>` holding no GA yet), grounds and
-//! castle_interior.
+//! --castle <addr> (--ga-file <file> | --persist-addr <addr>)`: game admins
+//! and the weather across the realm. Needs the coordinator
+//! (REALM_SERVICE_TOKEN, its admin surface on `--admin`, `--ga <file>` or
+//! `--persist <addr>` holding no GA yet), grounds and castle_interior.
 //!
 //! 1. a player who is no GA is refused `/ga`;
 //! 2. the admin surface makes A a GA: a player beside A sees its info
@@ -10,8 +10,8 @@
 //! 3. A's `/ga rain on` reaches everyone on both maps, and a login after it
 //!    hears the rain on joining;
 //! 4. A makes B a GA in game; B lists the GAs and stops the rain for all;
-//! 5. A takes it back and B is refused again; the list on disk holds A
-//!    only;
+//! 5. A takes it back and B is refused again; the list kept (on disk, or
+//!    by the persistence service) holds A only;
 //! 6. A's new look and its wand taken off reach B unasked;
 //! 7. a world boss rising on the grounds (started with --dev-boss-respawn)
 //!    is heard in the castle too.
@@ -190,11 +190,41 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     })? {
         return fail("B's /ga was not refused after removal");
     }
-    let kept: Vec<String> = serde_json::from_str(&std::fs::read_to_string(&ga_file)?)?;
+    let persist = args
+        .iter()
+        .position(|a| a == "--persist-addr")
+        .map(|_| arg(args, "--persist-addr", ""));
+    let (kept, place): (Vec<String>, &str) = match &persist {
+        Some(addr) => {
+            let service: [u8; 32] = std::fs::read(keys.join("coord.key"))?
+                .try_into()
+                .map_err(|_| "coord.key must be 32 bytes")?;
+            // Changes land in order: the list is right once B's removal has.
+            let started = Instant::now();
+            loop {
+                let kept = match crate::persist::ask(
+                    addr,
+                    service,
+                    &realm_proto::persist::PersistMsg::LoadGas { req: 1 },
+                )? {
+                    realm_proto::persist::PersistReply::Gas { result: Ok(g), .. } => g,
+                    other => return fail(format!("the kept GAs: {other:?}")),
+                };
+                if kept == [an.to_lowercase()] || started.elapsed() > Duration::from_secs(5) {
+                    break (kept, "kept by the persistence service");
+                }
+                std::thread::sleep(Duration::from_millis(200));
+            }
+        }
+        None => (
+            serde_json::from_str(&std::fs::read_to_string(&ga_file)?)?,
+            "on disk",
+        ),
+    };
     if kept != [an.to_lowercase()] {
-        return fail(format!("the list on disk is {kept:?}"));
+        return fail(format!("the list {place} is {kept:?}"));
     }
-    println!("[ga] 5 ok: B taken back and refused; the list on disk holds A only");
+    println!("[ga] 5 ok: B taken back and refused; the list {place} holds A only");
 
     // 6. What others see of A, pushed when it changes. The look change and
     // the wand taken off go out together, the item request on the sheet
