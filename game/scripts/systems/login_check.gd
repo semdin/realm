@@ -16,9 +16,11 @@ extends Node
 ##                   character in the world (capture)
 ##   change          the Esc menu's Change character: its countdown, then the
 ##                   character screen again without the card (the token is
-##                   still held) and the same roster (capture); Enter World
-##                   joins again (the server released the character when the
-##                   connection closed); the end screen (as for a lost
+##                   still held) and the same roster (capture); Edit
+##                   Appearance: the next hairstyle, Save (capture), the dais
+##                   wears it; Enter World joins again (the server released
+##                   the character when the connection closed) and the sheet
+##                   carries the edited hair; the end screen (as for a lost
 ##                   connection) and its Return to Login
 ##   second account  the card says the connection was lost; another fresh
 ##                   account tries the same name in another
@@ -34,9 +36,9 @@ const STEP_TIMEOUT := 40.0
 const TAKEN := "Character name already taken."
 const WANTED := ["login_card", "registered", "empty_roster", "create_card", "look_edited", "created", "podium",
 	"world_joined", "world_name", "world_house", "world_look", "world_drawn", "back_at_select", "rejoined",
-	"end_screen", "back_at_card",
+	"look_edit_saved", "world_look_edited", "end_screen", "back_at_card",
 	"second_registered", "name_taken"]
-const CAPTURES := 6
+const CAPTURES := 7
 
 var game: Node
 var _s: Dictionary = {}
@@ -270,6 +272,25 @@ func _back_at_select() -> void:
 	_seen("back_at_select", select.name_label.text)
 	await _frames(40)
 	await _capture("select_again")
+	# Edit Appearance: the next hairstyle, Save; the dais wears it at once
+	select.edit_btn.pressed.emit()
+	if not await _until(func(): return select.editing and select.look_editor.visible, 5.0):
+		_fail("Edit Appearance did not open the look editor")
+		return
+	var editor := select.look_editor
+	var hair_before := int(editor.look["hair"])
+	(editor.steppers["hair"][1] as Button).pressed.emit()
+	var edited: Dictionary = editor.look.duplicate()
+	await _frames(30)
+	await _capture("edit_look")
+	(editor._buttons.get_child(0) as Button).pressed.emit()
+	var id := int(select.characters[0].get("id", 0))
+	var kept: Dictionary = CharacterSelect.pending_looks.get(id, {})
+	if select.editing or int(kept.get("hair", -1)) != int(edited["hair"]) or int(edited["hair"]) == hair_before 			or not is_instance_valid(select.current_body) or int(CharacterSelect.look_for(select.characters[0])["hair"]) != int(edited["hair"]):
+		_fail("the edited look was not kept: hair %d -> %s, kept %s" % [hair_before, edited.get("hair"), kept])
+		return
+	_s["hair"] = int(edited["hair"])
+	_seen("look_edit_saved", "hair %d -> %d" % [hair_before, int(edited["hair"])])
 	_go("world2")
 	select.enter_btn.pressed.emit()
 	get_tree().create_timer(20.0).timeout.connect(_enter_timeout.bind(select))
@@ -280,6 +301,11 @@ func _in_world_again() -> void:
 		_fail("the world did not take the second ticket: %s" % session.status())
 		return
 	_seen("rejoined", (session.sheet() as Dictionary).get("name", ""))
+	# the look edited on the character screen, sent as the world was entered
+	if not await _until(func(): return int(((session.sheet() as Dictionary)["look"] as Dictionary).get("hair", -1)) == int(_s["hair"]), 10.0):
+		_fail("the edited hair never reached the sheet: %s" % [(session.sheet() as Dictionary)["look"]])
+		return
+	_seen("world_look_edited", "hair %d" % int(_s["hair"]))
 	if not await _until(func(): return game.built and not MapLoadingScreen.shared(get_tree()).is_open(), 60.0):
 		_fail("the map was never drawn the second time")
 		return

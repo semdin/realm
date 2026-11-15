@@ -133,6 +133,10 @@ extends Node3D
 ##   [--check-stairs]                                 the castle's moving staircases drawn, swinging and climbed
 ##                                                    (StairsCheck; build/logs/aup_stairs.sh, --map
 ##                                                    castle_interior --character 901201)
+##   [--check-polish]                                 the small HUD pieces (PolishCheck; build/logs/aup_polish.sh,
+##                                                    --character 902101): the debug readout hidden, then shown
+##                                                    by its key; the ping; the broom panel and a refused
+##                                                    landing in the air; Alt+Enter; an arrow key walks
 ##   [--others-guest NAME]                          this client waits until it sees NAME, then changes its
 ##                                                    look and takes its wand off (the second client for
 ##                                                    --check-others)
@@ -234,6 +238,7 @@ const MapCheckScript := "res://scripts/systems/map_check.gd"
 const AudioCheckScript := "res://scripts/systems/audio_check.gd"
 const Hud2CheckScript := "res://scripts/systems/hud2_check.gd"
 const StairsCheckScript := "res://scripts/systems/stairs_check.gd"
+const PolishCheckScript := "res://scripts/systems/polish_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -401,8 +406,12 @@ var _shaking: Tween
 var house_color := Color(0.85, 0.4, 0.11)
 var crowd: MultiMeshInstance3D
 var camera: Camera3D
-## The connection readout, top-right.
+## The debug readout (fps, tick, corrections, position, the sheet), bottom
+## right: hidden unless its key (GameSettings.DEBUG_KEY) shows it or the
+## `--check N` fight check runs (its verdict prints it).
 var readout: Label
+## When the ping on the minimap was last refreshed (twice a second).
+var _ping_at := 0
 var cam_yaw := 0.0
 var cam_pitch := -0.35
 var cam_distance := 9.0
@@ -533,6 +542,8 @@ var titles_toasted: Array = []
 ## check.
 var hud2_check: Node = null
 var stairs_check: Node = null
+## `--check-polish`: the small HUD pieces' check.
+var polish_check: Node = null
 
 func _arg(name: String, fallback: String) -> String:
 	var args := OS.get_cmdline_user_args()
@@ -712,6 +723,7 @@ func _build_view() -> void:
 	readout.offset_bottom = -104
 	readout.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	readout.add_theme_font_size_override("font_size", 12)
+	readout.visible = check_seconds > 0.0
 	var layer := CanvasLayer.new()
 	layer.add_child(readout)
 	add_child(layer)
@@ -795,6 +807,11 @@ func _build_ui() -> void:
 		stairs_check.name = "StairsCheck"
 		stairs_check.game = self
 		add_child(stairs_check)
+	if user_args.has("--check-polish"):
+		polish_check = load(PolishCheckScript).new()
+		polish_check.name = "PolishCheck"
+		polish_check.game = self
+		add_child(polish_check)
 	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss") \
 			or user_args.has("--check-lair") or user_args.has("--check-hud2"):
 		var script := DungeonCheckScript
@@ -1154,6 +1171,13 @@ func talk_to(npc: NpcView) -> void:
 	session.talk(npc.npc_name)
 	check_talks += 1
 
+## Alt+Enter toggles fullscreen as F11 does, before a field or the chat
+## takes the Enter (on the front door too).
+func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed 			and (event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER):
+		GameSettings.instance().toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F11:
 		GameSettings.instance().toggle_fullscreen()
@@ -1161,6 +1185,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		return
 	if hud == null:
 		# the front door has the keys
+		return
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == GameSettings.DEBUG_KEY:
+		toggle_readout()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		if event.physical_keycode == KEY_ESCAPE:
@@ -1218,6 +1245,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			cam_distance = maxf(2.0, cam_distance * 0.9)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			cam_distance = minf(60.0, cam_distance * 1.1)
+
+## The debug readout on or off (its key; the polish check).
+func toggle_readout() -> void:
+	readout.visible = not readout.visible
 
 ## Escape closes what is open first (the newest kinds of window, then any
 ## other window), then drops the target; only when nothing took it does it
@@ -2507,6 +2538,9 @@ func _process(delta: float) -> void:
 		jump = audio_check.jump_intent()
 	elif menu_check != null and menu_check.walk_intent() > 0.0:
 		forward = menu_check.walk_intent()
+	elif polish_check != null and polish_check.drives():
+		forward = polish_check.walk_intent()
+		jump = polish_check.jump_intent()
 	elif not hud.chat.is_open():
 		# while the chat has the keys, typing does not walk
 		strafe = float(GameSettings.pressed("move_right")) - float(GameSettings.pressed("move_left"))
@@ -2517,6 +2551,8 @@ func _process(delta: float) -> void:
 		descend = travel_check.descend_intent()
 	elif audio_check != null:
 		descend = audio_check.descend_intent()
+	elif polish_check != null and polish_check.drives():
+		descend = polish_check.descend_intent()
 	session.set_intent(strafe, forward, cam_yaw, jump, descend)
 
 	var own: Dictionary = session.own_body()
@@ -2653,25 +2689,40 @@ func _process(delta: float) -> void:
 	way.tick(delta)
 
 	var stats: Dictionary = session.stats()
-	readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d
-%s  %d others in view" % [
-		Engine.get_frames_per_second(), stats.get("tick", 0), stats.get("hp", 0), stats.get("snapshots", 0),
-		stats.get("corrections", 0), stats.get("max_correction", 0.0), stats.get("server_moves", 0),
-		str(me.snapped(Vector3(0.1, 0.1, 0.1))),
-		positions.size()]
-	if player.anim != null:
-		readout.text += "  pose %s" % player.anim.current_clip
+	var now_ms := Time.get_ticks_msec()
+	if now_ms >= _ping_at:
+		_ping_at = now_ms + 500
+		way.minimap.set_ping(int(stats["rtt_ms"]) if stats.has("rtt_ms") else -1)
 	var sheet: Dictionary = session.sheet()
+	if not sheet.is_empty() and not CharacterSelect.look_on_entry.is_empty():
+		# a look edited on the character screen: the server cleans and saves it
+		var edited := {}
+		for key: String in CharacterSelect.look_on_entry:
+			edited[key] = float(CharacterSelect.look_on_entry[key])
+		session.set_look(edited)
+		CharacterSelect.look_on_entry = {}
+	# the readout's text only while it is shown (or a fight check prints it)
+	var show_readout := readout.visible or check_seconds > 0.0
+	if show_readout:
+		readout.text = "realm  %d fps  tick %d  hp %d  snapshots %d  corrections %d (max %.3f m)  server moves %d
+%s  %d others in view" % [
+			Engine.get_frames_per_second(), stats.get("tick", 0), stats.get("hp", 0), stats.get("snapshots", 0),
+			stats.get("corrections", 0), stats.get("max_correction", 0.0), stats.get("server_moves", 0),
+			str(me.snapped(Vector3(0.1, 0.1, 0.1))),
+			positions.size()]
+		if player.anim != null:
+			readout.text += "  pose %s" % player.anim.current_clip
 	if not sheet.is_empty():
-		var bag: Array = sheet["bag"]
-		var items := bag.filter(func(c): return c != null).map(
-			func(c): return "%s x%d" % [c["id"], c["amount"]])
-		readout.text += "
+		if show_readout:
+			var bag: Array = sheet["bag"]
+			var items := bag.filter(func(c): return c != null).map(
+				func(c): return "%s x%d" % [c["id"], c["amount"]])
+			readout.text += "
 %s (%s)  level %d  hp %d/%d  mana %d/%d  %d oril  wields %s
 bag: %s" % [
-			sheet["name"], sheet["house"], sheet["level"], sheet["hp"], sheet["max_hp"], sheet["mana"],
-			sheet["max_mana"], sheet["oril"], (sheet["equipment"] as Dictionary).get("main_hand", {}).get("id", "-"),
-			", ".join(items)]
+				sheet["name"], sheet["house"], sheet["level"], sheet["hp"], sheet["max_hp"], sheet["mana"],
+				sheet["max_mana"], sheet["oril"], (sheet["equipment"] as Dictionary).get("main_hand", {}).get("id", "-"),
+				", ".join(items)]
 		_apply_sheet_look(sheet)
 
 	if check_quests:

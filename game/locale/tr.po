@@ -5999,3 +5999,30 @@ msgstr "Korunan bölgeden çıkıyorsun - savaş mümkün"
 
 msgid "%s set this week's record in %s (%s): %s!"
 msgstr "%s, %s (%s) zindanında bu haftanın rekorunu kırdı: %s!"
+
+msgid "%d ms"
+msgstr "%d ms"
+
+msgid "%s rise · %s descend · %s dismount"
+msgstr "%s yüksel · %s alçal · %s in"
+
+msgid "Height %s · speed %.1f m/s"
+msgstr "Yükseklik %s · hız %.1f m/sn"
+
+msgid "%.1f m"
+msgstr "%.1f m"
+
+msgid "Cannot land here: descend near level ground (%s)"
+msgstr "Buraya inilemez: düz zemine yakın alçal (%s)"
+
+msgid "Landing here: OK (%s to dismount)"
+msgstr "Buraya inilebilir (%s ile in)"
+
+msgid "Magical staircase: gates closed"
+msgstr "Büyülü merdiven: kapılar kapalı"
+
+msgid "Magical staircase: moving"
+msgstr "Büyülü merdiven: hareket ediyor"
+
+msgid "New look saved - it is kept as you enter the world."
+msgstr "Yeni görünüm kaydedildi - dünyaya girdiğinde kalıcı olur."

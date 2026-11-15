@@ -33,6 +33,9 @@ var drawn: Dictionary = {}
 var cost_ms := 0.0
 var place_label: Label
 var coords_label: Label
+## The round trip to the world server in the disc's empty top-left corner,
+## the old overlay's: green under 80 ms, amber under 150, red above.
+var ping_label: Label
 
 var _disc: ColorRect
 var _overlay: Control
@@ -101,7 +104,23 @@ func _ready() -> void:
 	coords_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	coords_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(coords_label)
+	ping_label = HudKit.label("", 13, HudKit.PARCHMENT, HudKit.title(), 4)
+	ping_label.name = "Ping"
+	ping_label.position = Vector2(-6.0, -4.0)
+	ping_label.size = Vector2(72.0, 18.0)
+	ping_label.hide()
+	add_child(ping_label)
 	_build_buttons()
+
+## The connection's round trip (ms; < 0 hides it: no connection to measure).
+func set_ping(ms: int) -> void:
+	if ms < 0:
+		ping_label.hide()
+		return
+	ping_label.text = tr("%d ms") % ms
+	var colour := Color(0.55, 0.9, 0.5) if ms < 80 else (Color(1.0, 0.78, 0.35) if ms < 150 else Color(1.0, 0.42, 0.36))
+	ping_label.add_theme_color_override("font_color", colour)
+	ping_label.show()
 
 ## The three round buttons under the ring: zoom out, recentre, zoom in.
 func _build_buttons() -> void:

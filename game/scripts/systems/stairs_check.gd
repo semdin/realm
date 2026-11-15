@@ -15,6 +15,8 @@ extends Node
 ##            (capture)
 ##   moving   from the landing, a flight swings to its next landing: its
 ##            deck seen moving between two frames (capture mid-swing)
+##   warning_line  at any step, the staircase warning line over the prompt
+##            near a flight that swings or has shut its gates (capture)
 ##
 ## The verdict line says what was seen; it quits 0 only when every step was.
 
@@ -41,6 +43,8 @@ var _dock_since := 0.0
 ## The flight seen swinging (-1 none) and when.
 var _mover := -1
 var _mover_at := 0.0
+## When the warning line was first seen (its capture comes a moment later).
+var _line_at := 0.0
 
 func _ready() -> void:
 	_started = _now()
@@ -125,6 +129,13 @@ func _process(delta: float) -> void:
 	var me: Vector3 = game.session.own_position()
 	# each deck's head (its high end): a swing turns the deck about a pivot
 	# near its middle, so the head shows the motion best
+	if stairs.line_text != "" and not _seen.has("warning_line") and _step != "land":
+		_see("warning_line", stairs.line_text)
+		_line_at = now
+	if _line_at > 0.0 and now - _line_at > 0.3:
+		# a few frames on: the capture reads the frame drawn before this one
+		_line_at = 0.0
+		_capture("warning_line")
 	var prev := _last_decks
 	_last_decks = {}
 	for flight: int in stairs.decks:
@@ -152,8 +163,12 @@ func _process(delta: float) -> void:
 			elif stairs.decks.has(_mover):
 				# the camera turns to it, then the capture mid-swing
 				_face(stairs.decks[_mover])
-				if _now() - _mover_at > 0.6:
+				if _now() - _mover_at > 0.6 and not _seen.has("moving_captured"):
 					_capture("moving")
+					_seen["moving_captured"] = true
+				# the warning line comes with the swing; a moment for it
+				if _seen.has("moving_captured") and (_seen.has("warning_line") or _now() - _mover_at > 4.0):
+					_seen.erase("moving_captured")
 					_verdict("")
 		"to_foot":
 			if _flight < 0:
@@ -213,7 +228,7 @@ func _process(delta: float) -> void:
 
 func _verdict(failure: String) -> void:
 	set_process(false)
-	var wanted := ["drawn", "moving", "climbing", "top"]
+	var wanted := ["drawn", "moving", "climbing", "top", "warning_line"]
 	var missing := wanted.filter(func(k): return not _seen.has(k))
 	var stats: Dictionary = game.session.stats()
 	var ok := failure == "" and missing.is_empty()

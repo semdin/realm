@@ -94,6 +94,8 @@ var voices := {"alert": 0, "attack": 0, "hurt": 0, "death": 0, "move": 0, "idle"
 var voice_log: Array[String] = []
 var zone_changes: Array = []
 var mounts := 0
+## Seconds from the dismount to the landing's footfall.
+const LANDING_DELAY := 0.3
 var broom_ratio := 0.0
 
 var _scan_left := 0.0
@@ -136,6 +138,14 @@ func _tick(delta: float) -> void:
 		_was_mounted = hero.is_mounted
 		mounts += 1
 		AudioManager.play_mount(hero.is_mounted, me)
+		# the rider's own broom: a rush of air as it lifts off, the feet
+		# touching down a moment after the dismount
+		if hero.is_mounted:
+			AudioManager.play_sound_at("broom_swoosh_%d" % (randi() % 2 + 1), me)
+		else:
+			get_tree().create_timer(LANDING_DELAY).timeout.connect(func():
+				if is_instance_valid(hero):
+					AudioManager.play_sound_at("landing", hero.position))
 	AudioManager.mounted = hero.is_mounted
 	if hero.is_mounted:
 		# the broom's wind: louder, higher and with more bite the faster it goes

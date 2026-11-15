@@ -68,6 +68,8 @@ var results: Array = []
 var last_refusal := ""
 var doors_asked := 0
 var rides_asked := 0
+## The broom flight panel while mounted (HudBroom).
+var broom_panel: HudBroom
 
 var _prompt_label: Label
 var _fade_rect: ColorRect
@@ -90,6 +92,9 @@ func setup(main: Node, map_id: String, ui_root: Control) -> void:
 	waylink_window.session = game.session
 	ui_root.add_child(waylink_window)
 	game.hud.hearthway = hearthway
+	broom_panel = HudBroom.new()
+	broom_panel.session = game.session
+	ui_root.add_child(broom_panel)
 	game.hud.waylink = waylink_window
 	waylinks = WaylinkViews.new()
 	waylinks.name = "WaylinkViews"
@@ -165,6 +170,7 @@ func mounted() -> bool:
 ## Every frame once the map is drawn: what the body stands in, the prompt,
 ## and the loading screen's last steps after a trip.
 func tick(_delta: float) -> void:
+	broom_panel.tick()
 	if _settle_frames > 0:
 		_settle_frames -= 1
 		if _settle_frames == 0:
@@ -300,7 +306,7 @@ func on_event(event: Dictionary) -> void:
 				var text := refusal_text(String(event["what"]), String(event["reason"]))
 				last_refusal = text
 				if text != "":
-					_refuse(text)
+					_refuse(text, String(event["what"]) == "ride" and String(event["reason"]) == "no_landing")
 		"departing":
 			departures.append(event)
 			var to := String(event["map"])
@@ -318,9 +324,13 @@ func on_event(event: Dictionary) -> void:
 		"waylink":
 			waylinks.on_event(event)
 
-func _refuse(text: String) -> void:
+## `no_landing`: a dismount refused in the air has the broom's own refusal.
+func _refuse(text: String, no_landing := false) -> void:
 	game.hud.show_notice(text, "warn")
-	AudioManager.play_deny()
+	if no_landing:
+		AudioManager.play_sound_at("broom_land_blocked", Vector3.ZERO, null, true)
+	else:
+		AudioManager.play_deny()
 
 ## A same-map trip: down to black, the teleport lands, back up.
 func _fade() -> void:

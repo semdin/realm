@@ -2067,6 +2067,31 @@ impl RealmSession {
         out
     }
 
+    /// Where the player's body could land its broom: `ok` (the server's own
+    /// dismount rule: level ground within 3.1 m under the feet, so a
+    /// dismount now would not be refused "no_landing") and `height` (metres
+    /// down to the ground under the feet, -1 when none within 500 m). Empty
+    /// before the first snapshot.
+    #[func]
+    fn landing(&self) -> VarDictionary {
+        let mut out = VarDictionary::new();
+        let Some(core) = self.core.as_ref() else {
+            return out;
+        };
+        let Some(body) = core.body() else {
+            return out;
+        };
+        let from = body.pos + realm_sim::Vec3::new(0.0, 0.1, 0.0);
+        let world = core.world();
+        let ok = world.ray_down(from, 3.1).is_some_and(|h| h.normal.y > 0.7);
+        let height = world
+            .ray_down(from, 500.0)
+            .map_or(-1.0, |h| (body.pos.y - h.point.y).max(0.0));
+        out.set("ok", &ok.to_variant());
+        out.set("height", &height.to_variant());
+        out
+    }
+
     /// The map's terrain as a mesh, one vertex every `stride` samples.
     #[func]
     fn terrain_mesh(&self, stride: i64) -> Option<Gd<ArrayMesh>> {
@@ -2122,7 +2147,9 @@ impl RealmSession {
     /// The moving staircases' solid boxes as they stand now, drawn where the
     /// player's own body is (the core's predicted tick less the part of a
     /// tick not yet run): [{`kind` ("deck", "rail", "gate"), `flight` (its
-    /// index), `transform` (centre and rotation), `size` (full extents)}].
+    /// index), `transform` (centre and rotation), `size` (full extents)};
+    /// the deck also carries `phase` ("docked", "warning", "moving",
+    /// "docking")].
     /// The deck carries the body; the gates are the shut ones only.
     #[func]
     fn stair_parts(&self) -> VarArray {
@@ -2135,6 +2162,12 @@ impl RealmSession {
         for (flight, stair) in self.stair_view.flights.iter().enumerate() {
             boxes.clear();
             stair.solid_at(tick, &mut boxes);
+            let phase = match stair.state_at(tick).phase {
+                realm_sim::staircase::Phase::Docked => "docked",
+                realm_sim::staircase::Phase::Warning => "warning",
+                realm_sim::staircase::Phase::Moving => "moving",
+                realm_sim::staircase::Phase::Docking => "docking",
+            };
             for (i, (pose, shape)) in boxes.iter().enumerate() {
                 let Some(cuboid) = shape.as_cuboid() else {
                     continue;
@@ -2149,6 +2182,9 @@ impl RealmSession {
                 };
                 d.set("kind", &GString::from(kind).to_variant());
                 d.set("flight", &(flight as i64).to_variant());
+                if i == 0 {
+                    d.set("phase", &GString::from(phase).to_variant());
+                }
                 d.set(
                     "transform",
                     &Transform3D::new(basis, Vector3::new(t.x, t.y, t.z)).to_variant(),

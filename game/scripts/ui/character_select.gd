@@ -16,6 +16,12 @@ class_name CharacterSelect
 ## Create sends name, house and look to the login service, which cleans the
 ## look; Enter World asks it for the ticket (FrontDoor joins with it).
 ##
+## Edit Appearance (over Enter World) opens the same look editor for the
+## chosen character with Save and Cancel; the dais shows the new look at
+## once. The login service only creates, so the edit is kept here and sent
+## as the character enters the world (main.gd: RealmSession.set_look, which
+## the server cleans and saves); until then the roster shows it too.
+##
 ## Everything comes from the login service (LoginApi): the roster is
 ## fetched when the screen opens; nothing is cached on disk.
 
@@ -40,6 +46,15 @@ var current_slot := 0
 var selected_house := "velkar"
 var is_switching := false
 var creating := false
+## The look editor is open on an existing character (Edit Appearance).
+var editing := false
+
+## Looks edited here and not yet in the world: character id -> look. Kept
+## across the scene's reloads (Change character comes back here).
+static var pending_looks: Dictionary = {}
+## The edited look of the character entering the world now: main.gd sends it
+## once the session has a sheet, then clears it.
+static var look_on_entry: Dictionary = {}
 
 var camera: Camera3D
 var podium: Node3D
@@ -71,6 +86,7 @@ var prev_btn: Button
 var next_btn: Button
 var bottom: VBoxContainer
 var enter_btn: Button
+var edit_btn: Button
 var status_label: Label
 
 var create_modal: PanelContainer
@@ -373,6 +389,12 @@ func _build_ui() -> void:
 	bottom.alignment = BoxContainer.ALIGNMENT_END
 	bottom.add_theme_constant_override("separation", 8)
 	root.add_child(bottom)
+	edit_btn = HudKit.button(tr("Edit Appearance"), 15)
+	edit_btn.name = "EditLookButton"
+	edit_btn.custom_minimum_size = Vector2(220, 38)
+	edit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	edit_btn.pressed.connect(open_edit)
+	bottom.add_child(edit_btn)
 	enter_btn = HudKit.button(tr("ENTER WORLD"), 22)
 	enter_btn.name = "EnterWorldButton"
 	for state in ["normal", "hover", "pressed"]:
@@ -472,6 +494,8 @@ func _build_look_editor() -> void:
 	look_editor.hide()
 	(canvas.get_child(0) as Control).add_child(look_editor)
 	look_editor.look_changed.connect(_preview_look)
+	look_editor.confirmed.connect(save_edit)
+	look_editor.cancelled.connect(_close_edit)
 	# the face tab frames the face (the wheel zoom's close end); the look tab
 	# steps back to the whole character
 	look_editor.tab_changed.connect(func(tab_name: String):
@@ -487,6 +511,9 @@ func _layout() -> void:
 	var edge := 24.0 if view.x < 1200 else 36.0
 	var top := view.y * 0.5 - minf(190.0, view.y * 0.5 - 100.0)
 	_place(roster_panel, Vector2(edge, top), Vector2(side, 0))
+	# the wrapped motto needs its width before the card measures itself, or
+	# it counts one word a line and the card runs down the screen
+	motto_label.custom_minimum_size.x = side - 36.0
 	_place(info_card, Vector2(view.x - side - edge, top), Vector2(side, 0))
 	for card: Button in roster_cards:
 		card.custom_minimum_size.x = side - 28.0
@@ -495,15 +522,17 @@ func _layout() -> void:
 	nav.offset_right = half
 	nav.offset_top = -26
 	nav.offset_bottom = 26
-	nav.visible = not creating
-	roster_panel.visible = not creating
+	nav.visible = not creating and not editing
+	roster_panel.visible = not creating and not editing
 	info_card.visible = not creating
-	bottom.visible = not creating
-	look_editor.visible = creating
+	bottom.visible = not creating and not editing
+	edit_btn.visible = not creating and not editing and current_slot < characters.size()
+	look_editor.visible = creating or editing
 	create_modal.visible = creating
-	if creating:
+	if creating or editing:
 		var ew := clampf(view.x * 0.24, 300.0, 360.0)
 		_place(look_editor, Vector2(edge, maxf(16.0, view.y * 0.5 - 340.0)), Vector2(ew, 0))
+	if creating:
 		var w := minf(560.0, view.x * 0.5 - 90.0)
 		var house_w := clampf((w - 88.0) / 4.0, 84.0, 110.0)
 		for b: Button in house_buttons.values():
@@ -585,7 +614,7 @@ func _update_slot_display() -> void:
 		enter_btn.visible = true
 		enter_btn.disabled = false
 		enter_btn.text = tr("ENTER WORLD")
-		_spawn_podium_character(house, LoginApi.look_of(c.get("look", [])))
+		_spawn_podium_character(house, look_for(c))
 	else:
 		name_label.text = tr("Empty Slot")
 		house_label.text = tr("Create a new wizard")
@@ -656,6 +685,13 @@ func _refresh_roster() -> void:
 		roster.add_child(card)
 		roster_cards.append(card)
 
+## A roster entry's look: the one edited here when there is one.
+static func look_for(c: Dictionary) -> Dictionary:
+	var id := int(c.get("id", 0))
+	if pending_looks.has(id):
+		return pending_looks[id]
+	return LoginApi.look_of(c.get("look", []))
+
 func _spawn_podium_character(house: String, look: Dictionary) -> void:
 	_clear_podium_character()
 	# the same body and the same house tint the world draws, so the character
@@ -681,6 +717,7 @@ func open_create() -> void:
 	modal_status.text = ""
 	name_input.text = ""
 	confirm_btn.disabled = false
+	look_editor.set_edit_buttons(false)
 	look_editor.set_look(Looks.default_look())
 	look_editor._show_tab("look")
 	_select_house(selected_house)
@@ -693,6 +730,35 @@ func _close_create() -> void:
 	creating = false
 	_zoom_target = 0.0
 	_layout()
+	_update_slot_display()
+
+## ================================================================ edit a look
+
+## Edit Appearance: the look editor on the chosen character, Save / Cancel.
+func open_edit() -> void:
+	if creating or editing or is_switching or current_slot >= characters.size():
+		return
+	editing = true
+	look_editor.set_edit_buttons(true)
+	look_editor.set_look(look_for(characters[current_slot]))
+	look_editor._show_tab("look")
+	model_anchor.rotation.y = 0.0
+	set_status("")
+	_layout()
+
+## Save: the dais and the roster keep the new look; it goes to the server
+## as this character enters the world.
+func save_edit(look: Dictionary) -> void:
+	if not editing or current_slot >= characters.size():
+		return
+	var c: Dictionary = characters[current_slot]
+	pending_looks[int(c.get("id", 0))] = Looks.clean_look(look)
+	_close_edit()
+	set_status(tr("New look saved - it is kept as you enter the world."), "info")
+
+func _close_edit() -> void:
+	editing = false
+	_zoom_target = 0.0
 	_update_slot_display()
 
 func _select_house(key: String) -> void:
@@ -771,6 +837,9 @@ func _on_enter_world_pressed() -> void:
 	if not res.ok:
 		play_failed(res.error, res.maintenance)
 		return
+	var id := int(c.get("id", 0))
+	look_on_entry = pending_looks.get(id, {})
+	pending_looks.erase(id)
 	play_granted.emit(String(res.body.get("map", "")), String(res.body.get("address", "")), String(res.body.get("ticket", "")))
 
 func play_failed(message: String, maintenance := false) -> void:
@@ -786,7 +855,7 @@ func _on_logout_pressed() -> void:
 ## ================================================================ input, camera
 
 func _unhandled_input(event: InputEvent) -> void:
-	if creating:
+	if creating or editing:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:

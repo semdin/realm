@@ -81,8 +81,13 @@ const BINDABLE := {
 	"quick_3": KEY_F3,
 	"quick_4": KEY_F4,
 }
+## The debug readout's fixed key (main.gd): F3 is quick slot 3 here.
+const DEBUG_KEY := KEY_F10
 ## Keys no action may take: they have their own fixed use.
-const RESERVED := [KEY_ESCAPE, KEY_F11, KEY_KP_ENTER]
+const RESERVED := [KEY_ESCAPE, KEY_F11, KEY_KP_ENTER, DEBUG_KEY]
+## The arrow keys walk too (the old client's second keys): they hold while
+## the WASD keys are rebound, and step aside for any action bound to one.
+const SECONDARY := {"move_forward": KEY_UP, "move_backward": KEY_DOWN, "move_left": KEY_LEFT, "move_right": KEY_RIGHT}
 
 static var _instance: GameSettings = null
 
@@ -117,7 +122,10 @@ static func action_for(keycode: int) -> String:
 	return String(instance()._by_key.get(keycode, ""))
 
 static func pressed(action: String) -> bool:
-	return Input.is_physical_key_pressed(key(action))
+	if Input.is_physical_key_pressed(key(action)):
+		return true
+	var second := int(SECONDARY.get(action, 0))
+	return second != 0 and not instance()._by_key.has(second) and Input.is_physical_key_pressed(second)
 
 ## The key's name as a slot or a row shows it ("Q", "F1", "Space").
 static func key_name(action: String) -> String:
