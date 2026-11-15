@@ -91,8 +91,15 @@ extends Node3D
 ##                                                    card with a house and a look, sees it on the dais, enters
 ##                                                    the world and finds its name, house and look on the sheet;
 ##                                                    a second account is refused the same name (LoginCheck)
+##   [--check-menu]                                   the check opens the Esc menu (after Escape closed a window and
+##                                                    dropped the target), changes the master volume, the interface
+##                                                    scale and a key in Settings, sees them kept after closing and
+##                                                    in user://, opens Credits, sees Change character's countdown
+##                                                    cancelled by walking, then lands on the login card while the
+##                                                    coordinator counts the player gone (MenuCheck;
+##                                                    build/logs/aup_menu.sh, --character 900701)
 ##   [--login-url http://127.0.0.1:7950]              the login service the front door talks to
-##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck / LoginCheck save PNG frames
+##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck / LoginCheck / MenuCheck save PNG frames
 ##
 ## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
 ## a Waylink; Shift mounts or dismounts the broom. A trip to another map
@@ -174,6 +181,7 @@ const BossCheckScript := "res://scripts/systems/boss_check.gd"
 const LairCheckScript := "res://scripts/systems/lair_check.gd"
 const OpsCheckScript := "res://scripts/systems/ops_check.gd"
 const LoginCheckScript := "res://scripts/systems/login_check.gd"
+const MenuCheckScript := "res://scripts/systems/menu_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -397,6 +405,11 @@ var weather: RealmWeather
 var maintenance: MaintenanceUI
 ## `--check-ops`: the operations check.
 var ops_check: Node = null
+## The Esc menu and its Settings window (with Credits).
+var game_menu: HudGameMenu
+var settings_window: SettingsWindow
+## `--check-menu`: the menu check (both sides of the scene reload).
+var menu_check: Node = null
 ## The login card and the character screen, before any world (null in it).
 var front_door: FrontDoor = null
 ## `--check-login`: the front door check (both sides of the scene reload).
@@ -441,6 +454,9 @@ func _arg(name: String, fallback: String) -> String:
 	return args[i + 1] if i >= 0 and i + 1 < args.size() else fallback
 
 func _ready() -> void:
+	# the player's settings first: the interface scale, fullscreen and the keys
+	# hold for the front door as for the world
+	GameSettings.instance().apply_all()
 	var root := ProjectSettings.globalize_path("res://").path_join("..").simplify_path()
 	check_seconds = float(_arg("--check", "0"))
 	cam_distance = float(_arg("--cam-distance", str(cam_distance)))
@@ -466,7 +482,7 @@ func _ready() -> void:
 	var houses: Variant = ClassDB.class_call_static("RealmContent", "table", "houses")
 	if houses is Dictionary and (houses as Dictionary).has("velkar"):
 		house_color = Color.html(String(houses["velkar"].get("primary_color", "#d9661c")))
-	if trip_map == "" and _wants_front_door():
+	if trip_map == "" and (FrontDoor.wanted or _wants_front_door()):
 		_show_front_door()
 		return
 	session = ClassDB.instantiate("RealmSession")
@@ -501,6 +517,36 @@ func _show_front_door() -> void:
 	add_child(front_door)
 	front_door.setup(_arg("--login-url", LoginApi.DEFAULT_URL))
 	_add_login_check()
+	_add_menu_check()
+
+func _add_menu_check() -> void:
+	if OS.get_cmdline_user_args().has("--check-menu") and menu_check == null:
+		menu_check = load(MenuCheckScript).new()
+		menu_check.name = "MenuCheck"
+		menu_check.game = self
+		add_child(menu_check)
+
+## Leave the world (the menu's countdown ran out): the connection closes
+## cleanly here - the server saves and releases the character as it ends -
+## then the game quits, or goes back to the character screen when the player
+## came in through the login card (its token still held), else (a dev join)
+## to the login card.
+func leave_world(quit: bool) -> void:
+	before_reload()
+	# nothing of the world runs again before the scene goes: no view asks the
+	# freed session for anything
+	process_mode = Node.PROCESS_MODE_DISABLED
+	if session != null:
+		# freeing the session closes the connection and waits for the server
+		# to hear the goodbye (NetHandle's drop)
+		session.free()
+		session = null
+	if quit:
+		get_tree().quit()
+		return
+	FrontDoor.wanted = true
+	FrontDoor.to_characters = LoginApi.token != ""
+	get_tree().reload_current_scene.call_deferred()
 
 func _add_login_check() -> void:
 	if OS.get_cmdline_user_args().has("--check-login"):
@@ -650,6 +696,14 @@ func _build_ui() -> void:
 		ops_check.name = "OpsCheck"
 		ops_check.game = self
 		add_child(ops_check)
+	settings_window = SettingsWindow.new()
+	root.add_child(settings_window)
+	game_menu = HudGameMenu.new()
+	game_menu.game = self
+	root.add_child(game_menu)
+	game_menu.settings_requested.connect(settings_window.open)
+	settings_window.language_apply_requested.connect(game_menu.leave_to_characters)
+	_add_menu_check()
 	_build_social_ui()
 
 ## The social pieces the HUD holds: the party frames know this map and push
@@ -923,60 +977,49 @@ func talk_to(npc: NpcView) -> void:
 	check_talks += 1
 
 func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F11:
+		GameSettings.instance().toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+		return
 	if hud == null:
 		# the front door has the keys
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
-		match event.physical_keycode:
-			KEY_I:
+		if event.physical_keycode == KEY_ESCAPE:
+			_on_escape()
+			return
+		if event.physical_keycode == KEY_KP_ENTER:
+			hud.chat.open()
+			return
+		# the keys the settings may rebind (GameSettings.BINDABLE)
+		match GameSettings.action_for(event.physical_keycode):
+			"inventory":
 				toggle_inventory()
-			KEY_C:
+			"character":
 				character_window.toggle()
-			KEY_J:
+			"quest_log":
 				quest_log.toggle()
-			KEY_O:
+			"workshop":
 				workshop.toggle(sheet_view)
-			KEY_K:
+			"dungeon_guide":
 				dungeon.guide_window.toggle()
-			KEY_F:
+			"interact":
 				if built and not travel.interact():
 					talk_to(_npc_near(TALK_KEY_REACH))
-			KEY_SHIFT:
+			"ride":
 				if built and not hud.chat.is_open():
 					travel.toggle_ride()
-			KEY_Z:
+			"pickup_loot":
 				take_nearest_chest()
-			KEY_TAB:
+			"target_cycle":
 				cycle_target()
-			KEY_ENTER, KEY_KP_ENTER:
+			"chat":
 				hud.chat.open()
-			KEY_ESCAPE:
-				if quest_scroll.is_open():
-					quest_scroll.close()
-				elif quest_log.visible:
-					quest_log.close()
-				elif loot_window.visible:
-					loot_window.close()
-				elif dungeon.gate_window.visible:
-					dungeon.gate_window.close()
-				elif dungeon.result_window.visible:
-					dungeon.result_window.close()
-				elif dungeon.guide_window.visible:
-					dungeon.guide_window.close()
-				elif character_window.visible:
-					character_window.card.close()
-				elif workshop.visible:
-					workshop.hide()
-				elif inventory.visible:
-					inventory.hide()
-				elif dialogue.visible:
-					dialogue.close()
-				else:
-					select_target(0)
 		return
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-		cam_yaw -= event.relative.x * 0.005
-		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004, -1.3, 0.4)
+		var turn := GameSettings.sensitivity()
+		cam_yaw -= event.relative.x * 0.005 * turn
+		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004 * turn, -1.3, 0.4)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		if event.pressed:
 			_right_pressed_at = event.position
@@ -989,6 +1032,52 @@ func _unhandled_input(event: InputEvent) -> void:
 			cam_distance = maxf(2.0, cam_distance * 0.9)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			cam_distance = minf(60.0, cam_distance * 1.1)
+
+## Escape closes what is open first (the newest kinds of window, then any
+## other window), then drops the target; only when nothing took it does it
+## open the game menu (and a second Escape closes the menu).
+func _on_escape() -> void:
+	if settings_window.visible:
+		settings_window.close()
+	elif game_menu.visible:
+		game_menu.close()
+	elif quest_scroll.is_open():
+		quest_scroll.close()
+	elif quest_log.visible:
+		quest_log.close()
+	elif loot_window.visible:
+		loot_window.close()
+	elif dungeon.gate_window.visible:
+		dungeon.gate_window.close()
+	elif dungeon.result_window.visible:
+		dungeon.result_window.close()
+	elif dungeon.guide_window.visible:
+		dungeon.guide_window.close()
+	elif character_window.visible:
+		character_window.card.close()
+	elif workshop.visible:
+		workshop.hide()
+	elif inventory.visible:
+		inventory.hide()
+	elif dialogue.visible:
+		dialogue.close()
+	elif _close_top_window():
+		pass
+	elif target != 0:
+		select_target(0)
+	else:
+		game_menu.open()
+
+## Any other window of the UI that is open (the Hearth and Waylink windows,
+## the dungeon run's cards): the topmost one closes. False when none was.
+func _close_top_window() -> bool:
+	var ui := hud.get_parent()
+	for i in range(ui.get_child_count() - 1, -1, -1):
+		var w := ui.get_child(i) as HudWindow
+		if w != null and w.visible and w != game_menu and w != settings_window:
+			w.close()
+			return true
+	return false
 
 ## ----------------------------------------------------------------- targeting
 
@@ -1306,6 +1395,8 @@ func _show_combat() -> void:
 		combat.show_event(event)
 		if duel_check != null:
 			duel_check.on_combat(event)
+		if game_menu != null:
+			game_menu.on_combat(event)
 		match String(event["kind"]):
 			"hit":
 				hud.on_hit(event)
@@ -1653,6 +1744,9 @@ func _stone_named(stone_name: String) -> StoneView:
 ## A jolt of the camera that settles back (a Dark Shard landing close by).
 func shake_camera(strength: float) -> void:
 	if _shaking != null and _shaking.is_running():
+		return
+	strength *= GameSettings.shake_value()
+	if strength <= 0.0:
 		return
 	camera.h_offset = randf_range(-strength, strength) * SHAKE_SWING
 	camera.v_offset = randf_range(-strength, strength) * SHAKE_SWING
@@ -2112,12 +2206,14 @@ func _process(delta: float) -> void:
 	elif dungeon_check != null:
 		forward = dungeon_check.walk_intent()
 		strafe = _check_sidestep(forward > 0.0)
+	elif menu_check != null and menu_check.walk_intent() > 0.0:
+		forward = menu_check.walk_intent()
 	elif not hud.chat.is_open():
 		# while the chat has the keys, typing does not walk
-		strafe = float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
-		forward = float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S))
-		jump = Input.is_physical_key_pressed(KEY_SPACE)
-	var descend: bool = Input.is_physical_key_pressed(KEY_CTRL) and not hud.chat.is_open()
+		strafe = float(GameSettings.pressed("move_right")) - float(GameSettings.pressed("move_left"))
+		forward = float(GameSettings.pressed("move_forward")) - float(GameSettings.pressed("move_backward"))
+		jump = GameSettings.pressed("jump")
+	var descend: bool = GameSettings.pressed("descend") and not hud.chat.is_open()
 	if travel_check != null:
 		descend = travel_check.descend_intent()
 	session.set_intent(strafe, forward, cam_yaw, jump, descend)

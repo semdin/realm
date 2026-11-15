@@ -1855,8 +1855,8 @@ msgstr "Yere Koy"
 msgid "No open quests. Level up to unlock more."
 msgstr "Açık görev yok. Yenilerini açmak için seviye atla."
 
-msgid "Click a card to read it  ·  finished quests pay when you claim them  ·  J / Esc: close"
-msgstr "Okumak için bir karta tıkla  ·  biten görevler ödülü aldığında öder  ·  J / Esc: kapat"
+msgid "Click a card to read it  ·  finished quests pay when you claim them  ·  %s / Esc: close"
+msgstr "Okumak için bir karta tıkla  ·  biten görevler ödülü aldığında öder  ·  %s / Esc: kapat"
 
 msgid "%d open  ·  %d ready to claim  ·  %d completed"
 msgstr "%d açık  ·  %d ödül bekliyor  ·  %d tamamlandı"
@@ -1996,8 +1996,8 @@ msgstr "Özel"
 msgid "Not trainable"
 msgstr "Eğitilemez"
 
-msgid "More quests (J)"
-msgstr "Diğer görevler (J)"
+msgid "More quests (%s)"
+msgstr "Diğer görevler (%s)"
 
 msgid "No open quests"
 msgstr "Açık görev yok"
@@ -2011,8 +2011,8 @@ msgstr "Ödülü almak için tıkla"
 msgid "Click to read the quest scroll"
 msgstr "Görev parşömenini okumak için tıkla"
 
-msgid "More quests (%d)  ·  J"
-msgstr "Diğer görevler (%d)  ·  J"
+msgid "More quests (%d)  ·  %s"
+msgstr "Diğer görevler (%d)  ·  %s"
 
 msgid "Rank %d · %s"
 msgstr "Rütbe %d · %s"
@@ -5838,3 +5838,75 @@ msgstr "Oluştur"
 
 msgid "Return to Login"
 msgstr "Giriş Ekranına Dön"
+
+msgid "Quitting in %d…"
+msgstr "Oyundan çıkılıyor: %d…"
+
+msgid "Changing character in %d…"
+msgstr "Karakter değiştiriliyor: %d…"
+
+msgid "(moving or taking damage cancels)"
+msgstr "(hareket etmek ya da hasar almak iptal eder)"
+
+msgid "Interrupted: you moved."
+msgstr "Kesildi: hareket ettin."
+
+msgid "Fullscreen  (F11)"
+msgstr "Tam ekran  (F11)"
+
+msgid "On"
+msgstr "Açık"
+
+msgid "Off"
+msgstr "Kapalı"
+
+msgid "Refused: that key is kept for the menu and fullscreen."
+msgstr "Reddedildi: o tuş menü ve tam ekran için ayrılmış."
+
+msgid "Spell slot 7"
+msgstr "Büyü yuvası 7"
+
+msgid "Spell slot 8"
+msgstr "Büyü yuvası 8"
+
+msgid "Master volume"
+msgstr "Ana ses"
+
+msgid "Literata licence"
+msgstr "Literata lisansı"
+
+msgid "Rust libraries"
+msgstr "Rust kütüphaneleri"
+
+msgid "Compiled into the game's extension; their licence texts are at the end of this page."
+msgstr "Oyunun eklentisine derlenmiştir; lisans metinleri bu sayfanın sonunda."
+
+msgid "Skin pore and iris textures (CC BY 4.0, unchanged); the skin lighting follows its skin shader (MIT)."
+msgstr "Cilt gözeneği ve iris dokuları (CC BY 4.0, değiştirilmeden); cilt ışıklandırması onun cilt gölgelendiricisini izler (MIT)."
+
+msgid "The bridge between the game's Rust code and the engine. The other Rust libraries are listed below."
+msgstr "Oyunun Rust kodu ile motor arasındaki köprü. Diğer Rust kütüphaneleri aşağıda listelenmiştir."
+
+msgid "Interface lettering. Its licence is at the end of this page."
+msgstr "Arayüz yazıları. Lisansı bu sayfanın sonunda."
+
+msgid "Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes, hair and animations"
+msgstr "Modular Character Outfits, Universal Base Characters ve Universal Animation Library: kahramanın bedeni, kıyafetleri, saçı ve animasyonları"
+
+msgid "The robed wizard and the wand"
+msgstr "Cüppeli büyücü ve asa"
+
+msgid "Boulder, hessian and wood textures"
+msgstr "Kaya, çuval bezi ve ahşap dokuları"
+
+msgid "Sound"
+msgstr "Sesler"
+
+msgid "Recorded sound effects"
+msgstr "Kaydedilmiş ses efektleri"
+
+msgid "Walking, running and jumping animations"
+msgstr "Yürüme, koşma ve zıplama animasyonları"
+
+msgid "Generated icons, textures and spell effects"
+msgstr "Üretilmiş simgeler, dokular ve büyü efektleri"

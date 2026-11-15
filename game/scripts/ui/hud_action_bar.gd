@@ -30,9 +30,8 @@ const SPELLS := [
 	["disarm", "4"], ["ward_shield", "Q"], ["ultimate", "E"], ["light_of_ithrel", "5"],
 	["frost_grip", "6"],
 ]
-const SPELL_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_Q, KEY_E, KEY_5, KEY_6]
-const QUICK_KEYS := ["F1", "F2", "F3", "F4"]
-const QUICK_KEYCODES := [KEY_F1, KEY_F2, KEY_F3, KEY_F4]
+## The slots' keys are GameSettings' spell_1..spell_8 and quick_1..quick_4
+## (rebindable; SPELLS' letters are the defaults).
 const QUICK_DEFAULTS := ["potion_health", "potion_mana", "", ""]
 const QUICK_COOLDOWN := 1.0
 const SAVE_PATH := "user://quickslots.cfg"
@@ -73,7 +72,7 @@ func _ready() -> void:
 	for i in SPELLS.size():
 		var s := HudSlot.new(SLOT)
 		s.name = "SpellSlot%d" % (i + 1)
-		s.key_text = String(SPELLS[i][1])
+		s.key_text = GameSettings.key_name("spell_%d" % (i + 1))
 		s.accept_drop = _accept_spell_drop
 		s.drag_slot_index = i
 		s.drag_key = "spell_slot"
@@ -87,7 +86,7 @@ func _ready() -> void:
 	for i in range(4):
 		var q := HudSlot.new(SLOT)
 		q.name = "Quick%d" % (i + 1)
-		q.key_text = QUICK_KEYS[i]
+		q.key_text = GameSettings.key_name("quick_%d" % (i + 1))
 		q.empty_hint = tr("drop")
 		q.accept_drop = _accept_quick_drop
 		q.item_dropped.connect(_on_quick_drop.bind(i))
@@ -99,6 +98,19 @@ func _ready() -> void:
 		add_child(q)
 		quick_slots.append(q)
 	_layout()
+	GameSettings.instance().changed.connect(_on_settings_changed)
+
+## A key was rebound: the slots show their new keys (and their tooltips are
+## built again with them).
+func _on_settings_changed(what: String) -> void:
+	if what != "bindings" and what != "all":
+		return
+	for i in spell_slots.size():
+		spell_slots[i].key_text = GameSettings.key_name("spell_%d" % (i + 1))
+		spell_slots[i].tooltip_text = ""
+	for i in quick_slots.size():
+		quick_slots[i].key_text = GameSettings.key_name("quick_%d" % (i + 1))
+		quick_slots[i].held_id = "-"
 
 func bind(p_hud: Control, p_session: Node, p_sheet: PlayerSheet) -> void:
 	hud = p_hud
@@ -178,7 +190,7 @@ func _process(delta: float) -> void:
 		if q.held_id != id:
 			q.held_id = id
 			q.icon_texture = UITheme.icon_for(id) if id != "" else null
-			q.tooltip_text = _item_tooltip(QUICK_KEYS[i], id)
+			q.tooltip_text = _item_tooltip(q.key_text, id)
 			q.count = -2   # a new item is counted now, not at the next refresh
 		if slow or q.count == -2:
 			q.count = _count_of(id) if id != "" else -1
@@ -194,14 +206,12 @@ func _unhandled_input(event: InputEvent) -> void:
 	if focus is LineEdit or focus is TextEdit:
 		return
 	var key: int = (event as InputEventKey).physical_keycode
-	var spell_index := SPELL_KEYS.find(key)
-	if spell_index >= 0:
-		_press_spell(spell_index, false)
+	var action := GameSettings.action_for(key)
+	if action.begins_with("spell_"):
+		_press_spell(int(action.trim_prefix("spell_")) - 1, false)
 		get_viewport().set_input_as_handled()
-		return
-	var quick_index := QUICK_KEYCODES.find(key)
-	if quick_index >= 0:
-		use_quick(quick_index)
+	elif action.begins_with("quick_"):
+		use_quick(int(action.trim_prefix("quick_")) - 1)
 		get_viewport().set_input_as_handled()
 
 ## ------------------------------------------------------------- spell slots
@@ -277,7 +287,7 @@ func use_quick(index: int) -> void:
 		return
 	var id := String(quick_items[index])
 	if id == "":
-		_notice(tr("Drag a potion from your bag onto %s") % QUICK_KEYS[index], "info")
+		_notice(tr("Drag a potion from your bag onto %s") % quick_slots[index].key_text, "info")
 		return
 	if float(_quick_cd[index]) > 0.0:
 		return

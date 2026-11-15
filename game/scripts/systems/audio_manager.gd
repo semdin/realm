@@ -6,7 +6,8 @@ extends Node
 ##
 ## Every sound is described by `assets/audio/sound_library.json` (bus, base
 ## gain, pitch variation, loop mode, positional or flat, alternate takes).
-## Music / SFX / UI / Ambience buses carry independent, persisted volumes;
+## Music / SFX / UI / Ambience buses (and Master over them) carry independent,
+## persisted volumes;
 ## positional cues play on a pooled AudioStreamPlayer3D with a voice limit
 ## (combat warnings keep their voices), flat cues on a pooled AudioStreamPlayer.
 
@@ -31,7 +32,8 @@ const MAX_FLAT_VOICES := 22
 const FLAT_REPEAT_MSEC := 80
 
 var library: Dictionary = {}
-var volumes := {"Music": 0.7, "SFX": 1.0, "UI": 0.9, "Ambience": 0.8}
+## "Master" is the Master bus (the settings' overall volume).
+var volumes := {"Master": 1.0, "Music": 0.7, "SFX": 1.0, "UI": 0.9, "Ambience": 0.8}
 
 var _spatial_pool: Array[AudioStreamPlayer3D] = []
 var _flat_pool: Array[AudioStreamPlayer] = []
@@ -79,7 +81,7 @@ func _apply_volumes() -> void:
 	for bus_name: String in volumes:
 		_set_bus_volume_linear(bus_name, float(volumes[bus_name]))
 
-## Independent music / SFX / UI / ambience volume, 0..1, saved.
+## Independent master / music / SFX / UI / ambience volume, 0..1, saved.
 func set_volume(bus_name: String, linear: float) -> void:
 	if not volumes.has(bus_name):
 		return

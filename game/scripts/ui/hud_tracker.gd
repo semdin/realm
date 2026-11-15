@@ -50,7 +50,7 @@ func _ready() -> void:
 	_more = Button.new()
 	_more.flat = true
 	_more.focus_mode = Control.FOCUS_NONE
-	_more.text = tr("More quests (J)")
+	_more.text = tr("More quests (%s)") % GameSettings.key_name("quest_log")
 	_more.add_theme_font_override("font", HudKit.bold())
 	_more.add_theme_font_size_override("font_size", 13)
 	_more.add_theme_color_override("font_color", HudKit.GOLD_LT)
@@ -182,4 +182,4 @@ func refresh() -> void:
 		_set_row(row, I18n.t(String(q.get("title", ""))), quests.objective_text(q))
 		row.tooltip_text = tr("Click to claim the reward") if quests.is_ready(id) else tr("Click to read the quest scroll")
 	_more.visible = entries.size() > MAX_ROWS
-	_more.text = tr("More quests (%d)  ·  J") % (entries.size() - MAX_ROWS)
+	_more.text = tr("More quests (%d)  ·  %s") % [entries.size() - MAX_ROWS, GameSettings.key_name("quest_log")]

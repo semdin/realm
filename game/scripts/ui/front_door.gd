@@ -19,6 +19,12 @@ signal entering_world(map: String)
 ## text), read once by the next front door.
 static var return_kind := ""
 static var return_detail := ""
+## The Esc menu's Change character left the world: main.gd shows the front
+## door even for a dev join (`--character`), and `to_characters` (the player
+## came in through the login card, its token still held) opens the character
+## screen instead of the card. Both are read once.
+static var wanted := false
+static var to_characters := false
 
 var api: LoginApi
 var login: LoginScreen
@@ -29,9 +35,13 @@ func setup(login_url: String) -> void:
 	name = "FrontDoor"
 	api = LoginApi.new(login_url)
 	add_child(api)
+	var characters := to_characters and api.signed_in()
+	wanted = false
+	to_characters = false
 	# a session from before (the world sent the player back) ends here: the
-	# card asks for the password again
-	if api.signed_in():
+	# card asks for the password again - unless the player chose to change
+	# character, who goes straight back to the character screen
+	if api.signed_in() and not characters:
 		api.logout()
 	_login_layer = CanvasLayer.new()
 	_login_layer.name = "LoginLayer"
@@ -41,6 +51,9 @@ func setup(login_url: String) -> void:
 	login.setup(api)
 	_login_layer.add_child(login)
 	login.signed_in.connect(_show_select)
+	if characters:
+		_show_select()
+		return
 	if return_kind != "":
 		login.show_return_notice.call_deferred(return_kind, return_detail)
 		return_kind = ""

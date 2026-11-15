@@ -216,7 +216,8 @@ static func _banner(overlay: Control, level: int) -> void:
 	var flash := ColorRect.new()
 	flash.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	flash.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	flash.color = Color(1.0, 0.8, 0.35, 0.16)
+	# the screen flash follows the player's Screen flash setting (0 = none)
+	flash.color = Color(1.0, 0.8, 0.35, 0.16 * GameSettings.flash_value())
 	var flash_material := CanvasItemMaterial.new()
 	flash_material.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	flash.material = flash_material

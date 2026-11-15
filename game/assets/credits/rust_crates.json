@@ -1,0 +1,874 @@
+[
+ {
+  "name": "approx",
+  "version": "0.5.1",
+  "licence": "Apache-2.0",
+  "authors": [
+   "Brendan Zabarauskas"
+  ]
+ },
+ {
+  "name": "arrayvec",
+  "version": "0.7.8",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "bluss"
+  ]
+ },
+ {
+  "name": "bitflags",
+  "version": "2.13.2",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "block-buffer",
+  "version": "0.12.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "bytemuck",
+  "version": "1.25.2",
+  "licence": "Zlib OR Apache-2.0 OR MIT",
+  "authors": [
+   "Lokathor"
+  ]
+ },
+ {
+  "name": "byteorder",
+  "version": "1.5.0",
+  "licence": "Unlicense OR MIT",
+  "authors": [
+   "Andrew Gallant"
+  ]
+ },
+ {
+  "name": "bytes",
+  "version": "1.12.1",
+  "licence": "MIT",
+  "authors": [
+   "Carl Lerche",
+   "Sean McArthur"
+  ]
+ },
+ {
+  "name": "cfg-if",
+  "version": "1.0.5",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Alex Crichton"
+  ]
+ },
+ {
+  "name": "chacha20",
+  "version": "0.10.2",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "cobs",
+  "version": "0.3.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Allen Welkie",
+   "James Munns"
+  ]
+ },
+ {
+  "name": "const-oid",
+  "version": "0.10.3",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "cpufeatures",
+  "version": "0.3.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "crypto-common",
+  "version": "0.2.2",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "curve25519-dalek",
+  "version": "5.0.0",
+  "licence": "BSD-3-Clause",
+  "authors": [
+   "Isis Lovecruft",
+   "Henry de Valence"
+  ]
+ },
+ {
+  "name": "curve25519-dalek-derive",
+  "version": "0.1.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "digest",
+  "version": "0.11.3",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "downcast-rs",
+  "version": "2.0.2",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "ed25519",
+  "version": "3.0.0",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "ed25519-dalek",
+  "version": "3.0.0",
+  "licence": "BSD-3-Clause",
+  "authors": [
+   "isis lovecruft",
+   "Tony Arcieri",
+   "Michael Rosenberg"
+  ]
+ },
+ {
+  "name": "either",
+  "version": "1.19.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "ena",
+  "version": "0.14.4",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Niko Matsakis"
+  ]
+ },
+ {
+  "name": "equivalent",
+  "version": "1.0.3",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": []
+ },
+ {
+  "name": "foldhash",
+  "version": "0.2.0",
+  "licence": "Zlib",
+  "authors": [
+   "Orson Peters"
+  ]
+ },
+ {
+  "name": "getrandom",
+  "version": "0.2.17",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rand Project Developers"
+  ]
+ },
+ {
+  "name": "getrandom",
+  "version": "0.4.3",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rand Project Developers"
+  ]
+ },
+ {
+  "name": "glam",
+  "version": "0.32.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Cameron Hart"
+  ]
+ },
+ {
+  "name": "glam",
+  "version": "0.33.12",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "glamx",
+  "version": "0.3.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Sébastien Crozet"
+  ]
+ },
+ {
+  "name": "godot",
+  "version": "0.5.5",
+  "licence": "MPL-2.0",
+  "authors": [
+   "Bromeon",
+   "godot-rust contributors"
+  ]
+ },
+ {
+  "name": "godot-cell",
+  "version": "0.5.5",
+  "licence": "MPL-2.0",
+  "authors": []
+ },
+ {
+  "name": "godot-core",
+  "version": "0.5.5",
+  "licence": "MPL-2.0",
+  "authors": []
+ },
+ {
+  "name": "godot-ffi",
+  "version": "0.5.5",
+  "licence": "MPL-2.0",
+  "authors": []
+ },
+ {
+  "name": "godot-macros",
+  "version": "0.5.5",
+  "licence": "MPL-2.0",
+  "authors": []
+ },
+ {
+  "name": "hash32",
+  "version": "0.2.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Jorge Aparicio"
+  ]
+ },
+ {
+  "name": "hash32",
+  "version": "0.3.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Jorge Aparicio"
+  ]
+ },
+ {
+  "name": "hashbrown",
+  "version": "0.17.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "heapless",
+  "version": "0.7.17",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Jorge Aparicio",
+   "Per Lindgren",
+   "Emil Fresk"
+  ]
+ },
+ {
+  "name": "heapless",
+  "version": "0.8.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Jorge Aparicio",
+   "Per Lindgren",
+   "Emil Fresk"
+  ]
+ },
+ {
+  "name": "hybrid-array",
+  "version": "0.4.15",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "indexmap",
+  "version": "2.14.2",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": []
+ },
+ {
+  "name": "itoa",
+  "version": "1.0.19",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "libc",
+  "version": "0.2.191",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "libm",
+  "version": "0.2.16",
+  "licence": "MIT",
+  "authors": [
+   "Alex Crichton",
+   "Amanieu d'Antras",
+   "Jorge Aparicio",
+   "Trevor Gross"
+  ]
+ },
+ {
+  "name": "lock_api",
+  "version": "0.4.14",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Amanieu d'Antras"
+  ]
+ },
+ {
+  "name": "log",
+  "version": "0.4.35",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "lru-slab",
+  "version": "0.1.3",
+  "licence": "MIT OR Apache-2.0 OR Zlib",
+  "authors": [
+   "Benjamin Saunders"
+  ]
+ },
+ {
+  "name": "memchr",
+  "version": "2.8.3",
+  "licence": "Unlicense OR MIT",
+  "authors": [
+   "Andrew Gallant",
+   "bluss"
+  ]
+ },
+ {
+  "name": "mio",
+  "version": "1.2.4",
+  "licence": "MIT",
+  "authors": [
+   "Carl Lerche",
+   "Thomas de Zeeuw",
+   "Tokio Contributors"
+  ]
+ },
+ {
+  "name": "num-complex",
+  "version": "0.4.6",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "num-derive",
+  "version": "0.5.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "num-traits",
+  "version": "0.2.19",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "once_cell",
+  "version": "1.21.4",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Aleksey Kladov"
+  ]
+ },
+ {
+  "name": "ordered-float",
+  "version": "5.5.1",
+  "licence": "MIT",
+  "authors": [
+   "Jonathan Reem",
+   "Matt Brubeck"
+  ]
+ },
+ {
+  "name": "parry3d",
+  "version": "0.31.1",
+  "licence": "Apache-2.0",
+  "authors": [
+   "Sébastien Crozet"
+  ]
+ },
+ {
+  "name": "pin-project-lite",
+  "version": "0.2.17",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": []
+ },
+ {
+  "name": "postcard",
+  "version": "1.1.3",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "James Munns"
+  ]
+ },
+ {
+  "name": "proc-macro2",
+  "version": "1.0.107",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay",
+   "Alex Crichton"
+  ]
+ },
+ {
+  "name": "quinn",
+  "version": "0.11.12",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "quinn-proto",
+  "version": "0.11.19",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "quinn-udp",
+  "version": "0.5.16",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "quote",
+  "version": "1.0.47",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "rand",
+  "version": "0.10.3",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rand Project Developers",
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "rand_core",
+  "version": "0.10.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rand Project Developers"
+  ]
+ },
+ {
+  "name": "rand_pcg",
+  "version": "0.10.2",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Rand Project Developers"
+  ]
+ },
+ {
+  "name": "ring",
+  "version": "0.17.14",
+  "licence": "Apache-2.0 AND ISC",
+  "authors": []
+ },
+ {
+  "name": "rstar",
+  "version": "0.13.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Stefan Altmayer",
+   "The Georust Developers"
+  ]
+ },
+ {
+  "name": "rustc-hash",
+  "version": "2.1.3",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": [
+   "The Rust Project Developers"
+  ]
+ },
+ {
+  "name": "rustls",
+  "version": "0.23.46",
+  "licence": "Apache-2.0 OR ISC OR MIT",
+  "authors": []
+ },
+ {
+  "name": "rustls-pki-types",
+  "version": "1.16.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "rustls-webpki",
+  "version": "0.103.17",
+  "licence": "ISC",
+  "authors": []
+ },
+ {
+  "name": "safe_arch",
+  "version": "1.2.0",
+  "licence": "Zlib OR Apache-2.0 OR MIT",
+  "authors": [
+   "Lokathor"
+  ]
+ },
+ {
+  "name": "scopeguard",
+  "version": "1.2.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "bluss"
+  ]
+ },
+ {
+  "name": "serde",
+  "version": "1.0.229",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Erick Tryzelaar",
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "serde_core",
+  "version": "1.0.229",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Erick Tryzelaar",
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "serde_derive",
+  "version": "1.0.229",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Erick Tryzelaar",
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "serde_json",
+  "version": "1.0.154",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "serde_spanned",
+  "version": "1.1.3",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "sha2",
+  "version": "0.11.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "signature",
+  "version": "3.0.0",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": [
+   "RustCrypto Developers"
+  ]
+ },
+ {
+  "name": "simba",
+  "version": "0.10.2",
+  "licence": "Apache-2.0",
+  "authors": [
+   "sebcrozet"
+  ]
+ },
+ {
+  "name": "slab",
+  "version": "0.4.12",
+  "licence": "MIT",
+  "authors": [
+   "Carl Lerche"
+  ]
+ },
+ {
+  "name": "smallvec",
+  "version": "1.16.5",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "The Servo Project Developers"
+  ]
+ },
+ {
+  "name": "socket2",
+  "version": "0.6.5",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Alex Crichton",
+   "Thomas de Zeeuw"
+  ]
+ },
+ {
+  "name": "spin",
+  "version": "0.9.9",
+  "licence": "MIT",
+  "authors": [
+   "Mathijs van de Nes",
+   "John Ericson",
+   "Joshua Barretto"
+  ]
+ },
+ {
+  "name": "stable_deref_trait",
+  "version": "1.2.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Robert Grosse"
+  ]
+ },
+ {
+  "name": "static_assertions",
+  "version": "1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "Nikolai Vazquez"
+  ]
+ },
+ {
+  "name": "subtle",
+  "version": "2.6.1",
+  "licence": "BSD-3-Clause",
+  "authors": [
+   "Isis Lovecruft",
+   "Henry de Valence"
+  ]
+ },
+ {
+  "name": "syn",
+  "version": "2.0.119",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "syn",
+  "version": "3.0.10",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "thiserror",
+  "version": "2.0.21",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "thiserror-impl",
+  "version": "2.0.21",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "tinyvec",
+  "version": "1.13.3",
+  "licence": "Zlib OR Apache-2.0 OR MIT",
+  "authors": [
+   "Lokathor"
+  ]
+ },
+ {
+  "name": "tokio",
+  "version": "1.54.1",
+  "licence": "MIT",
+  "authors": [
+   "Tokio Contributors"
+  ]
+ },
+ {
+  "name": "tokio-macros",
+  "version": "2.7.2",
+  "licence": "MIT",
+  "authors": [
+   "Tokio Contributors"
+  ]
+ },
+ {
+  "name": "toml",
+  "version": "1.2.1+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "toml_datetime",
+  "version": "1.1.3+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "toml_parser",
+  "version": "1.1.5+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "toml_writer",
+  "version": "1.2.0+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "tracing",
+  "version": "0.1.44",
+  "licence": "MIT",
+  "authors": [
+   "Eliza Weisman",
+   "Tokio Contributors"
+  ]
+ },
+ {
+  "name": "tracing-core",
+  "version": "0.1.36",
+  "licence": "MIT",
+  "authors": [
+   "Tokio Contributors"
+  ]
+ },
+ {
+  "name": "typenum",
+  "version": "1.20.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "unicode-ident",
+  "version": "1.0.27",
+  "licence": "(MIT OR Apache-2.0) AND Unicode-3.0",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "untrusted",
+  "version": "0.9.0",
+  "licence": "ISC",
+  "authors": [
+   "Brian Smith"
+  ]
+ },
+ {
+  "name": "venial",
+  "version": "0.6.1",
+  "licence": "MIT",
+  "authors": [
+   "Olivier Faure"
+  ]
+ },
+ {
+  "name": "wide",
+  "version": "1.7.1",
+  "licence": "Zlib OR Apache-2.0 OR MIT",
+  "authors": [
+   "Lokathor"
+  ]
+ },
+ {
+  "name": "windows-link",
+  "version": "0.2.1",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "windows-sys",
+  "version": "0.61.2",
+  "licence": "MIT OR Apache-2.0",
+  "authors": []
+ },
+ {
+  "name": "winnow",
+  "version": "1.0.5",
+  "licence": "MIT",
+  "authors": []
+ },
+ {
+  "name": "zeroize",
+  "version": "1.9.1",
+  "licence": "Apache-2.0 OR MIT",
+  "authors": [
+   "The RustCrypto Project Developers"
+  ]
+ },
+ {
+  "name": "zmij",
+  "version": "1.0.23",
+  "licence": "MIT",
+  "authors": [
+   "David Tolnay"
+  ]
+ },
+ {
+  "name": "zstd",
+  "version": "0.14.4",
+  "licence": "BSD-3-Clause",
+  "authors": [
+   "Alexandre Bury"
+  ]
+ },
+ {
+  "name": "zstd-safe",
+  "version": "8.3.0",
+  "licence": "BSD-3-Clause",
+  "authors": [
+   "Alexandre Bury"
+  ]
+ },
+ {
+  "name": "zstd-sys",
+  "version": "2.1.3+zstd.1.5.7",
+  "licence": "BSD-3-Clause AND BSD-2-Clause",
+  "authors": [
+   "Alexandre Bury"
+  ]
+ }
+]

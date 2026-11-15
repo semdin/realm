@@ -51,7 +51,7 @@ func _ready() -> void:
 	_empty = HudKit.label(tr("No open quests. Level up to unlock more."), 15, HudKit.TEXT_DIM, HudKit.body(), 0)
 	_empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	body.add_child(_empty)
-	var hint := HudKit.label(tr("Click a card to read it  ·  finished quests pay when you claim them  ·  J / Esc: close"), 13, HudKit.TEXT_DIM, HudKit.body(), 0)
+	var hint := HudKit.label(tr("Click a card to read it  ·  finished quests pay when you claim them  ·  %s / Esc: close") % GameSettings.key_name("quest_log"), 13, HudKit.TEXT_DIM, HudKit.body(), 0)
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(hint)

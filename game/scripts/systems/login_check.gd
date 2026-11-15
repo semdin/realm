@@ -13,8 +13,13 @@ extends Node
 ##                   dais (capture); Enter World
 ##   world           the scene rebuilt for the ticket's map: the session's
 ##                   sheet carries the chosen name, house and look; the
-##                   character in the world (capture); the end screen (as for
-##                   a lost connection) and its Return to Login
+##                   character in the world (capture)
+##   change          the Esc menu's Change character: its countdown, then the
+##                   character screen again without the card (the token is
+##                   still held) and the same roster (capture); Enter World
+##                   joins again (the server released the character when the
+##                   connection closed); the end screen (as for a lost
+##                   connection) and its Return to Login
 ##   second account  the card says the connection was lost; another fresh
 ##                   account tries the same name in another
 ##                   case; the create card shows the service's refusal,
@@ -28,7 +33,8 @@ const TOTAL_TIMEOUT := 240.0
 const STEP_TIMEOUT := 40.0
 const TAKEN := "Character name already taken."
 const WANTED := ["login_card", "registered", "empty_roster", "create_card", "look_edited", "created", "podium",
-	"world_joined", "world_name", "world_house", "world_look", "world_drawn", "end_screen", "back_at_card",
+	"world_joined", "world_name", "world_house", "world_look", "world_drawn", "back_at_select", "rejoined",
+	"end_screen", "back_at_card",
 	"second_registered", "name_taken"]
 const CAPTURES := 6
 
@@ -107,10 +113,14 @@ func _run() -> void:
 				await _first_account()
 			"second":
 				await _second_account()
+			"change":
+				await _back_at_select()
 			_:
 				_fail("the login card came back at step %s" % _s["step"])
 	elif String(_s["step"]) == "world":
 		await _in_world()
+	elif String(_s["step"]) == "world2":
+		await _in_world_again()
 	else:
 		_fail("the world came up at step %s" % _s["step"])
 
@@ -235,6 +245,45 @@ func _in_world() -> void:
 	await _frames(90)
 	_seen("world_drawn")
 	await _capture("world")
+	# the Esc menu's Change character: the scene is rebuilt to the
+	# character screen when its countdown runs out
+	_go("change")
+	var menu: HudGameMenu = game.game_menu
+	menu.open()
+	(menu.buttons["character"] as Button).pressed.emit()
+	get_tree().create_timer(20.0).timeout.connect(_change_timeout.bind(menu))
+
+func _change_timeout(menu: HudGameMenu) -> void:
+	_fail("Change character did not leave the world (%s)" % menu.note.text)
+
+## Back from the world by Change character: the character screen with the
+## same roster, no card; then into the world again.
+func _back_at_select() -> void:
+	var door: FrontDoor = game.front_door
+	if not await _until(func(): return door.select != null and door.select.roster_loaded, 15.0):
+		_fail("Change character did not open the character screen (card shown: %s)" % door.login_visible())
+		return
+	var select := door.select
+	if door.login_visible() or select.characters.size() != 1 			or String(select.characters[0].get("name", "")) != String(_s["name"]):
+		_fail("the character screen after Change character shows %s" % [select.characters])
+		return
+	_seen("back_at_select", select.name_label.text)
+	await _frames(40)
+	await _capture("select_again")
+	_go("world2")
+	select.enter_btn.pressed.emit()
+	get_tree().create_timer(20.0).timeout.connect(_enter_timeout.bind(select))
+
+func _in_world_again() -> void:
+	var session: Node = game.session
+	if not await _until(func(): return session.status() == "joined" and not (session.sheet() as Dictionary).is_empty()):
+		_fail("the world did not take the second ticket: %s" % session.status())
+		return
+	_seen("rejoined", (session.sheet() as Dictionary).get("name", ""))
+	if not await _until(func(): return game.built and not MapLoadingScreen.shared(get_tree()).is_open(), 60.0):
+		_fail("the map was never drawn the second time")
+		return
+	await _frames(30)
 	_go("second")
 	# the end screen a closed connection shows, and its button: through the
 	# front door it says Return to Login and goes back to the card
