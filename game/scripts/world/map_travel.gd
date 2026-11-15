@@ -118,7 +118,7 @@ func begin_arrival() -> void:
 func on_map_built() -> void:
 	nodes = TravelNodes.new()
 	game.add_child(nodes)
-	nodes.build(map_name, _floor_under)
+	nodes.build(map_name, floor_on.bind(game.get("map_view") as Node, game.session))
 	if arrived_by_trip:
 		MapLoadingScreen.shared(get_tree()).set_progress(85.0, tr("Almost there…"))
 		if ShaderWarmup.wanted():
@@ -141,16 +141,37 @@ func _warm_then_settle() -> void:
 ## The lowest surface under (x, z): the terrain, not a roof over it (a
 ## hearth stands under the Hearth Pavilion's roof). A ray from the sky steps
 ## down past every surface it meets.
-func _floor_under(x: float, z: float) -> Vector3:
-	var from := Vector3(x, 1500.0, z)
+## The ground a travel object authored at y 0 stands on (TravelNodes.point):
+## the map view's drawn ground (`height_at`: the grounds' Terrain3D, the very
+## heights of the pack's terrain grid) under (x, z). Not RealmSession.pick:
+## its line test walks a height grid in 1 m steps and answers the last step
+## above the terrain (up to 1 m high), and from a point under the terrain it
+## answers that point, so stepping down from hit to hit (as this did, to look
+## under the Hearth Pavilion's roof) sank the hearths and the Orvell hatch
+## 1.1-2.1 m into the ground. Without a drawn ground (headless, the
+## placeholder world): the lowest surface picks from the sky meet, stepping
+## down from hit to hit; a pick that answers its own start is inside a solid
+## or under the terrain, and three metres of those end the search.
+static func floor_on(x: float, z: float, view: Node, session: Node) -> Vector3:
+	if view != null and is_instance_valid(view) and view.has_method("height_at"):
+		var h: float = view.call("height_at", x, z)
+		if not is_nan(h):
+			return Vector3(x, h, z)
 	var lowest := Vector3(x, 0.0, z)
-	for attempt in 8:
-		var hit: Dictionary = game.session.pick(from, Vector3.DOWN, from.y + 200.0)
-		if hit.is_empty():
+	if session == null:
+		return lowest
+	var from := Vector3(x, 1500.0, z)
+	var blind := 0
+	for attempt in 64:
+		var hit: Dictionary = session.pick(from, Vector3.DOWN, from.y + 200.0)
+		if hit.is_empty() or blind >= 10:
 			break
 		var point: Vector3 = hit["point"]
-		if int(hit["entity"]) == 0:
+		if int(hit["entity"]) == 0 and from.y - point.y > 0.01:
 			lowest = point
+			blind = 0
+		else:
+			blind += 1
 		from = point - Vector3(0, 0.3, 0)
 	return lowest
 

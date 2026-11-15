@@ -43,6 +43,8 @@ const AVENUE_END_Z := 8.0
 ## (_ground_cover).
 const COVER_LIFT := {"flag": 0.035, "rosette": 0.04, "kerb": 0.07, "lawn": 0.025, "path": 0.035, "bed": 0.035}
 const COVER_STEP := 0.75
+## The house pillars' footing (square, m).
+const PILLAR_FOOT := 1.9
 
 
 static func build(world: Node3D) -> Node3D:
@@ -238,13 +240,21 @@ static func _balustrade(kit: ArchKit, c: Vector3) -> void:
 ## castle avenue, banners facing the fountain.
 static func _house_pillars(kit: ArchKit, c: Vector3) -> void:
 	var houses := ["cloth_red", "cloth_yellow", "cloth_blue", "cloth_green"]
-	var xs := [-16.0, -9.0, 9.0, 16.0]
+	var spots := _pillar_spots(c)
 	for i in 4:
-		var p := Layout.ground(c.x + xs[i], c.z - 22.0 + absf(xs[i]) * 0.2)
-		kit.box(p + Vector3(0, 0.3, 0), Vector3(1.9, 0.6, 1.9), 0.0, "trim")
+		var p: Vector3 = spots[i]
+		kit.box(p + Vector3(0, 0.3, 0), Vector3(PILLAR_FOOT, 0.6, PILLAR_FOOT), 0.0, "trim")
 		kit.box(p + Vector3(0, 3.0, 0), Vector3(1.4, 6.0, 1.4), 0.0, "stone")
 		kit.pyramid(p + Vector3(0, 6.0, 0), Vector2(1.7, 1.7), 0.8, 0.0, "trim", 0.05)
 		kit.box(p + Vector3(0, 4.0, 0.74), Vector3(1.2, 3.2, 0.06), 0.0, houses[i], false)
+
+
+## Where the four house pillars stand (their footing is PILLAR_FOOT square).
+static func _pillar_spots(c: Vector3) -> Array:
+	var out := []
+	for x in [-16.0, -9.0, 9.0, 16.0]:
+		out.append(Layout.ground(c.x + x, c.z - 22.0 + absf(x) * 0.2))
+	return out
 
 
 ## The large rooibos bushes, two in each lawn quarter.
@@ -264,6 +274,9 @@ static func _planting(root: Node3D, c: Vector3) -> void:
 	var r0 := 22.4
 	var r1 := 24.6
 	_bed_soil(root, c, r0, r1)
+	# the north beds run under two house pillars: no flower grows out of
+	# their footing (a gazania's leaves spread a metre)
+	var pillars := _pillar_spots(c)
 	for id in ["flower_gazania", "flower_ursinia", "flower_empodium"]:
 		var spots := []
 		for q in 4:
@@ -271,13 +284,22 @@ static func _planting(root: Node3D, c: Vector3) -> void:
 			for k in 90:
 				var a := a_mid + rng.randf_range(-0.42, 0.42)
 				var rr := rng.randf_range(r0 + 0.2, r1 - 0.2)
-				spots.append([Layout.ground(c.x + cos(a) * rr, c.z + sin(a) * rr) + Vector3.UP * COVER_LIFT["bed"], rng.randf() * TAU, rng.randf_range(0.8, 1.2)])
+				var spot := [Layout.ground(c.x + cos(a) * rr, c.z + sin(a) * rr) + Vector3.UP * COVER_LIFT["bed"], rng.randf() * TAU, rng.randf_range(0.8, 1.2)]
+				if not _by_pillar(pillars, spot[0], PILLAR_FOOT * 0.5 + 0.8):
+					spots.append(spot)
 		Mats.plant(root, "Bed_" + id, Mats.plant_meshes(id), spots, 70.0)
 	var bushes := []
 	for p in _bush_spots(c):
 		# the rooibos model is a 0.5 m bush: grown to a garden one
 		bushes.append([p, rng.randf() * TAU, rng.randf_range(2.6, 3.4)])
 	Mats.plant(root, "Bushes", Mats.plant_meshes("wild_rooibos_bush"), bushes, 140.0)
+
+
+static func _by_pillar(pillars: Array, at: Vector3, reach: float) -> bool:
+	for p: Vector3 in pillars:
+		if absf(at.x - p.x) < reach and absf(at.z - p.z) < reach:
+			return true
+	return false
 
 
 ## A soil strip in each lawn quarter between radii r0 and r1.

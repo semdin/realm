@@ -52,9 +52,10 @@
       "name": "Bessa Tull",
       "role": "Landlady of the Red Lantern",
       "map": "grounds",
+      "_pos": "In front of the Red Lantern's door, clear of its eaves and awning: at 684, -174 the first surface from the sky was the inn's roof edge (47 m, 9 m up), so she stood on the roof (2026-11-16).",
       "pos": [
-        684.0,
-        -174.0
+        683.0,
+        -171.5
       ],
       "robe": [
         0.5,

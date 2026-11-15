@@ -359,6 +359,11 @@ static func _is_small_plant(variant: String) -> bool:
 	return variant.begins_with("fern") or variant == "shrub"
 
 
-## The small stuff the preset's foliage density thins out.
+## The small stuff the preset's foliage density thins out: ferns and shrubs
+## only. Every mossy rock is an obstacle in the server's pack (map_solids.gd
+## boxes each one, world/patches/grounds.json), so a thinned-out rock was a
+## solid nobody could see (the low preset dropped half of them: 1206 bodies
+## stood on air, 2026-11-16). placement_check.gd checks every obstacle's
+## instance is planted on the preset.
 static func _is_thinned(variant: String) -> bool:
-	return _is_small_plant(variant) or variant.begins_with("rock_moss")
+	return _is_small_plant(variant)

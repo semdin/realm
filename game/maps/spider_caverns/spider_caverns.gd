@@ -63,6 +63,10 @@ var solids: Array = []
 ## Where the big stalagmite spires stand (the baked stalag mesh placed):
 ## map_solids.gd boxes them as obstacles.
 var spires: Array = []
+## A small crag (_crags) stands only where the ground within this reach of
+## it falls no more than this (m).
+const SMALL_CRAG_REACH := 1.2
+const SMALL_CRAG_DROP := 0.6
 
 var _layout: Dictionary = {}
 var _heights: PackedFloat32Array
@@ -178,6 +182,18 @@ func ground_y(x: float, z: float) -> float:
 func _on_ground(x: float, z: float) -> Vector3:
 	return Vector3(x, ground_y(x, z), z)
 
+## How far the ground falls within `reach` of `p` (highest less lowest of a
+## ring of samples and the centre).
+func _ground_drop(p: Vector2, reach: float) -> float:
+	var lo := ground_y(p.x, p.y)
+	var hi := lo
+	for k in 8:
+		var a := TAU * k / 8.0
+		var h := ground_y(p.x + cos(a) * reach, p.y + sin(a) * reach)
+		lo = minf(lo, h)
+		hi = maxf(hi, h)
+	return hi - lo
+
 # ---------------------------------------------------------------- dressing
 
 func _dress_room(room: Dictionary) -> void:
@@ -292,7 +308,12 @@ func _crags(center: Vector2, r: float, count: int) -> void:
 		xforms.append(spire)
 		spires.append(spire)
 		var q := p + Vector2(_rng.randf_range(-4.0, 4.0), _rng.randf_range(-4.0, 4.0))
-		xforms.append(_stand(q, _rng.randf() * TAU, _rng.randf_range(0.2, 0.35), 0.2, _rng.randf_range(0.0, 0.15)))
+		var small := _stand(q, _rng.randf() * TAU, _rng.randf_range(0.2, 0.35), 0.2, _rng.randf_range(0.0, 0.15))
+		# not on the rim's cliff: a clump set on the bilinear height half-way
+		# up a rock face hung in the air in front of it (placement_check.gd,
+		# 2026-11-16); the draws are made either way, so the rest stays put
+		if _ground_drop(q, SMALL_CRAG_REACH) <= SMALL_CRAG_DROP:
+			xforms.append(small)
 	_scatter("stalag", xforms, "Crags")
 
 ## Dew-beaded orb webs strung along the rim, facing the room's centre.

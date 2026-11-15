@@ -148,7 +148,7 @@ static func _orvell(parent: Node3D) -> void:
 	var root := kit.finish(parent, Mats.materials(), "OrvellVillage")
 	VillageKit.place(root, buildings, Mats.materials())
 	VillageKit.place_fences(root, fences, Mats.materials())
-	_gardens(root, gardens)
+	_gardens(root, _clear_gardens(gardens, buildings))
 	for i in 4:
 		var a := TAU * (i + 0.5) / 4.0
 		_lamp_post(root, Layout.ground(sq.x + cos(a) * 26.0, sq.z + sin(a) * 26.0))
@@ -175,6 +175,10 @@ const ROADS := ["castle_east", "orvell_station", "highlands_path"]
 ## Front garden: grass verge from the road edge to the fence, then the yard.
 const VERGE := 1.0
 const YARD := 3.5
+## How far a garden bush / flower keeps from its house and the crates before
+## its door (m: the bush's spread, a flower's leaves).
+const BUSH_CLEAR := 1.0
+const FLOWER_CLEAR := 0.6
 
 
 ## Kestrin's smithy: its centre (x, z) and turn, door to the square.
@@ -234,7 +238,8 @@ static func _road_houses(kit: ArchKit, centre: Vector2, placed: Array[Rect2], ou
 							if _clear_of(lamps, at, 1.2) and Layout.road_distance(at) > 0.6:
 								fences.append(VillageKit.found_fence(at, atan2(-dir.y, dir.x)))
 						x += 2.06
-					# a bush or two and a flower bed in the yard
+					# a bush or two and a flower bed in the yard (_clear_gardens
+					# keeps them off every building and its crates)
 					for j in rng.randi_range(1, 2):
 						var along := s + rng.randf_range(0.6, sz.x - 0.6)
 						if absf(along - (s + sz.x * 0.5)) < 1.4:
@@ -246,6 +251,24 @@ static func _road_houses(kit: ArchKit, centre: Vector2, placed: Array[Rect2], ou
 							continue
 						gardens.append(["flower", a + dir * along + nrm * side * (fence_line + 0.5), rng.randf() * TAU, rng.randf_range(0.9, 1.3)])
 					s += sz.x + gap
+
+
+## The garden spots clear of every building and the crates before its door
+## (VillageKit.covers): a yard's bush grew out of the next house's crates or
+## plinth (2026-11-16, placement_check.gd). Filtered after all the draws, so
+## everything else stays where it was.
+static func _clear_gardens(gardens: Array, buildings: Array) -> Array:
+	var out: Array = []
+	for g: Array in gardens:
+		var margin := BUSH_CLEAR if g[0] == "bush" else FLOWER_CLEAR
+		var clear := true
+		for b: Array in buildings:
+			if not b.is_empty() and VillageKit.covers(b[0], Vector2(b[1].x, b[1].z), b[2], g[1], margin):
+				clear = false
+				break
+		if clear:
+			out.append(g)
+	return out
 
 
 static func _clear_of(lamps: PackedFloat32Array, at: Vector2, r: float) -> bool:

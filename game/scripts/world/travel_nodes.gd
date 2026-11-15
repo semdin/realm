@@ -24,6 +24,16 @@ const KIND_FX := {
 const HEARTH_SCALE := 1.7
 ## The cabinet must read as a walk-in wardrobe beside a 1.8 m wizard.
 const CABINET_SCALE := 1.4
+## A node set on the ground (_seat): its plinth reaches this far past the
+## model's footprint all round and this far under the lowest ground; a
+## hearth's hearthstone rises this much over the highest and runs this far
+## out in front of the mouth; the ground is sampled on this grid.
+const SEAT_MARGIN := 0.25
+const PLINTH_SINK := 0.3
+const HEARTHSTONE := 0.12
+const HEARTH_APRON := 0.45
+const SEAT_GRID := 5
+const PLINTH_STONE := "res://assets/textures/pbr/castle_wall_varriation/castle_wall_varriation_%s_2k.jpg"
 
 ## node id -> Node3D (this map's only).
 var roots: Dictionary = {}
@@ -53,6 +63,8 @@ func build(map_id: String, ground: Callable) -> void:
 			root.add_child(body)
 		elif kind == "passage":
 			_passage_mark(root)
+		if _on_ground(data) and ground.is_valid():
+			_seat(root, ground, kind)
 		if kind == "hearthway":
 			_hearth_fire(root)
 		elif kind == "cabinet":
@@ -66,6 +78,74 @@ static func point(data: Dictionary, ground: Callable) -> Vector3:
 	if is_zero_approx(at.y) and ground.is_valid():
 		at = ground.call(at.x, at.z)
 	return at
+
+static func _on_ground(data: Dictionary) -> bool:
+	var raw: Array = data.get("pos", [0.0, 0.0, 0.0])
+	return is_zero_approx(float(raw[1]))
+
+## A node set on the ground (authored at y 0) stands level on the highest
+## ground under its footprint (and a hearth on its hearthstone over that),
+## and a stone plinth under it reaches PLINTH_SINK below the lowest: on a
+## slope no side is buried and none floats, and a hearth on a floor laid over
+## the terrain (the Hearth Pavilion's paving) stands on it, not in it. Only a
+## model with a footprint is seated (the passage mark is dust).
+func _seat(root: Node3D, ground: Callable, kind: String) -> void:
+	var box := _local_bounds(root)
+	if box.size.x <= 0.0 or box.size.z <= 0.0:
+		return
+	var lo := Vector2(box.position.x - SEAT_MARGIN, box.position.z - SEAT_MARGIN)
+	var hi := Vector2(box.end.x + SEAT_MARGIN, box.end.z + SEAT_MARGIN)
+	if kind == "hearthway":
+		hi.y += HEARTH_APRON
+	var top := -INF
+	var low := INF
+	for i in SEAT_GRID:
+		for j in SEAT_GRID:
+			var local := Vector3(lerpf(lo.x, hi.x, i / float(SEAT_GRID - 1)), 0.0, lerpf(lo.y, hi.y, j / float(SEAT_GRID - 1)))
+			var at := root.global_transform * local
+			var g: Vector3 = ground.call(at.x, at.z)
+			top = maxf(top, g.y)
+			low = minf(low, g.y)
+	var stone := HEARTHSTONE if kind == "hearthway" else 0.0
+	root.global_position.y = top + stone
+	var plinth := MeshInstance3D.new()
+	plinth.name = "Plinth"
+	var mesh := BoxMesh.new()
+	var depth := root.global_position.y - (low - PLINTH_SINK)
+	mesh.size = Vector3(hi.x - lo.x, depth, hi.y - lo.y)
+	plinth.mesh = mesh
+	plinth.position = Vector3((lo.x + hi.x) * 0.5, -depth * 0.5, (lo.y + hi.y) * 0.5)
+	plinth.material_override = _plinth_material()
+	root.add_child(plinth)
+
+## The model's bounds in `root`'s own space (its meshes; the effects have
+## none yet).
+static func _local_bounds(root: Node3D) -> AABB:
+	var box := AABB()
+	var first := true
+	var inv := root.global_transform.affine_inverse()
+	for mi: MeshInstance3D in root.find_children("*", "MeshInstance3D", true, false):
+		if mi.mesh == null:
+			continue
+		var b := (inv * mi.global_transform) * mi.get_aabb()
+		box = b if first else box.merge(b)
+		first = false
+	return box
+
+static var _stone: Material
+
+## The castle's grey wall stone, world-space (the plinths are all sizes).
+static func _plinth_material() -> Material:
+	if _stone == null:
+		var m := ShaderMaterial.new()
+		m.shader = load("res://assets/shaders/triplanar_pbr.gdshader")
+		m.set_shader_parameter("albedo_tex", load(PLINTH_STONE % "diff"))
+		m.set_shader_parameter("normal_tex", load(PLINTH_STONE % "nor_gl"))
+		m.set_shader_parameter("lite", true)
+		m.set_shader_parameter("tint", Color(0.78, 0.76, 0.74))
+		m.set_shader_parameter("world_scale", 1.0 / 1.6)
+		_stone = m
+	return _stone
 
 ## The travel object (any kind) the body at `pos` stands at, or "".
 func node_at(pos: Vector3) -> String:

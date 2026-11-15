@@ -1,6 +1,16 @@
 //! realm_worldc build <export_dir> <maps_dir> <content_dir>
 //! realm_worldc check <maps_dir> <content_dir>
 //! realm_worldc patch <maps_dir> <content_dir>
+//! realm_worldc dump <maps_dir> <map> <out.json>
+//!
+//! `dump` writes a pack's static colliders and obstacles as world-space
+//! triangles (JSON: `colliders` [{index, source "export" | "patch" |
+//! "obstacle", note (a patch box's), shape, min, max, vertices, indices}],
+//! `terrain` [{min_x, min_z, spacing_x, spacing_z, rows, cols, offset}]: the
+//! grids' heights in metres as float32 in `<out>.terrain.bin` from `offset`
+//! (bytes), NaN for a hole) for the client's placement check
+//! (game/maps/dng_common/placement_check.gd), which lays them against the
+//! drawn map.
 //!
 //! `patch` adds `<maps_dir>/../patches/<map>.json` collider boxes to built
 //! packs (patch.rs; `build` adds them too) and bakes their navmesh again.
@@ -52,6 +62,8 @@ fn main() -> ExitCode {
         [cmd, maps, content] if cmd == "check" => check(Path::new(maps), Path::new(content)),
         [cmd, maps, content] if cmd == "patch" => patch_packs(Path::new(maps), Path::new(content))
             .and_then(|()| check(Path::new(maps), Path::new(content))),
+        [cmd, maps, map, out] if cmd == "dump" => dump(Path::new(maps), map, Path::new(out)),
+        [cmd, maps, map, x, z] if cmd == "probe" => probe(Path::new(maps), map, x, z),
         _ => {
             eprintln!(
                 "usage:\n  realm_worldc build <export_dir> <maps_dir> <content_dir>\n  realm_worldc check <maps_dir> <content_dir>\n  realm_worldc patch <maps_dir> <content_dir>"
@@ -683,4 +695,132 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
             problems.join("\n  ")
         ))
     }
+}
+
+/// `dump`: the pack's static colliders and obstacles as world-space
+/// triangles, each with where it came from (the export, the patch file with
+/// its note, an obstacle box), for the client's placement check.
+fn dump(maps_dir: &Path, map: &str, out: &Path) -> Result<(), String> {
+    let pack = read_pack(&maps_dir.join(format!("{map}.realmmap")))?;
+    let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
+    let notes: Vec<(String, bool)> = std::fs::read_to_string(patches.join(format!("{map}.json")))
+        .ok()
+        .and_then(|t| serde_json::from_str::<Value>(&t).ok())
+        .map(|doc| {
+            doc["boxes"]
+                .as_array()
+                .into_iter()
+                .flatten()
+                .map(|b| {
+                    (
+                        b["note"].as_str().unwrap_or("").to_owned(),
+                        b["obstacle"].as_bool().unwrap_or(false),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    let (patch_notes, obstacle_notes): (Vec<_>, Vec<_>) = notes.into_iter().partition(|(_, o)| !o);
+    let first_patch = pack.colliders.len() - pack.patch_colliders as usize;
+    let mut list = Vec::new();
+    for (i, (c, m)) in pack
+        .colliders
+        .iter()
+        .chain(&pack.obstacles)
+        .zip(pack.collider_meshes())
+        .enumerate()
+    {
+        let (source, note) = if i >= pack.colliders.len() {
+            let k = i - pack.colliders.len();
+            (
+                "obstacle",
+                obstacle_notes.get(k).map_or("", |n| n.0.as_str()),
+            )
+        } else if i >= first_patch {
+            (
+                "patch",
+                patch_notes
+                    .get(i - first_patch)
+                    .map_or("", |n| n.0.as_str()),
+            )
+        } else {
+            ("export", "")
+        };
+        let shape = match c.shape {
+            PackShape::Box { .. } => "box",
+            PackShape::Sphere { .. } => "sphere",
+            PackShape::Capsule { .. } => "capsule",
+            PackShape::Cylinder { .. } => "cylinder",
+            PackShape::Convex { .. } => "convex",
+            PackShape::TriMesh { .. } => "trimesh",
+        };
+        list.push(serde_json::json!({
+            "index": i,
+            "source": source,
+            "note": note,
+            "shape": shape,
+            "min": m.min,
+            "max": m.max,
+            "vertices": m.vertices.iter().flatten().collect::<Vec<_>>(),
+            "indices": m.indices.iter().flatten().collect::<Vec<_>>(),
+        }));
+    }
+    let mut grids = Vec::new();
+    let mut bin: Vec<u8> = Vec::new();
+    for g in &pack.terrain {
+        grids.push(serde_json::json!({
+            "min_x": g.min_x, "min_z": g.min_z, "spacing_x": g.spacing_x, "spacing_z": g.spacing_z,
+            "rows": g.rows, "cols": g.cols, "offset": bin.len(),
+        }));
+        for &h in &g.heights {
+            let m = if h == HOLE {
+                f32::NAN
+            } else {
+                h as f32 / WIRE_GRID
+            };
+            bin.extend_from_slice(&m.to_le_bytes());
+        }
+    }
+    let terrain_path = PathBuf::from(format!("{}.terrain.bin", out.display()));
+    std::fs::write(&terrain_path, &bin).map_err(|e| format!("{}: {e}", terrain_path.display()))?;
+    let doc = serde_json::json!({ "map": map, "colliders": list, "terrain": grids });
+    std::fs::write(out, doc.to_string()).map_err(|e| format!("{}: {e}", out.display()))?;
+    println!(
+        "dump {map}: {} colliders ({} from the patch file), {} obstacles -> {}",
+        pack.colliders.len(),
+        pack.patch_colliders,
+        pack.obstacles.len(),
+        out.display()
+    );
+    Ok(())
+}
+
+/// `probe`: what the pack has under (x, z): the terrain, the highest surface
+/// (through obstacles and not), and what a client's vertical `pick` from the
+/// sky returns there (World::line_hit, the line test RealmSession.pick runs).
+fn probe(maps_dir: &Path, map: &str, x: &str, z: &str) -> Result<(), String> {
+    let x: f32 = x.parse().map_err(|_| "x")?;
+    let z: f32 = z.parse().map_err(|_| "z")?;
+    let pack = read_pack(&maps_dir.join(format!("{map}.realmmap")))?;
+    let world = pack.world().map_err(|e| format!("{map}: {e}"))?;
+    println!("terrain {:?}", world.terrain_at(x, z).map(|t| t.0));
+    let top = Vec3::new(x, 1500.0, z);
+    println!(
+        "ray_down {:?}",
+        world.ray_down(top, 3000.0).map(|h| h.point.y)
+    );
+    println!(
+        "ray_down_ground {:?}",
+        world.ray_down_ground(top, 3000.0).map(|h| h.point.y)
+    );
+    let mut from = top;
+    for attempt in 0..8 {
+        let reach = from.y + 200.0;
+        let end = from + Vec3::new(0.0, -reach, 0.0);
+        let t = world.line_hit(from, end).unwrap_or(1.0) * reach;
+        let point = from - Vec3::new(0.0, t, 0.0);
+        println!("pick {attempt} from {:.3} -> {:.3}", from.y, point.y);
+        from = point - Vec3::new(0.0, 0.3, 0.0);
+    }
+    Ok(())
 }

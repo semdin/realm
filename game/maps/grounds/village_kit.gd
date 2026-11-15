@@ -24,7 +24,12 @@ const REMAP := {
 	"MI_WoodTrim": "timber", "MI_WoodTrim_Wear": "wood", "MI_RoundTiles": "roof", "MI_MetalOrnaments": "metal",
 	"MI_WindowGlass": "glass",
 }
-const PLASTERS := ["plaster", "plaster_cream", "plaster_ochre", "plaster_rose", "plaster_sage"]
+## _footings: a collider hull whose foot is this low (model metres) stands on
+## the floor; its footing reaches this much (negative: past) inside the hull (the prop's own
+## faces overhang the hull a little: the footing reaches past it).
+const FOOTING_FOOT := 0.3
+const FOOTING_INSET := -0.03
+const PLASTERS :=["plaster", "plaster_cream", "plaster_ochre", "plaster_rose", "plaster_sage"]
 const ROOFS := ["roof", "roof", "roof_warm"]
 
 static var _manifest := {}
@@ -62,7 +67,70 @@ static func found(kit: ArchKit, id: String, c: Vector2, rot: float) -> Array:
 	var base := span.x - 1.0
 	var origin := Vector3(c.x, floor_y, c.y)
 	kit.box(Vector3(c.x, (base + floor_y) * 0.5, c.y), Vector3(sz.x + 0.6, floor_y - base, sz.y + 0.6), rot, "rubble")
+	_footings(kit, m, c, rot, floor_y, sz)
 	return [id, origin, rot]
+
+
+## Whether `at` (x, z) is within `margin` of building `id` founded at c turned
+## rot: its plinth, or a prop of it standing out in front (a low collider
+## hull: the shops' crates). Garden plants keep clear of it.
+static func covers(id: String, c: Vector2, rot: float, at: Vector2, margin: float) -> bool:
+	var m: Dictionary = manifest().get(id, {})
+	if m.is_empty():
+		return false
+	var local := Basis(Vector3.UP, rot).inverse() * Vector3(at.x - c.x, 0.0, at.y - c.y)
+	var half := size(id) * 0.5 + Vector2(0.3 + margin, 0.3 + margin)
+	if absf(local.x) < half.x and absf(local.z) < half.y:
+		return true
+	for hull: Variant in (m.get("colliders", {}) as Dictionary).get("hulls", []):
+		if not (hull is Array) or (hull as Array).is_empty():
+			continue
+		var lo := Vector3(INF, INF, INF)
+		var hi := Vector3(-INF, -INF, -INF)
+		for p: Array in hull:
+			var v := Vector3(float(p[0]), float(p[1]), float(p[2]))
+			lo = lo.min(v)
+			hi = hi.max(v)
+		if lo.y <= FOOTING_FOOT and local.x > lo.x - margin and local.x < hi.x + margin \
+				and local.z > lo.z - margin and local.z < hi.z + margin:
+			return true
+	return false
+
+
+## A building's props that stand on the ground outside its plinth (the crates
+## in front of the shops and the inn: their colliders' hulls whose foot is at
+## the floor) get a rubble footing each, from under the prop down to the
+## lowest ground beneath it: the floor is the highest ground under the plinth,
+## so on a falling street they floated up to 0.9 m over it (2026-11-16,
+## placement_check.gd). A footing is exactly the prop's own footprint, which
+## its collider already fills from the floor up: no body can stand where the
+## footing is, so it needs no collider of its own.
+static func _footings(kit: ArchKit, m: Dictionary, c: Vector2, rot: float, floor_y: float, sz: Vector2) -> void:
+	var basis := Basis(Vector3.UP, rot)
+	var half := sz * 0.5 + Vector2(0.3, 0.3)
+	for hull: Variant in (m.get("colliders", {}) as Dictionary).get("hulls", []):
+		if not (hull is Array) or (hull as Array).is_empty():
+			continue
+		var lo := Vector3(INF, INF, INF)
+		var hi := Vector3(-INF, -INF, -INF)
+		for p: Array in hull:
+			var v := Vector3(float(p[0]), float(p[1]), float(p[2]))
+			lo = lo.min(v)
+			hi = hi.max(v)
+		if lo.y > FOOTING_FOOT:
+			continue
+		# wholly on the plinth: it stands on it
+		if lo.x >= -half.x and hi.x <= half.x and lo.z >= -half.y and hi.z <= half.y:
+			continue
+		var mid := basis * Vector3((lo.x + hi.x) * 0.5, 0.0, (lo.z + hi.z) * 0.5)
+		var size := Vector2(hi.x - lo.x, hi.z - lo.z) - Vector2(FOOTING_INSET, FOOTING_INSET) * 2.0
+		var span := Layout.ground_span(Vector2(c.x + mid.x, c.y + mid.z), size, rot)
+		# the props are drawn on the floor (their hulls reach a little under it)
+		var top := floor_y + maxf(lo.y, 0.0)
+		var bottom := span.x - 0.3
+		if top - bottom <= 0.31:
+			continue
+		kit.box(Vector3(c.x + mid.x, (top + bottom) * 0.5, c.y + mid.z), Vector3(size.x, top - bottom, size.y), rot, "rubble")
 
 
 ## Instance the founded buildings under root, wearing `mats` (GroundsSites.materials()).

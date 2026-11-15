@@ -242,6 +242,11 @@ static func _chimneys(kit: ArchKit, h: Array, c: Vector3, size: Vector2, eave: f
 		kit.box(at + Vector3.UP * (y0 + 4.9), Vector3(2.0, 0.4, 1.6), 0.0, "stone", false)
 
 
+## The towers' base drum: the bevel at its top (m), within reach of the
+## collider's flat top.
+const WEATHERING := 0.15
+
+
 static func _tower(kit: ArchKit, t: Array, top: float) -> void:
 	var c := _w(t[1], t[2])
 	var r: float = t[3]
@@ -254,9 +259,12 @@ static func _tower(kit: ArchKit, t: Array, top: float) -> void:
 	# sloped weathering 4 m over the castle floor: the server's collider for it
 	# is that straight drum (the old world's cylinder took the batter's widest
 	# radius), and a battered face left a hand's breadth to half a metre of air
-	# where a body stopped short of the wall.
-	kit.cylinder(foot, r * 1.18, top - base + 3.2, "stone", 20)
-	kit.cylinder(Vector3(c.x, top + 3.2, c.z), r * 1.18, 0.8, "trim", 20, false, r * 1.02)
+	# where a body stopped short of the wall. The collider's top is flat at
+	# 4 m out to the drum's edge, so the weathering is a shallow bevel just
+	# under it (WEATHERING): the 0.8 m slope it was left a ring of air up to
+	# 0.8 m deep that a broom rider landed on (placement_check.gd, 2026-11-16).
+	kit.cylinder(foot, r * 1.18, top - base + 4.0 - WEATHERING, "stone", 20)
+	kit.cylinder(Vector3(c.x, top + 4.0 - WEATHERING, c.z), r * 1.18, WEATHERING, "trim", 20, false, r * 1.02)
 	kit.cylinder(Vector3(c.x, top + 4.0, c.z), r, h - 4.0, "stone", 20)
 	kit.cylinder(Vector3(c.x, top + h - 1.2, c.z), r * 1.14, 1.6, "trim", 20)
 	var n := int(r * 3.0)
