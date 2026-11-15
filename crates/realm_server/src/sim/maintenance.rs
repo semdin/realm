@@ -158,6 +158,10 @@ impl Sim {
 
     /// The store answered a save.
     pub(super) fn save_answered(&mut self, character: u64, revision: u64, ok: bool) {
+        self.stats.saves_done += 1;
+        if !ok {
+            self.stats.saves_failed += 1;
+        }
         if ok {
             if self
                 .unsaved

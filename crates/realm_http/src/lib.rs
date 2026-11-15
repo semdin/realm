@@ -1,7 +1,9 @@
 //! The smallest HTTP/1.1 the realm's services need: one JSON request per
-//! connection, size-capped and timed out by the caller, one JSON answer,
-//! then the connection closes. The coordinator's admin surface and the
-//! login service both speak it; neither keeps a connection alive.
+//! connection, size-capped and timed out by the caller, one answer (JSON;
+//! `respond_raw` for the few that are not, such as the coordinator's
+//! operator panel and its Prometheus text), then the connection closes. The
+//! coordinator's admin surface and the login service both speak it; neither
+//! keeps a connection alive.
 
 use std::collections::HashMap;
 
@@ -114,6 +116,26 @@ pub async fn read_request<S: AsyncRead + Unpin>(
 
 /// Writes the answer and closes the writing side.
 pub async fn respond<S: AsyncWrite + Unpin>(stream: &mut S, status: u16, body: &Value) {
+    respond_raw(
+        stream,
+        status,
+        "application/json",
+        &[],
+        body.to_string().as_bytes(),
+    )
+    .await;
+}
+
+/// Writes an answer that is not JSON (the operator panel's page, the
+/// Prometheus text) with its content type and any extra headers, and
+/// closes the writing side.
+pub async fn respond_raw<S: AsyncWrite + Unpin>(
+    stream: &mut S,
+    status: u16,
+    content_type: &str,
+    headers: &[(&str, &str)],
+    body: &[u8],
+) {
     let text = match status {
         200 => "OK",
         400 => "Bad Request",
@@ -128,13 +150,16 @@ pub async fn respond<S: AsyncWrite + Unpin>(stream: &mut S, status: u16, body: &
         504 => "Gateway Timeout",
         _ => "Error",
     };
-    let payload = body.to_string();
-    let head = format!(
-        "HTTP/1.1 {status} {text}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        payload.len()
+    let mut head = format!(
+        "HTTP/1.1 {status} {text}\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n",
+        body.len()
     );
+    for (name, value) in headers {
+        head.push_str(&format!("{name}: {value}\r\n"));
+    }
+    head.push_str("\r\n");
     let _ = stream.write_all(head.as_bytes()).await;
-    let _ = stream.write_all(payload.as_bytes()).await;
+    let _ = stream.write_all(body).await;
     let _ = stream.shutdown().await;
 }
 

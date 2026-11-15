@@ -379,6 +379,11 @@ pub struct Stats {
     /// Creature abilities wound up, and holds they put on players.
     pub telegraphs: u64,
     pub player_holds: u64,
+    /// Since start (never reset by the status window): saves handed to the
+    /// store, answered, and answered as not landed.
+    pub saves_queued: u64,
+    pub saves_done: u64,
+    pub saves_failed: u64,
 }
 
 struct PendingJoin {
@@ -711,6 +716,22 @@ impl Sim {
 
     pub fn player_count(&self) -> usize {
         self.clients.len()
+    }
+
+    /// Every replicated entity (players and creatures).
+    pub fn entity_count(&self) -> usize {
+        self.ids.len()
+    }
+
+    /// The map's name (as the coordinator knows it).
+    pub fn map_name(&self) -> &str {
+        &self.game.map
+    }
+
+    /// The status window's numbers to the coordinator (its metrics); dropped
+    /// while it is not linked.
+    pub fn send_stats(&self, stats: realm_proto::coord::MapStats) {
+        self.coord_send(realm_proto::coord::MapMsg::Stats(stats));
     }
 
     fn new_id(&mut self, entity: Entity) -> u32 {
@@ -1175,7 +1196,9 @@ impl Sim {
 
     fn save(&mut self, sheet: CharacterSheet) {
         self.unsaved.insert(sheet.id, sheet.clone());
-        let _ = self.store.send(StoreJob::Save(Box::new(sheet)));
+        if self.store.send(StoreJob::Save(Box::new(sheet))).is_ok() {
+            self.stats.saves_queued += 1;
+        }
     }
 
     fn send_control(&mut self, conn: ConnId, msg: &ServerMsg) {

@@ -333,6 +333,28 @@ jobs:
           kill $LOGIN $CASTLE $GROUNDS $COORD $PERSIST || true
           docker rm -f realm-pg
 
+      - name: Metrics and the operator panel
+        if: matrix.os == 'ubuntu-26.04'
+        # The coordinator's /panel (open), /admin/metrics (token) and its
+        # Prometheus text: the grounds' numbers arrive, a player joining
+        # shows, its save is counted by the persistence service.
+        run: |
+          docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7
+          for i in $(seq 1 30); do docker exec realm-pg pg_isready -U realm -d realm && break; sleep 1; done
+          export REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm
+          ./target/release/realm_persist --bind 127.0.0.1:7970 > persist_m.log 2>&1 &
+          PERSIST=$!
+          sleep 2
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_coord --admin 127.0.0.1:8094 --persist 127.0.0.1:7970 > coord_m.log 2>&1 &
+          COORD=$!
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --persist 127.0.0.1:7970 > server_m.log 2>&1 &
+          GROUNDS=$!
+          sleep 6
+          ./target/release/realm_netcheck --metrics --admin 127.0.0.1:8094 --token check-token --server 127.0.0.1:7777 --persist-addr 127.0.0.1:7970
+          kill $GROUNDS $COORD $PERSIST || true
+          docker rm -f realm-pg
+
       - name: Database backups and point-in-time restore
         if: matrix.os == 'ubuntu-26.04'
         # deploy/backup as installed: WAL archiving, a base backup, a restore

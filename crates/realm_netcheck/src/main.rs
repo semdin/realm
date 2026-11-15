@@ -11,6 +11,8 @@
 //! realm_netcheck --login --login-addr <addr> [--persist-addr <addr>]    (see login.rs)
 //! realm_netcheck --persist --persist-addr <addr> --server <grounds>     (see persist.rs)
 //! realm_netcheck --smoke --server <addr> [--map grounds]               (see smoke.rs)
+//! realm_netcheck --metrics --admin <addr> --token <t> --server <grounds> [--persist-addr <addr>]
+//!                                                                      (see metrics.rs)
 //!
 //! One player through the real client core, playing a scripted session
 //! (running, turning, jumping, strafing, stopping) at 30 Hz against a server,
@@ -25,6 +27,7 @@ mod ga;
 mod lair;
 mod login;
 mod maintenance;
+mod metrics;
 mod persist;
 mod smoke;
 mod social;
@@ -235,6 +238,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--login") {
         return login::run(&args);
+    }
+    if args.iter().any(|a| a == "--metrics") {
+        return metrics::run(&args);
     }
     if args.iter().any(|a| a == "--persist") {
         return persist::run(&args);

@@ -45,7 +45,7 @@ cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
 cargo run --release -p realm_coord                      # coordinator: chat, parties across maps (127.0.0.1:7900, keys/coord.key)
 cargo run --release -p realm_coord -- --boards build/boards.json   # the same, keeping the weekly dungeon boards across restarts
-REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_coord -- --admin 127.0.0.1:8082 --ga build/ga.json   # with the admin surface (maintenance, GA, maps) and the GA list
+REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_coord -- --admin 127.0.0.1:8082 --ga build/ga.json   # with the admin surface (maintenance, GA, maps, metrics, the operator panel /panel) and the GA list
 docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7   # local PostgreSQL
 REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm cargo run --release -p realm_persist   # persistence service on 127.0.0.1:7970 (map servers: --persist 127.0.0.1:7970)
 REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_login -- --characters build/characters   # login service on 127.0.0.1:7950 (the coordinator's admin surface on 127.0.0.1:8082)
@@ -58,6 +58,7 @@ cargo run --release -p realm_netcheck -- --duel         # two players on one map
 cargo run --release -p realm_netcheck -- --travel --characters build/travelcheck   # grounds (7777) + castle_interior (7778) with --coord and --characters build/travelcheck: doors both ways, hearths, broom, Waylink, a takeover; the sheet whole every time
 cargo run --release -p realm_netcheck -- --dungeon --characters build/dungeoncheck   # grounds (7777) + dng_trial (7779, --dev-dungeon-scale 0.05) with --coord and --characters build/dungeoncheck: gate, solo Normal run to a medal, rewards, chest, record, out
 cargo run --release -p realm_netcheck -- --dungeon --quick --characters build/dungeoncheck   # the same servers, ~30 s: gate, launch, countdown, first wave, second gate, out (while working on dungeons)
+cargo run --release -p realm_netcheck -- --metrics --admin 127.0.0.1:8082 --token <t> --server 127.0.0.1:7777 --persist-addr 127.0.0.1:7970   # the coordinator's metrics JSON, Prometheus text and /panel: the grounds' numbers, a join, its save counted (<1 min)
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
 cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data

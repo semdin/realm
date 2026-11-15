@@ -38,6 +38,35 @@ pub struct CharacterSummary {
     pub look: Vec<(String, f32)>,
 }
 
+/// The persistence service's numbers (`PersistMsg::Stats`), for the
+/// coordinator's metrics. Counts run since the service started; the save
+/// latencies are the commits of the last minute.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct PersistStats {
+    pub uptime_s: u64,
+    /// Callers linked right now (each map server, the login service, the
+    /// coordinator's two links: its changes and these numbers).
+    pub callers: u32,
+    pub loads: u64,
+    /// Saves committed.
+    pub saves: u64,
+    /// Saves refused because the stored revision was newer.
+    pub stale: u64,
+    /// Requests the store failed (not refusals such as stale or taken).
+    pub failures: u64,
+    /// Saves committed in the last minute and their latency there.
+    pub saves_last_minute: u32,
+    pub save_p50_ms: f32,
+    pub save_p99_ms: f32,
+    pub save_max_ms: f32,
+    /// `pg_database_size` of the realm's database.
+    pub database_bytes: u64,
+    pub characters: u64,
+    pub accounts: u64,
+    /// Why the database figures above are missing (empty: they are not).
+    pub database_error: String,
+}
+
 /// Caller -> persistence service.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PersistMsg {
@@ -83,6 +112,8 @@ pub enum PersistMsg {
     LoadGas { req: u64 },
     /// Make `name` a game admin or take it back -> `Done`.
     SetGa { req: u64, name: String, on: bool },
+    /// The service's numbers -> `Stats`.
+    Stats { req: u64 },
 }
 
 /// Persistence service -> caller.
@@ -135,6 +166,10 @@ pub enum PersistReply {
         req: u64,
         result: Result<Vec<String>, String>,
     },
+    Stats {
+        req: u64,
+        result: Result<PersistStats, String>,
+    },
 }
 
 impl PersistMsg {
@@ -152,7 +187,8 @@ impl PersistMsg {
             | Self::LoadBoards { req }
             | Self::SaveBoard { req, .. }
             | Self::LoadGas { req }
-            | Self::SetGa { req, .. } => *req,
+            | Self::SetGa { req, .. }
+            | Self::Stats { req } => *req,
         }
     }
 }
@@ -176,6 +212,7 @@ impl PersistReply {
             Self::Owner { result, .. } => of(result),
             Self::Boards { result, .. } => of(result),
             Self::Gas { result, .. } => of(result),
+            Self::Stats { result, .. } => of(result),
         }
     }
 
@@ -190,7 +227,8 @@ impl PersistReply {
             | Self::Created { req, .. }
             | Self::Owner { req, .. }
             | Self::Boards { req, .. }
-            | Self::Gas { req, .. } => *req,
+            | Self::Gas { req, .. }
+            | Self::Stats { req, .. } => *req,
         }
     }
 }

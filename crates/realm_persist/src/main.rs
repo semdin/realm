@@ -19,15 +19,23 @@
 //! whose revision is older than the stored one is refused ("stale"), as the
 //! file store did. A save is answered once it is committed, so a map
 //! releases a leaving character only when its save is really on disk.
+//!
+//! It counts what it does (loads, saves, stale saves, failures, the last
+//! minute's save latency) and answers `Stats` with those, its linked callers
+//! and the database's size and rows; the coordinator asks every 5 s for its
+//! metrics and operator panel.
 
+use std::collections::VecDeque;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::time::{Duration, Instant};
 
 use realm_proto::control::FrameReader;
 use realm_proto::coord::Board;
 use realm_proto::persist::{
-    AccountRow, CharacterSummary, PersistMsg, PersistReply, decode_msg, encode_reply,
+    AccountRow, CharacterSummary, PersistMsg, PersistReply, PersistStats, decode_msg, encode_reply,
 };
 use realm_rules::CharacterSheet;
 use realm_rules::names::name_key;
@@ -384,18 +392,163 @@ async fn set_ga(client: &Client, name: &str, on: bool) -> Result<(), String> {
     Ok(())
 }
 
-async fn answer(client: &mut Client, msg: PersistMsg) -> Option<PersistReply> {
+/// Save latencies are kept this long for the service's numbers.
+const LATENCY_WINDOW: Duration = Duration::from_secs(60);
+/// At most this many latencies are kept (a burst of saves cannot grow the
+/// window without bound).
+const LATENCY_MAX: usize = 100_000;
+
+/// What the service counted since it started (`PersistMsg::Stats`).
+struct Metrics {
+    started: Instant,
+    callers: AtomicU32,
+    loads: AtomicU64,
+    saves: AtomicU64,
+    stale: AtomicU64,
+    failures: AtomicU64,
+    /// When each committed save of the last minute landed and how long it
+    /// took (ms).
+    latencies: std::sync::Mutex<VecDeque<(Instant, f32)>>,
+}
+
+impl Metrics {
+    fn new() -> Self {
+        Self {
+            started: Instant::now(),
+            callers: AtomicU32::new(0),
+            loads: AtomicU64::new(0),
+            saves: AtomicU64::new(0),
+            stale: AtomicU64::new(0),
+            failures: AtomicU64::new(0),
+            latencies: std::sync::Mutex::new(VecDeque::new()),
+        }
+    }
+
+    fn saved(&self, took: Duration) {
+        self.saves.fetch_add(1, Ordering::Relaxed);
+        let now = Instant::now();
+        if let Ok(mut l) = self.latencies.lock() {
+            l.push_back((now, took.as_secs_f32() * 1000.0));
+            while l.len() > LATENCY_MAX
+                || l.front().is_some_and(|(at, _)| now - *at > LATENCY_WINDOW)
+            {
+                l.pop_front();
+            }
+        }
+    }
+
+    /// The counters and the last minute's save latencies; the database
+    /// figures are filled in by the caller.
+    fn snapshot(&self) -> PersistStats {
+        let now = Instant::now();
+        let mut ms: Vec<f32> = self.latencies.lock().map_or_else(
+            |_| Vec::new(),
+            |l| {
+                l.iter()
+                    .filter(|(at, _)| now - *at <= LATENCY_WINDOW)
+                    .map(|(_, ms)| *ms)
+                    .collect()
+            },
+        );
+        ms.sort_by(f32::total_cmp);
+        let pick = |q: f32| {
+            if ms.is_empty() {
+                0.0
+            } else {
+                ms[((ms.len() - 1) as f32 * q) as usize]
+            }
+        };
+        PersistStats {
+            uptime_s: self.started.elapsed().as_secs(),
+            callers: self.callers.load(Ordering::Relaxed),
+            loads: self.loads.load(Ordering::Relaxed),
+            saves: self.saves.load(Ordering::Relaxed),
+            stale: self.stale.load(Ordering::Relaxed),
+            failures: self.failures.load(Ordering::Relaxed),
+            saves_last_minute: ms.len() as u32,
+            save_p50_ms: pick(0.5),
+            save_p99_ms: pick(0.99),
+            save_max_ms: pick(1.0),
+            ..PersistStats::default()
+        }
+    }
+}
+
+/// A linked caller, counted while its stream is open.
+struct Caller<'a>(&'a Metrics);
+
+impl<'a> Caller<'a> {
+    fn new(metrics: &'a Metrics) -> Self {
+        metrics.callers.fetch_add(1, Ordering::Relaxed);
+        Self(metrics)
+    }
+}
+
+impl Drop for Caller<'_> {
+    fn drop(&mut self) {
+        self.0.callers.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
+/// The service's numbers with the database's size and rows; a database
+/// that does not answer leaves them 0 and says why.
+async fn stats(client: &Client, metrics: &Metrics) -> PersistStats {
+    let mut out = metrics.snapshot();
+    let row = client
+        .query_one(
+            "SELECT pg_database_size(current_database()),
+                    (SELECT count(*) FROM characters),
+                    (SELECT count(*) FROM accounts)",
+            &[],
+        )
+        .await;
+    let figures = row.and_then(|r| {
+        Ok((
+            r.try_get::<_, i64>(0)?,
+            r.try_get::<_, i64>(1)?,
+            r.try_get::<_, i64>(2)?,
+        ))
+    });
+    match figures {
+        Ok((size, characters, accounts)) => {
+            out.database_bytes = u64::try_from(size).unwrap_or(0);
+            out.characters = u64::try_from(characters).unwrap_or(0);
+            out.accounts = u64::try_from(accounts).unwrap_or(0);
+        }
+        Err(e) => {
+            metrics.failures.fetch_add(1, Ordering::Relaxed);
+            out.database_error = text(&e);
+        }
+    }
+    out
+}
+
+async fn answer(client: &mut Client, msg: PersistMsg, metrics: &Metrics) -> Option<PersistReply> {
     let reply = match msg {
         PersistMsg::Hello { .. } => return None,
-        PersistMsg::Load { req, character } => PersistReply::Loaded {
+        PersistMsg::Stats { req } => PersistReply::Stats {
             req,
-            result: load(client, character).await,
+            result: Ok(stats(client, metrics).await),
         },
+        PersistMsg::Load { req, character } => {
+            metrics.loads.fetch_add(1, Ordering::Relaxed);
+            PersistReply::Loaded {
+                req,
+                result: load(client, character).await,
+            }
+        }
         PersistMsg::Save { req, sheet } => {
             let (character, revision) = (sheet.id, sheet.revision);
+            let began = Instant::now();
             let (ok, error) = match save(client, &sheet).await {
-                Ok(true) => (true, String::new()),
-                Ok(false) => (false, "stale".to_owned()),
+                Ok(true) => {
+                    metrics.saved(began.elapsed());
+                    (true, String::new())
+                }
+                Ok(false) => {
+                    metrics.stale.fetch_add(1, Ordering::Relaxed);
+                    (false, "stale".to_owned())
+                }
                 Err(e) => (false, e),
             };
             PersistReply::Saved {
@@ -460,6 +613,7 @@ async fn answer(client: &mut Client, msg: PersistMsg) -> Option<PersistReply> {
     if let Some(e) = reply.error()
         && !matches!(e, "stale" | "taken" | "full")
     {
+        metrics.failures.fetch_add(1, Ordering::Relaxed);
         eprintln!("[persist] request {}: {e}", reply.req());
     }
     Some(reply)
@@ -470,6 +624,7 @@ async fn serve(
     from: SocketAddr,
     key: Arc<[u8; 32]>,
     url: Arc<String>,
+    metrics: Arc<Metrics>,
 ) -> AnyResult<()> {
     stream.set_nodelay(true)?;
     let mut reader = FrameReader::default();
@@ -492,10 +647,11 @@ async fn serve(
     // One database connection per caller: its requests run in order.
     let mut client = connect(&url).await?;
     println!("[persist] {from} linked");
+    let _caller = Caller::new(&metrics);
     loop {
         while let Some(frame) = reader.next_frame()? {
             let msg = decode_msg(&frame)?;
-            if let Some(reply) = answer(&mut client, msg).await {
+            if let Some(reply) = answer(&mut client, msg, &metrics).await {
                 stream.write_all(&encode_reply(&reply)).await?;
             }
         }
@@ -545,11 +701,12 @@ async fn main() -> AnyResult<()> {
     let listener = TcpListener::bind(o.bind).await?;
     println!("[persist] listening on {}", o.bind);
     let (key, url) = (Arc::new(key), Arc::new(url));
+    let metrics = Arc::new(Metrics::new());
     loop {
         let (stream, from) = listener.accept().await?;
-        let (key, url) = (key.clone(), url.clone());
+        let (key, url, metrics) = (key.clone(), url.clone(), metrics.clone());
         tokio::spawn(async move {
-            if let Err(e) = serve(stream, from, key, url).await {
+            if let Err(e) = serve(stream, from, key, url, metrics).await {
                 eprintln!("[persist] {from}: {e}");
             }
         });

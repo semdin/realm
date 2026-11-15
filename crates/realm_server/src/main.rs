@@ -9,7 +9,8 @@
 //!                      [--content content/data] [--maps world/maps]
 //!                      [--characters <dir> | --persist <addr>] [--coord <addr>] [--public <addr>]
 //!                      [--dev-spawn-near-packs | --dev-spawn-near <species>]
-//!       Runs one map at 30 Hz and prints a status line every 5 seconds. The
+//!       Runs one map at 30 Hz and prints a status line every 5 seconds
+//!       (its numbers also go to the coordinator's metrics when linked). The
 //!       dev options spawn players next to a creature pack (of one species).
 //!       `--characters` keeps character records as JSON files there,
 //!       `--persist` in the persistence service (realm_persist); without
@@ -458,6 +459,23 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
             0.0
         },
     );
+    // The same window to the coordinator, for its metrics and panel.
+    let numbers = realm_proto::coord::MapStats {
+        map: String::new(),
+        window_ms: window.as_millis().min(u128::from(u32::MAX)) as u32,
+        players: players as u32,
+        creatures: creatures as u32,
+        entities: 0,
+        tick_p50_ms: pick(0.5),
+        tick_p99_ms: pick(0.99),
+        tick_max_ms: pick(1.0),
+        late_ticks: late,
+        saves_in_flight: stats.saves_queued.saturating_sub(stats.saves_done) as u32,
+        saves_done: stats.saves_done,
+        saves_failed: stats.saves_failed,
+        bytes_out_per_s: (stats.bytes_out as f64 / seconds) as u64,
+        rss_bytes: rss_bytes(),
+    };
     stats.sections = [0.0; 5];
     stats.bytes_out = 0;
     stats.snapshots = 0;
@@ -478,4 +496,23 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
     stats.fallen = 0;
     stats.fell_at = None;
     stats.roamed = 0.0;
+    sim.send_stats(realm_proto::coord::MapStats {
+        map: sim.map_name().to_owned(),
+        entities: sim.entity_count() as u32,
+        ..numbers
+    });
+}
+
+/// The process's resident memory: VmRSS of /proc/self/status on Linux (in
+/// kB there), 0 elsewhere.
+fn rss_bytes() -> u64 {
+    std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|status| {
+            status
+                .lines()
+                .find_map(|l| l.strip_prefix("VmRSS:"))
+                .and_then(|v| v.trim().trim_end_matches("kB").trim().parse::<u64>().ok())
+        })
+        .map_or(0, |kb| kb * 1024)
 }

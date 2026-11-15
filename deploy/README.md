@@ -47,6 +47,35 @@ in a systemd container (`tools/ops/host`, ~3 min): install, the login service
 end to end, a deploy with a player online (its save lands), a broken release
 rolled back, backups.
 
+## Metrics and the panel
+
+Every map server sends the coordinator its status window every 5 s
+(players, creatures, tick p50/p99/max, saves in flight and failed, bytes
+out, memory), and the coordinator asks the persistence service for its
+numbers as often (uptime, linked callers, loads, saves, stale saves,
+failures, the last minute's save latency, database size, characters,
+accounts). The admin surface (loopback, `x-service-token` =
+`REALM_SERVICE_TOKEN`) serves them:
+
+| Endpoint | Gives |
+| --- | --- |
+| `GET /admin/metrics` | JSON: state, release, uptime, players, seats in transit, parties, every map (linked or not, age of its last numbers, the numbers, 5 min of players and tick p99), the persistence block |
+| `GET /admin/metrics.prom` | the same numbers as Prometheus text (`realm_*`), for a scraper later |
+| `GET /panel` | the operator panel (no token: the page holds no data) |
+
+From your machine, tunnel the admin port and open the panel with the token
+in the address after `#` (the browser keeps that part to itself; the page
+sends it as the header):
+
+```bash
+ssh -L 8082:127.0.0.1:8082 root@<host>
+# then, in a browser on your machine:
+#   http://127.0.0.1:8082/panel#token=<REALM_SERVICE_TOKEN from /etc/realm/realm.env>
+```
+
+It refreshes every 5 s. On the host itself: `curl -s -H "x-service-token:
+$REALM_SERVICE_TOKEN" 127.0.0.1:8082/admin/metrics`.
+
 ## Database backups
 
 The realm's PostgreSQL archives every finished WAL segment and takes a base

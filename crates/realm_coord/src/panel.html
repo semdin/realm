@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Diyar Paneli</title>
+<style>
+  :root {
+    --bg: #101317; --panel: #181c22; --line: #2a3039; --text: #d9dee5;
+    --dim: #8a94a2; --ok: #5fbf7f; --warn: #e0b64f; --bad: #e0625a; --info: #6ea8e0;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1440px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; font-weight: 600; }
+  h2 { font-size: 13px; margin: 24px 0 8px; font-weight: 600; color: var(--dim);
+    text-transform: uppercase; letter-spacing: .06em; }
+  .sub { color: var(--dim); font-size: 12px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-top: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+  .card .k { color: var(--dim); font-size: 12px; }
+  .card .v { font-size: 20px; font-variant-numeric: tabular-nums; margin-top: 2px; overflow-wrap: anywhere; }
+  .card .v.small { font-size: 14px; }
+  .wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+  th, td { padding: 7px 9px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th { color: var(--dim); font-weight: 500; font-size: 12px; }
+  th:first-child, td:first-child { text-align: left; }
+  tr:last-child td { border-bottom: 0; }
+  td.spark { padding: 4px 10px; }
+  .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .info { color: var(--info); }
+  .dim { color: var(--dim); }
+  .banner { display: none; margin-top: 12px; padding: 10px 12px; border-radius: 6px;
+    background: #3a1d1c; border: 1px solid var(--bad); color: #f3c9c6; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 0;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+  .grid2 div { padding: 8px 12px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; }
+  .grid2 div span:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+  svg { display: block; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Diyar Paneli</h1>
+  <div class="sub" id="updated">Bağlanıyor…</div>
+  <div class="banner" id="banner"></div>
+
+  <div class="cards">
+    <div class="card"><div class="k">Durum</div><div class="v" id="state">–</div></div>
+    <div class="card"><div class="k">Oyuncu</div><div class="v" id="players">–</div></div>
+    <div class="card"><div class="k">Yolda</div><div class="v" id="transit">–</div></div>
+    <div class="card"><div class="k">Grup</div><div class="v" id="parties">–</div></div>
+    <div class="card"><div class="k">Çalışma süresi</div><div class="v small" id="uptime">–</div></div>
+    <div class="card"><div class="k">Sürüm</div><div class="v small" id="release">–</div></div>
+  </div>
+  <div class="sub" id="reason" style="margin-top:8px"></div>
+
+  <h2>Haritalar</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr>
+        <th>Harita</th><th>Bağlı</th><th>Oyuncu</th><th>Oyuncu (5 dk)</th><th>Yaratık</th>
+        <th>Tick p50</th><th>Tick p99</th><th>Tick p99 (5 dk)</th><th>Tick en çok</th><th>Geç tick</th>
+        <th>Kayıt bekleyen / başarısız</th><th>Giden</th><th>Bellek</th><th>Son veri</th>
+      </tr></thead>
+      <tbody id="maps"><tr><td colspan="14" class="dim">Veri yok</td></tr></tbody>
+    </table>
+  </div>
+
+  <h2>Kalıcılık (veritabanı)</h2>
+  <div class="grid2" id="persist"><div><span class="dim">Veri yok</span><span></span></div></div>
+</main>
+<script>
+"use strict";
+(function () {
+  var EVERY_MS = 5000;
+  var STATES = {
+    ONLINE: ["Açık", "ok"], ANNOUNCING: ["Bakım duyuruluyor", "warn"],
+    DRAINING: ["Boşaltılıyor", "warn"], SAVING: ["Kaydediliyor", "info"],
+    DISCONNECTING: ["Bağlantılar kesiliyor", "info"], MAINTENANCE: ["Bakımda", "info"],
+    ABORTED: ["İptal edildi", "warn"], FAILED: ["HATA", "bad"]
+  };
+  function $(id) { return document.getElementById(id); }
+  function token() {
+    var h = location.hash.replace(/^#/, "");
+    return new URLSearchParams(h).get("token") || "";
+  }
+  function el(tag, text, cls) {
+    var e = document.createElement(tag);
+    if (text !== undefined && text !== null) e.textContent = String(text);
+    if (cls) e.className = cls;
+    return e;
+  }
+  function num(v, digits) {
+    if (v === null || v === undefined || isNaN(v)) return "–";
+    return Number(v).toLocaleString("tr-TR", { maximumFractionDigits: digits || 0, minimumFractionDigits: digits || 0 });
+  }
+  function bytes(v) {
+    if (v === null || v === undefined) return "–";
+    if (v === 0) return "0 B";
+    var u = ["B", "KB", "MB", "GB", "TB"], i = 0;
+    while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+    return num(v, i === 0 ? 0 : 1) + " " + u[i];
+  }
+  function duration(s) {
+    if (s === null || s === undefined) return "–";
+    s = Math.floor(s);
+    var d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), r = s % 60;
+    if (d > 0) return d + " g " + h + " sa " + m + " dk";
+    if (h > 0) return h + " sa " + m + " dk";
+    if (m > 0) return m + " dk " + r + " sn";
+    return r + " sn";
+  }
+  function ms(v) { return v === undefined || v === null ? "–" : num(v, 2) + " ms"; }
+  function tickClass(v) { return v === undefined || v === null ? "" : v > 33 ? "bad" : v > 20 ? "warn" : ""; }
+  function spark(values, color, floor) {
+    var w = 120, h = 26, ns = "http://www.w3.org/2000/svg";
+    var svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("width", w); svg.setAttribute("height", h);
+    svg.setAttribute("viewBox", "0 0 " + w + " " + h);
+    if (!values || values.length === 0) return svg;
+    var max = Math.max(floor, Math.max.apply(null, values));
+    var step = values.length > 1 ? (w - 2) / (values.length - 1) : 0;
+    var pts = values.map(function (v, i) {
+      var x = values.length > 1 ? 1 + i * step : w - 1;
+      var y = h - 2 - (max > 0 ? v / max : 0) * (h - 4);
+      return x.toFixed(1) + "," + y.toFixed(1);
+    });
+    var line = document.createElementNS(ns, "polyline");
+    line.setAttribute("points", pts.join(" "));
+    line.setAttribute("fill", "none"); line.setAttribute("stroke", color);
+    line.setAttribute("stroke-width", "1.5"); line.setAttribute("stroke-linejoin", "round");
+    svg.appendChild(line);
+    var last = pts[pts.length - 1].split(",");
+    var dot = document.createElementNS(ns, "circle");
+    dot.setAttribute("cx", last[0]); dot.setAttribute("cy", last[1]); dot.setAttribute("r", "2");
+    dot.setAttribute("fill", color);
+    svg.appendChild(dot);
+    var t = document.createElementNS(ns, "title");
+    t.textContent = "en çok " + num(Math.max.apply(null, values), 2) + ", son " + num(values[values.length - 1], 2);
+    svg.appendChild(t);
+    return svg;
+  }
+  function banner(text) {
+    var b = $("banner");
+    b.textContent = text || "";
+    b.style.display = text ? "block" : "none";
+  }
+  function render(m) {
+    var st = STATES[m.state] || [m.state, ""];
+    var s = $("state"); s.textContent = st[0]; s.className = "v " + st[1]; s.title = m.state;
+    $("players").textContent = num(m.players);
+    $("transit").textContent = num(m.in_transit);
+    $("parties").textContent = num(m.parties);
+    $("uptime").textContent = duration(m.uptime_s);
+    $("release").textContent = m.release || "(yerel)";
+    $("reason").textContent = m.reason ? "Bakım nedeni: " + m.reason : "";
+
+    var body = $("maps");
+    body.replaceChildren();
+    if (!m.maps || m.maps.length === 0) {
+      var tr0 = el("tr"); var td0 = el("td", "Bağlı harita yok", "dim"); td0.colSpan = 14;
+      tr0.appendChild(td0); body.appendChild(tr0);
+    }
+    (m.maps || []).forEach(function (map) {
+      var x = map.stats || {};
+      var has = !!map.stats;
+      var stale = map.age_s === null || map.age_s > 15;
+      var tr = el("tr");
+      tr.appendChild(el("td", map.map));
+      tr.appendChild(el("td", map.linked ? "evet" : "hayır", map.linked ? "ok" : "bad"));
+      tr.appendChild(el("td", has ? num(x.players) : "–"));
+      var s1 = el("td", null, "spark"); s1.appendChild(spark(map.history.players, "#6ea8e0", 1)); tr.appendChild(s1);
+      tr.appendChild(el("td", has ? num(x.creatures) : "–"));
+      tr.appendChild(el("td", has ? ms(x.tick_p50_ms) : "–", tickClass(x.tick_p50_ms)));
+      tr.appendChild(el("td", has ? ms(x.tick_p99_ms) : "–", tickClass(x.tick_p99_ms)));
+      var s2 = el("td", null, "spark"); s2.appendChild(spark(map.history.tick_p99_ms, "#e0b64f", 5)); tr.appendChild(s2);
+      tr.appendChild(el("td", has ? ms(x.tick_max_ms) : "–", tickClass(x.tick_max_ms)));
+      tr.appendChild(el("td", has ? num(x.late_ticks) : "–", x.late_ticks > 0 ? "warn" : ""));
+      tr.appendChild(el("td", has ? num(x.saves_in_flight) + " / " + num(x.saves_failed) : "–",
+        x.saves_failed > 0 ? "bad" : x.saves_in_flight > 5 ? "warn" : ""));
+      tr.appendChild(el("td", has ? bytes(x.bytes_out_per_s) + "/sn" : "–"));
+      tr.appendChild(el("td", has ? (x.rss_bytes ? bytes(x.rss_bytes) : "bilinmiyor") : "–"));
+      tr.appendChild(el("td", map.age_s === null ? "hiç" : num(map.age_s, 1) + " sn önce", stale ? "warn" : "dim"));
+      body.appendChild(tr);
+    });
+
+    var p = $("persist");
+    p.replaceChildren();
+    function row(k, v, cls) {
+      var d = el("div"); d.appendChild(el("span", k, "dim")); d.appendChild(el("span", v, cls)); p.appendChild(d);
+    }
+    var ps = m.persistence;
+    if (!ps) {
+      row("Kalıcılık servisi", "kullanılmıyor (koordinatör --persist olmadan çalışıyor)", "dim");
+      return;
+    }
+    row("Durum", ps.ok ? "yanıt veriyor" : "yanıt yok", ps.ok ? "ok" : "bad");
+    if (ps.error) row("Son hata", ps.error, "bad");
+    if (ps.uptime_s === undefined) return;
+    row("Son yanıt", ps.age_s === null ? "hiç" : num(ps.age_s, 1) + " sn önce", ps.age_s > 15 ? "warn" : "");
+    row("Çalışma süresi", duration(ps.uptime_s));
+    row("Bağlı istemci", num(ps.callers));
+    row("Yükleme", num(ps.loads));
+    row("Kayıt", num(ps.saves));
+    row("Eski kayıt (reddedildi)", num(ps.stale), ps.stale > 0 ? "warn" : "");
+    row("Hata", num(ps.failures), ps.failures > 0 ? "bad" : "");
+    row("Son 1 dk kayıt", num(ps.saves_last_minute));
+    row("Kayıt süresi p50 (1 dk)", ms(ps.save_p50_ms));
+    row("Kayıt süresi p99 (1 dk)", ms(ps.save_p99_ms), ps.save_p99_ms > 200 ? "warn" : "");
+    row("Kayıt süresi en çok (1 dk)", ms(ps.save_max_ms));
+    row("Veritabanı boyutu", bytes(ps.database_bytes));
+    row("Karakter", num(ps.characters));
+    row("Hesap", num(ps.accounts));
+    if (ps.database_error) row("Veritabanı hatası", ps.database_error, "bad");
+  }
+  var timer = null;
+  function poll() {
+    clearTimeout(timer);
+    var t = token();
+    if (!t) {
+      banner("Anahtar yok: paneli http://127.0.0.1:8082/panel#token=<REALM_SERVICE_TOKEN> adresiyle açın.");
+      $("updated").textContent = "Bekleniyor";
+      return;
+    }
+    fetch("/admin/metrics", { headers: { "x-service-token": t }, cache: "no-store" })
+      .then(function (r) {
+        if (r.status === 403) throw new Error("Anahtar reddedildi (403): #token= değerini kontrol edin.");
+        if (!r.ok) throw new Error("Koordinatör " + r.status + " döndürdü.");
+        return r.json();
+      })
+      .then(function (m) {
+        render(m);
+        banner("");
+        $("updated").textContent = "Son güncelleme " + new Date().toLocaleTimeString("tr-TR") + " · her 5 sn";
+      })
+      .catch(function (e) {
+        // A network failure (TypeError) has the browser's English text.
+        banner(e instanceof TypeError || !e || !e.message
+          ? "Koordinatöre ulaşılamıyor (SSH tüneli açık mı?)." : e.message);
+      })
+      .then(function () { timer = setTimeout(poll, EVERY_MS); });
+  }
+  window.addEventListener("hashchange", poll);
+  poll();
+})();
+</script>
+</body>
+</html>

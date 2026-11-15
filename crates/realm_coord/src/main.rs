@@ -11,7 +11,9 @@
 //! It also runs the realm's maintenance (maint.rs): the admin surface on
 //! `--admin` (loopback only, REALM_SERVICE_TOKEN required) begins, aborts
 //! and reports a cycle that freezes, saves and empties every map. It keeps
-//! the realm's game admins (`--ga`, ga.rs) and its weather.
+//! the realm's game admins (`--ga`, ga.rs) and its weather, and the realm's
+//! numbers (metrics.rs): every map's status window, the persistence
+//! service's counts, served as JSON, Prometheus text and an operator panel.
 //!
 //! The coordinator: who is online on which map, the parties, and what
 //! crosses maps (shouts, party lines, invitations, party views). Map servers
@@ -57,6 +59,7 @@ use tokio::sync::{Mutex, mpsc};
 
 mod ga;
 mod maint;
+mod metrics;
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -160,6 +163,8 @@ struct Book {
     persist: Option<Arc<PersistClient>>,
     /// The realm's weather.
     rain: bool,
+    /// The maps' and the persistence service's numbers (metrics.rs).
+    metrics: metrics::Metrics,
 }
 
 impl Book {
@@ -914,6 +919,7 @@ impl Book {
                 }
             }
             MapMsg::Party { from, cmd } => self.party_cmd(from, cmd),
+            MapMsg::Stats(stats) => self.map_stats(link, stats),
         }
     }
 
@@ -1208,6 +1214,10 @@ async fn main() -> AnyResult<()> {
         ..Book::default()
     }));
     maint::start_clock(book.clone());
+    if let Some(addr) = &o.persist {
+        // Its own link: the numbers never wait behind queued changes.
+        metrics::start_persist_poll(book.clone(), PersistClient::start(addr.clone(), key));
+    }
     tokio::spawn(maint::serve(
         o.admin,
         std::env::var("REALM_SERVICE_TOKEN")

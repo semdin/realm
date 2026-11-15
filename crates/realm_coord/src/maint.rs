@@ -19,20 +19,39 @@
 //! one request per connection, size-capped and timed out, and it does not
 //! start at all without REALM_SERVICE_TOKEN (the `x-service-token` header
 //! must match): an unauthenticated maintenance surface must not exist.
+//!
+//! Endpoints (token required unless said otherwise):
+//!
+//!   GET  /admin/status (/admin/state)   the cycle's state and history
+//!   GET  /admin/maps                    open maps and their addresses (login)
+//!   GET  /admin/metrics                 the realm's numbers as JSON: state,
+//!                                       release, uptime, players, seats in
+//!                                       transit, parties, every map (linked
+//!                                       or not, age of its last numbers,
+//!                                       the numbers, 5 min of players and
+//!                                       tick p99) and the persistence
+//!                                       service (metrics.rs)
+//!   GET  /admin/metrics.prom            the same numbers as Prometheus text
+//!   GET  /panel                         the operator panel, WITHOUT a token:
+//!                                       a static page holding no data that
+//!                                       reads the token from `#token=...`
+//!                                       and polls /admin/metrics with it
+//!   POST /admin/maintenance/begin|abort, /admin/save, /admin/disconnect-all,
+//!        /admin/ga, /admin/announce     the cycle, barriers, GAs, notices
 
 use std::collections::{HashSet, VecDeque};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use realm_http::{Request, read_request, respond, same};
+use realm_http::{Request, read_request, respond, respond_raw, same};
 use realm_proto::PROTOCOL_VERSION;
 use realm_proto::coord::CoordMsg;
 use serde_json::{Value, json};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, Semaphore, oneshot};
 
-use crate::{Book, Seat};
+use crate::{Book, Seat, metrics};
 
 const DEFAULT_COUNTDOWN_S: f64 = 300.0;
 /// Announcements come this often, and this often in the last seconds.
@@ -174,6 +193,16 @@ impl Maint {
             settings,
             ..Self::default()
         }
+    }
+
+    /// Why the current cycle runs (empty while ONLINE).
+    pub fn reason(&self) -> &str {
+        &self.reason
+    }
+
+    /// Since the coordinator's clock started.
+    pub fn uptime(&self) -> Duration {
+        self.boot.map_or(Duration::ZERO, |b| b.elapsed())
     }
 }
 
@@ -596,6 +625,7 @@ async fn route(req: Request, book: &Arc<Mutex<Book>>) -> (u16, Value) {
     match (req.method.as_str(), req.path.as_str()) {
         ("GET", "/admin/status" | "/admin/state") => (200, book.lock().await.status()),
         ("GET", "/admin/maps") => (200, book.lock().await.maps_view()),
+        ("GET", "/admin/metrics") => (200, book.lock().await.metrics_view()),
         ("POST", "/admin/maintenance/begin") => {
             let mut reason: String = req.body["reason"]
                 .as_str()
@@ -667,12 +697,46 @@ async fn connection(mut stream: TcpStream, token: Arc<String>, book: Arc<Mutex<B
         }
         Err(_) => return,
     };
+    if req.method == "GET" && req.path == "/panel" {
+        // The page holds no data: it reads the token from its own address
+        // and asks /admin/metrics with it. Nothing it loads comes from
+        // anywhere else, and it is never cached.
+        respond_raw(
+            &mut stream,
+            200,
+            "text/html; charset=utf-8",
+            &[
+                ("Cache-Control", "no-store"),
+                ("X-Content-Type-Options", "nosniff"),
+                ("Referrer-Policy", "no-referrer"),
+                (
+                    "Content-Security-Policy",
+                    "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+                ),
+            ],
+            metrics::PANEL_HTML.as_bytes(),
+        )
+        .await;
+        return;
+    }
     let given = req.header("x-service-token");
     if given.is_empty() || !same(given.as_bytes(), token.as_bytes()) {
         respond(
             &mut stream,
             403,
             &json!({"ok": false, "error": "forbidden"}),
+        )
+        .await;
+        return;
+    }
+    if req.method == "GET" && req.path == "/admin/metrics.prom" {
+        let view = book.lock().await.metrics_view();
+        respond_raw(
+            &mut stream,
+            200,
+            "text/plain; version=0.0.4; charset=utf-8",
+            &[("Cache-Control", "no-store")],
+            metrics::prometheus(&view).as_bytes(),
         )
         .await;
         return;

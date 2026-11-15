@@ -5,7 +5,8 @@
 #
 # 1. deploy/install.sh from the package: PostgreSQL archiving, secrets,
 #    keys, units, the first deploy (verified: maps linked, login healthy, a
-#    player joins) and the first base backup;
+#    player joins) and the first base backup; the coordinator's
+#    /admin/metrics lists the maps;
 # 2. an account registered, a character made and played through the login
 #    service (realm_netcheck --login), its rows in PostgreSQL;
 # 3. release B put live with a player on the grounds: the maintenance
@@ -51,7 +52,9 @@ on 'timeout 240 bash /root/install.sh /root/a.tar.gz --public-host 127.0.0.1' > 
 grep "verify ok" build/logs/host_install.log || fail "the first deploy did not verify"
 bad="$(on 'systemctl list-units "realm*" --no-legend --all --state=failed' || true)"
 [ -z "$bad" ] || fail "failed units: $bad"
-say "1 ok: installed, every service up, first backup taken"
+on '. /etc/realm/realm.env && curl -sf -m 5 -H "x-service-token: $REALM_SERVICE_TOKEN" http://127.0.0.1:8082/admin/metrics | python3 -c "import json, sys; sys.exit(0 if json.load(sys.stdin).get(\"maps\") else 1)"' \
+    || fail "/admin/metrics answered no maps"
+say "1 ok: installed, every service up, first backup taken, metrics list the maps"
 
 # 2. Login service end to end.
 on 'cd /opt/realm/current && timeout 40 ./bin/realm_netcheck --login --login-addr 127.0.0.1:7950 --keys /var/lib/realm/keys' \

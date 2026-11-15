@@ -134,6 +134,35 @@ pub struct Board {
     pub runs: Vec<BoardRun>,
 }
 
+/// A map server's numbers over its last status window (5 s), sent with
+/// every status line for the coordinator's metrics and operator panel.
+/// The tick timings and bytes are the window's; the save counts are
+/// cumulative since the map server started.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct MapStats {
+    pub map: String,
+    /// The window's length in milliseconds.
+    pub window_ms: u32,
+    pub players: u32,
+    pub creatures: u32,
+    /// Every replicated entity (players and creatures).
+    pub entities: u32,
+    pub tick_p50_ms: f32,
+    pub tick_p99_ms: f32,
+    pub tick_max_ms: f32,
+    /// Ticks that overran their 33 ms slot this window.
+    pub late_ticks: u32,
+    /// Saves handed to the store and not yet answered.
+    pub saves_in_flight: u32,
+    /// Saves answered, and of those the ones that did not land.
+    pub saves_done: u64,
+    pub saves_failed: u64,
+    /// Snapshot bytes sent to clients, per second over the window.
+    pub bytes_out_per_s: u64,
+    /// Resident memory of the process (0 where it is not known: off Linux).
+    pub rss_bytes: u64,
+}
+
 /// Map server -> coordinator.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MapMsg {
@@ -245,6 +274,9 @@ pub enum MapMsg {
     },
     /// A notice for the whole realm (a world boss, a Legendary gold).
     Announce(crate::control::ServerMsg),
+    /// The map's numbers, every 5 s while linked (the coordinator's
+    /// metrics). Appended last: postcard numbers variants in order.
+    Stats(MapStats),
 }
 
 /// Coordinator -> map server.
