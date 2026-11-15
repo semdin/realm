@@ -486,6 +486,8 @@ pub struct Sim {
     /// Development: the Web Mother's cocoon wraps a player even alone (it
     /// needs two otherwise).
     pub dev_cocoon_solo: bool,
+    /// Development: players spawn on the ground at this world (x, z).
+    pub dev_spawn_at: Option<(f32, f32)>,
     pub stats: Stats,
     params: MoveParams,
 }
@@ -667,6 +669,7 @@ impl Sim {
             dev_dungeon_affixes: None,
             dev_dungeon_start: None,
             dev_cocoon_solo: false,
+            dev_spawn_at: None,
             store,
             stats: Stats::default(),
             params: MoveParams::default(),
@@ -1512,6 +1515,9 @@ impl Sim {
     /// lands on the floor, not on the roof above it. Next to a creature pack
     /// (outdoors) the highest surface is the ground.
     fn spawn_point_for(&self, character: u64) -> Vec3 {
+        if let Some((x, z)) = self.dev_spawn_at {
+            return Vec3::new(x, self.ground(x, z) + 0.05, z);
+        }
         if !self.dev_spawn_packs.is_empty() {
             let pick = (character as usize).wrapping_mul(7919) % self.dev_spawn_packs.len();
             let pack = &self.game.packs[self.dev_spawn_packs[pick]];

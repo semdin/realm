@@ -11,6 +11,7 @@
 //! realm_netcheck --login --login-addr <addr> [--persist-addr <addr>]    (see login.rs)
 //! realm_netcheck --persist --persist-addr <addr> --server <grounds>     (see persist.rs)
 //! realm_netcheck --smoke --server <addr> [--map grounds]               (see smoke.rs)
+//! realm_netcheck --stand --server <addr> [--map grounds] [--seconds 10] (see stand.rs)
 //! realm_netcheck --metrics --admin <addr> --token <t> --server <grounds> [--persist-addr <addr>]
 //!                                                                      (see metrics.rs)
 //!
@@ -31,6 +32,7 @@ mod metrics;
 mod persist;
 mod smoke;
 mod social;
+mod stand;
 mod travel;
 
 use std::net::SocketAddr;
@@ -250,6 +252,9 @@ fn main() -> AnyResult<()> {
     }
     if args.iter().any(|a| a == "--smoke") {
         return smoke::run(&args);
+    }
+    if args.iter().any(|a| a == "--stand") {
+        return stand::run(&args);
     }
     let server: SocketAddr = arg(&args, "--server", "127.0.0.1:7800").parse()?;
     let keys = PathBuf::from(arg(&args, "--keys", "keys"));

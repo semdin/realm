@@ -8,10 +8,13 @@
 //!   realm_server serve [--map grounds] [--bind 0.0.0.0:7777] [--keys keys]
 //!                      [--content content/data] [--maps world/maps]
 //!                      [--characters <dir> | --persist <addr>] [--coord <addr>] [--public <addr>]
-//!                      [--dev-spawn-near-packs | --dev-spawn-near <species>]
+//!                      [--dev-spawn-near-packs | --dev-spawn-near <species> | --dev-spawn-at X,Z]
 //!       Runs one map at 30 Hz and prints a status line every 5 seconds
 //!       (its numbers also go to the coordinator's metrics when linked). The
-//!       dev options spawn players next to a creature pack (of one species).
+//!       dev options spawn players next to a creature pack (of one species),
+//!       or on the ground at a point given in the map's own coordinates (as
+//!       the HUD shows them: `--dev-spawn-at 1084,1034` is the grounds'
+//!       training yard).
 //!       `--characters` keeps character records as JSON files there,
 //!       `--persist` in the persistence service (realm_persist); without
 //!       it nothing persists (every join is a new character). Ctrl+C,
@@ -116,6 +119,8 @@ struct Options {
     /// Spawn players next to packs: `Some("")` any pack, `Some(id)` packs
     /// of that species.
     dev_spawn_near: Option<String>,
+    /// Spawn players at this point, in the map's own coordinates.
+    dev_spawn_at: Option<(f32, f32)>,
     characters: Option<PathBuf>,
     /// The persistence service (realm_persist) instead of character files.
     persist: Option<String>,
@@ -147,6 +152,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         keys: PathBuf::from("keys"),
         content: PathBuf::from("content/data"),
         dev_spawn_near: None,
+        dev_spawn_at: None,
         characters: None,
         persist: None,
         coord: None,
@@ -174,6 +180,13 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--content" => o.content = PathBuf::from(value()?),
             "--dev-spawn-near-packs" => o.dev_spawn_near = Some(String::new()),
             "--dev-spawn-near" => o.dev_spawn_near = Some(value()?),
+            "--dev-spawn-at" => {
+                let v = value()?;
+                let (x, z) = v
+                    .split_once(',')
+                    .ok_or_else(|| format!("--dev-spawn-at takes X,Z, not {v}"))?;
+                o.dev_spawn_at = Some((x.trim().parse()?, z.trim().parse()?));
+            }
             "--characters" => o.characters = Some(PathBuf::from(value()?)),
             "--persist" => o.persist = Some(value()?),
             "--coord" => o.coord = Some(value()?),
@@ -281,6 +294,23 @@ fn serve(args: &[String]) -> AnyResult<()> {
     sim.dev_dungeon_affixes = o.dev_dungeon_affixes.clone();
     sim.dev_dungeon_start = o.dev_dungeon_start.clone();
     sim.dev_cocoon_solo = o.dev_cocoon_solo;
+    if let Some((x, z)) = o.dev_spawn_at {
+        // The map's own coordinates count from its coord_origin.
+        let origin = &content
+            .file("maps.json")
+            .map(|m| m["maps"][o.map.as_str()]["coord_origin"].clone())
+            .unwrap_or_default();
+        let (ox, oz) = (
+            origin[0].as_f64().unwrap_or(0.0) as f32,
+            origin[1].as_f64().unwrap_or(0.0) as f32,
+        );
+        sim.dev_spawn_at = Some((x + ox, z + oz));
+        println!(
+            "[server] dev: players spawn at {x}, {z} (world {}, {})",
+            x + ox,
+            z + oz
+        );
+    }
     sim.admins.dev = o.dev_ga.iter().cloned().collect();
     if let Some(s) = o.dev_boss_respawn {
         sim.dev_boss_respawn(s);

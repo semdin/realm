@@ -516,8 +516,12 @@ fn move_and_slide(body: &mut Body, world: &World, cap: &Capsule) {
         }
     }
 
+    // Colliders first, then the terrain: a floor collider laid a little over
+    // the terrain (a yard's slab, a path) is what the body stands on. Taking
+    // the terrain under it first would pull the body into the slab every
+    // tick, and the next tick's depenetration would push it back out along
+    // the slab's slant: a standing body creeping downhill.
     let jumping = body.vel.y > 0.0;
-    stand_on_terrain(body, world, before, was_on_floor, jumping);
     if !body.on_floor && was_on_floor && !jumping && !body.mounted && !body.swimming {
         let snap_motion = Vec3::new(0.0, -FLOOR_SNAP_LENGTH, 0.0);
         if let Some(hit) = world.sweep(cap, body.center(), snap_motion)
@@ -531,10 +535,12 @@ fn move_and_slide(body: &mut Body, world: &World, cap: &Capsule) {
             body.vel.y = 0.0;
         }
     }
+    stand_on_terrain(body, world, before, was_on_floor, jumping);
 }
 
 /// Terrain is a height function, not a swept shape: a body below it is put
-/// on it, a walking body within snap distance follows it down, ground too
+/// on it, a walking body within snap distance follows it down unless it
+/// already stands on a collider (one above the terrain holds it up), ground too
 /// steep to walk acts as a wall for a supported body and as a bank to slide
 /// down for a falling one.
 fn stand_on_terrain(
@@ -566,7 +572,7 @@ fn stand_on_terrain(
         }
     }
     let gap = body.pos.y - height;
-    let snap = was_on_floor && !jumping && free && gap <= FLOOR_SNAP_LENGTH;
+    let snap = was_on_floor && !body.on_floor && !jumping && free && gap <= FLOOR_SNAP_LENGTH;
     if gap >= 0.0 && !snap {
         return;
     }
