@@ -1287,7 +1287,9 @@ impl Sim {
             let ctx = realm_rules::ItemContext {
                 dead: player.dead_until != 0,
                 in_combat: player.last_combat != 0 && tick < player.last_combat + COMBAT_LOCK_TICKS,
-                casting: false,
+                // A spell being drawn (wound up, not yet over): no gear
+                // change mid-cast, as in the old game; potions still go.
+                casting: player.caster.cast.as_ref().is_some_and(|c| tick < c.end_tick),
                 mounted: player.body.mounted,
                 at_shop: self.game.rules.at_hearth(&self.game.map, pos.x, pos.z),
                 at_dungeon_gate: self.near_dungeon_gate(pos),
