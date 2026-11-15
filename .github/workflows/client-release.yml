@@ -524,17 +524,6 @@ jobs:
         run: |
           set -eu
           tag="${{ steps.v.outputs.tag }}"
-          # The launchers under their names from before the rename, as
-          # byte-identical copies: links shared as .../HPMMO_Launcher.exe keep
-          # working. (The manifests name the new files; a launcher self-updates
-          # from whatever URL its manifest gives.)
-          legacy=()
-          for name in ThousandRealms_Launcher.exe ThousandRealms_Launcher-x86_64.AppImage \
-              ThousandRealms_Launcher-macos ThousandRealms_Launcher-macos.zip; do
-            old="dist/HPMMO_Launcher${name#ThousandRealms_Launcher}"
-            cp "dist/$name" "$old"
-            legacy+=("$old")
-          done
           # chunks[-<platform>]-<ver>.bin is absent when no chunk changed.
           shopt -s nullglob
           chunks=(dist/chunks-*.bin)
@@ -548,7 +537,6 @@ jobs:
             dist/content-macos.json dist/ThousandRealms_Launcher-macos dist/ThousandRealms_Launcher-macos.zip \
             dist/manifest-macos.json dist/manifest-macos.json.sig \
             dist/manifest-macos.json.keyid dist/SHA256SUMS-macos \
-            "${legacy[@]}" \
             --repo "${{ github.repository }}" \
             --target "${{ github.sha }}" \
             --title "Thousand Realms $tag" \
