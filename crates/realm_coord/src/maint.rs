@@ -25,10 +25,10 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use realm_http::{Request, read_request, respond, same};
 use realm_proto::PROTOCOL_VERSION;
 use realm_proto::coord::CoordMsg;
 use serde_json::{Value, json};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, Semaphore, oneshot};
 
@@ -43,8 +43,6 @@ const BARRIER_TIMEOUT: Duration = Duration::from_secs(15);
 const HISTORY_LIMIT: usize = 24;
 const REASON_MAX: usize = 200;
 const MAX_CONNECTIONS: usize = 8;
-const MAX_HEADER_BYTES: usize = 8 * 1024;
-const MAX_BODY_BYTES: usize = 64 * 1024;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 /// A request waiting on a barrier gives up after this long.
 const DEFERRED_TIMEOUT: Duration = Duration::from_secs(20);
@@ -530,6 +528,25 @@ impl Book {
         }
     }
 
+    /// The maps open now and where clients reach them (the login service
+    /// sends a player to its map with this).
+    fn maps_view(&self) -> Value {
+        let mut maps: Vec<Value> = self
+            .links
+            .iter()
+            .map(|(id, l)| {
+                let players = self
+                    .seats
+                    .values()
+                    .filter(|s| matches!(s, Seat::On { link, .. } if link == id))
+                    .count();
+                json!({"map": l.map, "address": l.address, "capacity": l.capacity, "players": players})
+            })
+            .collect();
+        maps.sort_by(|a, b| a["map"].as_str().cmp(&b["map"].as_str()));
+        json!({"ok": true, "accepting": self.maint.state == State::Online, "maps": maps})
+    }
+
     fn status(&self) -> Value {
         let mut maps: Vec<&str> = self.links.values().map(|l| l.map.as_str()).collect();
         maps.sort_unstable();
@@ -559,120 +576,6 @@ impl Book {
     }
 }
 
-/// The parsed request.
-struct Request {
-    method: String,
-    path: String,
-    token: String,
-    body: Value,
-}
-
-fn find(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|w| w == needle)
-}
-
-async fn read_request(stream: &mut TcpStream) -> Result<Request, (u16, &'static str)> {
-    let mut buf = Vec::new();
-    let mut chunk = [0_u8; 4096];
-    let header_end = loop {
-        if let Some(at) = find(&buf, b"\r\n\r\n") {
-            break at;
-        }
-        if buf.len() > MAX_HEADER_BYTES {
-            return Err((431, "headers too large"));
-        }
-        let n = stream
-            .read(&mut chunk)
-            .await
-            .map_err(|_| (400, "bad request"))?;
-        if n == 0 {
-            return Err((400, "bad request"));
-        }
-        buf.extend_from_slice(&chunk[..n]);
-    };
-    let head = std::str::from_utf8(&buf[..header_end]).map_err(|_| (400, "bad request"))?;
-    let mut lines = head.split("\r\n");
-    let mut first = lines.next().unwrap_or("").split(' ');
-    let method = first.next().unwrap_or("").to_owned();
-    let raw_path = first.next().unwrap_or("");
-    let mut path = raw_path.split('?').next().unwrap_or("").to_owned();
-    if path.len() > 1 && path.ends_with('/') {
-        path.pop();
-    }
-    let mut token = String::new();
-    let mut length = 0_usize;
-    for line in lines {
-        let Some((name, value)) = line.split_once(':') else {
-            continue;
-        };
-        let name = name.trim().to_ascii_lowercase();
-        let value = value.trim();
-        if name == "x-service-token" {
-            token = value.to_owned();
-        } else if name == "content-length" {
-            length = value.parse().map_err(|_| (400, "bad content-length"))?;
-        }
-    }
-    if length > MAX_BODY_BYTES {
-        return Err((413, "body too large"));
-    }
-    let mut body = buf[header_end + 4..].to_vec();
-    while body.len() < length {
-        let n = stream
-            .read(&mut chunk)
-            .await
-            .map_err(|_| (400, "bad request"))?;
-        if n == 0 {
-            return Err((400, "body cut short"));
-        }
-        body.extend_from_slice(&chunk[..n]);
-    }
-    body.truncate(length);
-    let body = if body.iter().all(u8::is_ascii_whitespace) {
-        json!({})
-    } else {
-        serde_json::from_slice(&body).map_err(|_| (400, "body is not json"))?
-    };
-    Ok(Request {
-        method,
-        path,
-        token,
-        body,
-    })
-}
-
-fn same(a: &[u8], b: &[u8]) -> bool {
-    let mut diff = a.len() ^ b.len();
-    for i in 0..a.len().max(b.len()) {
-        let x = a.get(i).copied().unwrap_or(0);
-        let y = b.get(i).copied().unwrap_or(0);
-        diff |= usize::from(x ^ y);
-    }
-    diff == 0
-}
-
-async fn respond(stream: &mut TcpStream, status: u16, body: &Value) {
-    let text = match status {
-        200 => "OK",
-        400 => "Bad Request",
-        403 => "Forbidden",
-        404 => "Not Found",
-        409 => "Conflict",
-        413 => "Payload Too Large",
-        431 => "Request Header Fields Too Large",
-        504 => "Gateway Timeout",
-        _ => "Error",
-    };
-    let payload = body.to_string();
-    let head = format!(
-        "HTTP/1.1 {status} {text}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-        payload.len()
-    );
-    let _ = stream.write_all(head.as_bytes()).await;
-    let _ = stream.write_all(payload.as_bytes()).await;
-    let _ = stream.shutdown().await;
-}
-
 /// Waits for a barrier's result.
 async fn deferred(rx: oneshot::Receiver<Value>) -> (u16, Value) {
     match tokio::time::timeout(DEFERRED_TIMEOUT, rx).await {
@@ -692,6 +595,7 @@ async fn route(req: Request, book: &Arc<Mutex<Book>>) -> (u16, Value) {
     };
     match (req.method.as_str(), req.path.as_str()) {
         ("GET", "/admin/status" | "/admin/state") => (200, book.lock().await.status()),
+        ("GET", "/admin/maps") => (200, book.lock().await.maps_view()),
         ("POST", "/admin/maintenance/begin") => {
             let mut reason: String = req.body["reason"]
                 .as_str()
@@ -758,7 +662,8 @@ async fn connection(mut stream: TcpStream, token: Arc<String>, book: Arc<Mutex<B
         }
         Err(_) => return,
     };
-    if req.token.is_empty() || !same(req.token.as_bytes(), token.as_bytes()) {
+    let given = req.header("x-service-token");
+    if given.is_empty() || !same(given.as_bytes(), token.as_bytes()) {
         respond(
             &mut stream,
             403,

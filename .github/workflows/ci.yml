@@ -259,6 +259,21 @@ jobs:
           ./target/release/realm_netcheck --ga --admin 127.0.0.1:8093 --token check-token --grounds 127.0.0.1:7777 --castle 127.0.0.1:7778 --ga-file build/gacheck/ga.json
           kill %1 %2 %3 || true
 
+      - name: Login service
+        if: matrix.os == 'ubuntu-26.04'
+        # Account and character rules (names whatever the case, houses, two
+        # per account), sessions, a play ticket that joins the grounds as the
+        # character made, logout and the failed-login wait.
+        run: |
+          mkdir -p build/logincheck
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_coord --admin 127.0.0.1:8093 > coord.log 2>&1 &
+          sleep 1
+          ./target/release/realm_server serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900 --characters build/logincheck > server_g.log 2>&1 &
+          REALM_SERVICE_TOKEN=check-token ./target/release/realm_login --coord-admin 127.0.0.1:8093 --characters build/logincheck > login.log 2>&1 &
+          sleep 8
+          ./target/release/realm_netcheck --login --login-addr 127.0.0.1:7950
+          kill %1 %2 %3 || true
+
       - name: Duel to one health
         if: matrix.os == 'ubuntu-26.04'
         # A challenge, an accept, the countdown, a fight that ends with the

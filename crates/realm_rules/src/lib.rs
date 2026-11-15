@@ -11,6 +11,7 @@ pub mod creatures;
 pub mod dungeons;
 pub mod items;
 pub mod loot;
+pub mod names;
 pub mod progress;
 pub mod quests;
 pub mod sheet;
