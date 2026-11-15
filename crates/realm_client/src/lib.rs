@@ -1439,9 +1439,13 @@ impl RealmSession {
                 actor,
                 value,
                 of,
+                place,
             } = msg
             {
                 let mut d = VarDictionary::new();
+                // `place`: the map of a realm-wide notice (empty: this map's
+                // own or update_soon) - the client writes those as [World].
+                d.set("place", &GString::from(place.as_str()).to_variant());
                 d.set("kind", &GString::from(kind.as_str()).to_variant());
                 d.set("subject", &GString::from(subject.as_str()).to_variant());
                 d.set("actor", &GString::from(actor.as_str()).to_variant());

@@ -748,6 +748,11 @@ impl Book {
             }
             MapMsg::Ga { by, name, on } => self.ga_from_map(by, &name, on),
             MapMsg::Weather { by, rain } => self.weather_from_map(by, rain),
+            MapMsg::Announce(notice) => {
+                for l in self.links.values() {
+                    let _ = l.tx.send(CoordMsg::Notice(notice.clone()));
+                }
+            }
             MapMsg::Release {
                 character,
                 account,

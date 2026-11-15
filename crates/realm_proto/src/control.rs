@@ -244,6 +244,10 @@ pub enum ServerMsg {
         actor: String,
         value: u32,
         of: u32,
+        /// The map it happened on; set for the realm's notices (a world
+        /// boss, a Legendary gold, update_soon has none), which every map
+        /// hears: the client puts those in the chat as "[World]" lines.
+        place: String,
     },
     /// The realm's maintenance: `state` (ONLINE when a countdown was called
     /// off, ANNOUNCING with `seconds` to go, DRAINING, SAVING: the world

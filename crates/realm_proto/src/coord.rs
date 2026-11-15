@@ -243,6 +243,8 @@ pub enum MapMsg {
         by: u64,
         rain: bool,
     },
+    /// A notice for the whole realm (a world boss, a Legendary gold).
+    Announce(crate::control::ServerMsg),
 }
 
 /// Coordinator -> map server.
@@ -346,11 +348,9 @@ pub enum CoordMsg {
     DisconnectAll {
         barrier: u64,
     },
-    /// A notice for every player (`update_soon`: `value` minutes).
-    Notice {
-        kind: String,
-        value: u32,
-    },
+    /// A notice for every player on the map (ServerMsg::Notice): the
+    /// realm's (a world boss anywhere, a Legendary gold, update_soon).
+    Notice(crate::control::ServerMsg),
     /// The realm's game admins, by character name (lowercase); sent on
     /// linking and whenever it changes.
     Gas(Vec<String>),

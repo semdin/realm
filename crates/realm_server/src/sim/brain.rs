@@ -953,7 +953,17 @@ impl Sim {
             actor,
             value,
             of,
+            place: if at.is_none() {
+                self.game.map.clone()
+            } else {
+                String::new()
+            },
         };
+        // A map-wide notice is the realm's: every map hears it through the
+        // coordinator (this one too); alone, only this map.
+        if at.is_none() && self.coord_send(realm_proto::coord::MapMsg::Announce(msg.clone())) {
+            return;
+        }
         let conns: Vec<super::ConnId> = self
             .clients
             .iter()

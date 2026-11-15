@@ -2504,6 +2504,25 @@ impl Sim {
         if !timeout && rank >= RANK_CLEAR {
             self.board_run(i, def);
         }
+        // Legendary gold: the realm hears of it.
+        let legendary = self.runs[i]
+            .as_ref()
+            .is_some_and(|r| DIFFICULTIES.get(r.difficulty) == Some(&"legendary"));
+        if !timeout && legendary && rank == dungeons::RANK_GOLD {
+            let copy = self.runs[i].as_ref().map_or(0, |r| r.copy);
+            let names: Vec<String> = self
+                .in_copy(copy)
+                .into_iter()
+                .filter_map(|(e, _)| self.world.get::<Player>(e).map(|p| p.sheet.name.clone()))
+                .collect();
+            self.notice(
+                None,
+                "dungeon_legend",
+                def.display.clone(),
+                names.join(", "),
+                (0, 0),
+            );
+        }
         self.publish(i);
         self.runs_changed();
     }

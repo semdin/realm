@@ -237,14 +237,7 @@ impl Sim {
             CoordMsg::Gas(names) => self.gas_told(names),
             CoordMsg::Weather { rain } => self.weather_told(rain),
             CoordMsg::DisconnectAll { barrier } => self.disconnect_all(barrier),
-            CoordMsg::Notice { kind, value } => {
-                let msg = ServerMsg::Notice {
-                    kind,
-                    subject: String::new(),
-                    actor: String::new(),
-                    value,
-                    of: 0,
-                };
+            CoordMsg::Notice(msg) => {
                 let conns: Vec<ConnId> = self.clients.keys().copied().collect();
                 for conn in conns {
                     self.send_control(conn, &msg);

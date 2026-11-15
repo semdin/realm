@@ -23,7 +23,8 @@
 //!       `--dev-cocoon-solo` lets the Web Mother's cocoon wrap a lone player;
 //!       `--dev-fail-saves <file>` makes every save fail while that file
 //!       exists (with `--characters`); `--dev-ga Name,Name` makes those
-//!       characters GAs on a map without a coordinator.
+//!       characters GAs on a map without a coordinator; `--dev-boss-respawn S`
+//!       raises the map's world bosses S seconds after boot (not at boot).
 //!   realm_server selfcheck
 //!       QUIC loopback check used by CI.
 
@@ -111,6 +112,8 @@ struct Options {
     dev_fail_saves: Option<PathBuf>,
     /// Development: GAs of a map without a coordinator.
     dev_ga: Vec<String>,
+    /// Development: world bosses rise this many seconds after boot.
+    dev_boss_respawn: Option<u32>,
 }
 
 fn options(args: &[String]) -> AnyResult<Options> {
@@ -130,6 +133,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
         dev_cocoon_solo: false,
         dev_fail_saves: None,
         dev_ga: Vec::new(),
+        dev_boss_respawn: None,
     };
     let mut it = args.iter();
     while let Some(arg) = it.next() {
@@ -153,6 +157,7 @@ fn options(args: &[String]) -> AnyResult<Options> {
             "--dev-dungeon-start" => o.dev_dungeon_start = Some(value()?),
             "--dev-cocoon-solo" => o.dev_cocoon_solo = true,
             "--dev-fail-saves" => o.dev_fail_saves = Some(PathBuf::from(value()?)),
+            "--dev-boss-respawn" => o.dev_boss_respawn = Some(value()?.parse()?),
             "--dev-ga" => {
                 o.dev_ga = value()?
                     .split(',')
@@ -244,6 +249,9 @@ fn serve(args: &[String]) -> AnyResult<()> {
     sim.dev_dungeon_start = o.dev_dungeon_start.clone();
     sim.dev_cocoon_solo = o.dev_cocoon_solo;
     sim.admins.dev = o.dev_ga.iter().cloned().collect();
+    if let Some(s) = o.dev_boss_respawn {
+        sim.dev_boss_respawn(s);
+    }
     if let Some(gates) = gates {
         println!(
             "[server] {} copies, {} gates",

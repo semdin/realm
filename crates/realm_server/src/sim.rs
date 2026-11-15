@@ -671,6 +671,25 @@ impl Sim {
         self.coord_tx = Some(tx);
     }
 
+    /// Development: the map's world bosses are not standing at boot but
+    /// rise `seconds` after it (announced as the old game did, a minute
+    /// before), so their notices can be watched.
+    pub fn dev_boss_respawn(&mut self, seconds: u32) {
+        let tick = self.tick;
+        for pack in 0..self.packs.len() {
+            if !self.game.packs[pack].world_boss {
+                continue;
+            }
+            let members = std::mem::take(&mut self.packs[pack].members);
+            for e in members {
+                self.despawn(e);
+            }
+            self.packs[pack].alive = 0;
+            self.packs[pack].announced = false;
+            self.packs[pack].respawn_at = Some(tick + seconds * realm_sim::SIM_HZ);
+        }
+    }
+
     pub fn creature_count(&self) -> usize {
         self.ids.len() - self.clients.len()
     }

@@ -11,7 +11,10 @@
 //!    hears the rain on joining;
 //! 4. A makes B a GA in game; B lists the GAs and stops the rain for all;
 //! 5. A takes it back and B is refused again; the list on disk holds A
-//!    only.
+//!    only;
+//! 6. A's new look and its wand taken off reach B unasked;
+//! 7. a world boss rising on the grounds (started with --dev-boss-respawn)
+//!    is heard in the castle too.
 
 use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -231,6 +234,21 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         return fail("B never saw A take its wand off");
     }
     println!("[ga] 6 ok: A's new look and its wand taken off reached B unasked");
+
+    // 7. A world boss rising on the grounds (--dev-boss-respawn) is heard
+    // in the castle too, as the realm's.
+    let risen = |s: &Session| {
+        s.events.iter().any(|m| {
+            matches!(m, ServerMsg::Notice { kind, place, .. }
+                if kind == "boss_spawned" && place == "grounds")
+        })
+    };
+    if !pump_all(&mut [&mut a, &mut b, &mut d], 70.0, |all| {
+        risen(all[0]) && risen(all[2])
+    })? {
+        return fail("the world boss rising on the grounds was not heard on both maps");
+    }
+    println!("[ga] 7 ok: a world boss rising on the grounds was heard in the castle too");
     println!("[ga] ok: refusal, surface grant, emblem, realm rain, in-game add/list/remove");
     Ok(())
 }

@@ -642,10 +642,15 @@ async fn route(req: Request, book: &Arc<Mutex<Book>>) -> (u16, Value) {
             }
             let minutes = req.body["minutes"].as_u64().unwrap_or(3).clamp(1, 60) as u32;
             for l in b.links.values() {
-                let _ = l.tx.send(CoordMsg::Notice {
-                    kind: "update_soon".to_owned(),
-                    value: minutes,
-                });
+                let _ =
+                    l.tx.send(CoordMsg::Notice(realm_proto::control::ServerMsg::Notice {
+                        kind: "update_soon".to_owned(),
+                        subject: String::new(),
+                        actor: String::new(),
+                        value: minutes,
+                        of: 0,
+                        place: String::new(),
+                    }));
             }
             (200, json!({"ok": true, "minutes": minutes}))
         }
