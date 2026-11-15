@@ -10,8 +10,9 @@
 //! arrivals): it goes to the pack's `obstacles`, the others to `colliders`.
 //!
 //! `build` adds them to the map's static colliders before the navmesh is
-//! baked; `patch` adds them to packs that are already built (a box already
-//! in the pack is not added twice) and bakes the navmesh again.
+//! baked; `patch` lays them on packs that are already built: the boxes an
+//! earlier patch laid (the pack counts them) come out first, so the file is
+//! always the one truth; then the navmesh is baked again.
 
 use std::path::Path;
 
@@ -61,28 +62,34 @@ pub fn boxes(patches_dir: &Path, map: &str) -> Result<Vec<(PackCollider, bool)>,
     Ok(out)
 }
 
-fn same(a: &PackCollider, b: &PackCollider) -> bool {
-    let close = |x: &[f32], y: &[f32]| x.iter().zip(y).all(|(p, q)| (p - q).abs() < 1e-4);
-    let shapes = match (&a.shape, &b.shape) {
-        (PackShape::Box { half: h1 }, PackShape::Box { half: h2 }) => close(h1, h2),
-        _ => false,
-    };
-    shapes && close(&a.translation, &b.translation) && close(&a.rotation, &b.rotation)
-}
-
-/// Adds `map`'s patch boxes to `pack`; how many were new.
-pub fn apply(pack: &mut MapPack, patches_dir: &Path, map: &str) -> Result<usize, String> {
-    let mut added = 0;
+/// Lays `map`'s patch boxes on `pack` in place of the ones an earlier patch
+/// laid: (boxes now, whether anything changed).
+pub fn apply(pack: &mut MapPack, patches_dir: &Path, map: &str) -> Result<(usize, bool), String> {
+    let keep = pack
+        .colliders
+        .len()
+        .saturating_sub(pack.patch_colliders as usize);
+    let before = (
+        pack.colliders.split_off(keep),
+        std::mem::take(&mut pack.obstacles),
+    );
+    let mut laid = 0;
     for (b, obstacle) in boxes(patches_dir, map)? {
-        let list = if obstacle {
-            &mut pack.obstacles
+        if obstacle {
+            pack.obstacles.push(b);
         } else {
-            &mut pack.colliders
-        };
-        if !list.iter().any(|c| same(c, &b)) {
-            list.push(b);
-            added += 1;
+            pack.colliders.push(b);
+            laid += 1;
         }
     }
-    Ok(added)
+    pack.patch_colliders = laid as u32;
+    let total = laid + pack.obstacles.len();
+    let same = |a: &[PackCollider], b: &[PackCollider]| {
+        a.len() == b.len()
+            && a.iter()
+                .zip(b)
+                .all(|(x, y)| format!("{x:?}") == format!("{y:?}"))
+    };
+    let changed = !same(&before.0, &pack.colliders[keep..]) || !same(&before.1, &pack.obstacles);
+    Ok((total, changed))
 }

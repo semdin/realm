@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://2exbrn40nbtf"
-path="res://.godot/imported/pallid_warden_texture_pbr_20250901.jpg-7c29a59af0d6d77bbb131aa7a7cd0bfc.ctex"
+path.s3tc="res://.godot/imported/pallid_warden_texture_pbr_20250901.jpg-7c29a59af0d6d77bbb131aa7a7cd0bfc.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f6fd2587e86ad07fa14f65d3f49c5cd5"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/pallid_warden_texture_pbr_20250901.jpg"
-dest_files=["res://.godot/imported/pallid_warden_texture_pbr_20250901.jpg-7c29a59af0d6d77bbb131aa7a7cd0bfc.ctex"]
+dest_files=["res://.godot/imported/pallid_warden_texture_pbr_20250901.jpg-7c29a59af0d6d77bbb131aa7a7cd0bfc.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

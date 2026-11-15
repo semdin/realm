@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dp8ig2mlyiqku"
-path="res://.godot/imported/goblin_teller_goblin_a_albedo.jpg-ef3647493f8645079d4c6cc13cda9802.ctex"
+path.s3tc="res://.godot/imported/goblin_teller_goblin_a_albedo.jpg-ef3647493f8645079d4c6cc13cda9802.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ae736f5b0325502a37de3ac61b124a82"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/goblin_teller_goblin_a_albedo.jpg"
-dest_files=["res://.godot/imported/goblin_teller_goblin_a_albedo.jpg-ef3647493f8645079d4c6cc13cda9802.ctex"]
+dest_files=["res://.godot/imported/goblin_teller_goblin_a_albedo.jpg-ef3647493f8645079d4c6cc13cda9802.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

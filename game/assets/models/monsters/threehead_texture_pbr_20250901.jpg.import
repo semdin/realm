@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjv3uhj7lqgcy"
-path="res://.godot/imported/threehead_texture_pbr_20250901.jpg-bc3d42c3b2a1baea4fe70588f5603b9c.ctex"
+path.s3tc="res://.godot/imported/threehead_texture_pbr_20250901.jpg-bc3d42c3b2a1baea4fe70588f5603b9c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "078c4256e56d26f66215aa5828527a62"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/threehead_texture_pbr_20250901.jpg"
-dest_files=["res://.godot/imported/threehead_texture_pbr_20250901.jpg-bc3d42c3b2a1baea4fe70588f5603b9c.ctex"]
+dest_files=["res://.godot/imported/threehead_texture_pbr_20250901.jpg-bc3d42c3b2a1baea4fe70588f5603b9c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

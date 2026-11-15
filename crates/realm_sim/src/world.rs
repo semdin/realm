@@ -104,6 +104,22 @@ impl World {
         self.add_kind(pose, shape, false);
     }
 
+    /// Whether a body of `radius` standing at `at` (its feet) would be
+    /// inside an obstacle (a trunk, a spire): places things are put use it
+    /// to step aside.
+    #[must_use]
+    pub fn in_obstacle(&self, at: Vec3, radius: f32) -> bool {
+        let cell = ((at.x / CELL).floor() as i32, (at.z / CELL).floor() as i32);
+        let probe = at + Vec3::new(0.0, radius.max(0.3), 0.0);
+        self.grid
+            .get(&cell)
+            .map_or(&[][..], Vec::as_slice)
+            .iter()
+            .map(|&i| &self.colliders[i as usize])
+            .filter(|c| c.obstacle)
+            .any(|c| c.shape.distance_to_point(&c.pose, probe, true) <= radius)
+    }
+
     /// An obstacle: solid to bodies, not ground for `ground_height`.
     pub fn add_obstacle(&mut self, pose: Pose, shape: SharedShape) {
         self.add_kind(pose, shape, true);

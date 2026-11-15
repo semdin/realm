@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bgh0daevij4ur"
-path="res://.godot/imported/hero_wizard_T_Regular_Male_Roughness.png-cf252cd5fc7c88cf1fb5d0c7b0dcd950.ctex"
+path.bptc="res://.godot/imported/hero_wizard_T_Regular_Male_Roughness.png-cf252cd5fc7c88cf1fb5d0c7b0dcd950.bptc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a7966eb2bb9bf39a39350a651ff9804f"
@@ -14,12 +15,12 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_T_Regular_Male_Roughness.png"
-dest_files=["res://.godot/imported/hero_wizard_T_Regular_Male_Roughness.png-cf252cd5fc7c88cf1fb5d0c7b0dcd950.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_T_Regular_Male_Roughness.png-cf252cd5fc7c88cf1fb5d0c7b0dcd950.bptc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

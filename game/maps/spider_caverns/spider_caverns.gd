@@ -19,7 +19,8 @@ extends Node3D
 ##
 ## Drawn solids the old game gave no collider and no creature is placed near
 ## (the crypt stair's steps, the gates' arches, the camp's tent) are recorded
-## in `solids` (world/patches/spider_caverns.json gives them their boxes).
+## in `solids`, the big stalagmite spires in `spires`
+## (world/patches/spider_caverns.json gives them their boxes).
 ##
 ## Low-preset look: lite materials, no shadows, the old cave atmosphere at
 ## low (cold ambient, depth fog, no glow).
@@ -59,6 +60,9 @@ var built_stats: Dictionary = {}
 ## Drawn solids the old game gave no collider: [{note, center, half, yaw_deg}]
 ## in the map's (pack) coordinates.
 var solids: Array = []
+## Where the big stalagmite spires stand (the baked stalag mesh placed):
+## map_solids.gd boxes them as obstacles.
+var spires: Array = []
 
 var _layout: Dictionary = {}
 var _heights: PackedFloat32Array
@@ -274,15 +278,19 @@ func _record_arch(xform: Transform3D, note: String, down: float) -> void:
 	solids.append_array(DungeonView.part_solids(xform, ARCH_PARTS, down, note))
 
 ## Stalagmite clumps along the rim: one big spire group and a small one.
-## They stay as the old game had them, without colliders: the server stands
-## a pack's anchor and members, a Seal Stone's roam and its waves on the
-## first surface a ray from the sky meets (World::ground_height), so a box
-## here would put creatures on top of a spire.
+## The big ones are solid (Phase 6.6): their placements are kept in
+## `spires`, and map_solids.gd boxes each inside its drawn rock as
+## `obstacle` patch boxes, which bodies hit and the navmesh goes round but
+## the ground the server places packs, Seal Stone waves and arrivals on looks
+## through (World::ground_height), so no creature stands on a spire. The
+## small ones stay walk-through, as the old game had them all.
 func _crags(center: Vector2, r: float, count: int) -> void:
 	var xforms: Array = []
 	for i in count:
 		var p := _rim_point(center, r, 3.5)
-		xforms.append(_stand(p, _rng.randf() * TAU, _rng.randf_range(0.55, 1.05), 0.5, _rng.randf_range(0.0, 0.08)))
+		var spire := _stand(p, _rng.randf() * TAU, _rng.randf_range(0.55, 1.05), 0.5, _rng.randf_range(0.0, 0.08))
+		xforms.append(spire)
+		spires.append(spire)
 		var q := p + Vector2(_rng.randf_range(-4.0, 4.0), _rng.randf_range(-4.0, 4.0))
 		xforms.append(_stand(q, _rng.randf() * TAU, _rng.randf_range(0.2, 0.35), 0.2, _rng.randf_range(0.0, 0.15)))
 	_scatter("stalag", xforms, "Crags")

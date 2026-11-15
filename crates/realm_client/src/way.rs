@@ -393,6 +393,7 @@ impl RealmSession {
             },
             // trees and spires are not painted as walls on the map sheet
             obstacles: Vec::new(),
+            patch_colliders: 0,
             dynamic: Vec::new(),
             nav: if nav {
                 pack.nav.clone()

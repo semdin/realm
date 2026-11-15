@@ -526,6 +526,131 @@ static func part_solids(xform: Transform3D, parts: Array, down: float, note: Str
 ## spire.
 const STALAG_LAYERS := [[0.0, 0.17, 0.82], [0.17, 0.42, 0.6], [0.42, 0.85, 0.38]]
 
+## A mesh's top surface sampled on an n x n grid over its footprint (mesh
+## space): each cell centre's highest point of the mesh (its triangles, and
+## its vertices for cells no triangle lands on whole), then cells far under
+## the median of their neighbours (a scan's cracks) raised to it:
+## {top: PackedFloat32Array (row z, column x; -INF off the mesh), n, box}.
+static func top_raster(mesh: Mesh, n: int) -> Dictionary:
+	var box := mesh.get_aabb()
+	var top := PackedFloat32Array()
+	top.resize(n * n)
+	top.fill(-INF)
+	var cell := Vector2(box.size.x / n, box.size.z / n)
+	for s in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(s)
+		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+		var index: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+		for v in verts:
+			var at := clampi(floori((v.z - box.position.z) / cell.y), 0, n - 1) * n \
+				+ clampi(floori((v.x - box.position.x) / cell.x), 0, n - 1)
+			top[at] = maxf(top[at], v.y)
+		var count := index.size() if not index.is_empty() else verts.size()
+		for k in range(0, count - 2, 3):
+			var a := verts[index[k] if not index.is_empty() else k]
+			var b := verts[index[k + 1] if not index.is_empty() else k + 1]
+			var c := verts[index[k + 2] if not index.is_empty() else k + 2]
+			var a2 := Vector2(a.x, a.z)
+			var b2 := Vector2(b.x, b.z)
+			var c2 := Vector2(c.x, c.z)
+			var area := (b2 - a2).cross(c2 - a2)
+			if absf(area) < 1e-12:
+				continue
+			var i0 := clampi(floori((minf(a.x, minf(b.x, c.x)) - box.position.x) / cell.x), 0, n - 1)
+			var i1 := clampi(floori((maxf(a.x, maxf(b.x, c.x)) - box.position.x) / cell.x), 0, n - 1)
+			var j0 := clampi(floori((minf(a.z, minf(b.z, c.z)) - box.position.z) / cell.y), 0, n - 1)
+			var j1 := clampi(floori((maxf(a.z, maxf(b.z, c.z)) - box.position.z) / cell.y), 0, n - 1)
+			for i in range(i0, i1 + 1):
+				for j in range(j0, j1 + 1):
+					var p := Vector2(box.position.x + (i + 0.5) * cell.x, box.position.z + (j + 0.5) * cell.y)
+					var w1 := (c2 - b2).cross(p - b2) / area
+					var w2 := (a2 - c2).cross(p - c2) / area
+					var w3 := 1.0 - w1 - w2
+					if w1 < -1e-5 or w2 < -1e-5 or w3 < -1e-5:
+						continue
+					top[j * n + i] = maxf(top[j * n + i], w1 * a.y + w2 * b.y + w3 * c.y)
+	for pass_ in 3:
+		var filled := top.duplicate()
+		for j in range(1, n - 1):
+			for i in range(1, n - 1):
+				var around: Array = []
+				for dj in [-1, 0, 1]:
+					for di in [-1, 0, 1]:
+						if di != 0 or dj != 0:
+							around.append(top[(j + dj) * n + i + di])
+				around.sort()
+				var median: float = around[4]
+				if median > -INF and top[j * n + i] < median - box.size.y * 0.1:
+					filled[j * n + i] = median
+		top = filled
+	return {"top": top, "n": n, "box": box}
+
+## The largest rectangle of a raster's cells whose top reaches `t`, as
+## mesh-space [x0, x1, z0, z1] from cell centre to cell centre (half a cell
+## inside), or [] when none is three cells across both ways.
+static func raster_rect(raster: Dictionary, t: float) -> Array:
+	var top: PackedFloat32Array = raster["top"]
+	var n: int = raster["n"]
+	var box: AABB = raster["box"]
+	var heights := PackedInt32Array()
+	heights.resize(n)
+	var best := 0
+	var found: Array = []
+	for j in n:
+		for i in n:
+			heights[i] = heights[i] + 1 if top[j * n + i] >= t else 0
+		for i in n:
+			var h := heights[i]
+			if h == 0:
+				continue
+			var l := i
+			while l > 0 and heights[l - 1] >= h:
+				l -= 1
+			var r := i
+			while r < n - 1 and heights[r + 1] >= h:
+				r += 1
+			if r - l >= 2 and h >= 3 and (r - l) * (h - 1) > best:
+				best = (r - l) * (h - 1)
+				found = [l, r, j - h + 1, j]
+	if found.is_empty():
+		return []
+	var cx := box.size.x / n
+	var cz := box.size.z / n
+	return [box.position.x + (found[0] + 0.5) * cx, box.position.x + (found[1] + 0.5) * cx,
+		box.position.z + (found[2] + 0.5) * cz, box.position.z + (found[3] + 0.5) * cz]
+
+## A placed model's solid as stacked upright patch boxes inside its drawn
+## shape: for each band [from, to] (fractions of the mesh's height from its
+## foot) the largest rectangle under its top surface at the band's top
+## (raster_rect), from the band's bottom (the first from the mesh's foot) to
+## that top. `xform` places the mesh (yaw, uniform scale, a slight tilt: each
+## box stands on the tilted axis, narrowed by what the tilt leans over its
+## height). Bands stop at the first one the shape is too thin for.
+static func raster_solids(raster: Dictionary, xform: Transform3D, bands: Array, note: String) -> Array:
+	var out: Array = []
+	var box: AABB = raster["box"]
+	var scale := xform.basis.x.length()
+	var yaw := atan2(-xform.basis.x.z, xform.basis.x.x)
+	var lean := tan(acos(clampf(xform.basis.y.normalized().y, -1.0, 1.0)))
+	for band: Array in bands:
+		var y0 := box.position.y + box.size.y * float(band[0])
+		var y1 := box.position.y + box.size.y * float(band[1])
+		var rect := raster_rect(raster, y1)
+		if rect.is_empty():
+			break
+		var half_y := (y1 - y0) * 0.5 * scale
+		var hx := (float(rect[1]) - float(rect[0])) * 0.5 * scale - lean * half_y
+		var hz := (float(rect[3]) - float(rect[2])) * 0.5 * scale - lean * half_y
+		if hx < 0.05 or hz < 0.05:
+			break
+		var at := xform * Vector3((float(rect[0]) + float(rect[1])) * 0.5, (y0 + y1) * 0.5,
+			(float(rect[2]) + float(rect[3])) * 0.5)
+		out.append({"note": "%s (band %.0f-%.0f %%)" % [note, float(band[0]) * 100.0, float(band[1]) * 100.0],
+			"center": [snappedf(at.x, 0.01), snappedf(at.y, 0.01), snappedf(at.z, 0.01)],
+			"half": [snappedf(hx, 0.01), snappedf(half_y, 0.01), snappedf(hz, 0.01)],
+			"yaw_deg": snappedf(rad_to_deg(yaw), 0.01)})
+	return out
+
 ## A static prop's solid as layered patch boxes (layered_solids) in this
 ## view's (the pack's) coordinates.
 func _solid_layers(node: Node3D, layers: Array, note: String) -> void:

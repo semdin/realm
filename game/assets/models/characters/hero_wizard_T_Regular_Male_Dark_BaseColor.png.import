@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://166g1r4arhmi"
-path="res://.godot/imported/hero_wizard_T_Regular_Male_Dark_BaseColor.png-63df85f187c929496f0224d0bf283cc4.ctex"
+path.bptc="res://.godot/imported/hero_wizard_T_Regular_Male_Dark_BaseColor.png-63df85f187c929496f0224d0bf283cc4.bptc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9ee756d9b312a460fad345f0508a6222"
@@ -14,12 +15,12 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_T_Regular_Male_Dark_BaseColor.png"
-dest_files=["res://.godot/imported/hero_wizard_T_Regular_Male_Dark_BaseColor.png-63df85f187c929496f0224d0bf283cc4.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_T_Regular_Male_Dark_BaseColor.png-63df85f187c929496f0224d0bf283cc4.bptc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

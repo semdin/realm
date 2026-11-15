@@ -213,28 +213,28 @@
     },
     {
       "center": [
-        -213.97,
+        -213.93,
         1553.79,
-        -210.86
+        -210.89
       ],
       "half": [
-        0.65,
+        0.6,
         3.9,
-        0.93
+        0.83
       ],
       "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 1)",
       "yaw_deg": 45.0
     },
     {
       "center": [
-        -210.98,
+        -211.02,
         1553.79,
-        -213.7
+        -213.67
       ],
       "half": [
-        0.87,
+        0.83,
         3.9,
-        1.27
+        1.18
       ],
       "note": "the crypt gate's arch on the stair: drawn stone, no collider (part 2)",
       "yaw_deg": 45.0
@@ -437,28 +437,28 @@
     },
     {
       "center": [
-        191.55,
+        191.52,
         1524.95,
-        213.44
+        213.48
       ],
       "half": [
-        0.65,
+        0.6,
         3.05,
-        0.93
+        0.83
       ],
       "note": "the lair_entry web gate's arch: drawn stone, no collider (part 1)",
       "yaw_deg": -135.0
     },
     {
       "center": [
-        188.57,
+        188.6,
         1524.95,
-        216.29
+        216.25
       ],
       "half": [
-        0.87,
+        0.83,
         3.05,
-        1.27
+        1.18
       ],
       "note": "the lair_entry web gate's arch: drawn stone, no collider (part 2)",
       "yaw_deg": -135.0
@@ -661,28 +661,28 @@
     },
     {
       "center": [
-        -172.55,
+        -172.6,
         1552.95,
-        -155.73
+        -155.74
       ],
       "half": [
-        0.65,
+        0.6,
         3.05,
-        0.93
+        0.83
       ],
       "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 1)",
       "yaw_deg": 165.96
     },
     {
       "center": [
-        -176.53,
+        -176.48,
         1552.95,
-        -156.82
+        -156.81
       ],
       "half": [
-        0.87,
+        0.83,
         3.05,
-        1.27
+        1.18
       ],
       "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 2)",
       "yaw_deg": 165.96
@@ -882,6 +882,4086 @@
       ],
       "note": "the lair_entry_camp web gate's arch: drawn stone, no collider (part 16)",
       "yaw_deg": 165.96
+    },
+    {
+      "center": [
+        -119.18,
+        1548.8,
+        -175.35
+      ],
+      "half": [
+        1.48,
+        0.43,
+        1.74
+      ],
+      "note": "stalagmite spire at -119, -176: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 162.81
+    },
+    {
+      "center": [
+        -119.35,
+        1549.88,
+        -175.3
+      ],
+      "half": [
+        1.09,
+        0.65,
+        0.64
+      ],
+      "note": "stalagmite spire at -119, -176: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 162.81
+    },
+    {
+      "center": [
+        -118.62,
+        1551.27,
+        -175.41
+      ],
+      "half": [
+        0.49,
+        0.72,
+        0.45
+      ],
+      "note": "stalagmite spire at -119, -176: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 162.81
+    },
+    {
+      "center": [
+        -118.57,
+        1552.72,
+        -175.36
+      ],
+      "half": [
+        0.41,
+        0.72,
+        0.29
+      ],
+      "note": "stalagmite spire at -119, -176: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 162.81
+    },
+    {
+      "center": [
+        -71.3,
+        1548.75,
+        -177.78
+      ],
+      "half": [
+        1.2,
+        0.35,
+        1.41
+      ],
+      "note": "stalagmite spire at -71, -178: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -24.15
+    },
+    {
+      "center": [
+        -71.18,
+        1549.64,
+        -177.77
+      ],
+      "half": [
+        0.89,
+        0.53,
+        0.52
+      ],
+      "note": "stalagmite spire at -71, -178: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -24.15
+    },
+    {
+      "center": [
+        -71.8,
+        1550.76,
+        -177.71
+      ],
+      "half": [
+        0.4,
+        0.59,
+        0.36
+      ],
+      "note": "stalagmite spire at -71, -178: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -24.15
+    },
+    {
+      "center": [
+        -71.86,
+        1551.94,
+        -177.7
+      ],
+      "half": [
+        0.33,
+        0.59,
+        0.24
+      ],
+      "note": "stalagmite spire at -71, -178: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -24.15
+    },
+    {
+      "center": [
+        -117.85,
+        1548.71,
+        -183.48
+      ],
+      "half": [
+        1.01,
+        0.3,
+        1.19
+      ],
+      "note": "stalagmite spire at -118, -184: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 110.82
+    },
+    {
+      "center": [
+        -117.97,
+        1549.45,
+        -183.59
+      ],
+      "half": [
+        0.73,
+        0.45,
+        0.42
+      ],
+      "note": "stalagmite spire at -118, -184: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 110.82
+    },
+    {
+      "center": [
+        -117.63,
+        1550.44,
+        -183.28
+      ],
+      "half": [
+        0.32,
+        0.5,
+        0.28
+      ],
+      "note": "stalagmite spire at -118, -184: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 110.82
+    },
+    {
+      "center": [
+        -117.66,
+        1551.44,
+        -183.28
+      ],
+      "half": [
+        0.26,
+        0.5,
+        0.18
+      ],
+      "note": "stalagmite spire at -118, -184: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 110.82
+    },
+    {
+      "center": [
+        -89.31,
+        1548.68,
+        -194.32
+      ],
+      "half": [
+        0.87,
+        0.26,
+        1.03
+      ],
+      "note": "stalagmite spire at -89, -194: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 179.32
+    },
+    {
+      "center": [
+        -89.38,
+        1549.32,
+        -194.25
+      ],
+      "half": [
+        0.64,
+        0.39,
+        0.38
+      ],
+      "note": "stalagmite spire at -89, -194: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 179.32
+    },
+    {
+      "center": [
+        -88.97,
+        1550.14,
+        -194.43
+      ],
+      "half": [
+        0.29,
+        0.43,
+        0.26
+      ],
+      "note": "stalagmite spire at -89, -194: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 179.32
+    },
+    {
+      "center": [
+        -88.91,
+        1551.0,
+        -194.4
+      ],
+      "half": [
+        0.24,
+        0.43,
+        0.17
+      ],
+      "note": "stalagmite spire at -89, -194: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 179.32
+    },
+    {
+      "center": [
+        -68.88,
+        1548.78,
+        -169.36
+      ],
+      "half": [
+        1.31,
+        0.39,
+        1.54
+      ],
+      "note": "stalagmite spire at -69, -169: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -122.59
+    },
+    {
+      "center": [
+        -68.88,
+        1549.75,
+        -169.27
+      ],
+      "half": [
+        0.96,
+        0.58,
+        0.56
+      ],
+      "note": "stalagmite spire at -69, -169: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -122.59
+    },
+    {
+      "center": [
+        -68.82,
+        1550.95,
+        -170.0
+      ],
+      "half": [
+        0.43,
+        0.65,
+        0.39
+      ],
+      "note": "stalagmite spire at -69, -169: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -122.59
+    },
+    {
+      "center": [
+        -68.78,
+        1552.24,
+        -170.12
+      ],
+      "half": [
+        0.35,
+        0.65,
+        0.25
+      ],
+      "note": "stalagmite spire at -69, -169: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -122.59
+    },
+    {
+      "center": [
+        -119.93,
+        1548.72,
+        -171.3
+      ],
+      "half": [
+        1.45,
+        0.42,
+        1.7
+      ],
+      "note": "stalagmite spire at -120, -171: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -123.0
+    },
+    {
+      "center": [
+        -119.92,
+        1549.78,
+        -171.17
+      ],
+      "half": [
+        1.07,
+        0.64,
+        0.64
+      ],
+      "note": "stalagmite spire at -120, -171: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -123.0
+    },
+    {
+      "center": [
+        -119.83,
+        1551.12,
+        -171.92
+      ],
+      "half": [
+        0.49,
+        0.71,
+        0.45
+      ],
+      "note": "stalagmite spire at -120, -171: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -123.0
+    },
+    {
+      "center": [
+        -119.77,
+        1552.53,
+        -172.01
+      ],
+      "half": [
+        0.41,
+        0.71,
+        0.29
+      ],
+      "note": "stalagmite spire at -120, -171: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -123.0
+    },
+    {
+      "center": [
+        -18.08,
+        1547.75,
+        -116.51
+      ],
+      "half": [
+        1.23,
+        0.36,
+        1.45
+      ],
+      "note": "stalagmite spire at -18, -116: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -50.41
+    },
+    {
+      "center": [
+        -17.94,
+        1548.65,
+        -116.49
+      ],
+      "half": [
+        0.91,
+        0.54,
+        0.54
+      ],
+      "note": "stalagmite spire at -18, -116: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -50.41
+    },
+    {
+      "center": [
+        -18.5,
+        1549.81,
+        -116.75
+      ],
+      "half": [
+        0.41,
+        0.6,
+        0.37
+      ],
+      "note": "stalagmite spire at -18, -116: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -50.41
+    },
+    {
+      "center": [
+        -18.51,
+        1551.01,
+        -116.83
+      ],
+      "half": [
+        0.34,
+        0.6,
+        0.24
+      ],
+      "note": "stalagmite spire at -18, -116: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -50.41
+    },
+    {
+      "center": [
+        10.36,
+        1547.69,
+        -179.24
+      ],
+      "half": [
+        0.9,
+        0.26,
+        1.05
+      ],
+      "note": "stalagmite spire at 10, -179: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 39.94
+    },
+    {
+      "center": [
+        10.39,
+        1548.34,
+        -179.33
+      ],
+      "half": [
+        0.67,
+        0.39,
+        0.4
+      ],
+      "note": "stalagmite spire at 10, -179: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 39.94
+    },
+    {
+      "center": [
+        10.21,
+        1549.17,
+        -178.9
+      ],
+      "half": [
+        0.31,
+        0.44,
+        0.28
+      ],
+      "note": "stalagmite spire at 10, -179: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 39.94
+    },
+    {
+      "center": [
+        10.18,
+        1550.04,
+        -178.86
+      ],
+      "half": [
+        0.25,
+        0.44,
+        0.19
+      ],
+      "note": "stalagmite spire at 10, -179: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 39.94
+    },
+    {
+      "center": [
+        -7.43,
+        1547.69,
+        -115.0
+      ],
+      "half": [
+        0.87,
+        0.26,
+        1.03
+      ],
+      "note": "stalagmite spire at -7, -115: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -72.74
+    },
+    {
+      "center": [
+        -7.41,
+        1548.34,
+        -114.95
+      ],
+      "half": [
+        0.63,
+        0.39,
+        0.37
+      ],
+      "note": "stalagmite spire at -7, -115: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -72.74
+    },
+    {
+      "center": [
+        -7.78,
+        1549.13,
+        -115.29
+      ],
+      "half": [
+        0.28,
+        0.43,
+        0.25
+      ],
+      "note": "stalagmite spire at -7, -115: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -72.74
+    },
+    {
+      "center": [
+        -7.85,
+        1549.99,
+        -115.35
+      ],
+      "half": [
+        0.22,
+        0.43,
+        0.16
+      ],
+      "note": "stalagmite spire at -7, -115: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -72.74
+    },
+    {
+      "center": [
+        -43.91,
+        1547.68,
+        -161.32
+      ],
+      "half": [
+        1.05,
+        0.31,
+        1.24
+      ],
+      "note": "stalagmite spire at -44, -161: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 18.23
+    },
+    {
+      "center": [
+        -43.85,
+        1548.46,
+        -161.39
+      ],
+      "half": [
+        0.78,
+        0.46,
+        0.46
+      ],
+      "note": "stalagmite spire at -44, -161: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 18.23
+    },
+    {
+      "center": [
+        -44.25,
+        1549.42,
+        -160.97
+      ],
+      "half": [
+        0.35,
+        0.52,
+        0.32
+      ],
+      "note": "stalagmite spire at -44, -161: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 18.23
+    },
+    {
+      "center": [
+        -44.32,
+        1550.45,
+        -160.93
+      ],
+      "half": [
+        0.29,
+        0.52,
+        0.21
+      ],
+      "note": "stalagmite spire at -44, -161: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 18.23
+    },
+    {
+      "center": [
+        21.66,
+        1547.72,
+        -132.66
+      ],
+      "half": [
+        1.02,
+        0.3,
+        1.2
+      ],
+      "note": "stalagmite spire at 22, -133: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -6.02
+    },
+    {
+      "center": [
+        21.76,
+        1548.47,
+        -132.7
+      ],
+      "half": [
+        0.75,
+        0.45,
+        0.45
+      ],
+      "note": "stalagmite spire at 22, -133: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -6.02
+    },
+    {
+      "center": [
+        21.28,
+        1549.42,
+        -132.5
+      ],
+      "half": [
+        0.34,
+        0.5,
+        0.31
+      ],
+      "note": "stalagmite spire at 22, -133: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -6.02
+    },
+    {
+      "center": [
+        21.24,
+        1550.42,
+        -132.49
+      ],
+      "half": [
+        0.28,
+        0.5,
+        0.21
+      ],
+      "note": "stalagmite spire at 22, -133: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -6.02
+    },
+    {
+      "center": [
+        -43.67,
+        1547.66,
+        -163.31
+      ],
+      "half": [
+        0.85,
+        0.25,
+        1.0
+      ],
+      "note": "stalagmite spire at -44, -163: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -67.87
+    },
+    {
+      "center": [
+        -43.57,
+        1548.28,
+        -163.26
+      ],
+      "half": [
+        0.62,
+        0.38,
+        0.37
+      ],
+      "note": "stalagmite spire at -44, -163: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -67.87
+    },
+    {
+      "center": [
+        -43.87,
+        1549.09,
+        -163.55
+      ],
+      "half": [
+        0.28,
+        0.42,
+        0.25
+      ],
+      "note": "stalagmite spire at -44, -163: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -67.87
+    },
+    {
+      "center": [
+        -43.85,
+        1549.93,
+        -163.59
+      ],
+      "half": [
+        0.23,
+        0.42,
+        0.16
+      ],
+      "note": "stalagmite spire at -44, -163: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -67.87
+    },
+    {
+      "center": [
+        -97.35,
+        1548.25,
+        -57.47
+      ],
+      "half": [
+        1.41,
+        0.42,
+        1.66
+      ],
+      "note": "stalagmite spire at -97, -58: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 94.63
+    },
+    {
+      "center": [
+        -97.4,
+        1549.29,
+        -57.57
+      ],
+      "half": [
+        1.04,
+        0.62,
+        0.61
+      ],
+      "note": "stalagmite spire at -97, -58: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 94.63
+    },
+    {
+      "center": [
+        -96.97,
+        1550.59,
+        -56.94
+      ],
+      "half": [
+        0.47,
+        0.69,
+        0.42
+      ],
+      "note": "stalagmite spire at -97, -58: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 94.63
+    },
+    {
+      "center": [
+        -96.92,
+        1551.97,
+        -56.85
+      ],
+      "half": [
+        0.38,
+        0.69,
+        0.27
+      ],
+      "note": "stalagmite spire at -97, -58: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 94.63
+    },
+    {
+      "center": [
+        -114.46,
+        1548.18,
+        -100.74
+      ],
+      "half": [
+        0.91,
+        0.27,
+        1.08
+      ],
+      "note": "stalagmite spire at -114, -101: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -35.39
+    },
+    {
+      "center": [
+        -114.35,
+        1548.86,
+        -100.77
+      ],
+      "half": [
+        0.66,
+        0.41,
+        0.38
+      ],
+      "note": "stalagmite spire at -114, -101: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -35.39
+    },
+    {
+      "center": [
+        -114.79,
+        1549.73,
+        -100.9
+      ],
+      "half": [
+        0.29,
+        0.45,
+        0.26
+      ],
+      "note": "stalagmite spire at -114, -101: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -35.39
+    },
+    {
+      "center": [
+        -114.81,
+        1550.63,
+        -100.98
+      ],
+      "half": [
+        0.23,
+        0.45,
+        0.16
+      ],
+      "note": "stalagmite spire at -114, -101: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -35.39
+    },
+    {
+      "center": [
+        -116.09,
+        1548.17,
+        -98.83
+      ],
+      "half": [
+        0.85,
+        0.25,
+        1.0
+      ],
+      "note": "stalagmite spire at -116, -99: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -103.7
+    },
+    {
+      "center": [
+        -116.07,
+        1548.8,
+        -98.75
+      ],
+      "half": [
+        0.63,
+        0.37,
+        0.38
+      ],
+      "note": "stalagmite spire at -116, -99: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -103.7
+    },
+    {
+      "center": [
+        -116.18,
+        1549.59,
+        -99.19
+      ],
+      "half": [
+        0.29,
+        0.42,
+        0.26
+      ],
+      "note": "stalagmite spire at -116, -99: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -103.7
+    },
+    {
+      "center": [
+        -116.18,
+        1550.42,
+        -99.24
+      ],
+      "half": [
+        0.24,
+        0.42,
+        0.17
+      ],
+      "note": "stalagmite spire at -116, -99: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -103.7
+    },
+    {
+      "center": [
+        -126.51,
+        1548.18,
+        -95.82
+      ],
+      "half": [
+        0.85,
+        0.25,
+        1.0
+      ],
+      "note": "stalagmite spire at -126, -96: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -19.52
+    },
+    {
+      "center": [
+        -126.46,
+        1548.82,
+        -95.83
+      ],
+      "half": [
+        0.62,
+        0.38,
+        0.36
+      ],
+      "note": "stalagmite spire at -126, -96: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -19.52
+    },
+    {
+      "center": [
+        -126.96,
+        1549.59,
+        -95.75
+      ],
+      "half": [
+        0.27,
+        0.42,
+        0.24
+      ],
+      "note": "stalagmite spire at -126, -96: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -19.52
+    },
+    {
+      "center": [
+        -127.06,
+        1550.43,
+        -95.75
+      ],
+      "half": [
+        0.22,
+        0.42,
+        0.15
+      ],
+      "note": "stalagmite spire at -126, -96: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -19.52
+    },
+    {
+      "center": [
+        -137.88,
+        1548.15,
+        -69.87
+      ],
+      "half": [
+        0.86,
+        0.25,
+        1.01
+      ],
+      "note": "stalagmite spire at -138, -70: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -149.87
+    },
+    {
+      "center": [
+        -137.94,
+        1548.78,
+        -69.76
+      ],
+      "half": [
+        0.63,
+        0.38,
+        0.37
+      ],
+      "note": "stalagmite spire at -138, -70: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -149.87
+    },
+    {
+      "center": [
+        -137.71,
+        1549.61,
+        -70.1
+      ],
+      "half": [
+        0.28,
+        0.42,
+        0.25
+      ],
+      "note": "stalagmite spire at -138, -70: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -149.87
+    },
+    {
+      "center": [
+        -137.69,
+        1550.46,
+        -70.08
+      ],
+      "half": [
+        0.23,
+        0.42,
+        0.16
+      ],
+      "note": "stalagmite spire at -138, -70: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -149.87
+    },
+    {
+      "center": [
+        -91.97,
+        1548.17,
+        -87.54
+      ],
+      "half": [
+        0.81,
+        0.24,
+        0.96
+      ],
+      "note": "stalagmite spire at -92, -88: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 87.73
+    },
+    {
+      "center": [
+        -92.0,
+        1548.77,
+        -87.61
+      ],
+      "half": [
+        0.6,
+        0.36,
+        0.35
+      ],
+      "note": "stalagmite spire at -92, -88: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 87.73
+    },
+    {
+      "center": [
+        -91.8,
+        1549.52,
+        -87.23
+      ],
+      "half": [
+        0.27,
+        0.4,
+        0.25
+      ],
+      "note": "stalagmite spire at -92, -88: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 87.73
+    },
+    {
+      "center": [
+        -91.78,
+        1550.31,
+        -87.18
+      ],
+      "half": [
+        0.22,
+        0.4,
+        0.16
+      ],
+      "note": "stalagmite spire at -92, -88: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 87.73
+    },
+    {
+      "center": [
+        65.25,
+        1546.79,
+        -156.32
+      ],
+      "half": [
+        1.46,
+        0.43,
+        1.71
+      ],
+      "note": "stalagmite spire at 65, -156: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -140.06
+    },
+    {
+      "center": [
+        65.2,
+        1547.85,
+        -156.19
+      ],
+      "half": [
+        1.08,
+        0.64,
+        0.64
+      ],
+      "note": "stalagmite spire at 65, -156: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -140.06
+    },
+    {
+      "center": [
+        65.48,
+        1549.2,
+        -156.88
+      ],
+      "half": [
+        0.5,
+        0.71,
+        0.45
+      ],
+      "note": "stalagmite spire at 65, -156: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -140.06
+    },
+    {
+      "center": [
+        65.54,
+        1550.62,
+        -156.93
+      ],
+      "half": [
+        0.41,
+        0.71,
+        0.3
+      ],
+      "note": "stalagmite spire at 65, -156: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -140.06
+    },
+    {
+      "center": [
+        80.02,
+        1546.76,
+        -148.83
+      ],
+      "half": [
+        1.49,
+        0.44,
+        1.75
+      ],
+      "note": "stalagmite spire at 80, -149: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 165.78
+    },
+    {
+      "center": [
+        79.87,
+        1547.85,
+        -148.79
+      ],
+      "half": [
+        1.11,
+        0.65,
+        0.66
+      ],
+      "note": "stalagmite spire at 80, -149: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 165.78
+    },
+    {
+      "center": [
+        80.61,
+        1549.23,
+        -148.97
+      ],
+      "half": [
+        0.51,
+        0.73,
+        0.46
+      ],
+      "note": "stalagmite spire at 80, -149: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 165.78
+    },
+    {
+      "center": [
+        80.69,
+        1550.69,
+        -148.96
+      ],
+      "half": [
+        0.42,
+        0.73,
+        0.31
+      ],
+      "note": "stalagmite spire at 80, -149: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 165.78
+    },
+    {
+      "center": [
+        107.39,
+        1546.77,
+        -191.3
+      ],
+      "half": [
+        1.26,
+        0.37,
+        1.48
+      ],
+      "note": "stalagmite spire at 107, -191: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -78.46
+    },
+    {
+      "center": [
+        107.43,
+        1547.7,
+        -191.15
+      ],
+      "half": [
+        0.91,
+        0.56,
+        0.53
+      ],
+      "note": "stalagmite spire at 107, -191: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -78.46
+    },
+    {
+      "center": [
+        106.96,
+        1548.89,
+        -191.6
+      ],
+      "half": [
+        0.39,
+        0.62,
+        0.35
+      ],
+      "note": "stalagmite spire at 107, -191: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -78.46
+    },
+    {
+      "center": [
+        106.88,
+        1550.14,
+        -191.6
+      ],
+      "half": [
+        0.32,
+        0.62,
+        0.22
+      ],
+      "note": "stalagmite spire at 107, -191: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -78.46
+    },
+    {
+      "center": [
+        71.01,
+        1546.75,
+        -197.16
+      ],
+      "half": [
+        1.18,
+        0.35,
+        1.39
+      ],
+      "note": "stalagmite spire at 71, -197: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 24.89
+    },
+    {
+      "center": [
+        71.11,
+        1547.61,
+        -197.28
+      ],
+      "half": [
+        0.87,
+        0.52,
+        0.51
+      ],
+      "note": "stalagmite spire at 71, -197: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 24.89
+    },
+    {
+      "center": [
+        70.78,
+        1548.75,
+        -196.82
+      ],
+      "half": [
+        0.38,
+        0.58,
+        0.35
+      ],
+      "note": "stalagmite spire at 71, -197: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 24.89
+    },
+    {
+      "center": [
+        70.76,
+        1549.91,
+        -196.82
+      ],
+      "half": [
+        0.31,
+        0.58,
+        0.22
+      ],
+      "note": "stalagmite spire at 71, -197: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 24.89
+    },
+    {
+      "center": [
+        110.73,
+        1546.77,
+        -177.24
+      ],
+      "half": [
+        1.3,
+        0.38,
+        1.53
+      ],
+      "note": "stalagmite spire at 111, -177: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 145.39
+    },
+    {
+      "center": [
+        110.58,
+        1547.72,
+        -177.25
+      ],
+      "half": [
+        0.96,
+        0.57,
+        0.57
+      ],
+      "note": "stalagmite spire at 111, -177: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 145.39
+    },
+    {
+      "center": [
+        111.23,
+        1548.94,
+        -177.17
+      ],
+      "half": [
+        0.44,
+        0.64,
+        0.4
+      ],
+      "note": "stalagmite spire at 111, -177: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 145.39
+    },
+    {
+      "center": [
+        111.26,
+        1550.21,
+        -177.13
+      ],
+      "half": [
+        0.36,
+        0.64,
+        0.26
+      ],
+      "note": "stalagmite spire at 111, -177: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 145.39
+    },
+    {
+      "center": [
+        88.21,
+        1546.67,
+        -147.41
+      ],
+      "half": [
+        0.84,
+        0.25,
+        0.99
+      ],
+      "note": "stalagmite spire at 88, -147: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -63.82
+    },
+    {
+      "center": [
+        88.29,
+        1547.28,
+        -147.36
+      ],
+      "half": [
+        0.62,
+        0.37,
+        0.37
+      ],
+      "note": "stalagmite spire at 88, -147: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -63.82
+    },
+    {
+      "center": [
+        87.95,
+        1548.07,
+        -147.6
+      ],
+      "half": [
+        0.28,
+        0.41,
+        0.26
+      ],
+      "note": "stalagmite spire at 88, -147: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -63.82
+    },
+    {
+      "center": [
+        87.94,
+        1548.89,
+        -147.64
+      ],
+      "half": [
+        0.23,
+        0.41,
+        0.17
+      ],
+      "note": "stalagmite spire at 88, -147: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -63.82
+    },
+    {
+      "center": [
+        44.76,
+        1545.68,
+        -115.14
+      ],
+      "half": [
+        0.87,
+        0.26,
+        1.02
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -70.05
+    },
+    {
+      "center": [
+        44.84,
+        1546.31,
+        -115.07
+      ],
+      "half": [
+        0.64,
+        0.38,
+        0.38
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -70.05
+    },
+    {
+      "center": [
+        44.53,
+        1547.14,
+        -115.37
+      ],
+      "half": [
+        0.29,
+        0.43,
+        0.26
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -70.05
+    },
+    {
+      "center": [
+        44.54,
+        1547.99,
+        -115.4
+      ],
+      "half": [
+        0.24,
+        0.43,
+        0.17
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -70.05
+    },
+    {
+      "center": [
+        30.81,
+        1545.68,
+        -106.56
+      ],
+      "half": [
+        0.9,
+        0.26,
+        1.05
+      ],
+      "note": "stalagmite spire at 31, -107: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -116.53
+    },
+    {
+      "center": [
+        30.82,
+        1546.34,
+        -106.48
+      ],
+      "half": [
+        0.66,
+        0.39,
+        0.39
+      ],
+      "note": "stalagmite spire at 31, -107: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -116.53
+    },
+    {
+      "center": [
+        30.8,
+        1547.16,
+        -106.95
+      ],
+      "half": [
+        0.3,
+        0.44,
+        0.27
+      ],
+      "note": "stalagmite spire at 31, -107: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -116.53
+    },
+    {
+      "center": [
+        30.81,
+        1548.04,
+        -107.0
+      ],
+      "half": [
+        0.25,
+        0.44,
+        0.18
+      ],
+      "note": "stalagmite spire at 31, -107: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -116.53
+    },
+    {
+      "center": [
+        84.85,
+        1545.75,
+        -85.25
+      ],
+      "half": [
+        1.24,
+        0.37,
+        1.46
+      ],
+      "note": "stalagmite spire at 85, -85: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 128.44
+    },
+    {
+      "center": [
+        84.76,
+        1546.67,
+        -85.25
+      ],
+      "half": [
+        0.91,
+        0.55,
+        0.53
+      ],
+      "note": "stalagmite spire at 85, -85: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 128.44
+    },
+    {
+      "center": [
+        85.39,
+        1547.81,
+        -84.93
+      ],
+      "half": [
+        0.4,
+        0.61,
+        0.36
+      ],
+      "note": "stalagmite spire at 85, -85: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 128.44
+    },
+    {
+      "center": [
+        85.48,
+        1549.03,
+        -84.81
+      ],
+      "half": [
+        0.33,
+        0.61,
+        0.23
+      ],
+      "note": "stalagmite spire at 85, -85: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 128.44
+    },
+    {
+      "center": [
+        38.4,
+        1545.78,
+        -110.65
+      ],
+      "half": [
+        1.39,
+        0.41,
+        1.63
+      ],
+      "note": "stalagmite spire at 38, -111: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -120.72
+    },
+    {
+      "center": [
+        38.43,
+        1546.82,
+        -110.58
+      ],
+      "half": [
+        1.01,
+        0.62,
+        0.58
+      ],
+      "note": "stalagmite spire at 38, -111: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -120.72
+    },
+    {
+      "center": [
+        38.51,
+        1548.07,
+        -111.4
+      ],
+      "half": [
+        0.43,
+        0.69,
+        0.39
+      ],
+      "note": "stalagmite spire at 38, -111: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -120.72
+    },
+    {
+      "center": [
+        38.58,
+        1549.44,
+        -111.57
+      ],
+      "half": [
+        0.35,
+        0.69,
+        0.24
+      ],
+      "note": "stalagmite spire at 38, -111: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -120.72
+    },
+    {
+      "center": [
+        51.61,
+        1545.8,
+        -52.85
+      ],
+      "half": [
+        1.46,
+        0.43,
+        1.72
+      ],
+      "note": "stalagmite spire at 51, -53: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -100.86
+    },
+    {
+      "center": [
+        51.64,
+        1546.88,
+        -52.66
+      ],
+      "half": [
+        1.07,
+        0.65,
+        0.62
+      ],
+      "note": "stalagmite spire at 51, -53: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -100.86
+    },
+    {
+      "center": [
+        51.38,
+        1548.28,
+        -53.33
+      ],
+      "half": [
+        0.47,
+        0.72,
+        0.43
+      ],
+      "note": "stalagmite spire at 51, -53: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -100.86
+    },
+    {
+      "center": [
+        51.36,
+        1549.72,
+        -53.34
+      ],
+      "half": [
+        0.39,
+        0.72,
+        0.27
+      ],
+      "note": "stalagmite spire at 51, -53: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -100.86
+    },
+    {
+      "center": [
+        45.21,
+        1545.76,
+        -115.12
+      ],
+      "half": [
+        1.3,
+        0.38,
+        1.52
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 41.6
+    },
+    {
+      "center": [
+        45.25,
+        1546.71,
+        -115.25
+      ],
+      "half": [
+        0.96,
+        0.57,
+        0.57
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 41.6
+    },
+    {
+      "center": [
+        45.01,
+        1547.9,
+        -114.63
+      ],
+      "half": [
+        0.44,
+        0.63,
+        0.41
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 41.6
+    },
+    {
+      "center": [
+        44.95,
+        1549.16,
+        -114.58
+      ],
+      "half": [
+        0.37,
+        0.63,
+        0.27
+      ],
+      "note": "stalagmite spire at 45, -115: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 41.6
+    },
+    {
+      "center": [
+        -41.21,
+        1546.76,
+        -72.83
+      ],
+      "half": [
+        1.28,
+        0.37,
+        1.5
+      ],
+      "note": "stalagmite spire at -41, -73: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 114.43
+    },
+    {
+      "center": [
+        -41.32,
+        1547.7,
+        -72.91
+      ],
+      "half": [
+        0.95,
+        0.56,
+        0.57
+      ],
+      "note": "stalagmite spire at -41, -73: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 114.43
+    },
+    {
+      "center": [
+        -40.8,
+        1548.88,
+        -72.5
+      ],
+      "half": [
+        0.44,
+        0.62,
+        0.4
+      ],
+      "note": "stalagmite spire at -41, -73: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 114.43
+    },
+    {
+      "center": [
+        -40.77,
+        1550.13,
+        -72.43
+      ],
+      "half": [
+        0.37,
+        0.62,
+        0.27
+      ],
+      "note": "stalagmite spire at -41, -73: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 114.43
+    },
+    {
+      "center": [
+        -41.34,
+        1546.7,
+        -35.92
+      ],
+      "half": [
+        0.99,
+        0.29,
+        1.17
+      ],
+      "note": "stalagmite spire at -41, -36: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -178.14
+    },
+    {
+      "center": [
+        -41.42,
+        1547.43,
+        -35.84
+      ],
+      "half": [
+        0.73,
+        0.44,
+        0.43
+      ],
+      "note": "stalagmite spire at -41, -36: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -178.14
+    },
+    {
+      "center": [
+        -40.98,
+        1548.36,
+        -36.07
+      ],
+      "half": [
+        0.33,
+        0.49,
+        0.3
+      ],
+      "note": "stalagmite spire at -41, -36: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -178.14
+    },
+    {
+      "center": [
+        -40.93,
+        1549.33,
+        -36.04
+      ],
+      "half": [
+        0.27,
+        0.49,
+        0.19
+      ],
+      "note": "stalagmite spire at -41, -36: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -178.14
+    },
+    {
+      "center": [
+        -8.93,
+        1546.7,
+        -54.72
+      ],
+      "half": [
+        0.99,
+        0.29,
+        1.16
+      ],
+      "note": "stalagmite spire at -9, -55: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 121.81
+    },
+    {
+      "center": [
+        -9.02,
+        1547.42,
+        -54.75
+      ],
+      "half": [
+        0.73,
+        0.44,
+        0.43
+      ],
+      "note": "stalagmite spire at -9, -55: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 121.81
+    },
+    {
+      "center": [
+        -8.59,
+        1548.34,
+        -54.46
+      ],
+      "half": [
+        0.33,
+        0.48,
+        0.3
+      ],
+      "note": "stalagmite spire at -9, -55: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 121.81
+    },
+    {
+      "center": [
+        -8.56,
+        1549.3,
+        -54.39
+      ],
+      "half": [
+        0.27,
+        0.48,
+        0.19
+      ],
+      "note": "stalagmite spire at -9, -55: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 121.81
+    },
+    {
+      "center": [
+        -10.38,
+        1546.79,
+        -47.63
+      ],
+      "half": [
+        1.42,
+        0.42,
+        1.67
+      ],
+      "note": "stalagmite spire at -10, -47: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -29.79
+    },
+    {
+      "center": [
+        -10.25,
+        1547.83,
+        -47.64
+      ],
+      "half": [
+        1.05,
+        0.62,
+        0.63
+      ],
+      "note": "stalagmite spire at -10, -47: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -29.79
+    },
+    {
+      "center": [
+        -10.99,
+        1549.14,
+        -47.68
+      ],
+      "half": [
+        0.48,
+        0.69,
+        0.44
+      ],
+      "note": "stalagmite spire at -10, -47: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -29.79
+    },
+    {
+      "center": [
+        -11.06,
+        1550.52,
+        -47.74
+      ],
+      "half": [
+        0.4,
+        0.69,
+        0.29
+      ],
+      "note": "stalagmite spire at -10, -47: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -29.79
+    },
+    {
+      "center": [
+        -15.74,
+        1546.78,
+        -40.32
+      ],
+      "half": [
+        1.38,
+        0.41,
+        1.63
+      ],
+      "note": "stalagmite spire at -16, -40: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 130.4
+    },
+    {
+      "center": [
+        -15.92,
+        1547.8,
+        -40.31
+      ],
+      "half": [
+        1.01,
+        0.62,
+        0.58
+      ],
+      "note": "stalagmite spire at -16, -40: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 130.4
+    },
+    {
+      "center": [
+        -15.31,
+        1549.11,
+        -39.96
+      ],
+      "half": [
+        0.44,
+        0.68,
+        0.39
+      ],
+      "note": "stalagmite spire at -16, -40: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 130.4
+    },
+    {
+      "center": [
+        -15.32,
+        1550.48,
+        -39.83
+      ],
+      "half": [
+        0.36,
+        0.68,
+        0.25
+      ],
+      "note": "stalagmite spire at -16, -40: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 130.4
+    },
+    {
+      "center": [
+        -43.5,
+        1546.84,
+        -38.89
+      ],
+      "half": [
+        1.51,
+        0.44,
+        1.77
+      ],
+      "note": "stalagmite spire at -44, -39: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -155.19
+    },
+    {
+      "center": [
+        -43.58,
+        1547.94,
+        -38.77
+      ],
+      "half": [
+        1.12,
+        0.66,
+        0.66
+      ],
+      "note": "stalagmite spire at -44, -39: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -155.19
+    },
+    {
+      "center": [
+        -43.09,
+        1549.33,
+        -39.4
+      ],
+      "half": [
+        0.51,
+        0.74,
+        0.47
+      ],
+      "note": "stalagmite spire at -44, -39: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -155.19
+    },
+    {
+      "center": [
+        -43.01,
+        1550.8,
+        -39.46
+      ],
+      "half": [
+        0.42,
+        0.74,
+        0.31
+      ],
+      "note": "stalagmite spire at -44, -39: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -155.19
+    },
+    {
+      "center": [
+        46.98,
+        1525.76,
+        51.83
+      ],
+      "half": [
+        1.32,
+        0.39,
+        1.55
+      ],
+      "note": "stalagmite spire at 47, 52: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 80.49
+    },
+    {
+      "center": [
+        46.91,
+        1526.74,
+        51.76
+      ],
+      "half": [
+        0.96,
+        0.58,
+        0.56
+      ],
+      "note": "stalagmite spire at 47, 52: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 80.49
+    },
+    {
+      "center": [
+        47.08,
+        1527.95,
+        52.48
+      ],
+      "half": [
+        0.42,
+        0.65,
+        0.38
+      ],
+      "note": "stalagmite spire at 47, 52: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 80.49
+    },
+    {
+      "center": [
+        47.04,
+        1529.24,
+        52.62
+      ],
+      "half": [
+        0.34,
+        0.65,
+        0.24
+      ],
+      "note": "stalagmite spire at 47, 52: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 80.49
+    },
+    {
+      "center": [
+        80.93,
+        1525.74,
+        40.41
+      ],
+      "half": [
+        1.2,
+        0.36,
+        1.41
+      ],
+      "note": "stalagmite spire at 81, 40: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 46.69
+    },
+    {
+      "center": [
+        80.96,
+        1526.62,
+        40.23
+      ],
+      "half": [
+        0.87,
+        0.53,
+        0.51
+      ],
+      "note": "stalagmite spire at 81, 40: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 46.69
+    },
+    {
+      "center": [
+        80.79,
+        1527.79,
+        40.76
+      ],
+      "half": [
+        0.38,
+        0.59,
+        0.34
+      ],
+      "note": "stalagmite spire at 81, 40: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 46.69
+    },
+    {
+      "center": [
+        80.74,
+        1528.97,
+        40.73
+      ],
+      "half": [
+        0.31,
+        0.59,
+        0.22
+      ],
+      "note": "stalagmite spire at 81, 40: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 46.69
+    },
+    {
+      "center": [
+        80.44,
+        1525.77,
+        18.5
+      ],
+      "half": [
+        1.36,
+        0.4,
+        1.59
+      ],
+      "note": "stalagmite spire at 80, 18: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 136.87
+    },
+    {
+      "center": [
+        80.34,
+        1526.78,
+        18.53
+      ],
+      "half": [
+        0.99,
+        0.6,
+        0.57
+      ],
+      "note": "stalagmite spire at 80, 18: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 136.87
+    },
+    {
+      "center": [
+        81.06,
+        1528.02,
+        18.79
+      ],
+      "half": [
+        0.43,
+        0.67,
+        0.39
+      ],
+      "note": "stalagmite spire at 80, 18: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 136.87
+    },
+    {
+      "center": [
+        81.16,
+        1529.35,
+        18.92
+      ],
+      "half": [
+        0.35,
+        0.67,
+        0.24
+      ],
+      "note": "stalagmite spire at 80, 18: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 136.87
+    },
+    {
+      "center": [
+        69.08,
+        1525.8,
+        53.66
+      ],
+      "half": [
+        1.46,
+        0.43,
+        1.72
+      ],
+      "note": "stalagmite spire at 69, 54: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 75.02
+    },
+    {
+      "center": [
+        69.02,
+        1526.87,
+        53.48
+      ],
+      "half": [
+        1.07,
+        0.65,
+        0.63
+      ],
+      "note": "stalagmite spire at 69, 54: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 75.02
+    },
+    {
+      "center": [
+        69.15,
+        1528.26,
+        54.17
+      ],
+      "half": [
+        0.48,
+        0.72,
+        0.43
+      ],
+      "note": "stalagmite spire at 69, 54: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 75.02
+    },
+    {
+      "center": [
+        69.1,
+        1529.7,
+        54.2
+      ],
+      "half": [
+        0.39,
+        0.72,
+        0.28
+      ],
+      "note": "stalagmite spire at 69, 54: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 75.02
+    },
+    {
+      "center": [
+        73.31,
+        1525.68,
+        50.39
+      ],
+      "half": [
+        0.93,
+        0.28,
+        1.1
+      ],
+      "note": "stalagmite spire at 73, 51: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -20.47
+    },
+    {
+      "center": [
+        73.39,
+        1526.37,
+        50.35
+      ],
+      "half": [
+        0.68,
+        0.41,
+        0.4
+      ],
+      "note": "stalagmite spire at 73, 51: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -20.47
+    },
+    {
+      "center": [
+        72.9,
+        1527.24,
+        50.37
+      ],
+      "half": [
+        0.3,
+        0.46,
+        0.28
+      ],
+      "note": "stalagmite spire at 73, 51: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -20.47
+    },
+    {
+      "center": [
+        72.83,
+        1528.15,
+        50.31
+      ],
+      "half": [
+        0.25,
+        0.46,
+        0.18
+      ],
+      "note": "stalagmite spire at 73, 51: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -20.47
+    },
+    {
+      "center": [
+        34.07,
+        1525.77,
+        31.35
+      ],
+      "half": [
+        1.43,
+        0.42,
+        1.68
+      ],
+      "note": "stalagmite spire at 34, 31: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -167.05
+    },
+    {
+      "center": [
+        33.99,
+        1526.83,
+        31.49
+      ],
+      "half": [
+        1.05,
+        0.63,
+        0.62
+      ],
+      "note": "stalagmite spire at 34, 31: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -167.05
+    },
+    {
+      "center": [
+        34.6,
+        1528.16,
+        31.05
+      ],
+      "half": [
+        0.47,
+        0.7,
+        0.43
+      ],
+      "note": "stalagmite spire at 34, 31: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -167.05
+    },
+    {
+      "center": [
+        34.71,
+        1529.57,
+        31.07
+      ],
+      "half": [
+        0.39,
+        0.7,
+        0.27
+      ],
+      "note": "stalagmite spire at 34, 31: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -167.05
+    },
+    {
+      "center": [
+        -38.07,
+        1524.79,
+        96.22
+      ],
+      "half": [
+        1.16,
+        0.34,
+        1.36
+      ],
+      "note": "stalagmite spire at -38, 96: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 178.99
+    },
+    {
+      "center": [
+        -38.2,
+        1525.64,
+        96.27
+      ],
+      "half": [
+        0.85,
+        0.51,
+        0.5
+      ],
+      "note": "stalagmite spire at -38, 96: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 178.99
+    },
+    {
+      "center": [
+        -37.69,
+        1526.73,
+        95.99
+      ],
+      "half": [
+        0.38,
+        0.57,
+        0.35
+      ],
+      "note": "stalagmite spire at -38, 96: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 178.99
+    },
+    {
+      "center": [
+        -37.66,
+        1527.87,
+        95.98
+      ],
+      "half": [
+        0.32,
+        0.57,
+        0.23
+      ],
+      "note": "stalagmite spire at -38, 96: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 178.99
+    },
+    {
+      "center": [
+        -87.3,
+        1524.75,
+        67.53
+      ],
+      "half": [
+        1.2,
+        0.36,
+        1.41
+      ],
+      "note": "stalagmite spire at -87, 68: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 55.83
+    },
+    {
+      "center": [
+        -87.25,
+        1525.64,
+        67.39
+      ],
+      "half": [
+        0.88,
+        0.53,
+        0.51
+      ],
+      "note": "stalagmite spire at -87, 68: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 55.83
+    },
+    {
+      "center": [
+        -87.27,
+        1526.78,
+        67.98
+      ],
+      "half": [
+        0.39,
+        0.59,
+        0.35
+      ],
+      "note": "stalagmite spire at -87, 68: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 55.83
+    },
+    {
+      "center": [
+        -87.25,
+        1527.96,
+        68.01
+      ],
+      "half": [
+        0.32,
+        0.59,
+        0.22
+      ],
+      "note": "stalagmite spire at -87, 68: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 55.83
+    },
+    {
+      "center": [
+        -28.85,
+        1524.78,
+        91.77
+      ],
+      "half": [
+        1.46,
+        0.43,
+        1.71
+      ],
+      "note": "stalagmite spire at -29, 92: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 13.39
+    },
+    {
+      "center": [
+        -28.81,
+        1525.87,
+        91.68
+      ],
+      "half": [
+        1.06,
+        0.65,
+        0.62
+      ],
+      "note": "stalagmite spire at -29, 92: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 13.39
+    },
+    {
+      "center": [
+        -29.47,
+        1527.19,
+        92.19
+      ],
+      "half": [
+        0.46,
+        0.72,
+        0.42
+      ],
+      "note": "stalagmite spire at -29, 92: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 13.39
+    },
+    {
+      "center": [
+        -29.64,
+        1528.63,
+        92.22
+      ],
+      "half": [
+        0.38,
+        0.72,
+        0.26
+      ],
+      "note": "stalagmite spire at -29, 92: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 13.39
+    },
+    {
+      "center": [
+        -87.99,
+        1524.77,
+        55.87
+      ],
+      "half": [
+        1.28,
+        0.38,
+        1.5
+      ],
+      "note": "stalagmite spire at -88, 56: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 151.69
+    },
+    {
+      "center": [
+        -88.07,
+        1525.72,
+        55.84
+      ],
+      "half": [
+        0.93,
+        0.57,
+        0.54
+      ],
+      "note": "stalagmite spire at -88, 56: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 151.69
+    },
+    {
+      "center": [
+        -87.34,
+        1526.88,
+        55.82
+      ],
+      "half": [
+        0.41,
+        0.63,
+        0.37
+      ],
+      "note": "stalagmite spire at -88, 56: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 151.69
+    },
+    {
+      "center": [
+        -87.21,
+        1528.14,
+        55.81
+      ],
+      "half": [
+        0.33,
+        0.63,
+        0.23
+      ],
+      "note": "stalagmite spire at -88, 56: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 151.69
+    },
+    {
+      "center": [
+        -84.69,
+        1524.8,
+        51.52
+      ],
+      "half": [
+        1.47,
+        0.43,
+        1.72
+      ],
+      "note": "stalagmite spire at -85, 52: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 41.7
+    },
+    {
+      "center": [
+        -84.69,
+        1525.88,
+        51.35
+      ],
+      "half": [
+        1.07,
+        0.65,
+        0.63
+      ],
+      "note": "stalagmite spire at -85, 52: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 41.7
+    },
+    {
+      "center": [
+        -85.02,
+        1527.26,
+        52.03
+      ],
+      "half": [
+        0.47,
+        0.72,
+        0.43
+      ],
+      "note": "stalagmite spire at -85, 52: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 41.7
+    },
+    {
+      "center": [
+        -85.15,
+        1528.7,
+        52.05
+      ],
+      "half": [
+        0.39,
+        0.72,
+        0.27
+      ],
+      "note": "stalagmite spire at -85, 52: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 41.7
+    },
+    {
+      "center": [
+        -68.45,
+        1524.7,
+        91.24
+      ],
+      "half": [
+        0.94,
+        0.28,
+        1.1
+      ],
+      "note": "stalagmite spire at -68, 91: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 48.21
+    },
+    {
+      "center": [
+        -68.43,
+        1525.39,
+        91.18
+      ],
+      "half": [
+        0.68,
+        0.42,
+        0.4
+      ],
+      "note": "stalagmite spire at -68, 91: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 48.21
+    },
+    {
+      "center": [
+        -68.54,
+        1526.25,
+        91.7
+      ],
+      "half": [
+        0.3,
+        0.46,
+        0.27
+      ],
+      "note": "stalagmite spire at -68, 91: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 48.21
+    },
+    {
+      "center": [
+        -68.57,
+        1527.17,
+        91.79
+      ],
+      "half": [
+        0.25,
+        0.46,
+        0.17
+      ],
+      "note": "stalagmite spire at -68, 91: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 48.21
+    },
+    {
+      "center": [
+        145.15,
+        1523.72,
+        125.96
+      ],
+      "half": [
+        1.13,
+        0.34,
+        1.33
+      ],
+      "note": "stalagmite spire at 145, 126: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 145.36
+    },
+    {
+      "center": [
+        145.04,
+        1524.56,
+        126.01
+      ],
+      "half": [
+        0.82,
+        0.5,
+        0.48
+      ],
+      "note": "stalagmite spire at 145, 126: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 145.36
+    },
+    {
+      "center": [
+        145.64,
+        1525.61,
+        126.15
+      ],
+      "half": [
+        0.36,
+        0.56,
+        0.33
+      ],
+      "note": "stalagmite spire at 145, 126: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 145.36
+    },
+    {
+      "center": [
+        145.7,
+        1526.73,
+        126.25
+      ],
+      "half": [
+        0.29,
+        0.56,
+        0.21
+      ],
+      "note": "stalagmite spire at 145, 126: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 145.36
+    },
+    {
+      "center": [
+        168.63,
+        1523.8,
+        68.68
+      ],
+      "half": [
+        1.47,
+        0.43,
+        1.73
+      ],
+      "note": "stalagmite spire at 169, 69: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 60.1
+    },
+    {
+      "center": [
+        168.65,
+        1524.88,
+        68.51
+      ],
+      "half": [
+        1.08,
+        0.65,
+        0.64
+      ],
+      "note": "stalagmite spire at 169, 69: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 60.1
+    },
+    {
+      "center": [
+        168.65,
+        1526.26,
+        69.25
+      ],
+      "half": [
+        0.49,
+        0.72,
+        0.44
+      ],
+      "note": "stalagmite spire at 169, 69: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 60.1
+    },
+    {
+      "center": [
+        168.64,
+        1527.7,
+        69.31
+      ],
+      "half": [
+        0.4,
+        0.72,
+        0.29
+      ],
+      "note": "stalagmite spire at 169, 69: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 60.1
+    },
+    {
+      "center": [
+        154.82,
+        1523.73,
+        124.8
+      ],
+      "half": [
+        0.82,
+        0.24,
+        0.96
+      ],
+      "note": "stalagmite spire at 155, 125: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -90.76
+    },
+    {
+      "center": [
+        154.86,
+        1524.32,
+        124.87
+      ],
+      "half": [
+        0.6,
+        0.36,
+        0.36
+      ],
+      "note": "stalagmite spire at 155, 125: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -90.76
+    },
+    {
+      "center": [
+        154.66,
+        1525.08,
+        124.5
+      ],
+      "half": [
+        0.28,
+        0.4,
+        0.25
+      ],
+      "note": "stalagmite spire at 155, 125: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -90.76
+    },
+    {
+      "center": [
+        154.66,
+        1525.87,
+        124.46
+      ],
+      "half": [
+        0.23,
+        0.4,
+        0.17
+      ],
+      "note": "stalagmite spire at 155, 125: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -90.76
+    },
+    {
+      "center": [
+        146.76,
+        1523.68,
+        125.51
+      ],
+      "half": [
+        0.87,
+        0.25,
+        1.02
+      ],
+      "note": "stalagmite spire at 147, 126: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -32.74
+    },
+    {
+      "center": [
+        146.85,
+        1524.31,
+        125.51
+      ],
+      "half": [
+        0.65,
+        0.38,
+        0.39
+      ],
+      "note": "stalagmite spire at 147, 126: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -32.74
+    },
+    {
+      "center": [
+        146.41,
+        1525.12,
+        125.47
+      ],
+      "half": [
+        0.3,
+        0.42,
+        0.27
+      ],
+      "note": "stalagmite spire at 147, 126: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -32.74
+    },
+    {
+      "center": [
+        146.37,
+        1525.96,
+        125.45
+      ],
+      "half": [
+        0.25,
+        0.42,
+        0.18
+      ],
+      "note": "stalagmite spire at 147, 126: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -32.74
+    },
+    {
+      "center": [
+        6.89,
+        1522.77,
+        161.13
+      ],
+      "half": [
+        1.29,
+        0.38,
+        1.52
+      ],
+      "note": "stalagmite spire at 7, 161: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -4.0
+    },
+    {
+      "center": [
+        7.04,
+        1523.72,
+        161.1
+      ],
+      "half": [
+        0.95,
+        0.57,
+        0.56
+      ],
+      "note": "stalagmite spire at 7, 161: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -4.0
+    },
+    {
+      "center": [
+        6.47,
+        1524.94,
+        161.39
+      ],
+      "half": [
+        0.42,
+        0.64,
+        0.38
+      ],
+      "note": "stalagmite spire at 7, 161: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -4.0
+    },
+    {
+      "center": [
+        6.44,
+        1526.21,
+        161.41
+      ],
+      "half": [
+        0.35,
+        0.64,
+        0.25
+      ],
+      "note": "stalagmite spire at 7, 161: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -4.0
+    },
+    {
+      "center": [
+        28.07,
+        1522.73,
+        116.47
+      ],
+      "half": [
+        1.06,
+        0.31,
+        1.24
+      ],
+      "note": "stalagmite spire at 28, 117: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -56.88
+    },
+    {
+      "center": [
+        28.17,
+        1523.51,
+        116.56
+      ],
+      "half": [
+        0.77,
+        0.47,
+        0.45
+      ],
+      "note": "stalagmite spire at 28, 117: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -56.88
+    },
+    {
+      "center": [
+        27.7,
+        1524.52,
+        116.34
+      ],
+      "half": [
+        0.34,
+        0.52,
+        0.31
+      ],
+      "note": "stalagmite spire at 28, 117: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -56.88
+    },
+    {
+      "center": [
+        27.68,
+        1525.56,
+        116.34
+      ],
+      "half": [
+        0.28,
+        0.52,
+        0.2
+      ],
+      "note": "stalagmite spire at 28, 117: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -56.88
+    },
+    {
+      "center": [
+        73.51,
+        1522.7,
+        162.48
+      ],
+      "half": [
+        1.03,
+        0.31,
+        1.21
+      ],
+      "note": "stalagmite spire at 74, 162: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 68.14
+    },
+    {
+      "center": [
+        73.44,
+        1523.46,
+        162.4
+      ],
+      "half": [
+        0.75,
+        0.46,
+        0.43
+      ],
+      "note": "stalagmite spire at 74, 162: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 68.14
+    },
+    {
+      "center": [
+        73.42,
+        1524.42,
+        162.96
+      ],
+      "half": [
+        0.32,
+        0.51,
+        0.29
+      ],
+      "note": "stalagmite spire at 74, 162: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 68.14
+    },
+    {
+      "center": [
+        73.33,
+        1525.43,
+        163.04
+      ],
+      "half": [
+        0.26,
+        0.51,
+        0.18
+      ],
+      "note": "stalagmite spire at 74, 162: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 68.14
+    },
+    {
+      "center": [
+        72.14,
+        1522.8,
+        134.54
+      ],
+      "half": [
+        1.41,
+        0.42,
+        1.66
+      ],
+      "note": "stalagmite spire at 72, 135: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -82.38
+    },
+    {
+      "center": [
+        72.18,
+        1523.85,
+        134.63
+      ],
+      "half": [
+        1.03,
+        0.63,
+        0.6
+      ],
+      "note": "stalagmite spire at 72, 135: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -82.38
+    },
+    {
+      "center": [
+        71.7,
+        1525.14,
+        134.01
+      ],
+      "half": [
+        0.46,
+        0.7,
+        0.41
+      ],
+      "note": "stalagmite spire at 72, 135: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -82.38
+    },
+    {
+      "center": [
+        71.62,
+        1526.53,
+        133.9
+      ],
+      "half": [
+        0.37,
+        0.7,
+        0.26
+      ],
+      "note": "stalagmite spire at 72, 135: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -82.38
+    },
+    {
+      "center": [
+        57.36,
+        1522.78,
+        179.58
+      ],
+      "half": [
+        1.27,
+        0.37,
+        1.49
+      ],
+      "note": "stalagmite spire at 57, 180: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -79.64
+    },
+    {
+      "center": [
+        57.44,
+        1523.72,
+        179.62
+      ],
+      "half": [
+        0.93,
+        0.56,
+        0.54
+      ],
+      "note": "stalagmite spire at 57, 180: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -79.64
+    },
+    {
+      "center": [
+        57.02,
+        1524.88,
+        179.04
+      ],
+      "half": [
+        0.41,
+        0.62,
+        0.37
+      ],
+      "note": "stalagmite spire at 57, 180: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -79.64
+    },
+    {
+      "center": [
+        57.0,
+        1526.12,
+        178.9
+      ],
+      "half": [
+        0.33,
+        0.62,
+        0.24
+      ],
+      "note": "stalagmite spire at 57, 180: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -79.64
+    },
+    {
+      "center": [
+        30.88,
+        1522.71,
+        115.26
+      ],
+      "half": [
+        1.01,
+        0.3,
+        1.18
+      ],
+      "note": "stalagmite spire at 31, 115: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 46.37
+    },
+    {
+      "center": [
+        30.91,
+        1523.44,
+        115.13
+      ],
+      "half": [
+        0.74,
+        0.45,
+        0.43
+      ],
+      "note": "stalagmite spire at 31, 115: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 46.37
+    },
+    {
+      "center": [
+        30.77,
+        1524.41,
+        115.58
+      ],
+      "half": [
+        0.32,
+        0.5,
+        0.29
+      ],
+      "note": "stalagmite spire at 31, 115: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 46.37
+    },
+    {
+      "center": [
+        30.73,
+        1525.4,
+        115.57
+      ],
+      "half": [
+        0.27,
+        0.5,
+        0.19
+      ],
+      "note": "stalagmite spire at 31, 115: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 46.37
+    },
+    {
+      "center": [
+        -135.76,
+        1524.69,
+        175.89
+      ],
+      "half": [
+        0.92,
+        0.27,
+        1.09
+      ],
+      "note": "stalagmite spire at -136, 176: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 48.85
+    },
+    {
+      "center": [
+        -135.72,
+        1525.38,
+        175.82
+      ],
+      "half": [
+        0.68,
+        0.41,
+        0.4
+      ],
+      "note": "stalagmite spire at -136, 176: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 48.85
+    },
+    {
+      "center": [
+        -135.8,
+        1526.24,
+        176.3
+      ],
+      "half": [
+        0.3,
+        0.46,
+        0.27
+      ],
+      "note": "stalagmite spire at -136, 176: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 48.85
+    },
+    {
+      "center": [
+        -135.79,
+        1527.15,
+        176.36
+      ],
+      "half": [
+        0.25,
+        0.46,
+        0.17
+      ],
+      "note": "stalagmite spire at -136, 176: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 48.85
+    },
+    {
+      "center": [
+        -122.3,
+        1524.78,
+        164.78
+      ],
+      "half": [
+        1.38,
+        0.4,
+        1.61
+      ],
+      "note": "stalagmite spire at -122, 165: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 92.98
+    },
+    {
+      "center": [
+        -122.38,
+        1525.78,
+        164.67
+      ],
+      "half": [
+        1.02,
+        0.6,
+        0.61
+      ],
+      "note": "stalagmite spire at -122, 165: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 92.98
+    },
+    {
+      "center": [
+        -122.03,
+        1527.05,
+        165.29
+      ],
+      "half": [
+        0.47,
+        0.67,
+        0.43
+      ],
+      "note": "stalagmite spire at -122, 165: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 92.98
+    },
+    {
+      "center": [
+        -122.03,
+        1528.39,
+        165.38
+      ],
+      "half": [
+        0.39,
+        0.67,
+        0.28
+      ],
+      "note": "stalagmite spire at -122, 165: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 92.98
+    },
+    {
+      "center": [
+        -128.27,
+        1524.75,
+        127.4
+      ],
+      "half": [
+        1.29,
+        0.38,
+        1.52
+      ],
+      "note": "stalagmite spire at -128, 127: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 101.88
+    },
+    {
+      "center": [
+        -128.41,
+        1525.71,
+        127.36
+      ],
+      "half": [
+        0.94,
+        0.58,
+        0.54
+      ],
+      "note": "stalagmite spire at -128, 127: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 101.88
+    },
+    {
+      "center": [
+        -128.03,
+        1526.91,
+        127.96
+      ],
+      "half": [
+        0.41,
+        0.64,
+        0.37
+      ],
+      "note": "stalagmite spire at -128, 127: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 101.88
+    },
+    {
+      "center": [
+        -128.07,
+        1528.19,
+        128.11
+      ],
+      "half": [
+        0.33,
+        0.64,
+        0.23
+      ],
+      "note": "stalagmite spire at -128, 127: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 101.88
+    },
+    {
+      "center": [
+        -169.61,
+        1524.71,
+        138.28
+      ],
+      "half": [
+        1.04,
+        0.31,
+        1.22
+      ],
+      "note": "stalagmite spire at -170, 138: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -82.41
+    },
+    {
+      "center": [
+        -169.5,
+        1525.47,
+        138.37
+      ],
+      "half": [
+        0.76,
+        0.46,
+        0.44
+      ],
+      "note": "stalagmite spire at -170, 138: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -82.41
+    },
+    {
+      "center": [
+        -169.76,
+        1526.47,
+        137.94
+      ],
+      "half": [
+        0.33,
+        0.51,
+        0.3
+      ],
+      "note": "stalagmite spire at -170, 138: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -82.41
+    },
+    {
+      "center": [
+        -169.71,
+        1527.5,
+        137.9
+      ],
+      "half": [
+        0.27,
+        0.51,
+        0.19
+      ],
+      "note": "stalagmite spire at -170, 138: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -82.41
+    },
+    {
+      "center": [
+        -160.59,
+        1524.65,
+        173.08
+      ],
+      "half": [
+        0.81,
+        0.24,
+        0.95
+      ],
+      "note": "stalagmite spire at -161, 173: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 9.35
+    },
+    {
+      "center": [
+        -160.53,
+        1525.25,
+        173.03
+      ],
+      "half": [
+        0.6,
+        0.36,
+        0.36
+      ],
+      "note": "stalagmite spire at -161, 173: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 9.35
+    },
+    {
+      "center": [
+        -160.87,
+        1526.0,
+        173.28
+      ],
+      "half": [
+        0.28,
+        0.4,
+        0.25
+      ],
+      "note": "stalagmite spire at -161, 173: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 9.35
+    },
+    {
+      "center": [
+        -160.91,
+        1526.79,
+        173.28
+      ],
+      "half": [
+        0.23,
+        0.4,
+        0.17
+      ],
+      "note": "stalagmite spire at -161, 173: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 9.35
+    },
+    {
+      "center": [
+        -153.86,
+        1524.69,
+        124.05
+      ],
+      "half": [
+        0.89,
+        0.26,
+        1.05
+      ],
+      "note": "stalagmite spire at -154, 124: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 58.33
+    },
+    {
+      "center": [
+        -153.82,
+        1525.35,
+        123.96
+      ],
+      "half": [
+        0.65,
+        0.4,
+        0.38
+      ],
+      "note": "stalagmite spire at -154, 124: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 58.33
+    },
+    {
+      "center": [
+        -153.82,
+        1526.18,
+        124.43
+      ],
+      "half": [
+        0.29,
+        0.44,
+        0.26
+      ],
+      "note": "stalagmite spire at -154, 124: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 58.33
+    },
+    {
+      "center": [
+        -153.8,
+        1527.06,
+        124.47
+      ],
+      "half": [
+        0.24,
+        0.44,
+        0.17
+      ],
+      "note": "stalagmite spire at -154, 124: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 58.33
+    },
+    {
+      "center": [
+        159.74,
+        1521.78,
+        190.72
+      ],
+      "half": [
+        1.31,
+        0.39,
+        1.54
+      ],
+      "note": "stalagmite spire at 160, 191: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -140.76
+    },
+    {
+      "center": [
+        159.68,
+        1522.74,
+        190.87
+      ],
+      "half": [
+        0.96,
+        0.58,
+        0.57
+      ],
+      "note": "stalagmite spire at 160, 191: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -140.76
+    },
+    {
+      "center": [
+        159.93,
+        1523.98,
+        190.27
+      ],
+      "half": [
+        0.43,
+        0.64,
+        0.39
+      ],
+      "note": "stalagmite spire at 160, 191: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -140.76
+    },
+    {
+      "center": [
+        159.96,
+        1525.26,
+        190.26
+      ],
+      "half": [
+        0.36,
+        0.64,
+        0.26
+      ],
+      "note": "stalagmite spire at 160, 191: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -140.76
+    },
+    {
+      "center": [
+        167.93,
+        1521.74,
+        218.03
+      ],
+      "half": [
+        1.16,
+        0.34,
+        1.37
+      ],
+      "note": "stalagmite spire at 168, 218: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": -54.71
+    },
+    {
+      "center": [
+        168.07,
+        1522.59,
+        218.11
+      ],
+      "half": [
+        0.85,
+        0.52,
+        0.5
+      ],
+      "note": "stalagmite spire at 168, 218: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": -54.71
+    },
+    {
+      "center": [
+        167.57,
+        1523.7,
+        217.86
+      ],
+      "half": [
+        0.38,
+        0.57,
+        0.34
+      ],
+      "note": "stalagmite spire at 168, 218: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": -54.71
+    },
+    {
+      "center": [
+        167.57,
+        1524.85,
+        217.84
+      ],
+      "half": [
+        0.31,
+        0.57,
+        0.22
+      ],
+      "note": "stalagmite spire at 168, 218: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": -54.71
+    },
+    {
+      "center": [
+        176.89,
+        1521.69,
+        180.68
+      ],
+      "half": [
+        0.95,
+        0.28,
+        1.12
+      ],
+      "note": "stalagmite spire at 177, 181: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 139.15
+    },
+    {
+      "center": [
+        176.82,
+        1522.4,
+        180.71
+      ],
+      "half": [
+        0.69,
+        0.43,
+        0.4
+      ],
+      "note": "stalagmite spire at 177, 181: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 139.15
+    },
+    {
+      "center": [
+        177.33,
+        1523.28,
+        180.89
+      ],
+      "half": [
+        0.3,
+        0.47,
+        0.27
+      ],
+      "note": "stalagmite spire at 177, 181: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 139.15
+    },
+    {
+      "center": [
+        177.4,
+        1524.21,
+        180.99
+      ],
+      "half": [
+        0.24,
+        0.47,
+        0.17
+      ],
+      "note": "stalagmite spire at 177, 181: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 139.15
+    },
+    {
+      "center": [
+        172.48,
+        1521.66,
+        180.87
+      ],
+      "half": [
+        0.83,
+        0.24,
+        0.98
+      ],
+      "note": "stalagmite spire at 173, 181: drawn rock, no collider (band 0-12 %)",
+      "obstacle": true,
+      "yaw_deg": 119.61
+    },
+    {
+      "center": [
+        172.41,
+        1522.27,
+        180.82
+      ],
+      "half": [
+        0.62,
+        0.37,
+        0.36
+      ],
+      "note": "stalagmite spire at 173, 181: drawn rock, no collider (band 12-30 %)",
+      "obstacle": true,
+      "yaw_deg": 119.61
+    },
+    {
+      "center": [
+        172.77,
+        1523.05,
+        181.04
+      ],
+      "half": [
+        0.28,
+        0.41,
+        0.25
+      ],
+      "note": "stalagmite spire at 173, 181: drawn rock, no collider (band 30-50 %)",
+      "obstacle": true,
+      "yaw_deg": 119.61
+    },
+    {
+      "center": [
+        172.79,
+        1523.87,
+        181.07
+      ],
+      "half": [
+        0.23,
+        0.41,
+        0.17
+      ],
+      "note": "stalagmite spire at 173, 181: drawn rock, no collider (band 50-70 %)",
+      "obstacle": true,
+      "yaw_deg": 119.61
     }
   ]
 }

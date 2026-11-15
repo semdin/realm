@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://6lpygy1onm2w"
-path="res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.ctex"
+path.bptc="res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.bptc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e7eeff2f74dcd1fa93d046b487debe40"
@@ -14,12 +15,12 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_hair_short_tousled_albedo.png"
-dest_files=["res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_hair_short_tousled_albedo.png-b3e9105af085875c3609227910d7effd.bptc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

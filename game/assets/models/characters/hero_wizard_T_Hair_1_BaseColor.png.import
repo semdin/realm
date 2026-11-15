@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4w3q8v36pnqn"
-path="res://.godot/imported/hero_wizard_T_Hair_1_BaseColor.png-68b5fa85c59ef6b7e8bc8c42944c49ff.ctex"
+path.bptc="res://.godot/imported/hero_wizard_T_Hair_1_BaseColor.png-68b5fa85c59ef6b7e8bc8c42944c49ff.bptc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f30cc84cd1ee4fa1c40e16f1acadff7b"
@@ -14,12 +15,12 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_T_Hair_1_BaseColor.png"
-dest_files=["res://.godot/imported/hero_wizard_T_Hair_1_BaseColor.png-68b5fa85c59ef6b7e8bc8c42944c49ff.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_T_Hair_1_BaseColor.png-68b5fa85c59ef6b7e8bc8c42944c49ff.bptc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

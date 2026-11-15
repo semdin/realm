@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dof4e0qa3k458"
-path="res://.godot/imported/loot_chest_chest_mr.png-697a55d4fc0d772ff931807a12823f04.ctex"
+path.s3tc="res://.godot/imported/loot_chest_chest_mr.png-697a55d4fc0d772ff931807a12823f04.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "636660f1fb9696c504c6b891fd4c0aab"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/environment/loot_chest_chest_mr.png"
-dest_files=["res://.godot/imported/loot_chest_chest_mr.png-697a55d4fc0d772ff931807a12823f04.ctex"]
+dest_files=["res://.godot/imported/loot_chest_chest_mr.png-697a55d4fc0d772ff931807a12823f04.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

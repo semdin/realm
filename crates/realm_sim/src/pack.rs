@@ -12,7 +12,7 @@ use crate::Vec3;
 use crate::world::{WaterArea, World};
 
 /// Bumped whenever the layout changes.
-pub const PACK_VERSION: u32 = 3;
+pub const PACK_VERSION: u32 = 4;
 
 /// Height grid value meaning "no terrain here" (a hole).
 pub const HOLE: i32 = i32::MIN;
@@ -29,6 +29,10 @@ pub struct MapPack {
     /// Obstacles (tree trunks, spires; pack v3): solid to bodies and cut
     /// out of the navmesh, but not ground for placing things from above.
     pub obstacles: Vec<PackCollider>,
+    /// How many of the last `colliders` came from the map's patch file
+    /// (pack v4): `realm_worldc patch` takes them (and every obstacle) out
+    /// and lays the file's boxes again, so the file is the one truth.
+    pub patch_colliders: u32,
     /// Moving geometry the export found outside any rule: kept out of the
     /// static world.
     pub dynamic: Vec<DynamicCollider>,

@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cj4tkb5v6ytkw"
-path="res://.godot/imported/drowned_one_drowned_one_a_albedo.jpg-a8c4fe1429f24063f745d4dd31669fe5.ctex"
+path.s3tc="res://.godot/imported/drowned_one_drowned_one_a_albedo.jpg-a8c4fe1429f24063f745d4dd31669fe5.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "269e1a53f17f9d6ba623e4652c79723f"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/drowned_one_drowned_one_a_albedo.jpg"
-dest_files=["res://.godot/imported/drowned_one_drowned_one_a_albedo.jpg-a8c4fe1429f24063f745d4dd31669fe5.ctex"]
+dest_files=["res://.godot/imported/drowned_one_drowned_one_a_albedo.jpg-a8c4fe1429f24063f745d4dd31669fe5.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://oar23xy16bar"
-path="res://.godot/imported/hero_wizard_hair_long_tied_albedo.png-be1198fc66e0457cb1e2affa638d5e77.ctex"
+path.bptc="res://.godot/imported/hero_wizard_hair_long_tied_albedo.png-be1198fc66e0457cb1e2affa638d5e77.bptc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "724d1c29f110ca150729c2ab57fb877d"
@@ -14,12 +15,12 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_hair_long_tied_albedo.png"
-dest_files=["res://.godot/imported/hero_wizard_hair_long_tied_albedo.png-be1198fc66e0457cb1e2affa638d5e77.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_hair_long_tied_albedo.png-be1198fc66e0457cb1e2affa638d5e77.bptc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

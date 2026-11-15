@@ -33,6 +33,9 @@ pub fn read_pack(path: &Path) -> Result<MapPack, String> {
     if version == 2 {
         return read_v2(path, &bytes);
     }
+    if version == 3 {
+        return read_v3(path, &bytes);
+    }
     if version != PACK_VERSION {
         return Err(format!(
             "{}: pack version {version}, this build reads {PACK_VERSION}",
@@ -84,6 +87,52 @@ fn read_v2(path: &Path, bytes: &[u8]) -> Result<MapPack, String> {
         water: old.water,
         colliders: old.colliders,
         obstacles: Vec::new(),
+        patch_colliders: 0,
+        dynamic: old.dynamic,
+        nav: old.nav,
+        staircases: old.staircases,
+    };
+    for grid in &mut pack.terrain {
+        let cols = grid.cols as usize;
+        if cols == 0 || grid.heights.len() % cols != 0 {
+            return Err(format!("{}: terrain grid size", path.display()));
+        }
+        grid.heights = unpredict(&grid.heights, cols);
+    }
+    Ok(pack)
+}
+
+/// A version 3 pack (obstacles, no patch count): its patch boxes are not
+/// told apart from the export's, so it reads with none counted.
+fn read_v3(path: &Path, bytes: &[u8]) -> Result<MapPack, String> {
+    #[derive(serde::Deserialize)]
+    struct V3 {
+        version: u32,
+        map: String,
+        flight_ceiling_y: f32,
+        flight_max_above_ground: f32,
+        terrain: Vec<realm_sim::pack::TerrainGrid>,
+        water: Vec<realm_sim::pack::PackWater>,
+        colliders: Vec<realm_sim::pack::PackCollider>,
+        obstacles: Vec<realm_sim::pack::PackCollider>,
+        dynamic: Vec<realm_sim::pack::DynamicCollider>,
+        nav: realm_sim::pack::NavMesh,
+        staircases: Vec<realm_sim::pack::StairAnchor>,
+    }
+    let raw = zstd::bulk::decompress(&bytes[8..], 512 << 20)
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    let old: V3 = postcard::from_bytes(&raw).map_err(|e| format!("{}: {e}", path.display()))?;
+    let _ = old.version;
+    let mut pack = MapPack {
+        version: PACK_VERSION,
+        map: old.map,
+        flight_ceiling_y: old.flight_ceiling_y,
+        flight_max_above_ground: old.flight_max_above_ground,
+        terrain: old.terrain,
+        water: old.water,
+        colliders: old.colliders,
+        obstacles: old.obstacles,
+        patch_colliders: 0,
         dynamic: old.dynamic,
         nav: old.nav,
         staircases: old.staircases,

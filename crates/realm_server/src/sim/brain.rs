@@ -42,6 +42,8 @@ const WORLD_BOSS_WARNING: u32 = 60 * SIM_HZ;
 const ANCHOR_SPACING: f32 = 6.2;
 /// Steepest ground a pack respawns on (normal's up component).
 const FLAT_ENOUGH: f32 = 0.72;
+/// How far from any trunk or spire a creature is placed (about a body).
+const OBSTACLE_CLEARANCE: f32 = 0.5;
 /// A creature leaves a protected zone it walked into this often.
 const SAFE_CHECK_TICKS: u32 = 8;
 /// A body this close to its place on the ring holds there.
@@ -1051,8 +1053,15 @@ impl Sim {
                     let a = unit(&mut self.dice_state) * core::f32::consts::TAU;
                     let (lo, hi) = t.spawn_distance;
                     let r = lo + unit(&mut self.dice_state) * (hi - lo).max(0.0);
-                    let (x, z) = (pos.x + libm::cosf(a) * r, pos.z + libm::sinf(a) * r);
-                    let at = Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(pos.y), z);
+                    // Not inside a trunk or a spire: step round the stone.
+                    let at = (0..8)
+                        .map(|k| {
+                            let a = a + 0.4 * k as f32;
+                            let (x, z) = (pos.x + libm::cosf(a) * r, pos.z + libm::sinf(a) * r);
+                            Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(pos.y), z)
+                        })
+                        .find(|at| !self.terrain.in_obstacle(*at, OBSTACLE_CLEARANCE))
+                        .unwrap_or(pos);
                     self.summon(waves, species, *level, at, attacker);
                 }
             }
@@ -1216,6 +1225,7 @@ impl Sim {
                 .ray_down(spot + Vec3::new(0.0, 1.0, 0.0), 2.0)
                 .is_some_and(|g| g.normal.y >= FLAT_ENOUGH);
             if !flat
+                || self.terrain.in_obstacle(spot, OBSTACLE_CLEARANCE)
                 || self.terrain.water_surface_at(x, z).is_some_and(|w| w > h)
                 || self.protected(spot)
                 || self.packs.iter().enumerate().any(|(i, s)| {
@@ -1293,11 +1303,19 @@ impl Sim {
         let start = unit(&mut self.dice_state) * core::f32::consts::TAU;
         for i in 0..self.packs[pack].members.len() {
             let a = start + core::f32::consts::TAU * i as f32 / count as f32;
-            let (x, z) = (
-                anchor.x + libm::cosf(a) * ring,
-                anchor.z + libm::sinf(a) * ring,
-            );
-            let home = Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(anchor.y), z);
+            // A member whose place on the ring is inside a trunk or a spire
+            // steps round the ring; with no room it stands on the anchor.
+            let home = (0..8)
+                .map(|k| {
+                    let a = a + 0.35 * k as f32;
+                    let (x, z) = (
+                        anchor.x + libm::cosf(a) * ring,
+                        anchor.z + libm::sinf(a) * ring,
+                    );
+                    Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(anchor.y), z)
+                })
+                .find(|h| !self.terrain.in_obstacle(*h, OBSTACLE_CLEARANCE))
+                .unwrap_or(anchor);
             // Bosses and their escorts never roll elite, nor do objects.
             let is_elite = !boss && !object && unit(&mut self.dice_state) < elite.chance;
             let is_boss = i == 0 && boss_stats.is_some();

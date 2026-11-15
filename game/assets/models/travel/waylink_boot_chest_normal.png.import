@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cvd4jv8pkvjy5"
-path="res://.godot/imported/waylink_boot_chest_normal.png-64e1cc440e213c1a1aca6fa8151a995b.ctex"
+path.s3tc="res://.godot/imported/waylink_boot_chest_normal.png-64e1cc440e213c1a1aca6fa8151a995b.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "d0cae822c8feeac5e8370b6270bba3f4"
@@ -14,17 +15,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/travel/waylink_boot_chest_normal.png"
-dest_files=["res://.godot/imported/waylink_boot_chest_normal.png-64e1cc440e213c1a1aca6fa8151a995b.ctex"]
+dest_files=["res://.godot/imported/waylink_boot_chest_normal.png-64e1cc440e213c1a1aca6fa8151a995b.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

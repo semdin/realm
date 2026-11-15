@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cqwkmkute0dcd"
-path="res://.godot/imported/black_weaver_black_weaver_normal.png-e736ae2ea9c8485405487da4bd84cc3f.ctex"
+path.s3tc="res://.godot/imported/black_weaver_black_weaver_normal.png-e736ae2ea9c8485405487da4bd84cc3f.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5aedc730e5ef324ad2e58e8f0f7a2426"
@@ -14,17 +15,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/monsters/black_weaver_black_weaver_normal.png"
-dest_files=["res://.godot/imported/black_weaver_black_weaver_normal.png-e736ae2ea9c8485405487da4bd84cc3f.ctex"]
+dest_files=["res://.godot/imported/black_weaver_black_weaver_normal.png-e736ae2ea9c8485405487da4bd84cc3f.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

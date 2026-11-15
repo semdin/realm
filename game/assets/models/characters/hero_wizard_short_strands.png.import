@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8yfrxrivf124"
-path="res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.ctex"
+path.bptc="res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.bptc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "546b62a719b2d70c7c7c2ef3b062c457"
@@ -14,12 +15,12 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/characters/hero_wizard_short_strands.png"
-dest_files=["res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.ctex"]
+dest_files=["res://.godot/imported/hero_wizard_short_strands.png-70e8e991ef28b6be20d85448fa2d5972.bptc.ctex"]
 
 [params]
 
-compress/mode=0
-compress/high_quality=false
+compress/mode=2
+compress/high_quality=true
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0

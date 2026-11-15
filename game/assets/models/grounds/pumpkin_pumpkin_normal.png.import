@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqy78a8oj701s"
-path="res://.godot/imported/pumpkin_pumpkin_normal.png-2ab7ff0e9483699ce9f990e65c52e258.ctex"
+path.s3tc="res://.godot/imported/pumpkin_pumpkin_normal.png-2ab7ff0e9483699ce9f990e65c52e258.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a32bf3a0b26d7bf93fa7a24804f7335c"
@@ -14,17 +15,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/grounds/pumpkin_pumpkin_normal.png"
-dest_files=["res://.godot/imported/pumpkin_pumpkin_normal.png-2ab7ff0e9483699ce9f990e65c52e258.ctex"]
+dest_files=["res://.godot/imported/pumpkin_pumpkin_normal.png-2ab7ff0e9483699ce9f990e65c52e258.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1

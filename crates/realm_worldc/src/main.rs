@@ -219,8 +219,8 @@ fn patch_packs(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
     for (map, info) in &infos {
         let path = maps_dir.join(format!("{map}.realmmap"));
         let mut pack = read_pack(&path)?;
-        let added = patch::apply(&mut pack, &patches, map)?;
-        if added == 0 {
+        let (added, changed) = patch::apply(&mut pack, &patches, map)?;
+        if !changed {
             // Written again all the same: an older pack comes out in the
             // current layout.
             write_pack(&path, &pack)?;
@@ -234,7 +234,7 @@ fn patch_packs(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         pack.nav = navmesh;
         write_pack(&path, &pack)?;
         println!(
-            "{map:<24} +{added} patch boxes -> {} colliders, {} obstacles; navmesh {} polygons",
+            "{map:<24} {added} patch boxes -> {} colliders, {} obstacles; navmesh {} polygons",
             pack.colliders.len(),
             pack.obstacles.len(),
             report.polygons
@@ -388,11 +388,13 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
         }
         let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
         let mut obstacles = Vec::new();
+        let mut patch_colliders = 0;
         for (b, obstacle) in patch::boxes(&patches, map)? {
             if obstacle {
                 obstacles.push(b);
             } else {
                 colliders.push(b);
+                patch_colliders += 1;
             }
         }
         let mut pack = MapPack {
@@ -406,6 +408,7 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
             water,
             colliders,
             obstacles,
+            patch_colliders,
             dynamic,
             nav: NavMesh::default(),
             staircases,
@@ -509,6 +512,93 @@ fn check_nav(map: &str, pack: &MapPack, problems: &mut Vec<String>) {
     }
 }
 
+/// Obstacles (trunks, spires) are not ground for what is placed from the
+/// sky, so nothing placed at a fixed point may stand inside one: the map's
+/// spawn points, its creature packs' area centres, its Dark Shard sites and
+/// training dummies (spawn_tables.json) must lie outside every obstacle box
+/// grown by a body's radius.
+fn check_obstacle_points(
+    map: &str,
+    info: &Value,
+    content: &Content,
+    pack: &MapPack,
+    world: &realm_sim::world::World,
+    problems: &mut Vec<String>,
+) {
+    if pack.obstacles.is_empty() {
+        return;
+    }
+    let num = |v: &Value| v.as_f64().map(|x| x as f32);
+    let mut points: Vec<(String, f32, Option<f32>, f32)> = Vec::new();
+    for (name, p) in info["spawn_points"].as_object().into_iter().flatten() {
+        if let (Some(x), Some(y), Some(z)) = (num(&p[0]), num(&p[1]), num(&p[2])) {
+            points.push((format!("spawn '{name}'"), x, Some(y), z));
+        }
+    }
+    let spawns = content.file("spawn_tables.json");
+    let spawns = spawns.unwrap_or(&Value::Null);
+    for p in spawns["packs"].as_array().into_iter().flatten() {
+        if p["map"].as_str() == Some(map)
+            && let (Some(x), Some(z)) = (num(&p["area"][0]), num(&p["area"][1]))
+        {
+            points.push((format!("pack {} centre", p["id"]), x, None, z));
+        }
+    }
+    for m in spawns["monoliths"].as_array().into_iter().flatten() {
+        let on = if m["zone"].as_str().unwrap_or("").starts_with("caverns") {
+            "spider_caverns"
+        } else {
+            "grounds"
+        };
+        if on == map
+            && let (Some(x), Some(y), Some(z)) =
+                (num(&m["pos"][0]), num(&m["pos"][1]), num(&m["pos"][2]))
+        {
+            points.push((format!("Dark Shard {}", m["id"]), x, Some(y), z));
+        }
+    }
+    if map == "grounds" {
+        for d in spawns["dummies"].as_array().into_iter().flatten() {
+            if let (Some(x), Some(y), Some(z)) =
+                (num(&d["pos"][0]), num(&d["pos"][1]), num(&d["pos"][2]))
+            {
+                points.push((format!("dummy {}", d["id"]), x, Some(y), z));
+            }
+        }
+    }
+    let reach = movement::CAPSULE_RADIUS;
+    let mut inside = 0;
+    for (what, x, y, z) in &points {
+        // the ground the server puts it on (through obstacles)
+        let y = world.ground_height(*x, *z).or(*y).unwrap_or(0.0);
+        let at = glam::Vec3::new(*x, y, *z);
+        for o in &pack.obstacles {
+            let PackShape::Box { half } = o.shape else {
+                continue;
+            };
+            let [qx, qy, qz, qw] = o.rotation;
+            let local = glam::Quat::from_xyzw(qx, qy, qz, qw).inverse()
+                * (at - glam::Vec3::from_array(o.translation));
+            if local.x.abs() <= half[0] + reach
+                && local.z.abs() <= half[2] + reach
+                && local.y.abs() <= half[1] + reach
+            {
+                inside += 1;
+                problems.push(format!(
+                    "{map}: {what} at ({x:.1}, {y:.1}, {z:.1}) is inside an obstacle at {:?}",
+                    o.translation
+                ));
+                break;
+            }
+        }
+    }
+    println!(
+        "check {map:<24} {} obstacles, {} fixed points (spawns, pack centres, shards, dummies), {inside} inside one",
+        pack.obstacles.len(),
+        points.len()
+    );
+}
+
 fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
     let infos = map_infos(content_dir)?;
     let content = Content::load(content_dir)?;
@@ -582,6 +672,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
             spawns.len()
         );
         check_nav(map, &pack, &mut problems);
+        check_obstacle_points(map, info, &content, &pack, &world, &mut problems);
     }
     if problems.is_empty() {
         Ok(())

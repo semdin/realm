@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dcgv7pi6oykv4"
-path="res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.ctex"
+path.s3tc="res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "055fce6e58436d1e3423c4ee3b3e2a40"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/props/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg"
-dest_files=["res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.ctex"]
+dest_files=["res://.godot/imported/sleep_chime_texture_pbr_20250901_metallic-texture_pbr_20250901_roughness.jpg-061077bd4a90fabd8bbcf53a68003b2c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
