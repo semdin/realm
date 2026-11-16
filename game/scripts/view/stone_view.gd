@@ -33,8 +33,10 @@ const LANDING_SOUND := "spell_shockwave_impact"
 ## A hit's hp byte stands this long before the (older) snapshot byte may
 ## correct the count again.
 const HIT_HOLD_SECONDS := 0.5
-## The label's size on screen (fixed_size): about 16 px a line.
-const LABEL_PIXEL := 0.0006
+## The plate's first line, screen pixels (the Label3D it replaced was about
+## 19 px at 1080p), and its reach (metres).
+const LABEL_PX := 19.0
+const LABEL_RANGE := 60.0
 
 var species := ""
 var view := {}
@@ -60,7 +62,7 @@ var shake := Callable()
 
 var model: Node3D
 var _light: OmniLight3D
-var _label: Label3D
+var _label_height := 0.0
 var _body_height := 7.0
 var _burst := 0.0
 var _seen := false
@@ -93,18 +95,8 @@ func setup(kind: int) -> bool:
 	visuals = model
 	if DisplayServer.get_name() != "headless":
 		_build_glow()
-	_label = Label3D.new()
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.double_sided = false
-	_label.font_size = 44
-	_label.outline_size = 12
-	_label.outline_modulate = Color(0, 0, 0)
 	# the old game's screen-space world label: the same size at any distance
-	_label.fixed_size = true
-	_label.pixel_size = LABEL_PIXEL
-	_label.visibility_range_end = 60.0
-	_label.position.y = float(view.get("label_height", _body_height + 0.8))
-	add_child(_label)
+	_label_height = float(view.get("label_height", _body_height + 0.8))
 	_update_label()
 	visible = false
 	return true
@@ -247,13 +239,18 @@ func on_wave() -> void:
 
 func _update_label() -> void:
 	var pct := int(float(hp) / float(max_hp) * 100.0)
-	_label.text = tr("%s (Lv.%d)\n%d / %d (%d%%)") % [I18n.t(stone_name), level, hp, max_hp, pct]
-	if pct > 50:
-		_label.modulate = Color(0.45, 1.0, 0.55)
-	elif pct > 25:
-		_label.modulate = Color(1.0, 0.5, 0.2)
-	else:
-		_label.modulate = Color(1.0, 0.2, 0.2)
+	var tint := Color(0.45, 1.0, 0.55)
+	if pct <= 25:
+		tint = Color(1.0, 0.2, 0.2)
+	elif pct <= 50:
+		tint = Color(1.0, 0.5, 0.2)
+	# a 2D plate (Nameplates.put), crisp on every quality preset (a Label3D
+	# was drawn at the 3D frame's render scale)
+	var lines := (tr("%s (Lv.%d)\n%d / %d (%d%%)") % [I18n.t(stone_name), level, hp, max_hp, pct]).split("\n")
+	var plate: Array = []
+	for i in lines.size():
+		plate.append([lines[i], LABEL_PX if i == 0 else LABEL_PX - 2.0, tint, true])
+	Nameplates.put(self, _label_height, LABEL_RANGE, plate)
 
 func _shatter() -> void:
 	if _fall != null:
@@ -270,7 +267,7 @@ func _fall_in(yaw: float) -> void:
 	model.position.y = FALL_HEIGHT
 	model.rotation.y = yaw - 0.6
 	model.scale = Vector3.ONE
-	_label.visible = false
+	Nameplates.hide_own(self, true)
 	var tail := _column(26.0, 1.1, 0.05, 0.5)
 	tail.name = "FallStreak"
 	tail.position.y = _body_height + 13.0
@@ -286,7 +283,7 @@ func _fall_in(yaw: float) -> void:
 	# a little settle after the thump
 	_fall.tween_property(model, "scale", Vector3(1.06, 0.9, 1.06), 0.07)
 	_fall.tween_property(model, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
-	_fall.tween_callback(func(): _label.visible = true)
+	_fall.tween_callback(func(): Nameplates.hide_own(self, false))
 
 func _land() -> void:
 	FlipbookFX.play(get_parent(), global_position, [

@@ -17,8 +17,10 @@ const WOOD := "res://assets/textures/pbr/medieval_wood/medieval_wood_%s_2k.jpg"
 const HEAD_TOP := 2.34
 const RESET_COLOUR := Color(0.5, 1.0, 0.5)
 const HIT_HOLD_SECONDS := 0.5
-## The label's size on screen (fixed_size): about 15 px a line.
-const LABEL_PIXEL := 0.0008
+## The plate: its first line's screen pixels, colour and reach (metres).
+const LABEL_PX := 18.0
+const LABEL_TINT := Color(0.6, 1.0, 0.6)
+const LABEL_RANGE := 40.0
 
 var species := ""
 var view := {}
@@ -35,7 +37,7 @@ var enraged := false
 
 ## The whole figure but its foot: it sways and rocks.
 var _pole: Node3D
-var _label: Label3D
+var _label_height := 2.75
 var _t := 0.0
 var _faced := false
 var _hit_hold_until := 0.0
@@ -56,18 +58,7 @@ func setup(kind: int) -> bool:
 	visuals = _pole
 	if DisplayServer.get_name() != "headless":
 		_build_body()
-	_label = Label3D.new()
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.double_sided = false
-	_label.font_size = 32
-	_label.outline_size = 8
-	_label.outline_modulate = Color(0, 0, 0)
-	_label.modulate = Color(0.6, 1.0, 0.6)
-	_label.fixed_size = true
-	_label.pixel_size = LABEL_PIXEL
-	_label.visibility_range_end = 40.0
-	_label.position.y = float(view.get("label_height", 2.75))
-	add_child(_label)
+	_label_height = float(view.get("label_height", 2.75))
 	_update_label()
 	return true
 
@@ -121,8 +112,14 @@ func _within_byte(value: int, byte: int) -> int:
 	var low := int(floor(float(byte - 1) / 255.0 * max_hp)) + 1
 	return clampi(value, low, maxi(low, high))
 
+## Its name and health over it: a 2D plate (Nameplates.put), crisp on every
+## quality preset (a Label3D was drawn at the 3D frame's render scale).
 func _update_label() -> void:
-	_label.text = tr("Training Dummy\n%d / %d") % [hp, max_hp]
+	var lines := (tr("Training Dummy\n%d / %d") % [hp, max_hp]).split("\n")
+	var plate: Array = []
+	for i in lines.size():
+		plate.append([lines[i], LABEL_PX if i == 0 else LABEL_PX - 2.0, LABEL_TINT, true])
+	Nameplates.put(self, _label_height, LABEL_RANGE, plate)
 
 func _process(delta: float) -> void:
 	_t += delta

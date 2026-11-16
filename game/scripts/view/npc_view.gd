@@ -22,9 +22,10 @@ const TALK_SECONDS := 4.0
 ## The wizard's height and girth (metres) when the content gives no body.
 const WIZARD_HEIGHT := 2.25
 const WIZARD_RADIUS := 0.45
-## The nameplate's size on screen (fixed_size, about 15 px a line) and how far
-## it reads.
-const LABEL_PIXEL := 0.0008
+## The nameplate's name and hint lines (screen pixels: the Label3D it
+## replaced was about 15 px a line at 900p) and how far it reads.
+const LABEL_PX := 18.0
+const HINT_PX := 15.0
 const LABEL_RANGE := 30.0
 const NAME_TINT := Color(1.0, 0.9, 0.5)
 ## How far over the crown the nameplate and the gold arrow float: the arrow
@@ -48,7 +49,6 @@ var wanted := false
 
 var _rig: Node3D
 var _marker: Node3D
-var _label: Label3D
 var _anim: AnimationPlayer
 var _bob := 0.03
 var _marker_height := 3.1
@@ -77,23 +77,13 @@ func setup(id: String, data: Dictionary) -> void:
 	add_child(_rig)
 	if DisplayServer.get_name() != "headless":
 		_build_body(body, size)
-	_label = Label3D.new()
-	_label.name = "NpcLabel"
-	_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	_label.double_sided = false
-	_label.font_size = 32
-	_label.outline_size = 8
-	_label.outline_modulate = Color(0, 0, 0)
-	_label.modulate = NAME_TINT
-	_label.fixed_size = true
-	_label.pixel_size = LABEL_PIXEL
-	_label.visibility_range_end = LABEL_RANGE
-	# Over the NPC's own hat, the way the old game's screen-space plates read.
-	_label.no_depth_test = true
-	_label.render_priority = 1
-	_label.position.y = height + LABEL_RISE
-	add_child(_label)
-	_label.text = tr("%s\n< click to talk >") % I18n.t(npc_name)
+	# Over the NPC's own hat, the way the old game's screen-space plates
+	# read: a 2D plate (Nameplates.put), as crisp as the HUD on every preset
+	var lines := (tr("%s\n< click to talk >") % I18n.t(npc_name)).split("\n")
+	var plate: Array = []
+	for i in lines.size():
+		plate.append([lines[i], LABEL_PX if i == 0 else HINT_PX, NAME_TINT, true])
+	Nameplates.put(self, height + LABEL_RISE, LABEL_RANGE, plate)
 	_build_marker()
 	var yaw: Variant = data.get("yaw")
 	if yaw != null:

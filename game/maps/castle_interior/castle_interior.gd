@@ -111,7 +111,7 @@ func _dress_portals() -> int:
 		var sign: Label3D = preload("res://scripts/world/world_sign.gd").new()   # readable from afar, faded past 60 m
 		sign.call("setup", 60.0, 15.0)
 		sign.text = I18n.upper(tr("Out of bounds"))
-		sign.font = HudKit.deco()
+		sign.font = UITheme.world_font(UITheme.W_DECO)
 		sign.font_size = 40
 		sign.outline_size = 8
 		sign.modulate = Color(1.0, 0.86, 0.6)

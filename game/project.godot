@@ -42,6 +42,11 @@ renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
 anti_aliasing/quality/screen_space_aa=1
 textures/vram_compression/import_etc2_astc=true
+; Interface pictures are drawn smaller than their source (a 256 px icon in a
+; 24-64 px slot): plain linear filtering reads a few texels per pixel and the
+; icons sparkle. Linear with mipmaps reads the level nearest the drawn size;
+; textures without mipmaps (glyphs, map sheets drawn larger) are unaffected.
+textures/canvas_textures/default_texture_filter=2
 
 [editor_plugins]
 
