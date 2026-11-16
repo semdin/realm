@@ -167,7 +167,7 @@
     "id": "robe_apprentice",
     "name": "Apprentice Robe",
     "type": "armor",
-    "desc": "Sturdy woolen school robes tailored with silk house linings.",
+    "desc": "Sturdy woolen apprentice robes tailored with silk house linings.",
     "rarity": "common",
     "stat_tier": 1,
     "armor": 18,

@@ -49,7 +49,7 @@
     },
     {
       "id": "dueling_club",
-      "label": "Dueling Club",
+      "label": "Duel Hall",
       "y": 0,
       "rect": [
         21,
@@ -109,7 +109,7 @@
     },
     {
       "id": "transfiguration",
-      "label": "Transformation",
+      "label": "Transmutation Hall",
       "y": 10.0,
       "rect": [
         28.0,
@@ -133,7 +133,7 @@
     },
     {
       "id": "defence",
-      "label": "Warding",
+      "label": "Warding Hall",
       "y": 20.0,
       "rect": [
         28.0,
@@ -145,7 +145,7 @@
     },
     {
       "id": "charms",
-      "label": "Charms",
+      "label": "Enchanting Hall",
       "y": 20.0,
       "rect": [
         57.0,
@@ -205,7 +205,7 @@
     },
     {
       "id": "east_corridor_L7",
-      "label": "Seventh-floor Corridor",
+      "label": "Upper Corridor",
       "y": 70.0,
       "rect": [
         26.0,
@@ -334,7 +334,7 @@
     },
     {
       "id": "potions",
-      "label": "Potions",
+      "label": "Alchemy Cellar",
       "y": -10.0,
       "rect": [
         -50,

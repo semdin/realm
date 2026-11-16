@@ -25,7 +25,7 @@
     "id": "stun_bolt",
     "element": "stun",
     "name": "Stun Bolt",
-    "desc": "Stunning spell. Hits target, deals high damage and stuns for up to 1.8 seconds.",
+    "desc": "Stunning spell. Hits target, deals high damage and stuns it for 1.8 seconds, longer as the skill grows.",
     "delivery": "projectile",
     "damage": 74,
     "magic_attack_coef": 0.62,
@@ -126,7 +126,7 @@
   "ultimate": {
     "id": "ultimate",
     "element": "arcane",
-    "name": "Stella Ruina",
+    "name": "Starfall",
     "desc": "Ultimate star sorcery. Calls down a falling star that bursts into a violet ring of starlight, scorching everything in a wide blast radius; its shards leave every enemy hit bleeding for 4 seconds.",
     "delivery": "projectile_aoe",
     "damage": 296,

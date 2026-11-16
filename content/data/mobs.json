@@ -158,7 +158,7 @@
     },
     "dark_bandit": {
       "display": "Dark Bandit",
-      "family": "dark_wizard",
+      "family": "ashbound",
       "role": "caster",
       "scene": "res://scenes/entities/mobs/mob_dark_bandit.tscn",
       "base": {
@@ -175,7 +175,7 @@
         "arcane": 0.15,
         "ithrel_light": 0.5
       },
-      "loot_table": "dark_wizard",
+      "loot_table": "ashbound",
       "bolt": "stun_bolt"
     },
     "troll_forest": {

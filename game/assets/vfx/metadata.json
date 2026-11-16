@@ -1020,7 +1020,7 @@
       "colour": true,
       "blend": "add",
       "blend_default": "add",
-      "purpose": "White-gold flash, violet star ring breaking into stardust (Stella Ruina impact; Wan 3.0 first/last frame)",
+      "purpose": "White-gold flash, violet star ring breaking into stardust (Starfall impact; Wan 3.0 first/last frame)",
       "sheet_px": [
         2048,
         2048
@@ -1048,7 +1048,7 @@
       "colour": true,
       "blend": "add",
       "blend_default": "add",
-      "purpose": "Pulsing white-gold star core in a violet aura, seamless loop (Stella Ruina bolt core)",
+      "purpose": "Pulsing white-gold star core in a violet aura, seamless loop (Starfall bolt core)",
       "sheet_px": [
         1024,
         1024

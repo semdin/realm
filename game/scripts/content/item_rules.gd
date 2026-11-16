@@ -94,7 +94,7 @@ static func fixed_lines(id: String, tier: int) -> Array:
 		if n.has(key) and not is_zero_approx(float(n[key])):
 			lines.append({"text": I18n.t(labels[key]) % int(n[key]), "negative": float(n[key]) < 0.0})
 	if n.has("mount_speed"):
-		lines.append({"text": I18n.t("Mount Speed %.1f") % float(n.mount_speed), "negative": false})
+		lines.append({"text": I18n.t("Mount Speed %s") % I18n.num(float(n.mount_speed)), "negative": false})
 	return lines
 
 ## "Spell Power +6%" - the one wording for an enchantment line.

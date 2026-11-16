@@ -19,7 +19,6 @@ extends RefCounted
 const SHADER := preload("res://assets/shaders/triplanar_pbr.gdshader")
 const WINDOW_SHADER := preload("res://assets/shaders/castle/window_view.gdshader")
 const LAKE_SHADER := preload("res://assets/shaders/castle/lake_window.gdshader")
-const SKY_SHADER := preload("res://assets/shaders/castle/enchanted_sky.gdshader")
 
 const GOTHIC := "res://assets/castle/castle_interior.glb"
 const LAYOUT := "res://assets/castle/castle_layout.json"
@@ -38,7 +37,7 @@ const PBR_SETS := {
 }
 
 ## Slots whose surfaces must not cast shadows: glazing, cloth, paintings and
-## the enchanted ceiling would block the moonlight.
+## the boarded vault ceilings would block the moonlight.
 const NO_SHADOW := ["glass", "sky_vault", "glass_clear", "stained_side", "stained_west", "compass",
 	"tapestry", "lake_window", "leaf"]
 
@@ -157,14 +156,10 @@ static func kit_material(slot: String) -> Material:
 			return _plain(Color(0.83, 0.64, 0.3), 0.38, 1.0)
 		"iron":
 			return _plain(Color(0.12, 0.11, 0.11), 0.5, 0.85)
-		"gem_red":
-			return _glowing(Color(1.0, 0.12, 0.1), 2.2, 0.15)
-		"gem_green":
-			return _glowing(Color(0.1, 0.9, 0.35), 2.2, 0.15)
-		"gem_blue":
-			return _glowing(Color(0.15, 0.4, 1.0), 2.2, 0.15)
-		"gem_yellow":
-			return _glowing(Color(1.0, 0.8, 0.15), 2.2, 0.15)
+		"gem_red", "gem_green", "gem_blue", "gem_yellow":
+			# the Entrance Hall's four house gems, in the houses' own colours
+			var houses := preload("res://scripts/content/house_colors.gd")
+			return _glowing(houses.cloth("cloth_" + slot.trim_prefix("gem_")) / houses.CLOTH_SHADE, 2.2, 0.15)
 		"compass":
 			# a round inlay: the texture's corners are cut away by its alpha
 			var painted := StandardMaterial3D.new()
@@ -218,9 +213,9 @@ static func kit_material(slot: String) -> Material:
 			lake.shader = LAKE_SHADER
 			return lake
 		"sky_vault":
-			var sky := ShaderMaterial.new()
-			sky.shader = SKY_SHADER
-			return sky
+			# the Feast Hall's and Ilvane's barrel vaults: dark oak boarding
+			# between the trusses
+			return surface("medieval_wood", Color(0.42, 0.33, 0.27), 1.6)
 		"seal":
 			return _glowing(Color(0.55, 0.2, 0.95), 1.5, 0.9)
 	push_warning("castle: no material for kit slot %s" % slot)

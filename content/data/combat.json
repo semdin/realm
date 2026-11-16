@@ -186,8 +186,8 @@
         ],
         "theme": "attack"
       },
-      "vs_dark_wizard": {
-        "label": "Strong against Dark Wizards",
+      "vs_ashbound": {
+        "label": "Strong against the Ashbound",
         "unit": "%",
         "values": [
           2,
@@ -581,7 +581,7 @@
         "spell_power",
         "crit_chance",
         "pierce_chance",
-        "vs_dark_wizard",
+        "vs_ashbound",
         "vs_dark_creature",
         "vs_beast",
         "vs_construct",
@@ -601,7 +601,7 @@
         "hp_regen"
       ],
       "hat": [
-        "vs_dark_wizard",
+        "vs_ashbound",
         "vs_dark_creature",
         "vs_beast",
         "vs_construct",
@@ -613,7 +613,7 @@
         "mana_regen"
       ],
       "gloves": [
-        "vs_dark_wizard",
+        "vs_ashbound",
         "vs_dark_creature",
         "vs_beast",
         "vs_construct",
@@ -637,7 +637,7 @@
         "oril_bonus"
       ],
       "focus": [
-        "vs_dark_wizard",
+        "vs_ashbound",
         "vs_dark_creature",
         "vs_beast",
         "vs_construct",
@@ -663,7 +663,7 @@
       "ring": [
         "max_hp",
         "pierce_chance",
-        "vs_dark_wizard",
+        "vs_ashbound",
         "vs_dark_creature",
         "vs_beast",
         "vs_construct",
@@ -754,7 +754,7 @@
       "broom": "broom"
     },
     "families": {
-      "dark_wizard": "vs_dark_wizard",
+      "ashbound": "vs_ashbound",
       "undead": "vs_dark_creature",
       "pallid": "vs_dark_creature",
       "beast": "vs_beast",

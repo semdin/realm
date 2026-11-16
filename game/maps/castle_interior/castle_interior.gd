@@ -107,7 +107,8 @@ func _dress_portals() -> int:
 		door.position = Vector3(float(c[0]), float(c[1]) - 0.5, DOOR_WALL_Z + DOOR_DEPTH * 0.5)
 		if ResourceLoader.exists(DOOR_MODEL):
 			door.add_child((load(DOOR_MODEL) as PackedScene).instantiate())
-		var sign := Label3D.new()
+		var sign: Label3D = preload("res://scripts/world/world_sign.gd").new()   # readable from afar, faded past 60 m
+		sign.call("setup", 60.0, 15.0)
 		sign.text = I18n.upper(tr("Out of bounds"))
 		sign.font = HudKit.deco()
 		sign.font_size = 40

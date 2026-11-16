@@ -3,7 +3,7 @@
   "chapters": [
     {
       "level": 1,
-      "title": "First Year",
+      "title": "Apprentice Days",
       "desc": "Settle in at Kaf Castle, raised over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your first broom."
     },
     {
@@ -29,7 +29,7 @@
     {
       "level": 27,
       "title": "The Moors",
-      "desc": "Trolls and the Ash Priest's dark wizards hold the moors above Orvell."
+      "desc": "Trolls and the Ash Priest's Ashbound hold the moors above Orvell."
     },
     {
       "level": 31,
@@ -309,9 +309,9 @@
   "chain": [
     {
       "id": "q001",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 1,
-      "title": "First-Year Orientation",
+      "title": "First Day",
       "name": "Speak with Master Teral Venn by the fountain",
       "desc": "Master Teral Venn waits beside the courtyard fountain (the bobbing gold arrow). Walk up and click him or press F to talk.",
       "giver": "Master Teral Venn",
@@ -330,7 +330,7 @@
     },
     {
       "id": "q002",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 1,
       "title": "Dressed for the Grounds",
       "name": "Wear the Woolen Traveller's Cloak",
@@ -354,7 +354,7 @@
     },
     {
       "id": "q003",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 1,
       "title": "Wand Drills",
       "name": "Hit a training dummy 5 times",
@@ -375,7 +375,7 @@
     },
     {
       "id": "q004",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 2,
       "title": "Spiders at the Gate",
       "name": "Defeat 6 Black Weavers",
@@ -396,7 +396,7 @@
     },
     {
       "id": "q005",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 3,
       "title": "Restless Dead",
       "name": "Defeat 6 Drowned Ones",
@@ -417,7 +417,7 @@
     },
     {
       "id": "q006",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 3,
       "title": "Borin's Hut",
       "name": "Report to Borin at his hut",
@@ -438,7 +438,7 @@
     },
     {
       "id": "q007",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 4,
       "title": "Thinning the Brood",
       "name": "Defeat 10 Black Weavers",
@@ -459,7 +459,7 @@
     },
     {
       "id": "q008",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 4,
       "title": "Through the Great Doors",
       "name": "Enter Kaf Castle",
@@ -480,11 +480,11 @@
     },
     {
       "id": "q009",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 5,
       "title": "Your First Broom",
       "name": "Collect your broom from Flight Master Kaelen Rook",
-      "desc": "At level 5 every student gets a broom. Flight Master Kaelen Rook waits at the castle approach.",
+      "desc": "At level 5 every apprentice gets a broom. Flight Master Kaelen Rook waits at the castle approach.",
       "giver": "Flight Master Kaelen Rook",
       "type": "talk",
       "target": "Flight Master Kaelen Rook",
@@ -501,7 +501,7 @@
     },
     {
       "id": "q010",
-      "chapter": "First Year",
+      "chapter": "Apprentice Days",
       "level": 5,
       "title": "Skyring Tryouts",
       "name": "Fly to the Skyring Pitch on your broom",
@@ -1291,7 +1291,7 @@
       "level": 27,
       "title": "Moorland Orders",
       "name": "Speak with Flight Master Kaelen Rook",
-      "desc": "Kaelen Rook is organising the students who go up to the moors.",
+      "desc": "Kaelen Rook is organising the apprentices who go up to the moors.",
       "giver": "Flight Master Kaelen Rook",
       "type": "talk",
       "target": "Flight Master Kaelen Rook",
@@ -1321,7 +1321,7 @@
       "level": 28,
       "title": "Orvell Heights",
       "name": "Defeat 22 Bandits",
-      "desc": "The heights above Orvell are crawling with dark wizards.",
+      "desc": "The heights above Orvell are crawling with the Ashbound.",
       "giver": "Bessa Tull",
       "type": "kill",
       "target": "dark_bandit",
@@ -1609,7 +1609,7 @@
       "level": 36,
       "title": "Grak's Allies",
       "name": "Defeat 26 Bandits",
-      "desc": "Dark wizards march with the trolls on the Eastern Moor.",
+      "desc": "The Ashbound march with the trolls on the Eastern Moor.",
       "giver": "Bessa Tull",
       "type": "kill",
       "target": "dark_bandit",
@@ -1645,7 +1645,7 @@
       "level": 37,
       "title": "Storm Riders",
       "name": "Defeat 28 Bandits",
-      "desc": "The dark wizards ride the storm clouds over the moor.",
+      "desc": "The Ashbound ride the storm clouds over the moor.",
       "giver": "Bessa Tull",
       "type": "kill",
       "target": "dark_bandit",
@@ -1736,7 +1736,7 @@
       "level": 39,
       "title": "Deserters",
       "name": "Defeat 28 Bandits",
-      "desc": "The dark wizards who marched with Grak are fleeing across the Eastern Moor.",
+      "desc": "The Ashbound who marched with Grak are fleeing across the Eastern Moor.",
       "giver": "Bessa Tull",
       "type": "kill",
       "target": "dark_bandit",

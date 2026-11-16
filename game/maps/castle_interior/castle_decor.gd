@@ -2,32 +2,32 @@ extends RefCounted
 
 ## The living dressing of the castle (the old game's castle_decor.gd): what
 ## the static glb cannot carry because it moves, glows or is a light.
-##   * Feast Hall: floating candles (one MultiMesh for the wax, one for the
-##     flames, bobbing in their shaders), a few warm lights standing in for
-##     them, the laid tables (castle_feast.gd);
+##   * Feast Hall: two rows of iron wheel chandeliers hung on chains over the
+##     tables, each with its warm light; the tables, the house banners on the
+##     dais wall and the laid tableware (castle_feast.gd);
 ##   * Entrance Hall: two iron ring chandeliers and a torch per bay;
 ##   * moonlight through the windows (a shadowed directional light);
 ##   * the rooms' light sources, authored in the glb as FX_<kind>_<n> empties
 ##     (sconces, hearths, green braziers, lanterns, chandeliers, owls);
 ##   * the hero props (the golden owl lectern, two suits of armour).
 ## Built at the low preset the old game picked for Intel iGPUs (the only
-## preset of this renderer): 140 candles, no chandelier shadows, a 2-split
+## preset of this renderer): no chandelier shadows, a 2-split
 ## moon. Nothing here collides: the props' boxes are in the map pack.
 
 const CastleFire = preload("res://maps/castle_interior/castle_fire.gd")
 const CastleFeast = preload("res://maps/castle_interior/castle_feast.gd")
 const StaticMerge = preload("res://maps/castle_interior/static_merge.gd")
-const CANDLE_SHADER := preload("res://assets/shaders/castle/floating_candle.gdshader")
 const FLAME_SHADER := preload("res://assets/shaders/castle/candle_flame.gdshader")
 
-## Feast Hall candle volume (layout space): above the four house tables.
-const HALL_CANDLES := {"x": [-92.0, -24.0], "z": [44.0, 68.0], "y": [10.5, 16.5]}
-const HALL_CANDLE_COUNT := 140
+## Feast Hall chandeliers (layout space): a row over each side's tables
+## (castle_feast.gd HALL_TABLES), the wheel this high over the floor.
+const HALL_CHANDELIER_X := [-81.0, -67.0, -53.0, -39.0]
+const HALL_CHANDELIER_Z := [49.0, 63.0]
+const HALL_CHANDELIER_Y := 11.0
 
 ## Hero props (res://assets/castle/props/), layout space: `height` scales the
 ## model, `yaw` turns it (0 = its front faces +z).
 const PROPS := [
-	{"name": "owl_lectern", "at": Vector3(-96.2, 1.0, 56.0), "yaw": 90.0, "height": 1.75},
 	{"name": "armour", "at": Vector3(-17.15, 0.0, 49.6), "yaw": 90.0, "height": 2.45},
 	{"name": "armour", "at": Vector3(-17.15, 0.0, 62.4), "yaw": 90.0, "height": 2.45},
 ]
@@ -43,8 +43,9 @@ static func build(parent: Node3D, map_y: float, layout: Dictionary) -> Node3D:
 	var root := Node3D.new()
 	root.name = "CastleDecor"
 	parent.add_child(root)
-	_floating_candles(root, map_y, HALL_CANDLE_COUNT)
-	_hall_candle_lights(root, map_y)
+	for x in HALL_CHANDELIER_X:
+		for z in HALL_CHANDELIER_Z:
+			_chandelier(root, Vector3(x, map_y + HALL_CHANDELIER_Y, z), 2.2, 14, 12.0)
 	# two shadowed omni lights re-render a cube shadow map every frame anyone
 	# moves under them: the low preset keeps the light, not its shadow
 	for z in [31.0, 52.0]:
@@ -109,47 +110,6 @@ static func _visual_aabb(node: Node3D) -> AABB:
 		first = false
 	return out
 
-# --------------------------------------------------------------- candles
-
-static func _floating_candles(root: Node3D, map_y: float, count: int) -> void:
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 1997
-	var body := CylinderMesh.new()
-	body.top_radius = 0.07
-	body.bottom_radius = 0.08
-	body.height = 0.55
-	body.radial_segments = 8
-	body.rings = 1
-	var wax := ShaderMaterial.new()
-	wax.shader = CANDLE_SHADER
-	body.material = wax
-	var flame := QuadMesh.new()
-	flame.size = Vector2(0.2, 0.38)
-	var fire := ShaderMaterial.new()
-	fire.shader = FLAME_SHADER
-	flame.material = fire
-	var bodies := _multimesh(body, count)
-	var flames := _multimesh(flame, count)
-	var xs: Array = HALL_CANDLES["x"]
-	var zs: Array = HALL_CANDLES["z"]
-	var ys: Array = HALL_CANDLES["y"]
-	for i in count:
-		var p := Vector3(rng.randf_range(xs[0], xs[1]), map_y + rng.randf_range(ys[0], ys[1]),
-			rng.randf_range(zs[0], zs[1]))
-		var phase := rng.randf()
-		var scale := rng.randf_range(0.8, 1.35)
-		bodies.set_instance_transform(i, Transform3D(Basis().scaled(Vector3(1.0, scale, 1.0)), p))
-		bodies.set_instance_custom_data(i, Color(phase, 0, 0, 0))
-		flames.set_instance_transform(i, Transform3D(Basis(), p + Vector3(0, 0.275 * scale + 0.14, 0)))
-		flames.set_instance_custom_data(i, Color(phase, 0, 0, 0))
-	for mm: MultiMesh in [bodies, flames]:
-		var mmi := MultiMeshInstance3D.new()
-		mmi.multimesh = mm
-		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		mmi.name = "FloatingCandles" if mm == bodies else "CandleFlames"
-		root.add_child(mmi)
-	stats["candles"] = count
-
 static func _multimesh(mesh: Mesh, count: int) -> MultiMesh:
 	var mm := MultiMesh.new()
 	mm.transform_format = MultiMesh.TRANSFORM_3D
@@ -157,18 +117,6 @@ static func _multimesh(mesh: Mesh, count: int) -> MultiMesh:
 	mm.mesh = mesh
 	mm.instance_count = count
 	return mm
-
-## A handful of real lights stand in for the hundreds of flames.
-static func _hall_candle_lights(root: Node3D, map_y: float) -> void:
-	for x in [-84.0, -66.0, -48.0, -30.0]:
-		for z in [50.0, 62.0]:
-			var light := OmniLight3D.new()
-			light.light_color = Color(1.0, 0.72, 0.42)
-			light.light_energy = 2.4
-			light.omni_range = 22.0
-			light.omni_attenuation = 1.2
-			light.position = Vector3(x, map_y + 12.5, z)
-			root.add_child(light)
 
 # --------------------------------------------------------------- chandeliers
 
@@ -179,7 +127,8 @@ static func _iron() -> StandardMaterial3D:
 	iron.roughness = 0.5
 	return iron
 
-static func _chandelier(root: Node3D, centre: Vector3, radius: float, candles: int) -> void:
+## `rise`: how far the chains climb to the vault.
+static func _chandelier(root: Node3D, centre: Vector3, radius: float, candles: int, rise := 8.0) -> void:
 	var node := Node3D.new()
 	node.name = "Chandelier"
 	node.position = centre
@@ -201,11 +150,11 @@ static func _chandelier(root: Node3D, centre: Vector3, radius: float, candles: i
 		var cyl := CylinderMesh.new()
 		cyl.top_radius = 0.03
 		cyl.bottom_radius = 0.03
-		cyl.height = 8.0
+		var top := Vector3(0.0, rise, 0.0)
+		var foot := Vector3(cos(ang) * radius, 0.0, sin(ang) * radius)
+		cyl.height = (top - foot).length()
 		cyl.material = iron
 		chain.mesh = cyl
-		var foot := Vector3(cos(ang) * radius, 0.0, sin(ang) * radius)
-		var top := Vector3(0.0, 8.0, 0.0)
 		chain.position = (foot + top) * 0.5
 		chain.basis = Basis(Quaternion(Vector3.UP, (top - foot).normalized()))
 		node.add_child(chain)

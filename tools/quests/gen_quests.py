@@ -49,12 +49,12 @@ SIZES = {
 }
 
 CHAPTERS = [
-    (1, 'First Year', "Settle in at Kaf Castle, raised over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your first broom."),
+    (1, 'Apprentice Days', "Settle in at Kaf Castle, raised over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your first broom."),
     (6, 'The Forest Edge', "Darkened shards fall into the Raven Woods and the creatures grow bolder; learn the forge and the trial."),
     (11, 'Roads to Orvell', 'Bandits prowl the roads; the village needs a wand it can trust.'),
     (16, 'Crypts and Trolls', "The dead stir in the crypts, the trolls come down from their hollow - and an old name turns up in the records: the Ash Priest."),
     (21, 'Barrows and Webs', "The dead rise in the barrows; deep in the caverns the Web Mother broods on a shard the Ash Priest gave her."),
-    (27, 'The Moors', "Trolls and the Ash Priest's dark wizards hold the moors above Orvell."),
+    (27, 'The Moors', "Trolls and the Ash Priest's Ashbound hold the moors above Orvell."),
     (31, 'The Sealed Wing', "The castle's sealed wing hides a piece of an old gate to another realm - and something guards it."),
     (35, 'Stone and Storm', "Mountain trolls gather under Grak around a Dark Shard on the Stone Circle Summit."),
     (41, 'The Long Mist', "The mist of Morhal rolls in from the shore and the Pallids with it; only the Light of Ithrel will hold them back."),
@@ -63,8 +63,8 @@ CHAPTERS = [
 # (level, size, type, target, count, title, objective, story, giver, extra)
 # extra: reward items [(id, amount)], 'boss': True, 'mounted': True
 CHAIN = [
-    # ---------------------------------------------------------------- 1-5 First Year
-    (1, 's', 'talk', 'Master Teral Venn', 1, 'First-Year Orientation', 'Speak with Master Teral Venn by the fountain',
+    # ---------------------------------------------------------------- 1-5 Apprentice Days
+    (1, 's', 'talk', 'Master Teral Venn', 1, 'First Day', 'Speak with Master Teral Venn by the fountain',
      'Master Teral Venn waits beside the courtyard fountain (the bobbing gold arrow). Walk up and click him or press F to talk.', 'Master Teral Venn',
      {'items': [('cloak_wool', 1)]}),
     (1, 's', 'equip', 'chest', 1, 'Dressed for the Grounds', "Wear the Woolen Traveller's Cloak",
@@ -89,7 +89,7 @@ CHAIN = [
      'Walk up the castle approach and press F in the doorway to go inside.', 'Archivist Emrel Sav',
      {'items': [('ring_apprentice', 1)]}),
     (5, 'b', 'talk', 'Flight Master Kaelen Rook', 1, 'Your First Broom', 'Collect your broom from Flight Master Kaelen Rook',
-     'At level 5 every student gets a broom. Flight Master Kaelen Rook waits at the castle approach.', 'Flight Master Kaelen Rook',
+     'At level 5 every apprentice gets a broom. Flight Master Kaelen Rook waits at the castle approach.', 'Flight Master Kaelen Rook',
      {'items': [('broom_ashwood', 1)]}),
     (5, 'n', 'visit', 'Skyring Pitch', 1, 'Skyring Tryouts', 'Fly to the Skyring Pitch on your broom',
      'Equip the broom, press Shift to mount, Space to rise and Ctrl to descend. Land on level ground and press Shift to dismount.', 'Flight Master Kaelen Rook',
@@ -203,11 +203,11 @@ CHAIN = [
      'Forest trolls have climbed onto the Western Moor.', 'Borin', {}),
     # ---------------------------------------------------------------- 27-30 The Moors
     (27, 'n', 'talk', 'Flight Master Kaelen Rook', 1, 'Moorland Orders', 'Speak with Flight Master Kaelen Rook',
-     'Kaelen Rook is organising the students who go up to the moors.', 'Flight Master Kaelen Rook', {}),
+     'Kaelen Rook is organising the apprentices who go up to the moors.', 'Flight Master Kaelen Rook', {}),
     (27, 'n', 'kill', 'troll_forest', 12, 'Trolls on the Heath', 'Defeat 12 Forest Trolls',
      'Push the forest trolls off the Western Moor.', 'Flight Master Kaelen Rook', {}),
     (28, 'n', 'kill', 'dark_bandit', 22, 'Orvell Heights', 'Defeat 22 Bandits',
-     'The heights above Orvell are crawling with dark wizards.', 'Bessa Tull', {}),
+     'The heights above Orvell are crawling with the Ashbound.', 'Bessa Tull', {}),
     (28, 'n', 'kill', 'dark_bandit', 24, 'Watchers on the Heights', 'Defeat 24 Bandits',
      'They are watching the village. Make them stop.', 'Bessa Tull',
      {'items': [('scroll_imbue', 3)]}),
@@ -248,12 +248,12 @@ CHAIN = [
     (35, 'n', 'kill', 'troll_mountain', 12, 'Eastern Moor', 'Defeat 12 Mountain Trolls',
      'Grak\'s trolls hold the Eastern Moor.', 'Flight Master Kaelen Rook', {}),
     (36, 'n', 'kill', 'dark_bandit', 26, "Grak's Allies", 'Defeat 26 Bandits',
-     'Dark wizards march with the trolls on the Eastern Moor.', 'Bessa Tull', {}),
+     'The Ashbound march with the trolls on the Eastern Moor.', 'Bessa Tull', {}),
     (36, 'n', 'kill', 'troll_mountain', 14, 'The Troll Muster', 'Defeat 14 Mountain Trolls',
      'Break the muster before it reaches the summit.', 'Flight Master Kaelen Rook',
      {'items': [('mat_dragon_heartstring', 3)]}),
     (37, 'n', 'kill', 'dark_bandit', 28, 'Storm Riders', 'Defeat 28 Bandits',
-     'The dark wizards ride the storm clouds over the moor.', 'Bessa Tull',
+     'The Ashbound ride the storm clouds over the moor.', 'Bessa Tull',
      {'items': [('cloak_phoenix', 1)]}),
     (37, 'n', 'enchant', '', 3, 'Velkar Weave', 'Enchant items three times',
      'A Velkar Regalia deserves its weave. Make the most of it.', 'Kestrin', {}),
@@ -265,7 +265,7 @@ CHAIN = [
     (39, 'b', 'kill', 'troll_mountain', 16, 'Scattering the Clans', 'Defeat 16 Mountain Trolls',
      'Without their chieftain the clans fight among themselves. Finish them.', 'Borin', {}),
     (39, 'n', 'kill', 'dark_bandit', 28, 'Deserters', 'Defeat 28 Bandits',
-     'The dark wizards who marched with Grak are fleeing across the Eastern Moor.', 'Bessa Tull',
+     'The Ashbound who marched with Grak are fleeing across the Eastern Moor.', 'Bessa Tull',
      {'items': [('scroll_imbue', 2)]}),
     (40, 'n', 'monolith', '', 1, 'Stones Still Standing', 'Destroy a Dark Shard or a Webbound Seal Stone',
      "Grak is gone, but the Ash Priest keeps pulling shards down. Break a Dark Shard in the western forests or a Webbound Seal Stone in the Blackweb Caverns, with others.", 'Master Teral Venn', {}),

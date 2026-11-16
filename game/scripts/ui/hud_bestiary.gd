@@ -14,7 +14,7 @@ class_name HudBestiary
 const PORTRAITS := "res://assets/ui/bestiary/%s.png"
 # i18n-begin
 const LORE := {
-	"drowned_one": "Drowned corpses bewitched to serve a dark wizard. Slow, relentless and terrified of fire.",
+	"drowned_one": "Drowned corpses bewitched to serve the Ash Priest. Slow, relentless and terrified of fire.",
 	"drowned_warden": "Drowned Ones raised from a cursed lake to guard what lies beneath. Their cold grip drags you down; fire still breaks them.",
 	"goblin_teller": "Goblin moneylenders from Orvell's vaults, out collecting debts. They count every coin and carry a heavy purse.",
 	"goblin_guard": "Vault guards in goblin-wrought silver. Shoving, stubborn and well paid; what they carry is rarely ordinary.",
@@ -34,7 +34,7 @@ const LORE := {
 }
 const RESIST_NAMES := {"fire": "Fire (Flame Wave)", "stun": "Stuns", "force": "Force (Shockwave)",
 	"ithrel_light": "Light of Ithrel", "arcane": "Arcane"}
-const FAMILY_NAMES := {"troll": "Troll", "undead": "Undead", "dark_wizard": "Dark wizard", "pallid": "Pallid",
+const FAMILY_NAMES := {"troll": "Troll", "undead": "Undead", "ashbound": "Ashbound", "pallid": "Pallid",
 	"beast": "Beast", "pixie": "Fidgetling", "snare": "Plant", "armour": "Enchanted armour", "hound": "Hound",
 	"spider": "Spider", "goblin": "Goblin"}
 # i18n-end

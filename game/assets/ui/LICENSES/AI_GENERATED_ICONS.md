@@ -110,7 +110,7 @@ template as the 2026-10-13 menu set, text prompt only (no input image).
   glittering green powder puffing into green flames), 512 px. Source `art/spider_caverns/icons/`.
 * `icon_waylink_boot.png` (2026-10-19, Waylink) - same sunburst full-bleed template (battered leather boot
   in a swirling blue aura), 512 px. Source `art/spider_caverns/icons/`.
-* `icon_ultimate.png` (2026-10-24, Stella Ruina; replaces the fire-lion House Ultimate art) - `fal-ai/nano-banana-2.1`
+* `icon_ultimate.png` (2026-10-24, Starfall; replaces the fire-lion House Ultimate art) - `fal-ai/nano-banana-2.1`
   full-bleed icon template (white-gold falling star over a violet spiral ring of starlight), 512 px.
   Source `art/vfx/stella_ruina/icon_b.png`.
 * `icon_frost_grip.png` (2026-10-24, Frost_Grip) - `openai/gpt-image-2.5/sunburst/edit` with `icon_stun_bolt.png` and

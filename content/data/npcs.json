@@ -15,7 +15,7 @@
         0.5
       ],
       "dialogue": [
-        "Ah, a new student! Beneath the lake lies Kaf's shard of the World-Star Ithrel - this castle was raised to guard it.",
+        "Ah, a new apprentice! Beneath the lake lies Kaf's shard of the World-Star Ithrel - this castle was raised to guard it.",
         "Black Weavers infest the Raven Woods to the west. Drowned Ones haunt its edge, past Borin's hut.",
         "Someone - the old records say the Ash Priest - drags darkened shards out of the Void. They fall in the western forests, from the Forest Edge past Borin's hut to Bandit Woods in the north-west. Close by, you will see their green light.",
         "From level 5 the Trial Hall is open: it stands on the east terrace, south of the castle road. Press F at its glowing door."
@@ -106,7 +106,7 @@
       ],
       "dialogue": [
         "The library is inside, past the great doors. Mind the books.",
-        "The Feast Hall is through the entrance hall. The classrooms are across the hall."
+        "The Feast Hall is through the entrance hall. The study halls are across the hall."
       ]
     },
     "kaelen_rook": {

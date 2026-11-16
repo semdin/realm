@@ -41,6 +41,11 @@ fluffy_head = "threehead_head"
 
 [mob_family]
 dementor = "pallid"
+dark_wizard = "ashbound"
+
+# Gear bonuses against a creature family (combat.json `bonus_types`).
+[bonus]
+vs_dark_wizard = "vs_ashbound"
 
 [item]
 wand_elder = "wand_ithrel_replica"
@@ -123,6 +128,7 @@ gryffindor = "velkar"
 slytherin = "nisera"
 ravenclaw = "ilvane"
 hufflepuff = "torvan"
+dark_wizard = "ashbound"
 
 # Player-visible phrases. Great Hall -> Feast Hall, Vanishing Cabinet ->
 # Twinned Cabinet and One-Eyed Witch -> Stone Raven approved 2026-11-13.
@@ -132,3 +138,14 @@ hufflepuff = "torvan"
 "Vanishing Cabinet" = "Twinned Cabinet"
 "One-Eyed Witch" = "Stone Raven"
 "Room of Requirement" = "Wishing Room"
+# The first chapter, the Ash Priest's followers and the falling-star spell
+# (2026-11-16): school years, dark wizards and Latin spell names are the
+# franchise's; the realm has apprentices, the Ashbound and Starfall.
+"First-Year Orientation" = "First Day"
+"First Year" = "Apprentice Days"
+"Dark Wizards" = "the Ashbound Host"
+"Dark wizards" = "The Ashbound"
+"dark wizards" = "the Ashbound"
+"Dark wizard" = "Ashbound"
+"dark wizard" = "Ash Priest"
+"Stella Ruina" = "Starfall"

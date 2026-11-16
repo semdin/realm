@@ -313,7 +313,7 @@ const SPELLS := {
 			], "length": 1.4, "audio": "spell_frost_grip_impact"},
 		},
 	},
-	# Stella Ruina: a falling star (violet ring, white-gold core, stardust).
+	# Starfall: a falling star (violet ring, white-gold core, stardust).
 	"ultimate": {
 		"colour": Color(0.72, 0.52, 1.0),
 		"stages": {
