@@ -131,6 +131,7 @@ func setup(realm_session: Node, player_sheet: PlayerSheet, open_bag: Callable) -
 	_build_gauges()
 	buff_bar = HudBuffBar.new()
 	buff_bar.session = session
+	buff_bar.sheet = sheet
 	add_child(buff_bar)
 	_build_tray(open_bag)
 	_build_target_card()

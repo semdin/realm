@@ -71,8 +71,6 @@ var results: Array = []
 var last_refusal := ""
 var doors_asked := 0
 var rides_asked := 0
-## The broom flight panel while mounted (HudBroom).
-var broom_panel: HudBroom
 
 var _prompt_label: Label
 var _fade_rect: ColorRect
@@ -100,9 +98,6 @@ func setup(main: Node, map_id: String, ui_root: Control) -> void:
 	waylink_window.session = game.session
 	ui_root.add_child(waylink_window)
 	game.hud.hearthway = hearthway
-	broom_panel = HudBroom.new()
-	broom_panel.session = game.session
-	ui_root.add_child(broom_panel)
 	game.hud.waylink = waylink_window
 	waylinks = WaylinkViews.new()
 	waylinks.name = "WaylinkViews"
@@ -210,7 +205,6 @@ func mounted() -> bool:
 ## Every frame once the map is drawn: what the body stands in, the prompt,
 ## and the loading screen's last steps after a trip.
 func tick(_delta: float) -> void:
-	broom_panel.tick()
 	if _settle_frames > 0:
 		_settle_frames -= 1
 		if _settle_frames == 0:
@@ -466,7 +460,7 @@ func refusal_text(what: String, reason: String) -> String:
 			"casting":
 				return tr("Finish casting first.")
 			"no_landing":
-				return tr("Descend near level ground first (Ctrl)")
+				return tr("Cannot land here: descend near level ground")
 			"transfer_pending":
 				return tr("The map is still loading!")
 			"no_flight":

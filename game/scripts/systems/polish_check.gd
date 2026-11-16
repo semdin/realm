@@ -12,18 +12,21 @@ extends Node
 ##   ping       the minimap's "N ms"
 ##   arrow      the Up arrow held a moment walks the body
 ##   alt_enter  Alt+Enter toggles fullscreen, again toggles it back
-##   broom      Shift mounts: the take-off swoosh, the flight panel; up
-##              (jump) past the landing height: "Cannot land here" (capture);
-##              Shift in the air is refused with the broom's refusal sound
-##              (capture); down to the ground, Shift dismounts and the
-##              landing sounds
+##   broom      Shift mounts: the take-off swoosh, the broom icon leads the
+##              effects row with its green landing mark; the pointer over it
+##              opens its tooltip (controls, height and speed; capture); up
+##              (jump) past the landing height the mark turns red and the
+##              open tooltip says "Cannot land here" (capture); Shift in the
+##              air is refused with the broom's refusal sound and the reason
+##              on the notice band (capture); down to the ground, Shift
+##              dismounts, the icon goes and the landing sounds
 ##
 ## The verdict line says what was seen; it quits 0 only when every step was.
 
 const STEP_TIMEOUT := 12.0
 const TOTAL_TIMEOUT := 80.0
 const WANTED := ["readout_hidden", "readout_shown", "ping", "arrow_walk", "alt_enter", "mounted", "swoosh",
-	"panel", "cannot_land", "landing_refused", "dismounted", "landing_sound"]
+	"broom_icon", "broom_tip", "cannot_land", "landing_refused", "dismounted", "icon_gone", "landing_sound"]
 
 var game: Node
 var _step := "wait"
@@ -78,6 +81,15 @@ func _key(code: Key, pressed: bool, alt := false) -> void:
 	event.alt_pressed = alt
 	Input.parse_input_event(event)
 
+## The pointer comes to rest over `control` (its tooltip opens after the
+## hover delay).
+func _hover(control: Control) -> void:
+	var motion := InputEventMouseMotion.new()
+	motion.position = control.get_global_rect().get_center()
+	motion.global_position = motion.position
+	Input.warp_mouse(motion.position)
+	Input.parse_input_event(motion)
+
 func _capture(tag: String) -> void:
 	if DisplayServer.get_name() == "headless":
 		return
@@ -105,7 +117,8 @@ func _process(_delta: float) -> void:
 		_verdict("step %s stuck" % _step)
 		return
 	var held := now - _since
-	var panel: HudBroom = game.travel.broom_panel if game.built else null
+	var bar: HudBuffBar = game.hud.buff_bar if game.built else null
+	var broom: HudBuffBar.BuffIcon = bar.broom_icon if bar != null else null
 	match _step:
 		"wait":
 			if game.built and String(game.session.status()) == "joined" and not MapLoadingScreen.shared(get_tree()).is_open():
@@ -160,26 +173,36 @@ func _process(_delta: float) -> void:
 		"mount":
 			if _mounted():
 				_see("mounted")
-				if panel.visible and panel.landing_text != "":
-					_see("panel", panel.landing_text)
+				if broom != null and broom.is_visible_in_tree() and broom.landing_ok and bar.get_child(0) == broom:
+					_see("broom_icon", "%s, %s" % [broom.item, broom.landing_text()])
 				if AudioManager.played_count("broom_swoosh") > _count:
 					_see("swoosh")
-				if _seen.has("panel") and _seen.has("swoosh") and held > 0.5:
-					_drive = true
-					_jump = true
-					_go("rise")
+				if _seen.has("broom_icon") and _seen.has("swoosh") and held > 0.5:
+					_hover(broom)
+					_go("tip")
+		"tip":
+			# the tooltip opens after the viewport's hover delay
+			if broom != null and broom.tips > 0 and held > 0.9:
+				_see("broom_tip", broom.broom_lines()[1])
+				_go("tip_capture")
+				await _capture("broom_ok")
+				_drive = true
+				_jump = true
+				_go("rise")
 		"rise":
 			var land: Dictionary = game.session.landing()
-			if float(land.get("height", 0.0)) > 6.0 and not bool(land.get("ok", true)) and panel.blocked_shown > 0:
+			if float(land.get("height", 0.0)) > 6.0 and not bool(land.get("ok", true)) and broom != null \
+					and not broom.landing_ok and bar.broom_blocked_shown > 0:
 				_jump = false
-				_see("cannot_land", "%s at %.1f m" % [panel.landing_text, float(land["height"])])
+				_see("cannot_land", "%s at %.1f m" % [broom.landing_text(), float(land["height"])])
 				_go("rise_capture")
-				await _capture("broom_panel")
+				await _capture("broom_blocked")
 				_count = AudioManager.played_count("broom_land_blocked")
 				game.travel.toggle_ride()
 				_go("refuse")
 		"refuse":
 			if game.travel.last_refusal == game.travel.refusal_text("ride", "no_landing") \
+					and game.hud.notices.last_text == game.travel.last_refusal \
 					and AudioManager.played_count("broom_land_blocked") > _count and _mounted():
 				_see("landing_refused", game.travel.last_refusal)
 				_go("refuse_capture")
@@ -202,7 +225,9 @@ func _process(_delta: float) -> void:
 			if not _mounted():
 				_see("dismounted")
 				_drive = false
-				if AudioManager.played_count("landing") > _count:
+				if broom == null and held > 0.3:
+					_see("icon_gone")
+				if _seen.has("icon_gone") and AudioManager.played_count("landing") > _count:
 					_see("landing_sound")
 					_verdict("")
 

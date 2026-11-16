@@ -153,7 +153,7 @@ extends Node3D
 ##                                                    (ShaderWarmup; a trip warms behind its loading screen)
 ##   [--check-polish]                                the small HUD pieces (PolishCheck; build/logs/aup_polish.sh,
 ##                                                    --character 902101): the debug readout hidden, then shown
-##                                                    by its key; the ping; the broom panel and a refused
+##                                                    by its key; the ping; the broom icon and a refused
 ##                                                    landing in the air; Alt+Enter; an arrow key walks
 ##   [--others-guest NAME]                          this client waits until it sees NAME, then changes its
 ##                                                    look and takes its wand off (the second client for

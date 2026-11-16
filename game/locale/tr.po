@@ -310,8 +310,8 @@ msgstr "Burada havalanmaya yer yok!"
 msgid "Flight is not allowed on this map!"
 msgstr "Bu haritada uçmak yasak!"
 
-msgid "Descend near level ground first (Ctrl)"
-msgstr "Önce düz bir zemine alçal (Ctrl)"
+msgid "Cannot land here: descend near level ground"
+msgstr "Buraya inilemez: düz zemine yakın alçal"
 
 msgid "No room to stand up here!"
 msgstr "Burada ayağa kalkacak yer yok!"
