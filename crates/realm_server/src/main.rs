@@ -240,12 +240,13 @@ fn serve(args: &[String]) -> AnyResult<()> {
         })
         .collect();
     let (terrain, nav) = if instanced {
-        (
-            pack.world_copies(&offsets)?,
-            realm_sim::nav::NavQuery::new(&pack.nav_copies(&offsets)),
-        )
+        let world = pack.world_copies(&offsets)?;
+        let nav = realm_sim::nav::NavQuery::for_world(&pack.nav_copies(&offsets), &world);
+        (world, nav)
     } else {
-        (pack.world()?, realm_sim::nav::NavQuery::new(&pack.nav))
+        let world = pack.world()?;
+        let nav = realm_sim::nav::NavQuery::for_world(&pack.nav, &world);
+        (world, nav)
     };
     let stairs = realm_data::staircases(&content, &pack)?;
     let pub_bytes: [u8; 32] = std::fs::read(o.keys.join("ticket.pub"))?

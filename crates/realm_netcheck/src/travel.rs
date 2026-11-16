@@ -229,12 +229,13 @@ pub(crate) fn idle(_: &Session) -> MoveInput {
 pub(crate) fn walk(s: &mut Session, to: Vec3, reach: f32, what: &str) -> AnyResult<()> {
     // A point given on the ground (y 0) stands on the terrain there.
     let mut to = to;
+    let world = s.pack.world()?;
     if to.y == 0.0
-        && let Some((h, _)) = s.pack.world()?.terrain_at(to.x, to.z)
+        && let Some((h, _)) = world.terrain_at(to.x, to.z)
     {
         to.y = h;
     }
-    let nav = realm_sim::nav::NavQuery::new(&s.pack.nav);
+    let nav = realm_sim::nav::NavQuery::for_world(&s.pack.nav, &world);
     let mut scratch = realm_sim::nav::NavScratch::default();
     let corners = nav
         .path(s.pos(), to, 20_000, &mut scratch)

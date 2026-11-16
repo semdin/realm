@@ -70,7 +70,11 @@ impl WayCache {
 
     fn query(&mut self, pack: &MapPack) -> (&NavQuery, &mut NavScratch, &NavIndex) {
         self.prepare(pack);
-        let query = self.query.get_or_insert_with(|| NavQuery::new(&pack.nav));
+        let query = self.query.get_or_insert_with(|| {
+            NavQuery::new(&pack.nav, |x, z| {
+                Some(terrain_height(&pack.terrain, x, z)).filter(|h| h.is_finite())
+            })
+        });
         let index = self.index.get_or_insert_with(|| NavIndex::new(&pack.nav));
         (query, &mut self.scratch, index)
     }

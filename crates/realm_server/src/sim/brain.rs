@@ -1253,23 +1253,38 @@ impl Sim {
             let Some(spot) = self.nav.creature_spot(&self.terrain, x, z) else {
                 continue;
             };
-            if self.protected(spot)
-                || self.packs.iter().enumerate().any(|(i, s)| {
-                    i != pack
-                        && !s.members.is_empty()
-                        && planar_distance(s.anchor, spot) < ANCHOR_SPACING
-                })
-                || (!initial
-                    && self
-                        .player_pos
-                        .values()
-                        .any(|pp| planar_distance(*pp, spot) < clear_radius))
-            {
-                continue;
+            if self.spot_free(pack, spot, initial, clear_radius) {
+                return Some(spot);
             }
-            return Some(spot);
+        }
+        // At boot a pack whose draws all missed looks through its whole
+        // area, nearest the centre first (its ground can be a corner of it):
+        // it stands up wherever `realm_worldc check` found ground for it.
+        if initial {
+            let half = (half.0.max(1.0), half.1.max(1.0));
+            return self
+                .nav
+                .ground_in_area(&self.terrain, center, half, |spot| {
+                    self.spot_free(pack, spot, initial, clear_radius)
+                });
         }
         None
+    }
+
+    /// Whether a creature spot is free for `pack`'s anchor: not protected,
+    /// apart from other packs and (`initial` aside) from players.
+    fn spot_free(&self, pack: usize, spot: Vec3, initial: bool, clear_radius: f32) -> bool {
+        !(self.protected(spot)
+            || self.packs.iter().enumerate().any(|(i, s)| {
+                i != pack
+                    && !s.members.is_empty()
+                    && planar_distance(s.anchor, spot) < ANCHOR_SPACING
+            })
+            || (!initial
+                && self
+                    .player_pos
+                    .values()
+                    .any(|pp| planar_distance(*pp, spot) < clear_radius)))
     }
 
     /// Prints where the creatures stood up at boot: how many stand on the
@@ -1318,10 +1333,29 @@ impl Sim {
             }
             Some(spot) => spot,
             None if initial => {
-                let (x, z) = self.game.packs[pack].center;
-                self.nav
-                    .creature_spot(&self.terrain, x, z)
-                    .unwrap_or_else(|| Vec3::new(x, self.ground(x, z), z))
+                // No ground anywhere in its area: it is left out (its
+                // members lie unseen until a respawn finds a spot), never
+                // stood off the ground; realm_worldc check fails on such a
+                // pack.
+                let p = &self.game.packs[pack];
+                println!(
+                    "[creatures] pack {pack} ({}) finds no ground in its area around ({}, {}): left out",
+                    self.game.species[p.species].id, p.center.0, p.center.1
+                );
+                for i in 0..self.packs[pack].members.len() {
+                    let member = self.packs[pack].members[i];
+                    if let Some(mut m) = self.world.get_mut::<Mob>(member) {
+                        m.hp = 0.0;
+                        m.mode = MobMode::Dead;
+                        m.state = STATE_DEAD;
+                        m.died_at = 0;
+                    }
+                }
+                let retry = ticks(self.game.rules.mobs.tuning.respawn_retry_ms.max(1000));
+                let state = &mut self.packs[pack];
+                state.alive = 0;
+                state.respawn_at = Some(self.tick + retry);
+                return false;
             }
             None => return false,
         };

@@ -467,8 +467,13 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
 
 /// Navigation: how connected the mesh is, and whether paths between random
 /// points of the main area exist and stay on the mesh all the way.
-fn check_nav(map: &str, pack: &MapPack, problems: &mut Vec<String>) {
-    let query = NavQuery::new(&pack.nav);
+fn check_nav(
+    map: &str,
+    pack: &MapPack,
+    world: &realm_sim::world::World,
+    problems: &mut Vec<String>,
+) {
+    let query = NavQuery::for_world(&pack.nav, world);
     if query.polygon_count() == 0 {
         problems.push(format!("{map}: no navigation mesh"));
         return;
@@ -629,8 +634,10 @@ const GROUND_SAMPLES: usize = 32;
 /// Creatures stand on the walkable ground: never on a roof, a wall top or a
 /// prop, in a trunk or in the air. Every open-world pack's area
 /// (spawn_tables.json) is sampled the way the server puts its members down
-/// (`NavQuery::creature_spot`): each pack must find ground there, and each
-/// spot taken must rest on the surface under it, clear of obstacles. A
+/// (`NavQuery::creature_spot`): each pack must find ground in its area on
+/// the 1 m grid the server searches when its draws miss
+/// (`NavQuery::ground_in_area`), and each spot taken must rest on the
+/// surface under it, clear of obstacles. A
 /// dungeon group (dungeons.json) settles on the floor under its authored
 /// point, which must be ground as well. Spots the highest
 /// surface offers but that stand on a structure off the walkable mesh (more
@@ -643,7 +650,7 @@ fn check_creature_ground(
     world: &realm_sim::world::World,
     problems: &mut Vec<String>,
 ) {
-    let query = NavQuery::new(&pack.nav);
+    let query = NavQuery::for_world(&pack.nav, world);
     let num = |v: &Value| v.as_f64().map_or(0.0, |x| x as f32);
     let mut rng = 0x6C8E_9CF5_u32;
     let mut unit = || {
@@ -653,6 +660,9 @@ fn check_creature_ground(
         rng as f32 / u32::MAX as f32
     };
     let (mut packs, mut taken, mut roofs, mut floors) = (0, 0, 0, 0);
+    // Packs with ground in under a quarter of their area (they stand up
+    // crowded into what there is).
+    let mut scarce: Vec<String> = Vec::new();
     let fail = |what: String, problems: &mut Vec<String>| problems.push(format!("{map}: {what}"));
     let spawns = content.file("spawn_tables.json").unwrap_or(&Value::Null);
     for p in spawns["packs"].as_array().into_iter().flatten() {
@@ -706,14 +716,22 @@ fn check_creature_ground(
             }
         }
         taken += found;
-        if found == 0 {
+        // The server's last resort at boot when its draws miss: the whole
+        // area on a 1 m grid (`NavQuery::ground_in_area`). A pack it finds
+        // nothing for is left out of the world.
+        if query
+            .ground_in_area(world, (cx, cz), (hx, hz), |_| true)
+            .is_none()
+        {
             fail(
                 format!(
-                    "pack {} ({}) finds no ground in its area around ({cx}, {cz})",
+                    "pack {} ({}) finds no ground in its area around ({cx}, {cz}): the server leaves it out",
                     p["id"], p["mob"]
                 ),
                 problems,
             );
+        } else if found < GROUND_SAMPLES / 4 {
+            scarce.push(format!("{} {}/{GROUND_SAMPLES}", p["id"], found));
         }
     }
     let mut groups = 0;
@@ -749,6 +767,12 @@ fn check_creature_ground(
         println!(
             "check {map:<24} creature ground: {packs} packs, {taken}/{} samples on the ground ({floors} on built floors over the terrain), {roofs} roof spots refused; {groups} dungeon groups",
             packs * GROUND_SAMPLES
+        );
+    }
+    if !scarce.is_empty() {
+        println!(
+            "check {map:<24} packs with ground in under a quarter of their area: {}",
+            scarce.join(", ")
         );
     }
 }
@@ -825,7 +849,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
             pack.staircases.len(),
             spawns.len()
         );
-        check_nav(map, &pack, &mut problems);
+        check_nav(map, &pack, &world, &mut problems);
         check_obstacle_points(map, info, &content, &pack, &world, &mut problems);
         check_creature_ground(map, &content, &pack, &world, &mut problems);
     }

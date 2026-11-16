@@ -39,7 +39,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let seconds: f32 = arg(args, "--seconds", "20").parse()?;
     let mut s = Session::dev(&server, &map, character, &key, args)?;
     let world = s.pack.world()?;
-    let nav = NavQuery::new(&s.pack.nav);
+    let nav = NavQuery::for_world(&s.pack.nav, &world);
     joined(&mut s)?;
     run_until(&mut s, 2.0, idle, |_| false)?;
     let home = s.pos();

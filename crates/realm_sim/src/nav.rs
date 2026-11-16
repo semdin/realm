@@ -18,7 +18,9 @@ const CELL: f32 = 8.0;
 /// fortress yard or a cavern hall is far bigger.
 pub const GROUND_GROUP_AREA: f32 = 1000.0;
 /// How far the mesh's surface may lie from a spot on the terrain: its
-/// polygons only approximate rolling ground, metres off in places.
+/// polygons only approximate rolling ground, metres off in places (where a
+/// polygon's flat face strays further, `TerrainFit` carries the terrain's
+/// own heights).
 const TERRAIN_SLACK: f32 = 8.0;
 /// ... and from a spot on built floor (a collider's flat or stepped top),
 /// which the mesh follows closely.
@@ -27,6 +29,41 @@ const FLOOR_SLACK: f32 = 1.0;
 pub const FLAT_ENOUGH: f32 = 0.72;
 /// How far from any trunk or spire a creature is put (about a body).
 pub const OBSTACLE_CLEARANCE: f32 = 0.5;
+/// A polygon lies on the terrain when each of its corners is this close to
+/// it (the bake puts walkable faces a voxel or so over the ground).
+const ON_TERRAIN: f32 = 0.5;
+/// A polygon on the terrain whose flat face strays further than this from
+/// the terrain inside it follows the terrain's heights instead (a whole
+/// 90 m tile of open ground is one polygon: over a hollow its face can hang
+/// 12 m in the air, and nothing standing in the hollow would be on it).
+const FIT_TOLERANCE: f32 = 1.0;
+/// Spacing of those heights (m): the grounds keep about 4900 polygons'
+/// worth, 1.8 MB.
+const FIT_STEP: f32 = 4.0;
+
+/// The terrain's heights over a polygon that lies on it, on a regular grid
+/// over its bounds (NaN off the terrain).
+struct TerrainFit {
+    min: (f32, f32),
+    cols: usize,
+    rows: usize,
+    heights: Vec<f32>,
+}
+
+impl TerrainFit {
+    /// Bilinear height at (x, z); None off the grid or next to a hole.
+    fn height(&self, x: f32, z: f32) -> Option<f32> {
+        let fx = ((x - self.min.0) / FIT_STEP).max(0.0);
+        let fz = ((z - self.min.1) / FIT_STEP).max(0.0);
+        let c0 = (fx as usize).min(self.cols - 2);
+        let r0 = (fz as usize).min(self.rows - 2);
+        let (tx, tz) = ((fx - c0 as f32).min(1.0), (fz - r0 as f32).min(1.0));
+        let h = |r: usize, c: usize| self.heights[r * self.cols + c];
+        let (a, b, c, d) = (h(r0, c0), h(r0, c0 + 1), h(r0 + 1, c0), h(r0 + 1, c0 + 1));
+        let y = (a * (1.0 - tx) + b * tx) * (1.0 - tz) + (c * (1.0 - tx) + d * tx) * tz;
+        y.is_finite().then_some(y)
+    }
+}
 
 struct Poly {
     vertices: Vec<Vec3>,
@@ -37,6 +74,9 @@ struct Poly {
     max: (f32, f32),
     /// The connected group (island) it belongs to.
     group: u32,
+    /// The terrain's heights, for a polygon on rolling terrain its flat
+    /// face does not follow.
+    fit: Option<Box<TerrainFit>>,
 }
 
 /// Reusable search state: entries are valid only where `stamp` equals the
@@ -121,8 +161,17 @@ fn cross_xz(o: Vec3, a: Vec3, b: Vec3) -> f32 {
 }
 
 impl NavQuery {
+    /// The query for a map's mesh on its collision world's terrain.
     #[must_use]
-    pub fn new(mesh: &NavMesh) -> Self {
+    pub fn for_world(mesh: &NavMesh, world: &World) -> Self {
+        Self::new(mesh, |x, z| world.terrain_at(x, z).map(|t| t.0))
+    }
+
+    /// The query for `mesh`; `terrain` gives the map's terrain height at a
+    /// planar point (None off it or over a hole), which the polygons lying
+    /// on rolling terrain follow (`TerrainFit`).
+    #[must_use]
+    pub fn new(mesh: &NavMesh, terrain: impl Fn(f32, f32) -> Option<f32>) -> Self {
         let mut polys: Vec<Poly> = mesh
             .polygons
             .iter()
@@ -144,9 +193,13 @@ impl NavQuery {
                     min,
                     max,
                     group: u32::MAX,
+                    fit: None,
                 }
             })
             .collect();
+        for poly in &mut polys {
+            poly.fit = terrain_fit(poly, &terrain);
+        }
         for portal in &mesh.portals {
             let (p0, p1) = (v3(portal.p0), v3(portal.p1));
             polys[portal.a as usize].links.push((portal.b, p0, p1));
@@ -233,32 +286,59 @@ impl NavQuery {
         .then_some(spot)
     }
 
+    /// Every point of an area (centre, half extents) on a 1 m grid,
+    /// nearest the centre first: where a placement that found nothing by
+    /// chance looks through the whole area before giving up.
+    fn area_points(center: (f32, f32), half: (f32, f32)) -> Vec<(f32, f32)> {
+        let (nx, nz) = (half.0.max(0.0) as i32, half.1.max(0.0) as i32);
+        let mut points: Vec<(i32, i32)> = (-nz..=nz)
+            .flat_map(|j| (-nx..=nx).map(move |i| (i, j)))
+            .collect();
+        // Stable: ties keep row order, so every caller walks the same list.
+        points.sort_by_key(|&(i, j)| i * i + j * j);
+        points
+            .into_iter()
+            .map(|(i, j)| (center.0 + i as f32, center.1 + j as f32))
+            .collect()
+    }
+
+    /// The creature spot (`creature_spot`) nearest an area's centre on its
+    /// 1 m grid (`area_points`) that `accept` takes; None when the area
+    /// holds no ground for creatures at all.
+    #[must_use]
+    pub fn ground_in_area(
+        &self,
+        world: &World,
+        center: (f32, f32),
+        half: (f32, f32),
+        mut accept: impl FnMut(Vec3) -> bool,
+    ) -> Option<Vec3> {
+        Self::area_points(center, half)
+            .into_iter()
+            .filter_map(|(x, z)| self.creature_spot(world, x, z))
+            .find(|spot| accept(*spot))
+    }
+
     /// The largest connected group's area (m²).
     #[must_use]
     pub fn largest_group_area(&self) -> f32 {
         self.group_area.iter().copied().fold(0.0, f32::max)
     }
 
-    /// Height of `poly`'s surface at the planar point (x, z), from the
-    /// triangle fan of its vertices (the point is assumed inside it).
+    /// Height of `poly`'s surface at the planar point (x, z): the terrain's
+    /// for a polygon fitted to it, else the triangle fan of its vertices
+    /// (the point is assumed inside it).
     #[must_use]
     pub fn surface_y(&self, poly: u32, x: f32, z: f32) -> f32 {
-        let v = &self.polys[poly as usize].vertices;
-        let p = Vec3::new(x, 0.0, z);
-        for k in 1..v.len().saturating_sub(1) {
-            let (a, b, c) = (v[0], v[k], v[k + 1]);
-            let d = cross_xz(a, b, c);
-            if d.abs() < 1e-8 {
-                continue;
-            }
-            let wb = cross_xz(a, p, c) / d;
-            let wc = cross_xz(a, b, p) / d;
-            let wa = 1.0 - wb - wc;
-            if wa >= -1e-3 && wb >= -1e-3 && wc >= -1e-3 {
-                return wa * a.y + wb * b.y + wc * c.y;
-            }
+        if let Some(y) = self.polys[poly as usize]
+            .fit
+            .as_ref()
+            .and_then(|f| f.height(x, z))
+        {
+            return y;
         }
-        self.polys[poly as usize].center.y
+        let p = &self.polys[poly as usize];
+        face_y(&p.vertices, x, z).unwrap_or(p.center.y)
     }
 
     /// The polygon whose surface under `p` lies closest to `p`'s height
@@ -433,6 +513,69 @@ fn inside_xz(vertices: &[Vec3], p: Vec3) -> bool {
         }
     }
     true
+}
+
+/// Height of the polygon's flat face (its corners' triangle fan) at the
+/// planar point (x, z) inside it.
+fn face_y(vertices: &[Vec3], x: f32, z: f32) -> Option<f32> {
+    let p = Vec3::new(x, 0.0, z);
+    for k in 1..vertices.len().saturating_sub(1) {
+        let (a, b, c) = (vertices[0], vertices[k], vertices[k + 1]);
+        let d = cross_xz(a, b, c);
+        if d.abs() < 1e-8 {
+            continue;
+        }
+        let wb = cross_xz(a, p, c) / d;
+        let wc = cross_xz(a, b, p) / d;
+        let wa = 1.0 - wb - wc;
+        if wa >= -1e-3 && wb >= -1e-3 && wc >= -1e-3 {
+            return Some(wa * a.y + wb * b.y + wc * c.y);
+        }
+    }
+    None
+}
+
+/// The terrain's heights over `poly` when it lies on the terrain (every
+/// corner within `ON_TERRAIN`) and its flat face strays more than
+/// `FIT_TOLERANCE` from the terrain somewhere inside it; None otherwise (a
+/// floor, a roof, or ground its face follows well enough).
+fn terrain_fit(poly: &Poly, terrain: &impl Fn(f32, f32) -> Option<f32>) -> Option<Box<TerrainFit>> {
+    let on_terrain = poly
+        .vertices
+        .iter()
+        .all(|v| terrain(v.x, v.z).is_some_and(|t| (v.y - t).abs() <= ON_TERRAIN));
+    if !on_terrain {
+        return None;
+    }
+    let cols = ((poly.max.0 - poly.min.0) / FIT_STEP).ceil() as usize + 2;
+    let rows = ((poly.max.1 - poly.min.1) / FIT_STEP).ceil() as usize + 2;
+    let mut heights = Vec::with_capacity(cols * rows);
+    let mut strays = false;
+    for r in 0..rows {
+        for c in 0..cols {
+            let (x, z) = (
+                poly.min.0 + c as f32 * FIT_STEP,
+                poly.min.1 + r as f32 * FIT_STEP,
+            );
+            let t = terrain(x, z);
+            if !strays
+                && let Some(t) = t
+                && inside_xz(&poly.vertices, Vec3::new(x, 0.0, z))
+                && face_y(&poly.vertices, x, z).is_some_and(|y| (y - t).abs() > FIT_TOLERANCE)
+            {
+                strays = true;
+            }
+            heights.push(t.unwrap_or(f32::NAN));
+        }
+    }
+    strays.then(|| {
+        Box::new(TerrainFit {
+            min: poly.min,
+            cols,
+            rows,
+            heights,
+        })
+    })
 }
 
 /// Area of a convex polygon on the ground plane.
