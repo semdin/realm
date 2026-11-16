@@ -20,6 +20,10 @@ extends Node
 const STATE_KEY := &"play_smoke_state"
 const TOTAL_TIMEOUT := 80.0
 const STEP_TIMEOUT := 25.0
+## The join itself: longer than main.gd's JOIN_TIMEOUT, so a join the
+## server holds (a claim the coordinator does not answer: 20 s) is refused and
+## tried again before this gives up.
+const JOIN_STEP_TIMEOUT := 45.0
 
 var game: Node
 var _s: Dictionary = {}
@@ -160,10 +164,16 @@ func _world() -> void:
 	if session == null:
 		_fail("the world has no session")
 		return
-	var failed := func(): return String(session.status()).begins_with("refused") or String(session.status()).begins_with("closed")
-	var joined := func(): return session.status() == "joined" and not (session.sheet() as Dictionary).is_empty()
-	if not await _until(joined, STEP_TIMEOUT, failed):
-		_fail("the world did not take the ticket: %s" % session.status())
+	# a join that fails is tried again with a fresh ticket (main.gd
+	# retry_join, the scene rebuilt: this step runs again there); the end
+	# screen is the failure
+	var failed := func(): return game.maintenance != null and game.maintenance.screen_visible()
+	var joined := func(): return is_instance_valid(session) and session.status() == "joined" \
+		and not (session.sheet() as Dictionary).is_empty()
+	if not await _until(joined, JOIN_STEP_TIMEOUT, failed):
+		if not is_inside_tree():
+			return   # the scene was rebuilt for another try; the new one checks
+		_fail("the world did not take the ticket: %s" % (session.status() if is_instance_valid(session) else "-"))
 		return
 	var sheet: Dictionary = session.sheet()
 	print("realm check play: joined %s as %s" % [game.map_name, sheet.get("name", "?")])

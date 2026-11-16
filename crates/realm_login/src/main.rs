@@ -368,6 +368,7 @@ async fn login(state: &Mutex<State>, ip: IpAddr, body: &Value) -> (u16, Value) {
             made: now,
         },
     );
+    println!("[login] account {account} logged in");
     (
         200,
         json!({
@@ -649,6 +650,9 @@ async fn play(state: &Mutex<State>, account: u64, body: &Value) -> (u16, Value) 
         return error(503, "Service unavailable.");
     };
     let signed = ticket.sign(&s.key);
+    println!(
+        "[login] account {account} character {character}: ticket for {map} at {address} ({TICKET_SECONDS} s)"
+    );
     (
         200,
         json!({

@@ -473,7 +473,7 @@ func show_return_notice(kind: String, detail: String) -> void:
 			set_status(tr("You can log in once maintenance is complete."), "warn")
 		"lost":
 			set_status(tr("The connection to the server was lost. Please log in again."), "warn")
-		"refused":
+		"refused", "unanswered":
 			set_status(detail, "warn")
 
 ## ================================================================ server status

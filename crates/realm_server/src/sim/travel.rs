@@ -41,6 +41,11 @@ const RESERVE_WAIT_TICKS: u32 = 5 * SIM_HZ;
 const DELIVERED_KEEP_TICKS: u32 = 10 * SIM_HZ;
 /// A departure still not released after this is dropped (its save stands).
 const DEPART_GIVE_UP_TICKS: u32 = 60 * SIM_HZ;
+/// A login's claim the coordinator has not answered after this is refused
+/// (the client tries again with a fresh ticket): without it the join waited
+/// as long as the client kept its connection open, the loading screen with it.
+/// Longer than a seat taken from another map takes (its save, its release).
+const CLAIM_WAIT_TICKS: u32 = 20 * SIM_HZ;
 
 fn ms_ticks(ms: u32) -> u32 {
     (ms * SIM_HZ).div_ceil(1000)
@@ -524,6 +529,9 @@ impl Sim {
         arrival: Option<Arrival>,
     ) {
         let Some(mut join) = self.pending.remove(&conn) else {
+            eprintln!(
+                "[claim] connection {conn} character {character}: seat granted after the login left; given back"
+            );
             // The login left before its answer: the seat goes back.
             match sheet {
                 Some(sheet) => {
@@ -540,13 +548,47 @@ impl Sim {
             }
             return;
         };
+        eprintln!(
+            "[claim] connection {conn} character {character}: seat granted ({}, {} ms)",
+            if sheet.is_some() {
+                "sheet from the coordinator"
+            } else {
+                "loads from the store"
+            },
+            self.tick.saturating_sub(join.since) * 1000 / SIM_HZ,
+        );
         join.arrival = arrival;
         self.join_here(conn, join, sheet.map(|s| *s));
     }
 
     pub(super) fn claim_refused(&mut self, conn: ConnId, reason: String) {
         if let Some(join) = self.pending.remove(&conn) {
+            eprintln!(
+                "[claim] connection {conn} character {}: refused ({reason})",
+                join.ticket.character
+            );
             let _ = join.reply.send(JoinReply::Refused(reason));
+        }
+    }
+
+    /// Claims the coordinator has left unanswered too long are refused.
+    pub(super) fn sweep_claims(&mut self) {
+        let tick = self.tick;
+        if !tick.is_multiple_of(SIM_HZ) {
+            return;
+        }
+        let stale: Vec<ConnId> = self
+            .pending
+            .iter()
+            .filter(|(_, j)| !j.loading && tick > j.since + CLAIM_WAIT_TICKS)
+            .map(|(c, _)| *c)
+            .collect();
+        for conn in stale {
+            eprintln!(
+                "[claim] connection {conn}: no answer from the coordinator in {} s",
+                CLAIM_WAIT_TICKS / SIM_HZ
+            );
+            self.claim_refused(conn, "the realm is not ready; try again".to_owned());
         }
     }
 
@@ -1070,6 +1112,7 @@ impl Sim {
                 ));
                 return;
             }
+            eprintln!("[claim] connection {conn} character {character}: asking the coordinator");
             self.pending.insert(conn, join);
             self.coord_send(MapMsg::Claim { conn, character });
             return;

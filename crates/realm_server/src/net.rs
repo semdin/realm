@@ -129,6 +129,9 @@ async fn connection(
     let ticket = match verdict {
         Ok(ticket) => ticket,
         Err(reply) => {
+            if let JoinReply::Refused(reason) = &reply {
+                eprintln!("[join] connection {conn}: refused ({reason})");
+            }
             send.write_all(&control::frame(&realm_proto::encode_join_reply(&reply)))
                 .await?;
             send.finish()?;
@@ -141,6 +144,7 @@ async fn connection(
     let (out_tx, mut out_rx) = tokio::sync::mpsc::channel::<Bytes>(OUTBOX);
     let (control_tx, mut control_rx) = tokio::sync::mpsc::channel::<Bytes>(CONTROL_QUEUE);
     let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+    let (account, character) = (ticket.account, ticket.character);
     sim.send(NetEvent::Join {
         conn,
         ticket,
@@ -150,6 +154,16 @@ async fn connection(
     })?;
     let reply = reply_rx.await?;
     let accepted = matches!(reply, JoinReply::Accepted { .. });
+    match &reply {
+        JoinReply::Accepted { entity, .. } => eprintln!(
+            "[join] connection {conn} account {account} character {character}: joined as entity {entity}"
+        ),
+        JoinReply::Refused(reason) => {
+            eprintln!(
+                "[join] connection {conn} account {account} character {character}: refused ({reason})"
+            );
+        }
+    }
     send.write_all(&control::frame(&realm_proto::encode_join_reply(&reply)))
         .await?;
     if !accepted {
@@ -243,6 +257,12 @@ async fn connection(
         let _ = tokio::time::timeout(Duration::from_secs(2), connection.closed()).await;
     }
     writer.abort();
+    let why = match connection.close_reason() {
+        _ if let_go => "let go by the server".to_owned(),
+        Some(reason) => reason.to_string(),
+        None => "closed here".to_owned(),
+    };
+    eprintln!("[leave] connection {conn} character {character}: {why}");
     connection.close(VarInt::from_u32(0), b"bye");
     sim.send(NetEvent::Leave { conn })?;
     Ok(())

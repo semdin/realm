@@ -21,7 +21,9 @@ class_name MaintenanceUI
 ## with what happened (a maintenance refusal, a logout for maintenance, a lost
 ## connection) and Reconnect (the scene joins again) / Quit Game. A player who
 ## came in through the front door (`to_login` set by main.gd) gets Return to
-## Login instead: the login card again, saying why.
+## Login instead: the login card again, saying why; and Try Again (`retry`:
+## main.gd's retry_join, a fresh ticket) unless the realm is in maintenance.
+## A join that never got in and was not answered says so ("unanswered").
 
 const ACTIVE_STATES := ["ANNOUNCING", "DRAINING", "SAVING", "DISCONNECTING", "MAINTENANCE", "FAILED"]
 const CLOSED_STATES := ["ONLINE", "ABORTED"]
@@ -36,11 +38,15 @@ var state := ""
 var reason := ""
 var active := false
 ## What the end screen shows: "" (none), "refused_maintenance", "maintenance"
-## (logged out by the cycle), "lost", "refused".
+## (logged out by the cycle), "lost", "unanswered" (a join the server never
+## answered), "refused".
 var screen_kind := ""
 ## main.gd's return_to_login(kind, detail) when the player came in through
 ## the login screen; unset (a dev join) the button reconnects.
 var to_login := Callable()
+## main.gd's retry_join when the player came in through the login screen:
+## the Try Again button (none for a maintenance).
+var retry := Callable()
 
 var banner: Panel
 var title_label: Label
@@ -49,6 +55,7 @@ var screen_layer: CanvasLayer
 var screen_title: Label
 var screen_detail: Label
 var reconnect_button: Button
+var retry_button: Button
 var quit_button: Button
 
 var _deadline_ms := 0
@@ -184,7 +191,7 @@ func show_closed(status: String, was_in := true) -> void:
 	if screen_kind != "":
 		return
 	var refused := status.begins_with("refused")
-	var why := status.get_slice(": ", 1) if status.contains(": ") else status
+	var why := status.substr(status.find(": ") + 2) if status.contains(": ") else status
 	var title := ""
 	var detail := ""
 	if refused and why == "maintenance":
@@ -199,6 +206,11 @@ func show_closed(status: String, was_in := true) -> void:
 		screen_kind = "refused"
 		title = tr("Could not enter the realm")
 		detail = I18n.from_server(why)
+	elif not was_in:
+		# never in: the connection, or the join on it, went unanswered
+		screen_kind = "unanswered"
+		title = tr("Could not enter the realm")
+		detail = tr("The game server did not respond. Try again a little later.")
 	else:
 		screen_kind = "lost"
 		title = tr("Connection to the server lost")
@@ -210,6 +222,15 @@ func show_closed(status: String, was_in := true) -> void:
 
 func screen_visible() -> bool:
 	return _screen_root != null and _screen_root.visible
+
+## The end screen goes (Try Again: the join is being tried again); a later
+## failure shows it anew.
+func clear_closed() -> void:
+	screen_kind = ""
+	if screen_layer != null:
+		screen_layer.queue_free()
+		screen_layer = null
+	_screen_root = null
 
 func _build_screen(was_in: bool) -> void:
 	screen_layer = CanvasLayer.new()
@@ -266,14 +287,22 @@ func _build_screen(was_in: bool) -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 16)
 	column.add_child(buttons)
-	reconnect_button = HudKit.gold_button(tr("Return to Login") if to_login.is_valid() else tr("Reconnect"), 42.0, 17)
+	var can_retry := retry.is_valid() and screen_kind != "refused_maintenance" and screen_kind != "maintenance"
+	if can_retry:
+		retry_button = HudKit.gold_button(tr("Try Again"), 42.0, 17)
+		retry_button.name = "TryAgain"
+		retry_button.custom_minimum_size.x = 170
+		retry_button.pressed.connect(func(): retry.call())
+		buttons.add_child(retry_button)
+	reconnect_button = (HudKit.button(tr("Return to Login"), 16) if can_retry
+		else HudKit.gold_button(tr("Return to Login") if to_login.is_valid() else tr("Reconnect"), 42.0, 17))
 	reconnect_button.name = "Reconnect"
-	reconnect_button.custom_minimum_size.x = 200
+	reconnect_button.custom_minimum_size = Vector2(190 if can_retry else 200, 42)
 	reconnect_button.pressed.connect(reconnect)
 	buttons.add_child(reconnect_button)
 	quit_button = HudKit.button(tr("Quit Game"), 16)
 	quit_button.name = "QuitGame"
-	quit_button.custom_minimum_size = Vector2(170, 42)
+	quit_button.custom_minimum_size = Vector2(150 if can_retry else 170, 42)
 	quit_button.pressed.connect(func(): get_tree().quit(0))
 	buttons.add_child(quit_button)
 

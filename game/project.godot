@@ -19,6 +19,10 @@ boot_splash/image="res://assets/branding/boot_splash.png"
 boot_splash/stretch_mode=1
 boot_splash/use_filter=true
 run/main_scene="res://main.tscn"
+; Every printed line reaches the log file at once (release builds buffer it
+; otherwise): a game killed while stuck (Alt+F4, Task Manager) kept only its
+; first three lines (2026-11-16). The game prints little per frame.
+run/flush_stdout_on_print=true
 ; The window, taskbar and dock icon (the launcher's emblem); exports put it
 ; into the .exe and the macOS bundle too (export_presets.cfg).
 config/icon="res://assets/branding/thousand_realms_icon.png"

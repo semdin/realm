@@ -306,6 +306,10 @@ impl Book {
     }
 
     fn refuse(&self, (link, conn): (u64, u64)) {
+        eprintln!(
+            "[seat] connection {conn} on {}: refused, a newer login of the character came",
+            self.map_of(link)
+        );
         self.to_link(
             link,
             CoordMsg::Refuse {
@@ -317,7 +321,11 @@ impl Book {
 
     /// A login for `character` on `link`.
     fn claim(&mut self, link: u64, conn: u64, character: u64) {
+        let map = self.map_of(link);
         if !self.claim_allowed(character) {
+            eprintln!(
+                "[seat] character {character} on {map} (connection {conn}): refused, maintenance"
+            );
             self.to_link(
                 link,
                 CoordMsg::Refuse {
@@ -328,13 +336,29 @@ impl Book {
             return;
         }
         match self.seats.remove(&character) {
-            None => self.admit(link, conn, character, None, None),
+            None => {
+                eprintln!(
+                    "[seat] character {character} on {map} (connection {conn}): free, admitted"
+                );
+                self.admit(link, conn, character, None, None);
+            }
             Some(Seat::Transit { sheet, arrival, .. }) => {
+                eprintln!(
+                    "[seat] character {character} on {map} (connection {conn}): arriving from a trip, admitted"
+                );
                 self.admit(link, conn, character, Some(sheet), Some(arrival));
             }
             Some(Seat::On { link: here, claim })
                 if here == link || !self.links.contains_key(&here) =>
             {
+                eprintln!(
+                    "[seat] character {character} on {map} (connection {conn}): taken over from {}, admitted",
+                    if here == link {
+                        "its own map"
+                    } else {
+                        "a map that is gone"
+                    }
+                );
                 if let Some(waiting) = claim {
                     self.refuse(waiting);
                 }
@@ -343,6 +367,10 @@ impl Book {
                 self.admit(link, conn, character, None, None);
             }
             Some(Seat::On { link: here, claim }) => {
+                eprintln!(
+                    "[seat] character {character} on {map} (connection {conn}): playing on {}, asked to let go",
+                    self.map_of(here)
+                );
                 if let Some(waiting) = claim {
                     self.refuse(waiting);
                 }
@@ -373,6 +401,11 @@ impl Book {
             _ => return,
         };
         if let Some((l, c)) = claim {
+            eprintln!(
+                "[seat] character {character}: let go by {}, admitted on {} (connection {c})",
+                self.map_of(link),
+                self.map_of(l)
+            );
             // A waiting login gets it, wherever it was going.
             self.admit(l, c, character, Some(sheet), arrival);
             return;
@@ -784,7 +817,14 @@ impl Book {
                     && *here == link
                 {
                     match *claim {
-                        Some((l, c)) => self.admit(l, c, character, None, None),
+                        Some((l, c)) => {
+                            eprintln!(
+                                "[seat] character {character}: gone from {}, admitted on {} (connection {c})",
+                                self.map_of(link),
+                                self.map_of(l)
+                            );
+                            self.admit(l, c, character, None, None);
+                        }
                         None => {
                             self.seats.remove(&character);
                         }

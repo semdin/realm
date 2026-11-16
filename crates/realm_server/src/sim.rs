@@ -395,6 +395,9 @@ struct PendingJoin {
     arrival: Option<realm_rules::travel::Arrival>,
     /// Waiting for the store (not the coordinator).
     loading: bool,
+    /// The tick it arrived (a claim the coordinator never answers is given
+    /// up: `sweep_claims`).
+    since: u32,
 }
 
 pub const SECTION_NAMES: [&str; 5] = ["players", "creatures", "projectiles", "grid", "snapshots"];
@@ -675,6 +678,7 @@ impl Sim {
             params: MoveParams::default(),
         };
         sim.spawn_creatures();
+        sim.report_creature_ground();
         Ok(sim)
     }
 
@@ -829,6 +833,7 @@ impl Sim {
             self.handle(event);
         }
         self.maintenance_tick();
+        self.sweep_claims();
         // Maintenance: idle does nothing; frozen keeps only what lets the
         // players leave and see the world stand still.
         if self.maintenance.idle {
@@ -900,6 +905,7 @@ impl Sim {
                     reply,
                     arrival: None,
                     loading: false,
+                    since: self.tick,
                 };
                 self.join(conn, join);
             }

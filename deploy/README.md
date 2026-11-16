@@ -19,7 +19,11 @@ Services (`systemd/`), all as the unprivileged `realm` user, sandboxed, under
 applies schema migrations at start), `realm-coord` (127.0.0.1:7900, admin
 surface 127.0.0.1:8082), `realm-map@<map>` (QUIC on `0.0.0.0:<port>/udp`,
 SIGTERM saves everyone), `realm-login` (127.0.0.1:7950, public through
-`caddy/realm-login.caddy` with TLS). Logs: `journalctl -u 'realm-*'`.
+`caddy/realm-login.caddy` with TLS). Logs: `journalctl -u 'realm-*'`: besides
+the status lines, one line per login and ticket (`[login]`, account and
+character ids), per join, refused join and leave (`[join]`, `[leave]`, with
+the reason) and seat claim (`[claim]` on the map, `[seat]` on the
+coordinator).
 
 ## A release
 

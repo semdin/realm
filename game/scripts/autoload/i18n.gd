@@ -232,6 +232,13 @@ const SERVER_LINES := [
 	"The parties changed - challenge again.",
 	"Duel declined.",
 	"You are not in a duel.",
+	# a refused join (the map server, the coordinator, a ticket's check)
+	"ticket expired",
+	"ticket already used",
+	"ticket signature does not verify",
+	"malformed ticket",
+	"the realm is not ready; try again",
+	"the realm is restarting; try again",
 ]
 # i18n-end
 

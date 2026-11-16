@@ -168,6 +168,16 @@ func close() -> void:
 	while _root.visible and is_inside_tree():
 		await get_tree().process_frame
 
+## Gone at once, no fade (back to the login card: the card must not sit
+## under a screen nothing will lift).
+func dismiss() -> void:
+	if _root == null or not _root.visible:
+		return
+	_fading = 0.0
+	_root.modulate.a = 0.0
+	_root.visible = false
+	closed_count += 1
+
 func _process(delta: float) -> void:
 	if _root == null or not _root.visible:
 		return

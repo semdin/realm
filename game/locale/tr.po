@@ -6050,3 +6050,27 @@ msgstr "Gece ve gündüz"
 
 msgid "Time of day: %s"
 msgstr "Gün saati: %s"
+
+msgid "Try Again"
+msgstr "Tekrar Dene"
+
+msgid "The game server did not answer; trying again…"
+msgstr "Oyun sunucusu yanıt vermedi; yeniden deneniyor…"
+
+msgid "ticket expired"
+msgstr "Giriş biletinin süresi doldu; tekrar dene."
+
+msgid "ticket already used"
+msgstr "Giriş bileti zaten kullanıldı; tekrar dene."
+
+msgid "ticket signature does not verify"
+msgstr "Giriş bileti doğrulanamadı; tekrar giriş yap."
+
+msgid "malformed ticket"
+msgstr "Giriş bileti okunamadı; tekrar dene."
+
+msgid "the realm is not ready; try again"
+msgstr "Diyar henüz hazır değil; birazdan tekrar dene."
+
+msgid "the realm is restarting; try again"
+msgstr "Diyar yeniden başlatılıyor; birazdan tekrar dene."

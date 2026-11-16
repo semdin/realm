@@ -211,6 +211,12 @@ extends Node3D
 ## the target card); the realm's rain falls on the grounds (RealmWeather). A
 ## maintenance shows its countdown banner (MaintenanceUI), and a closed
 ## connection or a refused join the end screen with Reconnect and Quit Game.
+## In through the front door, a join that never got in (no answer in 10 s,
+## a ticket the map no longer takes, a realm still linking: RETRY_REASONS,
+## or no answer at all in JOIN_TIMEOUT) is tried again with a fresh ticket
+## behind the loading screen (retry_join, JOIN_RETRIES times); then the end
+## screen offers Try Again, Return to Login (the loading screen goes with
+## it) and Quit Game. The join's start, outcome and time are printed.
 ## The check mode also fights: it targets the nearest creature, learns and casts
 ## Shockwave once, then the basic cast every CHECK_CAST_SECONDS (or, with
 ## `--check-spells stun_bolt,flame_wave,...`, those spells in turn: a capture of
@@ -236,6 +242,16 @@ extends Node3D
 ## executable (macOS: the bundle's Contents/Resources) for an exported game.
 ## An exported game takes no dev switches (the dev join, the dev checks: their
 ## scripts are not exported); `--check-play` is its smoke check.
+
+## A join through the front door that never got in is tried again this many
+## times with a fresh ticket before the end screen shows (retry_join).
+const JOIN_RETRIES := 2
+## A join not answered in this long has failed.
+const JOIN_TIMEOUT := 30.0
+## Refusals of a join that can pass (the map server's and the coordinator's
+## words): another try with a fresh ticket may get in.
+const RETRY_REASONS := ["ticket expired", "ticket already used", "the realm is not ready; try again",
+	"the realm is restarting; try again", "still travelling; try again", "character could not be loaded"]
 
 const KIND_COLORS := [Color(0.35, 0.65, 1.0), Color(0.85, 0.3, 0.25), Color(0.9, 0.6, 0.2),
 	Color(0.55, 0.8, 0.3), Color(0.7, 0.4, 0.85), Color(0.9, 0.85, 0.3)]
@@ -529,6 +545,12 @@ var settings_window: SettingsWindow
 var menu_check: Node = null
 ## The login card and the character screen, before any world (null in it).
 var front_door: FrontDoor = null
+## The join (connecting until joined): when it began, whether its outcome
+## was printed, and a fresh ticket being fetched for another try
+## (retry_join).
+var _join_began := 0.0
+var _join_told := false
+var _retrying := false
 ## `--check-login`: the front door check (both sides of the scene reload).
 var login_check: Node = null
 ## `--check-duel` / `--duel-guest`: the duel check, told of every combat event.
@@ -653,6 +675,8 @@ func _ready() -> void:
 		printerr("realm: ", session.status())
 		get_tree().quit(1)
 		return
+	_join_began = Time.get_ticks_msec() / 1000.0
+	print("realm: joining %s%s" % [map_name, " (try %d)" % (FrontDoor.join_retries + 1) if FrontDoor.join_retries > 0 else ""])
 	_build_view()
 	if trip_map != "":
 		travel.begin_arrival()
@@ -729,12 +753,74 @@ func _add_login_check() -> void:
 		add_child(login_check)
 
 ## Back to the login card (the world's end screen, a check): the scene is
-## rebuilt without a world; `kind` / `detail` say why on the card.
+## rebuilt without a world; `kind` / `detail` say why on the card. The
+## connection closes here (the server hears the goodbye), and the loading
+## screen - it lives on the tree's root and outlives the reload - goes too,
+## or it covered the card (a join that never got in left it up).
 func return_to_login(kind := "", detail := "") -> void:
 	FrontDoor.return_kind = kind
 	FrontDoor.return_detail = detail
+	FrontDoor.join_retries = 0
 	before_reload()
+	# nothing of the world asks the freed session anything before the scene goes
+	process_mode = Node.PROCESS_MODE_DISABLED
+	if session != null:
+		session.free()
+		session = null
+	MapLoadingScreen.shared(get_tree()).dismiss()
 	get_tree().reload_current_scene.call_deferred()
+
+## A join that never got in may be tried again with a fresh ticket (in
+## through the front door, a failure that can pass: no answer, a ticket the
+## map no longer takes, a realm still linking or restarting), at most
+## JOIN_RETRIES times by itself; the end screen's Try Again resets that.
+func _join_can_retry(status: String) -> bool:
+	if built or FrontDoor.playing_character <= 0 or LoginApi.token == "":
+		return false
+	if status.begins_with("closed"):
+		return true
+	var why := status.get_slice(": ", 1) if status.contains(": ") else status
+	return RETRY_REASONS.has(why)
+
+## Another try at the join: a fresh ticket from the login service (the
+## character's map as it stands now), the scene rebuilt for it behind the
+## loading screen, as Enter World does. A ticket that cannot be had shows
+## the end screen with the service's reason.
+func retry_join(why: String) -> void:
+	if _retrying:
+		return
+	_retrying = true
+	if why == "the player asked":
+		FrontDoor.join_retries = 0
+	else:
+		FrontDoor.join_retries += 1
+	print("realm: join failed (%s); fetching a fresh ticket (try %d)" % [why, FrontDoor.join_retries + 1])
+	maintenance.clear_closed()
+	var screen := MapLoadingScreen.shared(get_tree())
+	if not screen.is_open():
+		await screen.open(I18n.upper(TravelData.display_name(map_name)), tr("Entering the realm…"))
+	screen.set_progress(25.0, tr("The game server did not answer; trying again…"))
+	var api := LoginApi.new(_arg("--login-url", LoginApi.default_url()))
+	add_child(api)
+	var res: Dictionary = await api.play(FrontDoor.playing_character)
+	api.queue_free()
+	if not is_inside_tree():
+		return
+	var why_not := ""
+	if res.maintenance:
+		why_not = "maintenance"
+	elif not res.ok:
+		why_not = String(res.error)
+	elif not ClassDB.class_call_static("RealmSession", "join_ticket", String(res.body.get("map", "")),
+			String(res.body.get("address", "")), String(res.body.get("ticket", ""))):
+		why_not = tr("The login server sent a ticket this client cannot read.")
+	if why_not != "":
+		_retrying = false
+		print("realm: no fresh ticket: %s" % why_not)
+		maintenance.show_closed("refused: " + why_not, false)
+		return
+	before_reload()
+	get_tree().reload_current_scene()
 
 func _build_view() -> void:
 	var sun := DirectionalLight3D.new()
@@ -940,8 +1026,11 @@ func _build_ui() -> void:
 	add_child(maintenance)
 	maintenance.setup(hud)
 	if LoginApi.token != "":
-		# in through the front door: the end screen goes back to it
+		# in through the front door: the end screen goes back to it, and
+		# tries the join again with a fresh ticket
 		maintenance.to_login = return_to_login
+		if FrontDoor.playing_character > 0:
+			maintenance.retry = retry_join.bind("the player asked")
 	_add_login_check()
 	if user_args.has("--check-ops"):
 		ops_check = load(OpsCheckScript).new()
@@ -2596,24 +2685,44 @@ func _quits_when_closed() -> bool:
 	var args := OS.get_cmdline_user_args()
 	if args.has("--check-ops"):
 		return false
-	return check_seconds > 0.0 or Array(args).any(func(a): return String(a).begins_with("--check") or String(a).ends_with("-guest"))
+	# the release smoke goes the player's way: a failed join is tried again,
+	# and the check fails on the end screen (PlayCheck)
+	return check_seconds > 0.0 or Array(args).any(func(a): return (String(a).begins_with("--check") \
+		and a != "--check-play") or String(a).ends_with("-guest"))
 
 func _process(delta: float) -> void:
 	if session == null:
 		return
 	var status: String = session.status()
+	var clock := Time.get_ticks_msec() / 1000.0
+	if status == "connecting" and not travel.leaving and clock - _join_began > JOIN_TIMEOUT:
+		# the map server refuses a claim the coordinator never answers
+		# sooner (20 s); a join still waiting now is not coming
+		status = "closed: no answer to the join"
 	if status != "joined":
 		if readout != null:
 			readout.text = "realm: " + status
 		if (status.begins_with("refused") or status.begins_with("closed")) and not travel.leaving:
+			if not _join_told:
+				_join_told = true
+				print("realm: %s %s after %.1f s: %s" % [map_name, "left" if built else "not joined", clock - _join_began, status])
 			if _quits_when_closed():
 				printerr("realm: ", status)
 				get_tree().quit(1)
+				return
+			if _retrying:
+				return
+			if _join_can_retry(status) and FrontDoor.join_retries < JOIN_RETRIES:
+				retry_join(status)
 				return
 			# what the realm said last (DISCONNECTING) comes before the screen
 			_show_notices()
 			maintenance.show_closed(status, built)
 		return
+	if not _join_told:
+		_join_told = true
+		FrontDoor.join_retries = 0
+		print("realm: joined %s in %.1f s" % [map_name, clock - _join_began])
 	if not built:
 		_build_map()
 		check_started = Time.get_ticks_msec() / 1000.0

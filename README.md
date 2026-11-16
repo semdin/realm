@@ -14,7 +14,7 @@ phases are in `../plans/rebuild-plan.html`; the live game keeps running from
 | `crates/realm_content` | `import` (old game data -> `content/data` through the rename map), `check`, `art` (copies art from the old client into `game/` with everything it references, renaming paths and the names inside models; fails on any franchise-derived word left) and `scan` (the same check over any text files: scripts moved by hand, catalogues; CI runs it). |
 | `crates/realm_simcheck` | Scripted movement on a fixed test world + wire round trips + crowd bandwidth; CI compares its output across platforms. |
 | `crates/realm_server` | Map server (one process per map and channel): QUIC join with signed tickets, 30 Hz ECS simulation (players, creatures with sleep and AI levels of detail, bolts), interest grid, prioritized delta snapshots; `keygen`, `serve`, `selfcheck`. Loads one compiled map pack; creatures follow navigation-mesh paths. |
-| `crates/realm_worldc` | World compiler: Godot export -> map packs (colliders, terrain, water, moving geometry, navigation mesh baked with rerecast); `check` walks bodies from every spawn point and tests paths. |
+| `crates/realm_worldc` | World compiler: Godot export -> map packs (colliders, terrain, water, moving geometry, navigation mesh baked with rerecast); `check` walks bodies from every spawn point, tests paths and samples every creature pack's area the way the server places creatures (walkable ground, never a roof or a prop). |
 | `crates/realm_bots` | Load-test clients over the real join path; each runs to the nearest creature and attacks it. |
 | `crates/realm_netclient` | The client's network core without Godot: prediction with exact reconciliation, snapshot store, remote-entity interpolation (`ClientCore`), and the QUIC connection on a background thread (`NetHandle`). |
 | `crates/realm_client` | GDExtension the Godot client loads: `RealmSession` (joins, steps the 30 Hz prediction, reports own body, others, stats and the map as meshes). |
@@ -221,7 +221,9 @@ build/client_export/win/ThousandRealms.exe --headless -- --login-url http://127.
   an export): through the front door, logs in (registers an unknown account),
   picks the first character (creates one on an empty roster), enters the
   world, sees the sheet and the map's own scene drawn, quits 0; fails fast on
-  any refusal, at most 80 s. On 2026-11-15 the staged Windows export did it
+  any refusal of the card or the roster, and on the world's end screen (a
+  join that fails is first tried again with a fresh ticket, as for a
+  player), at most 80 s. On 2026-11-15 the staged Windows export did it
   against a local stack (persist, coordinator, grounds, login) in ~2 s for a
   new and for an existing account. Its parts: `ThousandRealms.exe` 104 MiB
   (the release template), `ThousandRealms.pck` 875 MiB,

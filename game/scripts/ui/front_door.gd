@@ -25,6 +25,11 @@ static var return_detail := ""
 ## screen instead of the card. Both are read once.
 static var wanted := false
 static var to_characters := false
+## The character Enter World took into the realm (its id at the login
+## service) and how many times main.gd has tried its join again with a fresh
+## ticket (main.gd retry_join).
+static var playing_character := 0
+static var join_retries := 0
 
 var api: LoginApi
 var login: LoginScreen
@@ -83,6 +88,9 @@ func _enter_world(map: String, address: String, ticket: String) -> void:
 	if not ClassDB.class_call_static("RealmSession", "join_ticket", map, address, ticket):
 		select.play_failed(tr("The login server sent a ticket this client cannot read."))
 		return
+	playing_character = int(select.characters[select.current_slot].get("id", 0)) \
+		if select.current_slot < select.characters.size() else 0
+	join_retries = 0
 	entering_world.emit(map)
 	var screen := MapLoadingScreen.shared(get_tree())
 	await screen.open(I18n.upper(TravelData.display_name(map)), tr("Entering the realm…"))
