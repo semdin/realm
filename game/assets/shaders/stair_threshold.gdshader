@@ -1,21 +1,31 @@
 shader_type spatial;
-// The floor threshold in front of a staircase gate: a rune strip with chevrons
-// that run toward the flight while it may be boarded, and lie dim and still
-// (in the sealed colour) while it may not.
+// The floor seam under a staircase gate (StairView): a narrow strip centred
+// on the gate's line, no wider than where the server's gate collider stops a
+// body, in which light pools out of noise. While the flight may be boarded
+// the pools drift across the line toward the flight in gold; while it may
+// not they smoulder dimly in the sealed colour. No glyphs, no chevrons.
+// PlaneMesh UV: x across the gate, y across the line (0.5 = the gate).
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
 
-uniform sampler2D rune : source_color, repeat_enable, filter_linear_mipmap;
+uniform sampler2D noise : hint_default_black, repeat_enable, filter_linear_mipmap;
 uniform vec4 tint : source_color = vec4(1.0, 0.75, 0.35, 1.0);
 uniform float open = 0.0;
-uniform float width_m = 3.0;
+uniform float width_m = 5.0;
+uniform float depth_m = 0.9;
+// +1 when the flight lies toward UV.y = 1, -1 toward 0
+uniform float toward = 1.0;
 
 void fragment() {
-	// UV.y = 0 at the gate edge, 1 away from the flight
-	float edge = smoothstep(0.0, 0.12, UV.x) * smoothstep(1.0, 0.88, UV.x);
-	float runes = texture(rune, vec2(UV.x * width_m / 2.6, UV.y)).r;
-	float chev_v = fract(UV.y * 3.0 + abs(UV.x - 0.5) * 1.6 + TIME * 0.9 * open);
-	float chevron = smoothstep(0.0, 0.08, chev_v) * smoothstep(0.24, 0.14, chev_v);
-	float fade = smoothstep(1.0, 0.55, UV.y);
-	float a = (runes * (0.25 + 0.55 * open) + chevron * open * 0.7 + 0.06) * edge * fade;
-	ALBEDO = tint.rgb * a * 1.5;
+	float t = TIME;
+	vec2 m = vec2(UV.x * width_m, (UV.y - 0.5) * depth_m);
+	float drift = t * (0.04 + 0.3 * open) * toward;
+	float n1 = texture(noise, m * 0.55 + vec2(t * 0.01, -drift)).r;
+	float n2 = texture(noise, m * 1.4 + vec2(-t * 0.02, -drift * 1.6) + n1 * 0.3).r;
+	float pools = smoothstep(0.35, 0.85, n1 * 0.6 + n2 * 0.55);
+	// strongest on the line, gone at the strip's edges; soft at the ends
+	float across = exp(-pow(m.y / (depth_m * 0.22), 2.0));
+	float ends = smoothstep(0.0, 0.35, min(m.x, width_m - m.x));
+	float a = (0.12 + pools * 0.9) * across * ends;
+	a *= mix(0.35, 1.0, open);
+	ALBEDO = tint.rgb * a * 1.1;
 }

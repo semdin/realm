@@ -17,12 +17,15 @@ class_name StairView
 ##   enchantment line along both deck edges. Each step's top straddles the
 ##   walked slope (the deck collider) by half a step, so feet on the slope
 ##   neither float nor sink more than 0.1 m.
-## The gates are drawn as the old game's ward curtains (stair_ward.gdshader),
-## not as the boxes the core collides with: on the deck's two ends and across
-## every landing a flight docks at, with a rune threshold on the landing
-## floor (stair_threshold.gdshader). A curtain stands while its gate is shut
-## (violet: sealed), rises slowly in amber over the boarding warning, and
-## sinks in gold when its gate opens.
+## The gates are drawn as wards (stair_ward.gdshader): a shimmering veil of
+## noise with embers along its edges, standing in the plane of the gate box
+## the core collides with and as tall as it (its ragged crest licks a little
+## higher and fades), so a body stops at the veil, never inside it; on the
+## deck's two ends and across every landing a flight docks at, with a narrow
+## glowing seam on the floor under a landing's veil (stair_threshold.gdshader),
+## no wider than the gate. A veil stands while its gate is shut (violet:
+## sealed), rises slowly in amber over the boarding warning, and sinks in gold
+## when its gate opens.
 ##
 ## Near a flight that is swinging, or whose gates are shut for its warning
 ## before it swings, a line over the prompt says so (the old game's
@@ -31,15 +34,18 @@ class_name StairView
 const Kit = preload("res://maps/castle_interior/castle_kit.gd")
 const WARD_SHADER := preload("res://assets/shaders/stair_ward.gdshader")
 const THRESHOLD_SHADER := preload("res://assets/shaders/stair_threshold.gdshader")
-const RUNE_TEX := "res://assets/fx/rune_band.png"
+const NOISE_TEX := "res://assets/vfx/tex/noise_erosion_512.png"
 ## Ward colours: open (board now), warning (leaving - stay off), sealed.
 const WARD_OPEN := Color(1.0, 0.78, 0.36)
 const WARD_WARN := Color(1.0, 0.42, 0.12)
 const WARD_SEALED := Color(0.55, 0.32, 1.0)
 ## The deck's end gates are this tall (the landing gates 1.2 m).
 const END_GATE_HEIGHT := 1.6
-## A landing curtain stands this tall over its gate's foot.
-const LANDING_WARD_HEIGHT := 2.2
+## How far a veil's ragged crest may lick over its gate's top (m, fading).
+const VEIL_RISE := 0.7
+## The floor seam under a landing's veil: this deep across the gate's line
+## (the gate box is 0.3 m; a body stops ~0.5 m from the line).
+const SEAM_DEPTH := 0.9
 ## Step height when the content does not say (maps.json staircases flight).
 const STEP_HEIGHT := 0.2
 ## Seconds of the boarding warning when the content does not say.
@@ -67,7 +73,7 @@ var _line: Label
 ## deck_wards: [ward], landing: {key: ward}}; ward = {node, sill, closed, warn}
 var _flights: Dictionary = {}
 var _meshes: Dictionary = {}
-var _rune: Texture2D
+var _noise: Texture2D
 var _specs: Array = []
 
 ## A flight's walked surface ends as posed now: [low, high] (the slab's top
@@ -258,42 +264,48 @@ static func _glow_material() -> StandardMaterial3D:
 
 # ------------------------------------------------------------------ wards
 
-## A ward curtain across a gate whose foot is at `at` (in `parent`'s space),
-## `width` x `height`, and when `landing_dir` is not 0 a rune threshold on
-## the floor on that side (+z / -z of the gate).
+## A ward across a gate whose foot is at `at` (in `parent`'s space): a veil
+## in the gate's plane, `width` wide and the gate's `height` tall (plus
+## VEIL_RISE for its fading crest), and when `landing_dir` is not 0 the floor
+## seam on the gate's line (the landing lies +z / -z of the gate, the flight
+## the other way).
 func _ward(parent: Node3D, at: Transform3D, width: float, height: float, landing_dir: float) -> Dictionary:
-	if _rune == null:
-		_rune = load(RUNE_TEX)
+	if _noise == null:
+		_noise = load(NOISE_TEX)
+	var quad_h := height + VEIL_RISE
 	var mat := ShaderMaterial.new()
 	mat.shader = WARD_SHADER
-	mat.set_shader_parameter("rune", _rune)
+	mat.set_shader_parameter("noise", _noise)
 	mat.set_shader_parameter("width_m", width)
-	mat.set_shader_parameter("height_m", height)
+	mat.set_shader_parameter("height_m", quad_h)
+	mat.set_shader_parameter("gate_m", height)
 	var quad := QuadMesh.new()
-	quad.size = Vector2(width, height)
+	quad.size = Vector2(width, quad_h)
 	quad.material = mat
 	var curtain := MeshInstance3D.new()
 	curtain.name = "Ward"
 	curtain.mesh = quad
 	curtain.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	curtain.transform = at * Transform3D(Basis(), Vector3(0.0, height * 0.5, 0.0))
+	curtain.transform = at * Transform3D(Basis(), Vector3(0.0, quad_h * 0.5, 0.0))
 	parent.add_child(curtain)
 	var sill: ShaderMaterial = null
 	if landing_dir != 0.0:
 		sill = ShaderMaterial.new()
 		sill.shader = THRESHOLD_SHADER
-		sill.set_shader_parameter("rune", _rune)
+		sill.set_shader_parameter("noise", _noise)
 		sill.set_shader_parameter("width_m", width)
+		sill.set_shader_parameter("depth_m", SEAM_DEPTH)
 		var plane := PlaneMesh.new()
-		plane.size = Vector2(width, 2.4)
+		plane.size = Vector2(width, SEAM_DEPTH)
 		plane.material = sill
 		var strip := MeshInstance3D.new()
 		strip.name = "WardThreshold"
 		strip.mesh = plane
 		strip.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		# PlaneMesh v runs toward +z; v = 0 must sit at the gate
-		var turn := Basis() if landing_dir > 0.0 else Basis(Vector3.UP, PI)
-		strip.transform = at * Transform3D(turn, Vector3(0.0, 0.03, landing_dir * 1.35))
+		# centred on the gate's line; PlaneMesh v runs toward +z, and the
+		# flight lies away from the landing
+		sill.set_shader_parameter("toward", -signf(landing_dir))
+		strip.transform = at * Transform3D(Basis(), Vector3(0.0, 0.03, 0.0))
 		parent.add_child(strip)
 	return {"node": curtain, "sill": sill, "closed": 1.0, "warn": false, "shut": true}
 
@@ -322,15 +334,15 @@ func _pose_wards(f: Dictionary, phase: String, ends_shut: bool, landing: Array, 
 		ward["shut"] = shut
 		_ease(ward, shut, phase, bool(ward["warn"]), warn_s, delta)
 
-## A landing gate's ward (its box `t`, `size`): the curtain from the gate's
-## foot, the threshold on the landing side (away from the flight's deck).
+## A landing gate's ward (its box `t`, `size`): the veil from the gate's
+## foot as tall as the gate, the seam under it.
 func _landing_ward(f: Dictionary, t: Transform3D, size: Vector3) -> Dictionary:
 	var foot := Transform3D(t.basis.orthonormalized(), t.origin - t.basis.y.normalized() * size.y * 0.5)
 	# the flight runs +z from a foot gate and ends -z of a head gate; the
 	# landing lies the other way
 	var frame: Transform3D = (f["node"] as Node3D).transform
 	var head := absf(foot.origin.y - (frame.origin.y + float(f["rise"]))) < absf(foot.origin.y - frame.origin.y)
-	return _ward(self, foot, size.x, LANDING_WARD_HEIGHT, 1.0 if head else -1.0)
+	return _ward(self, foot, size.x, size.y, 1.0 if head else -1.0)
 
 func _ease(ward: Dictionary, shut: bool, phase: String, warning: bool, warn_s: float, delta: float) -> void:
 	var closed: float = ward["closed"]

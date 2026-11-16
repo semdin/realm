@@ -39,6 +39,10 @@ const LAMP_R := 19.4
 const PATHS := [-PI * 0.5, -0.2075, PI * 0.5, -2.7795]
 ## The avenue's far end, just short of the front doors (world z).
 const AVENUE_END_Z := 8.0
+## Where the avenue's paving gives way to the great doors' apron
+## (CastleExterior: the apron's front edge, world z); the apron paves the
+## rest up to the doors.
+const AVENUE_COVER_END_Z := 15.0
 ## The cover's height over the terrain per surface (m) and its mesh step
 ## (_ground_cover).
 const COVER_LIFT := {"flag": 0.035, "rosette": 0.04, "kerb": 0.07, "lawn": 0.025, "path": 0.035, "bed": 0.035}
@@ -178,8 +182,8 @@ static func _ground_cover(root: Node3D, c: Vector3) -> void:
 	var z := z0
 	var lift: float = COVER_LIFT["path"]
 	var across := ceili(PATH_HALF * 2.0 / COVER_STEP)
-	while z > AVENUE_END_Z:
-		var z1 := maxf(AVENUE_END_Z, z - COVER_STEP)
+	while z > AVENUE_COVER_END_Z:
+		var z1 := maxf(AVENUE_COVER_END_Z, z - COVER_STEP)
 		for k in across:
 			var x0 := c.x - PATH_HALF + k * PATH_HALF * 2.0 / across
 			var x1 := x0 + PATH_HALF * 2.0 / across

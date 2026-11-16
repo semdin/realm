@@ -28,6 +28,10 @@ const SETS := {
 	"stone_tiles_02": ["2k", "jpg", POLY, 8.0],
 	"floor_flagstone_01": ["2k", "png", AUTHORED, 8.0],
 	"dirt_ground_01": ["1k", "png", {"albedo": "albedo", "normal": "normal", "rough": "rough"}, 4.0],
+	# worn castle flags (the great doors' porch and apron) and big weathered
+	# ashlar (the lake stair's flanks): albedo and normal only
+	"medieval_blocks_03": ["2k", "jpg", POLY, 3.0],
+	"large_sandstone_blocks_01": ["2k", "jpg", POLY, 3.0],
 }
 
 ## The low preset's lighter path (QualityPreset lite_surfaces, the old client's low path

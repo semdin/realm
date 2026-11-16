@@ -33,7 +33,15 @@ const WEB_SHADER := preload("res://assets/shaders/cobweb.gdshader")
 const SLIME_SHADER := preload("res://assets/shaders/slime_pool.gdshader")
 const WEB_TEX := "res://assets/vfx/tex/cobweb_1024.png"
 const PROP := "res://assets/models/caverns/cavern_%s.glb"
-const MOTE_TEX := "res://assets/vfx/tex/soft_glow_512.png"
+## The drifting spores (_spores, spore_mote.gdshader: a small core and a faint
+## halo): their quad's size range (m), their glow's peak (alpha of the
+## additive speck) and the camera distances they fade over (gone nearer than
+## NEAR, whole beyond FAR).
+const SPORE_SHADER := preload("res://assets/shaders/spore_mote.gdshader")
+const SPORE_SCALE := Vector2(0.18, 0.32)
+const SPORE_GLOW := 0.85
+const SPORE_FADE_NEAR := 2.5
+const SPORE_FADE_FAR := 7.0
 const TEX := "res://assets/terrain/textures/%s.png"
 const CastleFire = preload("res://maps/castle_interior/castle_fire.gd")
 const DungeonView = preload("res://maps/dng_common/dungeon_view.gd")
@@ -41,16 +49,21 @@ const DungeonView = preload("res://maps/dng_common/dungeon_view.gd")
 ## piers, and between them a stair of twelve 0.37 m steps climbing back
 ## along -z to a landing 4.3 m up under the arch's head, walled on both
 ## sides (the open iron gate leaf on the right). [x0, x1, z0, z1, top],
-## measured from the mesh's vertices (the treads: its upward faces). The
-## crypt's arch stands on the stair, 1.7 m over the stair's foot: its boxes
-## reach ARCH_DOWN under its origin, to the ground under the steps.
-const ARCH_PARTS := [[-2.75, -1.55, 0.35, 2.0, 6.0], [1.05, 2.7, 0.1, 2.45, 6.0],
-	[-1.45, -1.1, -3.0, 0.25, 4.6], [0.95, 1.85, -3.0, 0.0, 4.6],
-	[-1.1, 0.95, 1.0, 1.95, 0.34], [-1.1, 0.95, 0.8, 1.0, 0.72], [-1.1, 0.95, 0.3, 0.8, 1.09],
-	[-1.1, 0.95, -0.05, 0.3, 1.46], [-1.1, 0.95, -0.5, -0.05, 1.83], [-1.1, 0.95, -0.8, -0.5, 2.2],
-	[-1.1, 0.95, -1.2, -0.8, 2.55], [-1.1, 0.95, -1.5, -1.2, 2.91], [-1.1, 0.95, -1.9, -1.5, 3.23],
-	[-1.1, 0.95, -2.3, -1.9, 3.57], [-1.1, 0.95, -2.9, -2.3, 3.95], [-1.1, 0.95, -3.05, -2.9, 4.25]]
-const ARCH_DOWN := 1.8
+## all inside the drawn stone: the piers and passage walls are the largest
+## rectangles under the mesh's top surface (DungeonView.top_raster, 96
+## cells; a pier's finials and the head over the passage left open), the
+## treads its upward faces (x -1.2..1.07), each a centimetre under its face.
+const ARCH_PARTS := [
+	[-2.39, -1.62, 0.91, 1.74, 4.82], [-1.86, -1.56, 0.2, 0.85, 3.59], [-2.16, -1.74, 1.8, 2.09, 3.18],
+	[1.01, 1.72, 0.03, 1.45, 3.93], [1.78, 2.56, 1.33, 2.21, 4.22], [1.78, 1.96, 0.56, 1.27, 3.62],
+	[1.84, 2.26, 2.27, 2.63, 2.96], [1.13, 1.3, 1.5, 2.09, 3.85],
+	[-1.86, -1.26, -2.81, 0.15, 4.56], [1.13, 1.66, -2.81, 0.09, 4.54],
+	[-1.2, 1.05, 1.27, 1.95, 0.36], [-1.2, 1.05, 0.86, 1.27, 0.72], [-1.2, 1.05, 0.42, 0.86, 1.11],
+	[-1.2, 1.05, 0.03, 0.42, 1.48], [-1.2, 1.05, -0.27, 0.03, 1.86], [-1.2, 1.05, -0.56, -0.27, 2.23],
+	[-1.2, 1.05, -0.94, -0.56, 2.55], [-1.2, 1.05, -1.31, -0.94, 2.91], [-1.2, 1.05, -1.8, -1.31, 3.24],
+	[-1.2, 1.05, -2.2, -1.8, 3.56], [-1.2, 1.05, -2.62, -2.2, 3.96], [-1.2, 1.05, -2.81, -2.62, 4.26]]
+## The arch's own stair climbs this high to its back landing (mesh space).
+const ARCH_LANDING := 4.27
 
 var base_y := 1550.0
 ## The ground as drawn (the check probes it).
@@ -63,6 +76,10 @@ var solids: Array = []
 ## Where the big stalagmite spires stand (the baked stalag mesh placed):
 ## map_solids.gd boxes them as obstacles.
 var spires: Array = []
+## Placed props boxed inside their drawn shape by map_solids.gd
+## (DungeonView.raster_solids, the raster turned to fit the shape best):
+## [{prop: path, xform, bands, note}].
+var shaped: Array = []
 ## A small crag (_crags) stands only where the ground within this reach of
 ## it falls no more than this (m).
 const SMALL_CRAG_REACH := 1.2
@@ -206,7 +223,7 @@ func _dress_room(room: Dictionary) -> void:
 		return
 	if kind == "stair":
 		return
-	_crags(center, r, 6 if kind != "slime" else 4)
+	_crags(center, r, 6 if kind != "slime" else 4, "Crags_" + String(room.get("id", "")))
 	_webs(center, r, 7 if kind == "web" else 3)
 	_fungi(center, r, kind)
 	_spores(center, r, kind)
@@ -283,11 +300,24 @@ func _stand(p: Vector2, yaw: float, s: float, sink: float = 0.15, tilt: float = 
 		basis = Basis(Vector3(_rng.randf_range(-1, 1), 0, _rng.randf_range(-1, 1)).normalized(), tilt) * basis
 	return Transform3D(basis, _on_ground(p.x, p.y) - Vector3(0, sink, 0))
 
-## A placed prop's solid as patch boxes by height band
-## (DungeonView.layered_solids).
-func _record_solid(prop: String, xform: Transform3D, layers: Array, note: String) -> void:
-	if _bounds.has(prop):
-		solids.append_array(DungeonView.layered_solids(_bounds[prop], xform, layers, note))
+## A stood prop (_stand) turned to lie along the ground's slope under it
+## (the normal over SLOPE_REACH metres either way), about its foot.
+const SLOPE_REACH := 1.0
+
+func _on_slope(xform: Transform3D) -> Transform3D:
+	var o := xform.origin
+	var dx := ground_y(o.x + SLOPE_REACH, o.z) - ground_y(o.x - SLOPE_REACH, o.z)
+	var dz := ground_y(o.x, o.z + SLOPE_REACH) - ground_y(o.x, o.z - SLOPE_REACH)
+	var normal := Vector3(-dx, 2.0 * SLOPE_REACH, -dz).normalized()
+	var axis := Vector3.UP.cross(normal)
+	if axis.length() < 1e-4:
+		return xform
+	return Transform3D(Basis(axis.normalized(), Vector3.UP.angle_to(normal)) * xform.basis, o)
+
+## A placed prop to be boxed inside its drawn shape, by height band
+## (`shaped`; bands as DungeonView.raster_solids takes them).
+func _record_solid(prop: String, xform: Transform3D, bands: Array, note: String) -> void:
+	shaped.append({"prop": PROP % prop, "xform": xform, "bands": bands, "note": note})
 
 ## An arch's piers and passage sides as patch boxes (ARCH_PARTS).
 func _record_arch(xform: Transform3D, note: String, down: float) -> void:
@@ -300,7 +330,7 @@ func _record_arch(xform: Transform3D, note: String, down: float) -> void:
 ## the ground the server places packs, Seal Stone waves and arrivals on looks
 ## through (World::ground_height), so no creature stands on a spire. The
 ## small ones stay walk-through, as the old game had them all.
-func _crags(center: Vector2, r: float, count: int) -> void:
+func _crags(center: Vector2, r: float, count: int, node_name: String) -> void:
 	var xforms: Array = []
 	for i in count:
 		var p := _rim_point(center, r, 3.5)
@@ -314,7 +344,7 @@ func _crags(center: Vector2, r: float, count: int) -> void:
 		# 2026-11-16); the draws are made either way, so the rest stays put
 		if _ground_drop(q, SMALL_CRAG_REACH) <= SMALL_CRAG_DROP:
 			xforms.append(small)
-	_scatter("stalag", xforms, "Crags")
+	_scatter("stalag", xforms, node_name)
 
 ## Dew-beaded orb webs strung along the rim, facing the room's centre.
 func _webs(center: Vector2, r: float, count: int) -> void:
@@ -355,7 +385,12 @@ func _fungi(center: Vector2, r: float, kind: String) -> void:
 			_light(_on_ground(p.x, p.y) + Vector3(0, 2.6, 0), glow, 1.2, 14.0)
 	_scatter("mushrooms", xforms, "Fungi", glow, 0.14)
 
-## Glowing spores drifting slowly up through the room's air (GPU motes).
+## Glowing spores drifting slowly up through the room's air (GPU motes):
+## small soft specks in the room's colour, never white discs: they fade out
+## nearer the camera than SPORE_FADE_FAR and are gone inside SPORE_FADE_NEAR
+## (a third-person camera sits a few metres behind the hero, so a spore
+## drifting past the lens never fills the screen), and their glow peaks at
+## SPORE_GLOW so the additive core keeps its tint under the glow pass.
 func _spores(center: Vector2, r: float, kind: String) -> void:
 	var tint := Color(0.55, 1.0, 0.8) if kind != "egg" else Color(0.85, 0.6, 1.0)
 	var pm := ParticleProcessMaterial.new()
@@ -366,23 +401,20 @@ func _spores(center: Vector2, r: float, kind: String) -> void:
 	pm.initial_velocity_min = 0.08
 	pm.initial_velocity_max = 0.3
 	pm.gravity = Vector3(0, 0.03, 0)
-	pm.scale_min = 0.04
-	pm.scale_max = 0.1
+	pm.scale_min = SPORE_SCALE.x
+	pm.scale_max = SPORE_SCALE.y
 	var ramp := Gradient.new()
 	ramp.set_color(0, Color(tint, 0.0))
 	ramp.set_color(1, Color(tint, 0.0))
-	ramp.add_point(0.25, tint)
-	ramp.add_point(0.75, tint)
+	ramp.add_point(0.25, Color(tint, SPORE_GLOW))
+	ramp.add_point(0.75, Color(tint, SPORE_GLOW))
 	var ramp_tex := GradientTexture1D.new()
 	ramp_tex.gradient = ramp
 	pm.color_ramp = ramp_tex
-	var mote := StandardMaterial3D.new()
-	mote.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mote.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mote.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mote.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	mote.vertex_color_use_as_albedo = true
-	mote.albedo_texture = load(MOTE_TEX)
+	var mote := ShaderMaterial.new()
+	mote.shader = SPORE_SHADER
+	mote.set_shader_parameter("fade_near", SPORE_FADE_NEAR)
+	mote.set_shader_parameter("fade_far", SPORE_FADE_FAR)
 	var quad := QuadMesh.new()
 	quad.material = mote
 	var p := GPUParticles3D.new()
@@ -406,14 +438,16 @@ func _bones(center: Vector2, r: float, count: int) -> void:
 		xforms.append(_stand(p, _rng.randf() * TAU, _rng.randf_range(0.8, 1.4), 0.05))
 	_scatter("bones", xforms, "Bones")
 
-## Silk-wrapped egg clutches with a faint violet pulse.
+## Silk-wrapped egg clutches with a faint violet pulse, lying along the
+## floor's slope (a soft clutch settles on it; stood upright, a big one by
+## the rim sank a third of a metre into the rise on one side).
 func _egg_clusters(center: Vector2, r: float, count: int) -> void:
 	var xforms: Array = []
 	for i in count:
 		var p := _rim_point(center, r, 5.0)
-		xforms.append(_stand(p, _rng.randf() * TAU, _rng.randf_range(1.0, 1.5), 0.1))
+		xforms.append(_on_slope(_stand(p, _rng.randf() * TAU, _rng.randf_range(1.0, 1.5), 0.1)))
 		var q := p + Vector2(_rng.randf_range(-3.5, 3.5), _rng.randf_range(-3.5, 3.5))
-		xforms.append(_stand(q, _rng.randf() * TAU, _rng.randf_range(0.5, 0.75), 0.05))
+		xforms.append(_on_slope(_stand(q, _rng.randf() * TAU, _rng.randf_range(0.5, 0.75), 0.05)))
 		_light(_on_ground(p.x, p.y) + Vector3(0, 1.8, 0), Color(0.7, 0.4, 1.0), 1.8, 12.0)
 	_scatter("eggs", xforms, "EggSacs", Color(0.55, 0.3, 0.8), 0.35)
 
@@ -488,7 +522,9 @@ func _build_camp(center: Vector2) -> void:
 	var to_fire := center - tent_at
 	var tent := _stand(tent_at, atan2(to_fire.x, to_fire.y), 1.0, 0.1)
 	_scatter("camp", [tent], "Camp")
-	_record_solid("camp", tent, [[0.0, 0.9, 0.6]], "the explorers' tent at the camp: drawn canvas, no collider")
+	# the A-frame stepped in along its ridge, the crates beside it
+	_record_solid("camp", tent, [[0.0, 0.25], [0.25, 0.5], [0.5, 0.75]],
+		"the explorers' tent at the camp: drawn canvas, no collider")
 	_scatter("bones", [_stand(center + Vector2(10.0, 9.0), 1.1, 0.9, 0.05)], "CampBones")
 	# Campfire: stones, embers and a warm light.
 	var fire_at := _on_ground(center.x, center.y)
@@ -550,36 +586,64 @@ func _build_camp(center: Vector2) -> void:
 
 ## The way back up: worn steps climbing north-west into the rock to the
 ## crypt's undercroft gate (maps.json `caverns_ascend`, dressing
-## "crypt_stair": its trigger is at the stair foot).
+## "crypt_stair": its trigger is at the stair foot). Four steps up to a
+## landing the crypt gate stands on level (the arch is flat underneath and
+## climbs on its own stair inside), then the upper landing at the height of
+## the arch's back landing, running on into the rock.
+const CRYPT_STEP := 0.9
+const CRYPT_RISE := 0.42
+const CRYPT_STEPS := 4
+## The gate's centre along the stair (m from the foot) and the landings'
+## widths (the arch is 5.73 m across).
+const CRYPT_GATE_AT := 6.0
+const CRYPT_GATE_WIDTH := 6.0
+const CRYPT_TOP_END := 12.15
+
 func _build_crypt_stair() -> void:
 	var foot := Vector2(-209.0, -209.0)
 	var dir := Vector2(-1, -1).normalized()
 	var y0 := ground_y(foot.x, foot.y)
 	var basis := Basis.looking_at(Vector3(dir.x, 0, dir.y), Vector3.UP)
-	var yaw := rad_to_deg(atan2(-dir.x, -dir.y))
-	for i in 14:
-		var p := foot + dir * (float(i) * 0.9)
+	# a block of the stair: [from, to] metres along it from the foot, its top
+	# over the foot's ground, its width; each stands on footing under the
+	# ground there
+	var blocks: Array = []
+	for i in CRYPT_STEPS:
+		blocks.append([(float(i) - 0.5) * CRYPT_STEP, (float(i) + 0.5) * CRYPT_STEP, 0.25 + float(i) * CRYPT_RISE, 5.0])
+	var gate_y := 0.25 + float(CRYPT_STEPS) * CRYPT_RISE
+	var gate_from := (float(CRYPT_STEPS) - 0.5) * CRYPT_STEP
+	var gate_to := 2.0 * CRYPT_GATE_AT - gate_from
+	blocks.append([gate_from, gate_to, gate_y, CRYPT_GATE_WIDTH])
+	blocks.append([gate_to, CRYPT_TOP_END, gate_y + ARCH_LANDING, 5.0])
+	for i in blocks.size():
+		var b: Array = blocks[i]
+		var from := float(b[0])
+		var to := float(b[1])
+		var p := foot + dir * ((from + to) * 0.5)
 		var step := MeshInstance3D.new()
 		step.name = "Step%d" % i
 		var box := BoxMesh.new()
-		box.size = Vector3(5.0, 0.45 + float(i) * 0.42, 0.9)
+		box.size = Vector3(float(b[3]), float(b[2]) + 0.2, to - from)
 		box.material = _rock
 		step.mesh = box
 		step.basis = basis
 		step.position = Vector3(p.x, y0 + box.size.y * 0.5 - 0.2, p.y)
 		add_child(step)
-		# the step's stone as a collider, 2 cm inside the drawn faces
-		solids.append({"note": "crypt stair step %d: drawn stone, no collider" % i,
+		# the block's stone as a collider, 2 cm inside the drawn faces
+		var what := "step %d" % i if i < CRYPT_STEPS else ("gate landing" if i == CRYPT_STEPS else "upper landing")
+		solids.append({"note": "crypt stair %s: drawn stone, no collider" % what,
 			"center": [snappedf(step.position.x, 0.001), snappedf(step.position.y - 0.01, 0.001), snappedf(step.position.z, 0.001)],
-			"half": [2.48, snappedf(box.size.y * 0.5 - 0.01, 0.001), 0.44], "yaw_deg": snappedf(yaw, 0.01)})
-	# The crypt gate (its front faces back down the stair) and a faint
-	# daylight spill from above.
+			"half": [snappedf(box.size.x * 0.5 - 0.02, 0.001), snappedf(box.size.y * 0.5 - 0.01, 0.001),
+				snappedf(box.size.z * 0.5 - 0.01, 0.001)],
+			"yaw_deg": snappedf(rad_to_deg(atan2(-dir.x, -dir.y)), 0.01)})
+	# The crypt gate (its front faces back down the stair) level on its
+	# landing, and a faint daylight spill from above.
 	var top := foot + dir * 13.5
-	var top_y := y0 + 14.0 * 0.42 + 0.3
-	var gate_at := foot + dir * 6.0
-	var gate := Transform3D(basis, Vector3(gate_at.x, y0 + 1.7, gate_at.y))
+	var top_y := y0 + gate_y + ARCH_LANDING + 0.3
+	var gate_at := foot + dir * CRYPT_GATE_AT
+	var gate := Transform3D(basis, Vector3(gate_at.x, y0 + gate_y, gate_at.y))
 	_scatter("arch", [gate], "CryptGate")
-	_record_arch(gate, "the crypt gate's arch on the stair: drawn stone, no collider", ARCH_DOWN)
+	_record_arch(gate, "the crypt gate's arch on the stair: drawn stone, no collider", 0.1)
 	_light(Vector3(top.x, top_y + 3.0, top.y) - Vector3(dir.x, 0, dir.y) * 2.0, Color(0.7, 0.78, 0.95), 2.2, 16.0)
 	_light(Vector3(foot.x, y0 + 2.5, foot.y), Color(1.0, 0.66, 0.38), 1.4, 10.0)
 
@@ -623,7 +687,10 @@ func _build_web_gate(at: Vector2, room: Vector2, id: String) -> void:
 	_scatter("arch", [arch], "WebGate_" + id)
 	_record_arch(arch, "the %s web gate's arch: drawn stone, no collider" % id, 0.1)
 	var side := Vector2(-out.y, out.x)
-	_scatter("cocoon", [_stand(arch_at + side * 3.2, 0.3, 1.1), _stand(arch_at - side * 3.4, 2.1, 1.0)], "WebGateCocoons")
+	# the left one a step out of the wall's foot (set in line with the arch it
+	# stood 0.7 m deep in the deep gate's rising wall)
+	_scatter("cocoon", [_stand(arch_at + side * 3.2, 0.3, 1.1), _stand(arch_at - side * 3.4 - out * 1.2, 2.1, 1.0)],
+		"WebGateCocoons")
 	_scatter("eggs", [_stand(at + side * 4.5 - out * 1.5, 0.8, 0.6), _stand(at - side * 4.8 - out * 1.0, 2.6, 0.55)],
 		"WebGateEggs", Color(0.55, 0.3, 0.8), 0.35)
 	_light(Vector3(at.x, y + 3.2, at.y), Color(0.72, 0.5, 1.0), 2.0, 14.0)

@@ -58,18 +58,28 @@ const CURTAIN_HEIGHT := 14.0
 const CURTAIN_THICK := 3.0
 ## The clock tower: square, beside the east wing, facing the courtyard.
 const CLOCK := [30.0, 56.0, 9.0, 46.0, 16.0]
+## The clock tower's four faces (outward normals).
+const CLOCK_FACES := [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, -1)]
 ## How far a hall's roof stands back from its parapet (the wall walk).
 const WALK := 1.0
 ## A floor of the halls (string courses, window rows).
 const FLOOR_H := 8.0
 
 
-## The clock faces' material: lit from behind at night, a plain painted dial
-## by day (GroundsMap.apply_daylight); at full glow under the noon sun it
-## burned to a flat white square.
-static var clock_material: StandardMaterial3D = null
+## The clock faces' material (clock_face.gdshader): the painted dial with
+## Roman numerals (assets/maps/grounds/clock_dial.png, tools/art/clock_dial.py)
+## and two hands showing the realm's hour (DayNight.hour(), set every
+## CLOCK_TICK seconds), the enamel lit from behind at night
+## (GroundsMap.apply_daylight -> daylight()).
+static var clock_material: ShaderMaterial = null
 ## Its glow at night.
 const CLOCK_GLOW := 0.9
+const CLOCK_DIAL := preload("res://assets/maps/grounds/clock_dial.png")
+const CLOCK_SHADER := preload("res://assets/shaders/clock_face.gdshader")
+## The dial's diameter (m) on its 5.2 m stone plaque, and how often the
+## hands move (s).
+const CLOCK_DIAL_SIZE := 4.6
+const CLOCK_TICK := 1.0
 
 
 static func materials() -> Dictionary:
@@ -78,13 +88,17 @@ static func materials() -> Dictionary:
 	# (per-window random from ArchKit.window()).
 	glass.shader = preload("res://assets/shaders/castle/window_lit.gdshader")
 	glass.set_shader_parameter("quarry_m", 0.32)
-	var clock := StandardMaterial3D.new()
-	clock.albedo_color = Color(0.85, 0.80, 0.62)
-	clock.emission_enabled = true
-	clock.emission = Color(1.0, 0.86, 0.55)
-	clock.emission_energy_multiplier = CLOCK_GLOW
+	var clock := ShaderMaterial.new()
+	clock.shader = CLOCK_SHADER
+	clock.set_shader_parameter("dial", CLOCK_DIAL)
+	clock.set_shader_parameter("glow", CLOCK_GLOW)
+	clock.set_shader_parameter("hour", DayNight.hour())
 	clock_material = clock
 	var door := PBR.surface("medieval_wood", Color(0.55, 0.42, 0.32), {"metres": 2.0})
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.09, 0.085, 0.08)
+	iron.metallic = 0.75
+	iron.roughness = 0.5
 	var banner := StandardMaterial3D.new()
 	banner.albedo_color = Color(0.12, 0.22, 0.52)
 	banner.roughness = 0.9
@@ -95,8 +109,13 @@ static func materials() -> Dictionary:
 		"roof": PBR.surface("roof_slates_02", Color(0.40, 0.42, 0.45), {"metres": 3.0}),
 		"banner": banner,
 		"glass": glass,
-		"clock": clock,
 		"door": door,
+		# the doors' backing boards (dark in the gaps between the planks)
+		"door_back": PBR.surface("medieval_wood", Color(0.22, 0.16, 0.12), {"metres": 2.0}),
+		"iron": iron,
+		# the porch floor and the apron: worn castle flags, a sandstone kerb
+		"paving": PBR.surface("medieval_blocks_03", Color(0.92, 0.9, 0.86), {"metres": 3.0}),
+		"kerb": PBR.surface("sandstone_blocks_08", Color(0.86, 0.83, 0.78), {"metres": 1.5}),
 		"dark": _flat(Color(0.03, 0.03, 0.035)),
 	}
 
@@ -140,10 +159,18 @@ static func build(parent: Node3D) -> Node3D:
 	_curtain(kit, top)
 	_clock_tower(kit, top)
 	_entrance(kit, top)
-	var node := kit.finish(parent, materials(), "Castle")
+	var mats := materials()
+	var node := kit.finish(parent, mats, "Castle")
 	node.set_meta("floor_y", top)
+	_clock_dials(node, top)
 	_lights(node, top)
 	return node
+
+
+## The night's glow behind the clock dials (0 day .. 1 night).
+static func daylight(night: float) -> void:
+	if clock_material != null:
+		clock_material.set_shader_parameter("glow", CLOCK_GLOW * lerpf(0.0, 1.0, night))
 
 
 static func _hall(kit: ArchKit, h: Array, top: float) -> void:
@@ -314,18 +341,70 @@ static func _clock_tower(kit: ArchKit, top: float) -> void:
 	# a machicolated parapet round the foot of its slate spire
 	_parapet(kit, Vector3(c.x, 0, c.z), Vector2(s, s), top + h)
 	kit.pyramid(Vector3(c.x, top + h, c.z), Vector2(s - 2.0, s - 2.0), CLOCK[4], 0.0, "roof", 0.0)
-	for n: Vector3 in [Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, -1)]:
+	for n: Vector3 in CLOCK_FACES:
 		var face := Vector3(c.x, top + h - 6.0, c.z) + n * (s * 0.5 + 0.06)
+		# the stone plaque the round dial is set in (_clock_dials), and a
+		# moulded frame round it
 		kit.box(face, Vector3(5.2, 5.2, 0.2) if n.z != 0 else Vector3(0.2, 5.2, 5.2), 0.0, "trim", false)
-		kit.box(face + n * 0.12, Vector3(4.2, 4.2, 0.1) if n.z != 0 else Vector3(0.1, 4.2, 4.2), 0.0, "clock", false)
+		var across := Vector3.UP.cross(n)
+		for k: float in [-1.0, 1.0]:
+			kit.box(face + n * 0.14 + Vector3.UP * k * 2.68, across.abs() * 5.7 + n.abs() * 0.22 + Vector3.UP * 0.32, 0.0, "trim", false)
+			kit.box(face + n * 0.14 + across * k * 2.68, across.abs() * 0.32 + n.abs() * 0.22 + Vector3.UP * 5.04, 0.0, "trim", false)
 		kit.window(Vector3(c.x, top + 10.0, c.z) + n * (s * 0.5 + 0.02), n, 1.2, 3.0, "trim", "glass")
 		kit.window(Vector3(c.x, top + 20.0, c.z) + n * (s * 0.5 + 0.02), n, 1.2, 3.0, "trim", "glass")
+
+
+## The four dials, one mesh with UVs (the dial is painted, not triplanar):
+## each a quad just proud of its plaque; a timer moves the hands with the
+## realm's hour.
+static func _clock_dials(node: Node3D, top: float) -> void:
+	var c := _w(CLOCK[0], CLOCK[1])
+	var s: float = CLOCK[2]
+	var h: float = CLOCK[3]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var half := CLOCK_DIAL_SIZE * 0.5
+	for n: Vector3 in CLOCK_FACES:
+		var centre := Vector3(c.x, top + h - 6.0, c.z) + n * (s * 0.5 + 0.06 + 0.1 + 0.02)
+		var right := Vector3.UP.cross(n)
+		var corners := [centre - right * half + Vector3.UP * half, centre + right * half + Vector3.UP * half,
+			centre + right * half - Vector3.UP * half, centre - right * half - Vector3.UP * half]
+		var uvs := [Vector2(0, 0), Vector2(1, 0), Vector2(1, 1), Vector2(0, 1)]
+		# clockwise seen from the front (Godot's front faces)
+		for i: int in [0, 1, 2, 0, 2, 3]:
+			st.set_normal(n)
+			st.set_tangent(Plane(right, 1.0))
+			st.set_uv(uvs[i])
+			st.add_vertex(corners[i])
+	var dials := MeshInstance3D.new()
+	dials.name = "ClockDials"
+	dials.mesh = st.commit()
+	dials.material_override = clock_material
+	dials.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(dials)
+	var timer := Timer.new()
+	timer.name = "ClockTick"
+	timer.wait_time = CLOCK_TICK
+	timer.autostart = true
+	var mat := clock_material
+	timer.timeout.connect(func() -> void: mat.set_shader_parameter("hour", DayNight.hour()))
+	node.add_child(timer)
 
 
 ## The great doors: a deep arched porch in the entrance hall's south face. The
 ## porch floor is open (no collider in the doorway) so a player can walk up to
 ## the doors; the doors themselves are a solid slab at the back of the porch.
 ## Over the porch a bretèche: a machicolated box on corbels.
+##
+## Drawn over the server's solids (the piers, lintel, door slab and apron are
+## the pack's boxes; everything added here stands over head height, inside
+## the piers' footprint or within a few centimetres of a collider's face): a
+## pointed arch carried on jamb shafts, its spandrels and soffit filling the
+## porch head; two oak leaves of vertical planks with iron straps, studs and
+## ring pulls on the slab; the porch floor and apron paved with worn flags
+## inside a sandstone kerb, following the higher of the ground and the
+## apron's top (the server's ground there), so no other surface shows
+## through.
 static func _entrance(kit: ArchKit, top: float) -> void:
 	var front_z := DOOR_CENTER.z
 	var w := DOOR_SIZE.x
@@ -345,13 +424,145 @@ static func _entrance(kit: ArchKit, top: float) -> void:
 	kit.battlements(Vector3(-w * 0.5 - 1.4, by + 4.2, front_z + 3.1), Vector3(w * 0.5 + 1.4, by + 4.2, front_z + 3.1), 0.6, "trim", 1.1, 1.8)
 	# the doors stand at the back of the porch, just proud of the hall's plinth
 	# (a door face level with the plinth face z-fought with it across the
-	# bottom of the doors)
-	kit.box(Vector3(0, top + h * 0.5, front_z + 1.05), Vector3(w, h, 0.4), 0.0, "door")
-	kit.box(Vector3(0, top + h + 0.6, front_z + 0.95), Vector3(w, 1.2, 0.2), 0.0, "dark", false)
+	# bottom of the doors): the slab is the backing the planks are nailed to
+	kit.box(Vector3(0, top + h * 0.5, front_z + 1.05), Vector3(w, h, 0.4), 0.0, "door_back")
+	var door_face := front_z + 1.25
+	var porch_front := front_z + 3.0
+	_door_leaves(kit, top, w, h, door_face)
+	_porch_arch(kit, top, w, h, door_face, porch_front)
 	# a flush stone apron in front (its top is the threshold height)
 	var g := Layout.height_at(DOOR_CENTER.x, DOOR_CENTER.z + 6.0)
 	var apron_bottom := (g if not is_nan(g) else top) - 1.5
 	kit.box(Vector3(0, (top + apron_bottom) * 0.5, front_z + 5.0), Vector3(w + 6.0, top - apron_bottom, 10.0), 0.0, "trim")
+	_apron_paving(kit, top, Rect2(-(w + 6.0) * 0.5, front_z, w + 6.0, 10.0))
+
+
+## The door's two leaves on the slab's face (z = `face`): vertical oak planks
+## (the dark backing shows in the joints), a batten over the meeting stiles,
+## three iron straps across each leaf with hinge flares and studs, and a ring
+## pull on each leaf. All within 0.12 m of the slab.
+static func _door_leaves(kit: ArchKit, top: float, w: float, h: float, face: float) -> void:
+	var planks := 12
+	var pw := w / planks
+	for i in planks:
+		var x := -w * 0.5 + (i + 0.5) * pw
+		# a few centimetres of height difference keep the plank ends ragged
+		var ph := h - 0.04 - 0.05 * float(i % 3)
+		kit.box(Vector3(x, top + ph * 0.5, face + 0.03), Vector3(pw - 0.035, ph, 0.06), 0.0, "door", false)
+	kit.box(Vector3(0, top + h * 0.5, face + 0.08), Vector3(0.2, h - 0.1, 0.05), 0.0, "door", false)
+	for sx: float in [-1.0, 1.0]:
+		for y: float in [1.0, 3.7, 6.0]:
+			var cx := sx * w * 0.25
+			kit.box(Vector3(cx, top + y, face + 0.075), Vector3(w * 0.5 - 0.35, 0.17, 0.035), 0.0, "iron", false)
+			# the hinge's flared end at the leaf's outer edge
+			kit.box(Vector3(sx * (w * 0.5 - 0.3), top + y, face + 0.08), Vector3(0.34, 0.36, 0.04), 0.0, "iron", false)
+			var n := 6
+			for k in n:
+				var x := cx - (w * 0.5 - 0.7) * 0.5 + k * (w * 0.5 - 0.7) / (n - 1)
+				kit.box(Vector3(x, top + y, face + 0.1), Vector3(0.07, 0.07, 0.04), 0.0, "iron", false)
+		# ring pull: a boss and a ring of short bars
+		var at := Vector3(sx * 0.42, top + 2.9, face + 0.1)
+		kit.box(at, Vector3(0.16, 0.16, 0.05), 0.0, "iron", false)
+		var ring_c := at + Vector3(0, -0.2, 0.03)
+		var segs := 10
+		for k in segs:
+			var a0 := TAU * k / segs
+			var a1 := TAU * (k + 1) / segs
+			var p0 := ring_c + Vector3(cos(a0), sin(a0), 0) * 0.15
+			var p1 := ring_c + Vector3(cos(a1), sin(a1), 0) * 0.15
+			var y_axis := (p1 - p0).normalized()
+			kit.obox((p0 + p1) * 0.5, Vector3(0.035, p0.distance_to(p1) + 0.01, 0.035),
+				Basis(y_axis.cross(Vector3.BACK).normalized(), y_axis, Vector3.BACK), "iron")
+
+
+## The porch head: a two-centred pointed arch springing ARCH_SPRING over the
+## threshold up to the door's top, carried on a jamb shaft each side; its
+## spandrels and a course over its apex fill the porch to the lintel, from the
+## door's face to the piers' front, and a soffit of voussoirs runs under
+## them. All of it is over head height or in the piers' corners.
+const ARCH_SPRING := 6.2
+static func _porch_arch(kit: ArchKit, top: float, w: float, h: float, face: float, front: float) -> void:
+	var a := w * 0.5
+	var ys := top + ARCH_SPRING
+	var rise := h - ARCH_SPRING
+	var radius := (a * a + rise * rise) / (2.0 * a)
+	var depth := front - face
+	var zc := (face + front) * 0.5
+	var lintel_bottom := top + h + 1.0
+	# spandrels: thin courses from the arch's edge out to the piers
+	var courses := 14
+	for k in courses:
+		var y0 := ys + rise * k / courses
+		var y1 := ys + rise * (k + 1) / courses
+		var x0 := _arch_edge(y1 - ys, a, radius, rise)
+		for sx: float in [-1.0, 1.0]:
+			kit.box(Vector3(sx * (x0 + a) * 0.5, (y0 + y1) * 0.5, zc), Vector3(a - x0 + 0.02, y1 - y0 + 0.01, depth), 0.0, "trim", false)
+	# the course over the apex, up to the lintel
+	kit.box(Vector3(0, (top + h + lintel_bottom) * 0.5, zc), Vector3(w + 0.02, lintel_bottom - top - h + 0.02, depth), 0.0, "trim", false)
+	# the soffit and two orders of voussoirs along both arcs
+	var segs := 9
+	for sx: float in [-1.0, 1.0]:
+		for k in segs:
+			var y0 := ys + rise * k / segs
+			var y1 := ys + rise * (k + 1) / segs
+			var p0 := Vector3(sx * _arch_edge(y0 - ys, a, radius, rise), y0, 0.0)
+			var p1 := Vector3(sx * _arch_edge(y1 - ys, a, radius, rise), y1, 0.0)
+			var y_axis := (p1 - p0).normalized()
+			var x_axis := y_axis.cross(Vector3.BACK).normalized()
+			# away from the opening (out of the arch's curve)
+			var out := x_axis if x_axis.dot(Vector3(sx, 0.4, 0)) > 0.0 else -x_axis
+			var basis := Basis(x_axis, y_axis, Vector3.BACK)
+			var mid := (p0 + p1) * 0.5
+			var length := p0.distance_to(p1) + 0.06
+			# soffit: covers the courses' steps, the full depth of the porch
+			kit.obox(mid + out * 0.1 + Vector3(0, 0, zc), Vector3(0.24, length, depth - 0.02), basis, "trim")
+			# outer order: a moulded ring standing proud of the piers' front
+			kit.obox(mid + out * 0.32 + Vector3(0, 0, front + 0.08), Vector3(0.42, length, 0.16), basis, "trim")
+			# inner order, a step back toward the door
+			kit.obox(mid + out * 0.06 + Vector3(0, 0, face + 0.45), Vector3(0.2, length, 0.3), basis, "trim")
+	# jamb shafts with a base and a capital, in the piers' inner corners
+	for sx: float in [-1.0, 1.0]:
+		var x := sx * (a - 0.15)
+		var z := front - 0.35
+		kit.box(Vector3(x, top + 0.2, z), Vector3(0.42, 0.4, 0.42), 0.0, "trim", false)
+		kit.cylinder(Vector3(x, top + 0.4, z), 0.15, ARCH_SPRING - 0.75, "trim", 10, false)
+		kit.box(Vector3(x, ys - 0.2, z), Vector3(0.5, 0.4, 0.5), 0.0, "trim", false)
+
+
+## |x| of a two-centred arch's edge `dy` over its spring: `a` (half span) at
+## the spring, 0 at the apex `rise` higher.
+static func _arch_edge(dy: float, a: float, radius: float, rise: float) -> float:
+	var d := clampf(dy, 0.0, rise)
+	return a - radius + sqrt(maxf(radius * radius - d * d, 0.0))
+
+
+## Paving over `area` (world x, z): flags following the higher of the ground
+## and the apron's top (`top`) two centimetres over it, a kerb round the open
+## edges.
+static func _apron_paving(kit: ArchKit, top: float, area: Rect2) -> void:
+	var step := 0.5
+	var kerb := 0.4
+	var nx := ceili(area.size.x / step)
+	var nz := ceili(area.size.y / step)
+	for i in nx:
+		for j in nz:
+			var x0 := area.position.x + i * area.size.x / nx
+			var x1 := area.position.x + (i + 1) * area.size.x / nx
+			var z0 := area.position.y + j * area.size.y / nz
+			var z1 := area.position.y + (j + 1) * area.size.y / nz
+			var cx := (x0 + x1) * 0.5
+			var cz := (z0 + z1) * 0.5
+			var edge := minf(minf(cx - area.position.x, area.end.x - cx), area.end.y - cz) < kerb
+			var a := _paved(x0, z0, top)
+			var b := _paved(x1, z0, top)
+			var c := _paved(x1, z1, top)
+			var d := _paved(x0, z1, top)
+			kit.quad("kerb" if edge else "paving", a, b, c, d, (a + c) * 0.5 + Vector3.DOWN)
+
+
+static func _paved(x: float, z: float, top: float) -> Vector3:
+	var g := Layout.height_at(x, z)
+	return Vector3(x, maxf(top, g if not is_nan(g) else top) + 0.02, z)
 
 
 static func _lights(node: Node3D, top: float) -> void:

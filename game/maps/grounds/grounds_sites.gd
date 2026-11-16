@@ -11,6 +11,7 @@ extends RefCounted
 ## down to the lowest ground under it.
 
 const Layout := preload("res://maps/grounds/grounds_layout.gd")
+const PBR := preload("res://maps/grounds/grounds_pbr.gd")
 const ArchKit := preload("res://maps/grounds/arch_kit.gd")
 const Mats := preload("res://maps/grounds/grounds_mats.gd")
 const VillageKit := preload("res://maps/grounds/village_kit.gd")
@@ -514,13 +515,29 @@ static func _boathouse(parent: Node3D) -> void:
 	var stair := Layout.road("boathouse_stairs")
 	if not stair.is_empty():
 		_stair(kit, stair["points"], float(stair.get("width", 3.0)))
-	var root := kit.finish(parent, Mats.materials(), "Boathouse")
+	var mats := Mats.materials().duplicate()
+	mats.merge(_stair_materials())
+	var root := kit.finish(parent, mats, "Boathouse")
 	Mats.lamp_light(root, Vector3(c.x, fy + 2.6, c.y + 5.2), 1.0, 8.0)
 
 
 ## Treads along a polyline that follow the ground downhill: every tread is a
 ## solid block from its top down to the ground, rises are at most 0.3 m (under
 ## the player's 0.45 m step-up), so the whole flight is walkable both ways.
+## The blocks are the server's (the pack was compiled from this same layout);
+## each is drawn as a body of big weathered ashlar under a paler tread slab
+## STAIR_CAP thick, the slab overhanging the step below by STAIR_NOSE and the
+## flanks by STAIR_LIP: the nosings' shadow lines and the light treads over
+## the darker risers read as steps from the shore, not as one slab.
+## Where the flight stands high over the cliff its flanks are buttressed every
+## STAIR_PIER_EVERY treads: piers STAIR_PIER_OUT proud of the flank, under the
+## tread level (outside the walked space).
+const STAIR_CAP := 0.12
+const STAIR_NOSE := 0.06
+const STAIR_LIP := 0.06
+const STAIR_PIER_EVERY := 14
+const STAIR_PIER_OUT := 0.45
+const STAIR_PIER_MIN := 2.5
 static func _stair(kit: ArchKit, pts: Array, width: float) -> void:
 	var samples: Array = []
 	for i in pts.size() - 1:
@@ -530,6 +547,9 @@ static func _stair(kit: ArchKit, pts: Array, width: float) -> void:
 		for k in n:
 			samples.append(a.lerp(b, float(k) / n))
 	samples.append(Vector2(pts[-1][0], pts[-1][1]))
+	# the treads first (top, ground, ends), then their drawing: a nosing needs
+	# its neighbours' heights
+	var treads: Array = []
 	var prev_top := INF
 	for i in samples.size() - 1:
 		var p: Vector2 = samples[i]
@@ -541,10 +561,42 @@ static func _stair(kit: ArchKit, pts: Array, width: float) -> void:
 		if prev_top != INF and prev_top - top > 0.3:
 			top = prev_top - 0.3
 		prev_top = top
+		treads.append([p, q, top, g - 1.2])
+	for i in treads.size():
+		var p: Vector2 = treads[i][0]
+		var q: Vector2 = treads[i][1]
+		var top: float = treads[i][2]
+		var bottom: float = treads[i][3]
 		var mid := (p + q) * 0.5
 		var rot := atan2(-(q - p).y, (q - p).x)
-		var bottom := g - 1.2
-		kit.box(Vector3(mid.x, (top + bottom) * 0.5, mid.y), Vector3(p.distance_to(q) + 0.02, top - bottom, width), rot, "stone")
+		var along := Vector3((q - p).x, 0.0, (q - p).y).normalized()
+		var length := p.distance_to(q) + 0.02
+		kit.box(Vector3(mid.x, (top - STAIR_CAP + bottom) * 0.5, mid.y), Vector3(length, top - STAIR_CAP - bottom, width), rot, "ashlar")
+		# the tread slab, nosed over whichever neighbour stands lower
+		var ahead := i + 1 < treads.size() and float(treads[i + 1][2]) < top - 0.02
+		var behind := i > 0 and float(treads[i - 1][2]) < top - 0.02
+		var nose_a := STAIR_NOSE if ahead else 0.0
+		var nose_b := STAIR_NOSE if behind else 0.0
+		var cap_at := Vector3(mid.x, top - STAIR_CAP * 0.5, mid.y) + along * (nose_a - nose_b) * 0.5
+		kit.box(cap_at, Vector3(length + nose_a + nose_b, STAIR_CAP, width + STAIR_LIP * 2.0), rot, "tread")
+		# a buttress pier on each flank where the flight stands high
+		var pier_top := top - STAIR_CAP - 0.2
+		if i % STAIR_PIER_EVERY == STAIR_PIER_EVERY / 2 and pier_top - bottom > STAIR_PIER_MIN:
+			var across := Vector3(-along.z, 0.0, along.x)
+			for sx: float in [-1.0, 1.0]:
+				var at := Vector3(mid.x, (pier_top + bottom) * 0.5, mid.y) + across * sx * (width * 0.5 + STAIR_PIER_OUT * 0.5)
+				kit.box(at, Vector3(1.2, pier_top - bottom, STAIR_PIER_OUT + 0.02), rot, "ashlar")
+				# a weathered cap over the pier's head
+				kit.box(at + Vector3.UP * ((pier_top - bottom) * 0.5 + 0.06) + across * sx * 0.02, Vector3(1.35, 0.12, STAIR_PIER_OUT + 0.1), rot, "tread")
+
+
+## The lake stair's own surfaces (merged over the shared set for the boathouse
+## batch): the treads' pale sandstone and the flanks' big ashlar.
+static func _stair_materials() -> Dictionary:
+	return {
+		"tread": PBR.surface("medieval_blocks_03", Color(0.9, 0.88, 0.84), {"metres": 2.0}),
+		"ashlar": PBR.surface("large_sandstone_blocks_01", Color(0.7, 0.68, 0.64), {"metres": 4.5}),
+	}
 
 
 # ------------------------------------------------------------------ station
@@ -724,20 +776,135 @@ static func _pitch_lines(root: Node3D, q: Vector3) -> void:
 
 # -------------------------------------------------------- stone circle etc.
 
+## The highland stone circle: thirteen standing stones and an altar slab, each
+## the server's box (1.6 x 3.2-5.2 x 0.9 m, the altar 3.0 x 1.2 x 1.6) drawn
+## as a weathered monolith inside it (_monolith: rounded arrises, a tapering
+## crown, a chipped and pitted face) in the hills' own cliff rock, darker at
+## its foot and greened where rain lies on it. One mesh, one draw.
+const CLIFF_ALBEDO := "res://assets/terrain/textures/cliff_rock_alb_ht.png"
+const CLIFF_NORMAL := "res://assets/terrain/textures/cliff_rock_nrm_rgh.png"
 static func _stone_circle(parent: Node3D) -> void:
 	var c := Layout.landmark("stone_circle")
 	if c == Vector3.INF:
 		return
-	var kit := ArchKit.new()
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 7601
+	var noise := FastNoiseLite.new()
+	noise.seed = 7601
+	noise.frequency = 1.6
+	noise.fractal_octaves = 3
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	for i in 13:
 		var a := TAU * i / 13.0
 		var g := Layout.ground(c.x + cos(a) * 16.0, c.z + sin(a) * 16.0)
 		var hgt := rng.randf_range(3.2, 5.2)
-		kit.box(g + Vector3(0, hgt * 0.5 - 0.6, 0), Vector3(1.6, hgt, 0.9), -a + rng.randf_range(-0.15, 0.15), "mossy")
-	kit.box(c + Vector3(0, 0.4, 0), Vector3(3.0, 1.2, 1.6), 0.3, "mossy")
-	kit.finish(parent, Mats.materials(), "StoneCircle")
+		_monolith(st, noise, g + Vector3(0, hgt * 0.5 - 0.6, 0), Vector3(1.6, hgt, 0.9), -a + rng.randf_range(-0.15, 0.15), 0.84, 0.6)
+	_monolith(st, noise, c + Vector3(0, 0.4, 0), Vector3(3.0, 1.2, 1.6), 0.3, 0.97, 0.6)
+	st.index()
+	st.generate_normals()
+	var mi := MeshInstance3D.new()
+	mi.name = "StoneCircle"
+	mi.mesh = st.commit()
+	mi.material_override = _cliff_rock()
+	parent.add_child(mi)
+
+
+## A standing stone inside the box `size` centred at `centre` (yaw `rot`):
+## a rounded box (arrises rounded to a radius, never outside the box), its
+## crown narrowed to `taper` of its width, its faces pitted inward by noise;
+## the part `buried` metres under its foot gets no bottom face. Vertex colour:
+## a darker foot and a green cast on the faces the rain lies on.
+static func _monolith(st: SurfaceTool, noise: FastNoiseLite, centre: Vector3, size: Vector3, rot: float, taper: float, buried: float) -> void:
+	var h := size * 0.5
+	var bevel := minf(0.16, minf(h.x, h.z) * 0.4)
+	var inner := h - Vector3.ONE * bevel
+	var basis := Basis(Vector3.UP, rot)
+	var seed_off := centre * 0.37
+	var cells := Vector3i(maxi(4, ceili(size.x / 0.22)), maxi(4, ceili(size.y / 0.25)), maxi(4, ceili(size.z / 0.22)))
+	# faces: [axis (0 x, 1 y, 2 z), sign]; no bottom
+	for face: Array in [[0, 1.0], [0, -1.0], [2, 1.0], [2, -1.0], [1, 1.0]]:
+		var axis: int = face[0]
+		var sgn: float = face[1]
+		var ua := (axis + 1) % 3
+		var va := (axis + 2) % 3
+		var nu: int = cells[ua]
+		var nv: int = cells[va]
+		var grid: Array = []
+		for iu in nu + 1:
+			var row: Array = []
+			for iv in nv + 1:
+				var p := Vector3.ZERO
+				p[axis] = h[axis] * sgn
+				p[ua] = -h[ua] + size[ua] * iu / nu
+				p[va] = -h[va] + size[va] * iv / nv
+				row.append(_monolith_point(p, h, inner, bevel, taper, noise, seed_off))
+			grid.append(row)
+		for iu in nu:
+			for iv in nv:
+				var quad := [grid[iu][iv], grid[iu + 1][iv], grid[iu + 1][iv + 1], grid[iu][iv + 1]]
+				# a quad entirely under the ground is never seen
+				if (quad[0] as Vector3).y < -h.y + buried - 0.2 and (quad[2] as Vector3).y < -h.y + buried - 0.2:
+					continue
+				# Godot's front faces are clockwise seen from outside: for (a, b, c)
+				# the outward normal is (c - a) x (b - a)
+				var n := ((quad[2] as Vector3) - (quad[0] as Vector3)).cross((quad[1] as Vector3) - (quad[0] as Vector3))
+				var outward := Vector3.ZERO
+				outward[axis] = sgn
+				var order := [0, 1, 2, 0, 2, 3] if n.dot(outward) > 0.0 else [0, 2, 1, 0, 3, 2]
+				for k: int in order:
+					var v: Vector3 = quad[k]
+					var foot := clampf((v.y + h.y - buried) / 1.2, 0.0, 1.0)
+					var shade := lerpf(0.55, 1.0, foot)
+					var wet := clampf((v.y + h.y) / size.y, 0.0, 1.0) * (0.5 + 0.5 * noise.get_noise_3dv(v * 0.7 + seed_off))
+					var tint := Color(shade, shade, shade).lerp(Color(shade * 0.78, shade * 0.92, shade * 0.66), clampf(wet, 0.0, 1.0) * 0.6)
+					st.set_color(tint)
+					st.add_vertex(centre + basis * v)
+
+
+## One surface point of a monolith (box-local): pulled onto the rounded box,
+## narrowed toward the crown, pitted inward.
+static func _monolith_point(p: Vector3, h: Vector3, inner: Vector3, bevel: float, taper: float, noise: FastNoiseLite, seed_off: Vector3) -> Vector3:
+	var q := p.clamp(-inner, inner)
+	var d := p - q
+	var v := q + d.normalized() * bevel if d.length_squared() > 1e-8 else p
+	var t := clampf((v.y + h.y) / (h.y * 2.0), 0.0, 1.0)
+	var s := lerpf(1.0, taper, t * t)
+	v.x *= s
+	v.z *= s
+	# a crown broken off on a slant, lower on one side (by the stone's own
+	# noise): still inside the box. The altar (barely tapered) stays level.
+	if taper < 0.9:
+		var slant := (0.18 + 0.3 * (0.5 + 0.5 * noise.get_noise_1d(seed_off.x * 3.1 + seed_off.z))) * minf(h.y, 1.2)
+		v.y = minf(v.y, h.y - slant * (0.5 + 0.5 * v.x / maxf(h.x, 0.01)))
+	var out := (v - Vector3(0, v.y, 0) * 0.3).normalized()
+	var pit := 0.5 + 0.5 * noise.get_noise_3dv(p + seed_off)
+	return v - out * pit * 0.06
+
+
+static var _rock_mat: ShaderMaterial = null
+
+
+## The hills' cliff rock (Terrain3D's packed albedo/normal; no roughness or
+## AO maps), world-space triplanar like every other grounds surface; the
+## vertex colour darkens and greens it.
+static func _cliff_rock() -> ShaderMaterial:
+	if _rock_mat != null:
+		return _rock_mat
+	var m := ShaderMaterial.new()
+	m.shader = PBR.SHADER
+	m.set_shader_parameter("albedo_tex", load(CLIFF_ALBEDO))
+	m.set_shader_parameter("normal_tex", load(CLIFF_NORMAL))
+	m.set_shader_parameter("tint", Color(0.86, 0.86, 0.82))
+	m.set_shader_parameter("world_scale", 1.0 / 2.6)
+	m.set_shader_parameter("normal_strength", 1.2)
+	m.set_shader_parameter("rough_min", 0.75)
+	m.set_shader_parameter("rough_max", 0.92)
+	m.set_shader_parameter("lite", true)
+	m.set_shader_parameter("lite_roughness", 0.86)
+	m.set_shader_parameter("use_baked_instance_ao", true)
+	_rock_mat = m
+	return m
 
 
 static func _smugglers_camp(parent: Node3D) -> void:
