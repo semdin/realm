@@ -5,8 +5,11 @@ class_name StatusFX
 ## byte the server replicates per entity (RealmSession.remote `statuses`),
 ## drawn the same way for creatures and heroes alike.
 ##
-##   stun     gold stars circling the head and red sparks dripping off the body
-##   freeze   a clear ice shell over the body, crystals at its feet, cold mist
+##   stun     dizziness over the head: three small comets of pale gold light
+##            chasing round a thin wobbling ring, with a dust of motes that
+##            twinkle in and out (dizzy_orbit.gdshader, on the GPU), and red
+##            sparks dripping off the body
+##   freeze   a clear ice shell over the body, ice shards at its feet, cold mist
 ##            rolling off it, the pose held; the ice bursts when it thaws
 ##   slow     rime creeping up from the feet, frost motes and a cold mist, the
 ##            animation at the slowed pace
@@ -41,12 +44,21 @@ const STATUS_POISON := 32
 const STATUS_KNOCKED := 64
 const STATUS_WEAK := 128
 
-const STAR_TEX := "res://assets/vfx/tex/star_flare_256.png"
 const GLOW_TEX := "res://assets/vfx/tex/soft_glow_512.png"
 const FLAME_ATLAS := "res://assets/vfx/atlases/flame_loop_8x8_1k.png"
 const SMOKE_ATLAS := "res://assets/vfx/atlases/smoke_puff_8x8_1k.png"
 const NOISE_TEX := "res://assets/vfx/tex/noise_erosion_512.png"
 const SKIN_SHADER := preload("res://assets/shaders/status_skin.gdshader")
+const DIZZY_SHADER := preload("res://assets/shaders/dizzy_orbit.gdshader")
+const ICE_SHADER := preload("res://assets/shaders/ice_crystal.gdshader")
+const BLOOD_SHADER := preload("res://assets/shaders/blood_splat.gdshader")
+const SPARK_SHADER := preload("res://assets/shaders/ember_spark.gdshader")
+## The stun's dizziness: comets round the ring, motes per comet, loose dust.
+const DIZZY_COMETS := 3
+const DIZZY_TAIL := 10
+const DIZZY_DUST := 12
+## Its ring is this wide for a man-sized head (0.45 m girth), within limits.
+const DIZZY_RADIUS := 0.26
 const FLAME_SHADER := preload("res://assets/shaders/body_flame.gdshader")
 ## The fire's crackle on a burning body (the flame wave's loop).
 const BURN_SOUND := "spell_flame_wave_sustain"
@@ -85,6 +97,8 @@ const POPS := {
 # i18n-end
 
 static var _materials: Dictionary = {}
+## The sparks' draw mesh (ember_spark.gdshader on a quad), one per process.
+static var _spark_quad: QuadMesh = null
 static var _last_pop: Dictionary = {}   # status bit -> msec
 
 var body: Node3D = null
@@ -97,7 +111,7 @@ var _bounds := AABB()
 var _parts: Dictionary = {}       # status bit -> Node (its look while it runs)
 var _overlay: Material = null
 var _overlaid: Array = []         # meshes carrying _overlay
-var _stars: Node3D = null
+var _stars: GPUParticles3D = null
 ## Spell-stage effects that live in the world, following the body (the stun
 ## sparks): freed with the status, or with the body.
 var _world_parts: Dictionary = {}  # status bit -> Node3D
@@ -113,7 +127,7 @@ var _cold: ShaderMaterial = null
 static func warm_assets() -> void:
 	if DisplayServer.get_name() == "headless":
 		return
-	for path in [STAR_TEX, GLOW_TEX, FLAME_ATLAS, SMOKE_ATLAS, NOISE_TEX]:
+	for path in [GLOW_TEX, FLAME_ATLAS, SMOKE_ATLAS, NOISE_TEX]:
 		SpellEffect.asset(path)
 
 ## Draw `status` on `target` (creating its StatusFX child the first time).
@@ -193,7 +207,7 @@ func _apply(status: int) -> void:
 			_begin(int(bit))
 	_refresh_overlay()
 	_refresh_pace()
-	set_process(_stars != null or bits & (STATUS_BURN | STATUS_BLEED) != 0)
+	set_process(bits & (STATUS_BURN | STATUS_BLEED) != 0)
 
 func _exit_tree() -> void:
 	_stop_burn_audio()
@@ -205,9 +219,6 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	_t += delta
-	if _stars != null and is_instance_valid(_stars):
-		_stars.rotation.y = _t * 3.4
-		_stars.position.y = _head + 0.4 + sin(_t * 5.0) * 0.06
 	if _firelight != null and is_instance_valid(_firelight):
 		# firelight never holds still
 		_firelight.light_energy = 1.5 + sin(_t * 23.0) * 0.25 + sin(_t * 9.7) * 0.3 + randf() * 0.25
@@ -230,7 +241,7 @@ func _begin(bit: int) -> void:
 	_pop(bit)
 	match bit:
 		STATUS_STUN:
-			_stars = _make_stars()
+			_stars = _make_dizzy()
 			_parts[bit] = _stars
 			_world_parts[bit] = SkillFX.spawn_stage(body.get_parent(), STUN_SPELL, "sustain",
 				body.global_position + Vector3.UP * (_head + 0.1), Vector3.UP, null,
@@ -255,7 +266,10 @@ func _end(bit: int) -> void:
 	for parts in [_parts, _world_parts]:
 		var part = parts.get(bit)
 		parts.erase(bit)
-		if part is Node and is_instance_valid(part):
+		if part is GPUParticles3D and bit == STATUS_STUN and is_inside_tree():
+			# the dizziness clears rather than blinking out
+			_fade_dizzy(part as GPUParticles3D, 0.0, 0.22).tween_callback((part as Node).queue_free)
+		elif part is Node and is_instance_valid(part):
 			(part as Node).queue_free()
 	match bit:
 		STATUS_STUN:
@@ -536,44 +550,74 @@ static func _ramp(colours: Array, offsets: Array) -> Gradient:
 	ramp.colors = PackedColorArray(colours)
 	return ramp
 
-func _make_stars() -> Node3D:
-	var ring := Node3D.new()
-	ring.name = "StunStars"
+## The stun's dizziness over the head (dizzy_orbit.gdshader): small comets of
+## light chasing round a thin wobbling ring a little wider than the head, and
+## motes twinkling round with them. Its own copy of the process material: it
+## fades in and out on its own.
+func _make_dizzy() -> GPUParticles3D:
+	var ring := GPUParticles3D.new()
+	ring.name = "Dizzy"
+	var r := clampf(DIZZY_RADIUS * _radius / 0.45, 0.2, 0.75)
+	var grow := clampf(r / DIZZY_RADIUS, 0.85, 2.0)
+	ring.amount = DIZZY_COMETS * DIZZY_TAIL + DIZZY_DUST
+	# every particle's place is a function of the time: they never die
+	ring.lifetime = 600.0
+	ring.explosiveness = 1.0
+	ring.local_coords = true
+	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var span := r * 1.4 + 0.2
+	ring.visibility_aabb = AABB(Vector3(-span, -0.5, -span), Vector3(span * 2.0, 1.0, span * 2.0))
+	if _spark_quad == null:
+		_spark_quad = QuadMesh.new()
+		var draw := ShaderMaterial.new()
+		draw.shader = SPARK_SHADER
+		_spark_quad.material = draw
+	ring.draw_pass_1 = _spark_quad
+	var process := (_material("dizzy") as ShaderMaterial).duplicate() as ShaderMaterial
+	process.set_shader_parameter("radius", r)
+	process.set_shader_parameter("size_head", 0.019 * grow)
+	process.set_shader_parameter("size_dust", 0.008 * grow)
+	process.set_shader_parameter("strength", 0.0)
+	ring.process_material = process
 	add_child(ring)
-	ring.position.y = _head + 0.4
-	var count := 5
-	var r := clampf(_radius * 0.75, 0.4, 1.2)
-	var size := clampf(_radius * 0.75, 0.62, 1.1)
-	for i in range(count):
-		var star := MeshInstance3D.new()
-		var quad := QuadMesh.new()
-		quad.size = Vector2(size, size)
-		quad.material = _material("star")
-		star.mesh = quad
-		star.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var a := TAU * float(i) / float(count)
-		star.position = Vector3(cos(a) * r, 0.06 * float(i % 2), sin(a) * r)
-		ring.add_child(star)
+	# round the crown, where a dazed head's eyes would roll
+	ring.position.y = _head - 0.08 * grow
+	ring.emitting = true
+	_fade_dizzy(ring, 1.0, 0.18)
 	return ring
 
+func _fade_dizzy(ring: GPUParticles3D, to: float, seconds: float) -> Tween:
+	var process := ring.process_material as ShaderMaterial
+	var tween := ring.create_tween()
+	tween.tween_method(func(v: float) -> void: process.set_shader_parameter("strength", v),
+		float(process.get_shader_parameter("strength")), to, seconds)
+	return tween
+
+## Ice shards grown up round the feet (ice_crystal.gdshader: clear blue ice
+## clouded by frost and cracks, a cold rim): a ring of slim ones leaning out
+## and a few small ones between, each its own size and lean.
 func _make_crystals() -> Node3D:
 	var holder := Node3D.new()
 	holder.name = "IceCrystals"
 	add_child(holder)
-	var count := 6
-	var r := _radius * 0.95
+	var grow := clampf(_head / 1.9, 0.8, 2.0)
+	var count := 11
 	for i in range(count):
+		var small := i % 3 == 2
 		var spike := MeshInstance3D.new()
 		var prism := PrismMesh.new()
-		var h := randf_range(0.55, 1.05) * clampf(_head / 1.9, 0.8, 2.2)
-		prism.size = Vector3(0.26, h, 0.22)
-		prism.material = _material("crystal")
+		var h := (randf_range(0.18, 0.32) if small else randf_range(0.38, 0.72)) * grow
+		var w := (randf_range(0.07, 0.11) if small else randf_range(0.11, 0.17)) * grow
+		prism.size = Vector3(w, h, w * randf_range(0.7, 0.95))
+		prism.material = _material("ice_shard")
 		spike.mesh = prism
 		spike.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		var a := TAU * float(i) / float(count) + randf_range(-0.25, 0.25)
-		spike.position = Vector3(cos(a) * r, h * 0.42, sin(a) * r)
+		var a := TAU * float(i) / float(count) + randf_range(-0.2, 0.2)
+		var r := _radius * (randf_range(0.95, 1.2) if small else randf_range(0.7, 0.95))
+		spike.position = Vector3(cos(a) * r, h * 0.36, sin(a) * r)
 		# Leaning out from the body, each its own way.
-		spike.rotation = Vector3(sin(a) * 0.35, randf_range(0.0, TAU), -cos(a) * 0.35)
+		var lean := randf_range(0.25, 0.55)
+		spike.rotation = Vector3(sin(a) * lean, randf_range(0.0, TAU), -cos(a) * lean)
 		holder.add_child(spike)
 	return holder
 
@@ -666,6 +710,35 @@ static func _material(kind: String) -> Material:
 		skin.set_shader_parameter("reach", 0.85)
 		_materials[kind] = skin
 		return skin
+	if kind == "dizzy":
+		# the stun's comets: white-hot heads cooling to pale gold, then amber
+		var dizzy := ShaderMaterial.new()
+		dizzy.shader = DIZZY_SHADER
+		dizzy.set_shader_parameter("comets", DIZZY_COMETS)
+		dizzy.set_shader_parameter("tail", DIZZY_TAIL)
+		var gradient := Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 0.25, 0.7, 1.0])
+		gradient.colors = PackedColorArray([Color(1.0, 0.97, 0.88, 1.0), Color(1.0, 0.86, 0.48, 1.0),
+			Color(0.98, 0.62, 0.22, 0.8), Color(0.9, 0.42, 0.12, 0.0)])
+		var ramp := GradientTexture1D.new()
+		ramp.gradient = gradient
+		ramp.width = 64
+		dizzy.set_shader_parameter("ramp", ramp)
+		_materials[kind] = dizzy
+		return dizzy
+	if kind == "splat":
+		# a ragged spot of blood (blood_splat.gdshader), not a soft disc
+		var splat := ShaderMaterial.new()
+		splat.shader = BLOOD_SHADER
+		splat.set_shader_parameter("noise", SpellEffect.asset(NOISE_TEX))
+		_materials[kind] = splat
+		return splat
+	if kind == "ice_shard":
+		var shard := ShaderMaterial.new()
+		shard.shader = ICE_SHADER
+		shard.set_shader_parameter("noise", SpellEffect.asset(NOISE_TEX))
+		_materials[kind] = shard
+		return shard
 	if kind == "flame":
 		var flame := ShaderMaterial.new()
 		flame.shader = FLAME_SHADER
@@ -687,14 +760,6 @@ static func _material(kind: String) -> Material:
 			mat.albedo_texture = SpellEffect.asset(SMOKE_ATLAS)
 			mat.vertex_color_use_as_albedo = true
 			mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-		"splat":
-			# A spot of blood on the ground.
-			mat.albedo_texture = SpellEffect.asset(GLOW_TEX)
-			mat.albedo_color = Color(0.3, 0.0, 0.01, 0.9)
-			mat.roughness = 0.15
-			mat.metallic_specular = 0.8
-			mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-			mat.cull_mode = BaseMaterial3D.CULL_BACK
 		"crystal":
 			mat.albedo_color = Color(0.7, 0.92, 1.0, 0.7)
 			mat.emission_enabled = true
@@ -703,17 +768,12 @@ static func _material(kind: String) -> Material:
 			mat.roughness = 0.05
 			mat.metallic_specular = 1.0
 			mat.vertex_color_use_as_albedo = false
-		"star", "mote", "drop":
+		"mote", "drop":
 			mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 			mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD if kind != "drop" else BaseMaterial3D.BLEND_MODE_MIX
-			mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED if kind == "star" else BaseMaterial3D.BILLBOARD_PARTICLES
-			mat.albedo_texture = SpellEffect.asset(STAR_TEX if kind == "star" else GLOW_TEX)
-			mat.albedo_color = Color(1.0, 0.85, 0.3) if kind == "star" else Color(1, 1, 1)
-			mat.vertex_color_use_as_albedo = kind != "star"
-			# The stun stars are an indicator: drawn over the crowd round the head.
-			mat.no_depth_test = kind == "star"
-			if kind == "star":
-				mat.render_priority = 2
+			mat.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
+			mat.albedo_texture = SpellEffect.asset(GLOW_TEX)
+			mat.vertex_color_use_as_albedo = true
 			mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
 	_materials[kind] = mat
 	return mat

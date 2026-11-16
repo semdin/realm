@@ -8,7 +8,10 @@ shader_type spatial;
 // Premultiplied blend: light added on a dark ground, and over a bright floor
 // or sky the spark's own colour covers what is behind it - additive alone
 // turned red sparks into white flecks in daylight.
-render_mode unshaded, blend_premul_alpha, cull_disabled, depth_draw_never, shadows_disabled;
+// No fog: fog mixes the fog colour into every fragment of the quad, and with
+// premultiplied blending that colour is added even where ALPHA is 0 - in the
+// grounds' low height fog (40 m) each spark wore a grey square.
+render_mode unshaded, blend_premul_alpha, cull_disabled, depth_draw_never, shadows_disabled, fog_disabled;
 
 varying vec2 v_metres;
 varying float v_radius;

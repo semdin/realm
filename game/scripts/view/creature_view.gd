@@ -25,6 +25,14 @@ class_name CreatureView
 ## flat into the floor and is gone. `stretch` widens or heightens a model
 ## past its uniform `scale` (a cocoon fitted round a player), `silk_alpha`
 ## draws it as thin silk the body inside shows through.
+##
+## A fallen body plays its death clip to the end, lies a beat, then burns away
+## (creature_dissolve.gdshader: a noise front eating it from the top, charring
+## ahead of a glowing ember edge, embers rising off it, a breath of ash). The
+## server keeps a corpse in its snapshots only CORPSE_TICKS (2 s): when it
+## drops one still burning, main.gd hands the body over (`linger`) and forgets
+## it - no table holds it, so nothing targets, names or voices it - and the
+## body frees itself once burnt out.
 
 ## Snapshot states (realm_server sim.rs).
 const STATE_IDLE := 0
@@ -95,8 +103,21 @@ const SPLIT_SWELL := 0.08
 const SPLIT_SLUMP := 0.42
 ## The sleep haze off a sleeping head.
 const SLEEP_TINT := Color(0.78, 0.8, 1.0)
+## The corpse lies this long after its death clip ends (a clip-less body:
+## DISSOLVE_NO_CLIP after it fell), then burns away over DISSOLVE_SECONDS; a
+## clip is waited for at most DEATH_CLIP_MAX.
+const DISSOLVE_HOLD := 0.3
+const DISSOLVE_NO_CLIP := 0.5
+const DISSOLVE_SECONDS := 1.6
+const DEATH_CLIP_MAX := 3.6
+const DISSOLVE_SHADER := preload("res://assets/shaders/creature_dissolve.gdshader")
+const EMBER_TINT := Color(1.0, 0.42, 0.1)
 
 static var _views := {}
+## The burning look of a surface without a material (each imported material
+## keeps its own: dissolve_material); how far each body has burnt is its own
+## (an instance uniform), so one look serves every body that falls.
+static var _plain_dissolve: ShaderMaterial = null
 
 var species := ""
 var view := {}
@@ -151,6 +172,16 @@ var _seen_alive := false
 var state := -1
 var attack_starts := 0
 var split_open := false
+## The burn: when it starts (seconds of Time.get_ticks_msec; -1: none
+## planned), how far it is (0..1, -1 before it starts), the surfaces it took
+## over [mesh, surface, override before], the overlays it lifted [mesh,
+## overlay], its embers, and whether main.gd let go of the body.
+var _burn_at := -1.0
+var _burn := -1.0
+var _burnt: Array = []
+var _lifted_overlays: Array = []
+var _embers: GPUParticles3D = null
+var _lingering := false
 
 ## The rig a species is drawn with (creature_views.json `rig`, "" none).
 static func rig_of(id: String) -> String:
@@ -367,10 +398,12 @@ func _update_haze() -> void:
 			_haze[key] = haze
 		if haze != null:
 			haze.emitting = wanted
-	set_process(not _haze.is_empty())
+	set_process(not _haze.is_empty() or _burn_at >= 0.0)
 
 func _process(_delta: float) -> void:
-	if _skeleton == null:
+	if _burn_at >= 0.0:
+		_tick_burn()
+	if _skeleton == null or _haze.is_empty():
 		return
 	var heads: Dictionary = multipart.get("heads", {})
 	for key: String in _haze.keys():
@@ -403,7 +436,11 @@ func drive(drawn: Vector3, yaw: float, state: int, delta: float) -> void:
 			_update_haze()
 			if String(view.get("rig", "")) == WEB_RIG:
 				_split_open()
+			else:
+				_plan_burn()
 		return
+	if is_dead:
+		_unburn()
 	is_dead = false
 	_seen_alive = true
 	if _cc_pace <= 0.0:
@@ -545,3 +582,192 @@ func _apply_speed() -> void:
 	if anim_player != null:
 		# the corpse falls at the normal pace, frozen or not
 		anim_player.speed_scale = _anim_speed * (1.0 if is_dead else _cc_pace)
+
+# ------------------------------------------------------------------ the burn
+
+## The body fell: it burns once its death clip has played out (a body already
+## dead when it came into view lies in the clip's last pose and burns now).
+func _plan_burn() -> void:
+	if model == null or DisplayServer.get_name() == "headless":
+		return
+	var wait := DISSOLVE_NO_CLIP
+	var clip_name := _clip("death")
+	if anim_player != null and clip_name != "Idle" and anim_player.has_animation(clip_name):
+		var clip := anim_player.get_animation(clip_name)
+		if clip.loop_mode == Animation.LOOP_NONE:
+			if not _seen_alive:
+				anim_player.seek(clip.length, true)
+				wait = 0.0
+			else:
+				wait = minf(clip.length, DEATH_CLIP_MAX) + DISSOLVE_HOLD
+	_burn_at = Time.get_ticks_msec() / 1000.0 + wait
+	_burn = -1.0
+	set_process(true)
+
+## main.gd: the snapshot no longer carries this body. A corpse that has not
+## burnt out yet stays to finish and frees itself (true); false: free it now.
+func linger() -> bool:
+	if not is_dead or _burn_at < 0.0 or model == null or not model.visible or not is_inside_tree():
+		return false
+	_lingering = true
+	return true
+
+func _tick_burn() -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _burn_at:
+		return
+	if _burn < 0.0:
+		_start_burn()
+	_burn = clampf((now - _burn_at) / DISSOLVE_SECONDS, 0.0, 1.0)
+	var done := {}
+	for entry: Array in _burnt:
+		var mesh := entry[0] as GeometryInstance3D
+		if is_instance_valid(mesh) and not done.has(mesh):
+			done[mesh] = true
+			mesh.set_instance_shader_parameter("dissolve", _burn)
+	if _embers != null and is_instance_valid(_embers):
+		# thick while the front sweeps the body, thinning as little is left
+		RisingMotes.set_rate(_embers, clampf(1.0 - _burn * _burn, 0.15, 1.0))
+		_embers.emitting = _burn < 0.92
+	if _burn >= 1.0:
+		_burn_at = -1.0
+		model.visible = false
+		set_process(not _haze.is_empty())
+		if _lingering:
+			# the last embers rise and fade before the node goes
+			var tween := create_tween()
+			tween.tween_interval(1.4)
+			tween.tween_callback(queue_free)
+
+## Every surface of the body takes its burning look (its own textures and
+## values), the overlays (a status look) come off, the embers and the ash
+## breath start.
+func _start_burn() -> void:
+	_burn = 0.0
+	for node in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := node as MeshInstance3D
+		if not mesh.visible or mesh.mesh == null:
+			continue
+		if mesh.material_overlay != null:
+			_lifted_overlays.append([mesh, mesh.material_overlay])
+			mesh.material_overlay = null
+		for i in mesh.get_surface_override_material_count():
+			_burnt.append([mesh, i, mesh.get_surface_override_material(i)])
+			mesh.set_surface_override_material(i, dissolve_material(mesh.get_active_material(i)))
+		mesh.set_instance_shader_parameter("dissolve", 0.0)
+	_light_embers()
+
+## Back from the dead (the server stood the body up again in view): its own
+## look back, whole.
+func _unburn() -> void:
+	_burn_at = -1.0
+	_burn = -1.0
+	for entry: Array in _burnt:
+		var mesh := entry[0] as MeshInstance3D
+		if is_instance_valid(mesh):
+			mesh.set_surface_override_material(int(entry[1]), entry[2])
+			mesh.set_instance_shader_parameter("dissolve", 0.0)
+	_burnt.clear()
+	for entry: Array in _lifted_overlays:
+		var mesh := entry[0] as GeometryInstance3D
+		if is_instance_valid(mesh) and mesh.material_overlay == null:
+			mesh.material_overlay = entry[1]
+	_lifted_overlays.clear()
+	if _embers != null and is_instance_valid(_embers):
+		_embers.queue_free()
+	_embers = null
+	if model != null and String(view.get("rig", "")) != WEB_RIG:
+		model.visible = true
+	set_process(not _haze.is_empty())
+
+## Embers rise off the corpse where it lies (its bones' footprint as the death
+## clip left it) and a breath of dark ash leaves it.
+func _light_embers() -> void:
+	var lo := Vector3(INF, INF, INF)
+	var hi := -lo
+	for found in model.find_children("*", "Skeleton3D", true, false):
+		var skeleton := found as Skeleton3D
+		for bone in skeleton.get_bone_count():
+			var at := skeleton.global_transform * skeleton.get_bone_global_pose(bone).origin
+			lo = lo.min(at)
+			hi = hi.max(at)
+	if not is_finite(lo.x) or (hi - lo).length() > 20.0:
+		lo = global_position - Vector3(0.4, 0.0, 0.4)
+		hi = global_position + Vector3(0.4, 0.6, 0.4)
+	var centre := (lo + hi) * 0.5
+	var half := Vector2(maxf(0.15, (hi.x - lo.x) * 0.5), maxf(0.15, (hi.z - lo.z) * 0.5))
+	var size := clampf(maxf(half.x, half.y) * 2.0, 0.6, 4.0)
+	_embers = RisingMotes.make(maxf(half.x, half.y), 4.0, EMBER_TINT, int(clampf(size * 22.0, 18.0, 60.0)), 1.3,
+		Vector2(0.3, 1.1), Vector2(0.01, 0.026))
+	_embers.name = "BurnEmbers"
+	RisingMotes.set_band(_embers, half)
+	add_child(_embers)
+	_embers.global_position = Vector3(centre.x, lo.y + (hi.y - lo.y) * 0.35, centre.z)
+	_embers.emitting = true
+	FlipbookFX.play(get_parent(), Vector3(centre.x, lo.y + 0.1, centre.z), [
+		{"atlas": "smoke_puff_8x8_1k", "size": size * 1.3, "height": size * 0.35, "fps": 20.0,
+			"tint": Color(0.16, 0.13, 0.12), "opacity": 0.32},
+	], {"life": 2.6, "name": "BurnAsh"})
+
+## The burning look of `source` (one per imported material, kept on it as
+## metadata, so it goes when the model's materials go - a map's creatures
+## are let go on the next trip): its textures and values copied into
+## creature_dissolve.gdshader.
+static func dissolve_material(source: Material) -> ShaderMaterial:
+	if source == null:
+		if _plain_dissolve == null:
+			_plain_dissolve = ShaderMaterial.new()
+			_plain_dissolve.shader = DISSOLVE_SHADER
+		return _plain_dissolve
+	if source.has_meta(&"dissolve"):
+		return source.get_meta(&"dissolve")
+	var burning := ShaderMaterial.new()
+	burning.shader = DISSOLVE_SHADER
+	if source is BaseMaterial3D:
+		var base := source as BaseMaterial3D
+		burning.set_shader_parameter("albedo", base.albedo_color)
+		burning.set_shader_parameter("albedo_tex", base.albedo_texture)
+		if base.normal_enabled:
+			burning.set_shader_parameter("normal_tex", base.normal_texture)
+			burning.set_shader_parameter("normal_scale", base.normal_scale)
+		burning.set_shader_parameter("roughness", base.roughness)
+		if base.roughness_texture != null:
+			burning.set_shader_parameter("roughness_tex", base.roughness_texture)
+			burning.set_shader_parameter("roughness_channel", _channel(base.roughness_texture_channel))
+		burning.set_shader_parameter("metallic", base.metallic)
+		if base.metallic_texture != null:
+			burning.set_shader_parameter("metallic_tex", base.metallic_texture)
+			burning.set_shader_parameter("metallic_channel", _channel(base.metallic_texture_channel))
+		else:
+			burning.set_shader_parameter("metallic_channel", Vector4(1, 0, 0, 0))
+		burning.set_shader_parameter("specular", base.metallic_specular)
+		if base.emission_enabled:
+			burning.set_shader_parameter("emission", base.emission)
+			burning.set_shader_parameter("emission_energy", base.emission_energy_multiplier)
+			if base.emission_texture != null:
+				burning.set_shader_parameter("emission_tex", base.emission_texture)
+		burning.set_shader_parameter("uv1_scale", base.uv1_scale)
+		burning.set_shader_parameter("uv1_offset", base.uv1_offset)
+	source.set_meta(&"dissolve", burning)
+	return burning
+
+static func _channel(channel: int) -> Vector4:
+	match channel:
+		BaseMaterial3D.TEXTURE_CHANNEL_GREEN:
+			return Vector4(0, 1, 0, 0)
+		BaseMaterial3D.TEXTURE_CHANNEL_BLUE:
+			return Vector4(0, 0, 1, 0)
+		BaseMaterial3D.TEXTURE_CHANNEL_ALPHA:
+			return Vector4(0, 0, 0, 1)
+		BaseMaterial3D.TEXTURE_CHANNEL_GRAYSCALE:
+			return Vector4(0.333, 0.333, 0.333, 0)
+	return Vector4(1, 0, 0, 0)
+
+## ShaderWarmup: the burning look drawn once (part burnt) on this body, so its
+## pipeline compiles behind the loading screen.
+func warm_burn() -> void:
+	if model == null:
+		return
+	_start_burn()
+	for entry: Array in _burnt:
+		(entry[0] as GeometryInstance3D).set_instance_shader_parameter("dissolve", 0.45)
