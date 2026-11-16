@@ -88,6 +88,8 @@ pub(super) struct Bolt {
     pub pos: Vec3,
     pub dir: Vec3,
     pub speed: f32,
+    /// Metres the bolt may still travel: the spell's range, as in the old
+    /// game (a bolt flies its range and no further).
     pub left: f32,
     pub target: Option<Entity>,
     pub damage: f32,
@@ -505,7 +507,7 @@ impl Sim {
                     pos: origin,
                     dir,
                     speed: spell.projectile_speed,
-                    left: spell.range * 1.5,
+                    left: spell.range,
                     target,
                     damage,
                     finisher,
