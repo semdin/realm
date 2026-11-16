@@ -156,10 +156,21 @@ static func choice_changed() -> void:
 	_current = ""
 
 
+## A preset for this session only, saved nowhere (HitchLog's --hitch-cycle).
+static func use_for_session(preset: String) -> void:
+	if PRESETS.has(preset):
+		_chosen_here = true
+		_current = preset
+
+
 ## Apply the preset to main's world: the viewport, the sun, the camera, the
 ## spell effects, the map's own parts, the weather and the day's light.
 static func apply(main: Node) -> void:
 	var preset := settings()
+	if OS.get_cmdline_user_args().has("--hitch-log") and main.get_node_or_null("HitchLog") == null:
+		var hitch_log: Node = load("res://scripts/world/hitch_log.gd").new()
+		hitch_log.name = "HitchLog"
+		main.add_child(hitch_log)
 	SkillFX.quality = current()
 	var viewport := main.get_viewport()
 	if viewport != null:

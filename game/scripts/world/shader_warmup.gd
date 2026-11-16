@@ -1,11 +1,20 @@
 extends Node3D
 class_name ShaderWarmup
 
-## Draws every creature body, a remote hero, the loot chests, the target ring,
-## a ground warning, the status looks and every spell stage once, in front of
-## the camera while the loading screen still covers it, so the GPU driver
-## compiles their pipelines there instead of in play (the old client's
+## Draws the map's creature bodies, a remote hero, the loot chests, the target
+## ring, a ground warning, the status looks and every spell stage once, in
+## front of the camera while the loading screen still covers it, so the GPU
+## driver compiles their pipelines there instead of in play (the old client's
 ## ShaderWarmup).
+##
+## What it loaded stays loaded while the map is played (`_kept`, replaced by
+## the next map's warm-up): freed with the warm-up's bodies, a creature's model
+## was read from disk again on its first appearance (50-460 ms a species on the
+## Intel iGPU, w11 2026-11-16), and its materials' shaders were freed with it,
+## so their pipelines compiled a second time in play. Only the map's own
+## creatures are drawn (its packs, Dark Shards and dungeon spawns,
+## `map_kinds`): every species on every map cost ~2 s of loads per trip, and
+## ~80 MB of video memory if all were kept.
 ##
 ## A first fight compiled ~170 pipelines in its first 30 s on the Intel iGPU
 ## (old client, 2026-10-30); warmed, half of them moved to the loading screen
@@ -24,11 +33,19 @@ class_name ShaderWarmup
 const DISTANCE := 7.0       # metres in front of the camera
 const SPACING := 1.4
 const SCALE := 0.35         # big creatures still fit the view; scale changes no shader
-const QUIET := 0.75         # done once no pipeline compiled for this long...
-const MIN_TIME := 2.5
-const MAX_TIME := 30.0      # ...or after this, whatever is left compiles in play
-const REFIRE := [0.0, 0.9]  # spell stages fire twice: short layers die fast
+## Done once every spell stage has fired and been drawn (DRAWN_FRAMES after
+## the last firing) and no pipeline compiled for QUIET seconds, or after
+## MAX_TIME (whatever is left compiles in play). No fixed minimum: a warm
+## pipeline cache finishes in about a second (it held 2.5 s on every
+## launch and trip before, w11 2026-11-16); the loading screen it runs under
+## stays up for MapTravel's settle frames after it, so nothing flashes.
+const QUIET := 0.35
+const DRAWN_FRAMES := 3
+const MAX_TIME := 30.0
+const REFIRE := [0.0, 0.5]  # spell stages fire twice: short layers die fast
 const HeroViewScript := "res://scripts/view/hero_view.gd"
+## The Warden's thrown boulder (CombatView keeps it once thrown).
+const BOULDER_MODEL := "res://assets/models/vegetation/rock_boulder.glb"
 
 const PIPELINE_INFOS := [
 	RenderingServer.RENDERING_INFO_PIPELINE_COMPILATIONS_CANVAS,
@@ -41,6 +58,8 @@ const PIPELINE_INFOS := [
 ## The last warm-up's report {bodies, stages, compiled, seconds} (the light
 ## check reads it after the node is gone).
 static var last_report: Dictionary = {}
+## What the last warm-up loaded (models, shaders), held for its map.
+static var _kept: Array = []
 
 var done := false
 ## What it drew and compiled (the light check prints it).
@@ -51,6 +70,7 @@ var seconds := 0.0
 var _t := 0.0
 var _quiet := 0.0
 var _fired := 0
+var _frames_since_fire := 0
 var _start_count := 0
 var _last_count := 0
 var _mute_was := false
@@ -86,24 +106,25 @@ func _ready() -> void:
 	AudioServer.set_bus_mute(0, true)
 	_start_count = pipeline_count()
 	_last_count = _start_count
-	_add_creatures()
+	_add_creatures(String(get_parent().get("map_name")) if get_parent() != null else "")
 	_add_hero()
 	_add_combat_extras()
 	print("[ShaderWarmup] started: %d bodies" % bodies)
 
-## Every species with a model, and every authored boss body.
-func _add_creatures() -> void:
-	var kind := 1
-	while kind < CreatureView.SPECIES_MASK:
-		var species := CreatureView.species_for_kind(kind)
-		if species == "":
-			break
-		var view := CreatureView.view_of(species)
-		if String(view.get("object", "")) == "" and String(view.get("model", "")) != "":
-			_add_creature(kind)
-			if String(view.get("boss_model", "")) != "":
-				_add_creature(kind | CreatureView.BOSS_BIT)
-		kind += 1
+## The map's creatures (`map_kinds`): each species' body, an authored boss
+## body where the map fields a boss of it, a Dark Shard's model. A map the
+## content does not place (no y-band in maps.json) gets every species.
+func _add_creatures(map_id: String) -> void:
+	var kinds := map_kinds(map_id)
+	if kinds.is_empty() and not _has_band(map_id):
+		kinds = _all_kinds()
+	for kind: int in kinds:
+		var view := CreatureView.view_for_kind(kind)
+		match String(view.get("object", "")):
+			"":
+				_add_creature(kind)
+			"stone":
+				_add_model(String(view.get("model", "")))
 
 func _add_creature(kind: int) -> void:
 	var body := CreatureView.new()
@@ -112,6 +133,101 @@ func _add_creature(kind: int) -> void:
 		body.queue_free()
 		return
 	_place(body)
+
+## A bare model (a Dark Shard's, the boulder): its materials drawn once.
+func _add_model(path: String) -> void:
+	if path == "" or not ResourceLoader.exists(path):
+		return
+	var scene := load(path) as PackedScene
+	if scene == null:
+		return
+	var model := scene.instantiate() as Node3D
+	if model == null:
+		return
+	add_child(model)
+	_place(model)
+
+## Every species with a model and every authored boss body (a map without a
+## band).
+static func _all_kinds() -> Array:
+	var out: Array = []
+	var kind := 1
+	while kind < CreatureView.SPECIES_MASK:
+		var species := CreatureView.species_for_kind(kind)
+		if species == "":
+			break
+		var view := CreatureView.view_of(species)
+		if String(view.get("object", "")) == "" and String(view.get("model", "")) != "":
+			out.append(kind)
+			if String(view.get("boss_model", "")) != "":
+				out.append(kind | CreatureView.BOSS_BIT)
+		kind += 1
+	return out
+
+static func _band(map_id: String) -> Dictionary:
+	var maps: Variant = RealmContent.table("maps")
+	if not (maps is Dictionary):
+		return {}
+	return ((maps as Dictionary).get("maps", {}) as Dictionary).get(map_id, {})
+
+static func _has_band(map_id: String) -> bool:
+	return _band(map_id).has("y_min")
+
+## The creature kinds `map_id` can show (snapshot kinds: the species, with
+## BOSS_BIT for an authored boss body): its packs (spawn_tables.json, roster
+## or mob; a boss pack's boss body), the Dark Shards standing in its y-band,
+## and every creature its dungeon's steps name (dungeons.json: spawns,
+## hatchlings, cocoons; a boss's or miniboss's boss body).
+static func map_kinds(map_id: String) -> Array:
+	var species := {}   # species -> wants its boss body
+	var tables: Variant = RealmContent.table("spawn_tables")
+	if tables is Dictionary:
+		for pack: Dictionary in (tables as Dictionary).get("packs", []):
+			if String(pack.get("map", "")) != map_id:
+				continue
+			for mob: Variant in pack.get("roster", [pack.get("mob", "")]):
+				species[String(mob)] = bool(species.get(String(mob), false))
+			if bool(pack.get("boss", false)) or bool(pack.get("world_boss", false)):
+				species[String(pack.get("mob", ""))] = true
+		var band := _band(map_id)
+		if band.has("y_min"):
+			var low := float(band["y_min"])
+			var high := float(band.get("y_max", low))
+			for stone: Dictionary in (tables as Dictionary).get("monoliths", []):
+				var at: Array = stone.get("pos", [0.0, -INF, 0.0])
+				if float(at[1]) >= low and float(at[1]) <= high:
+					species["stone_" + String(stone.get("type", "dark"))] = false
+	var dungeon := DungeonData.for_map(map_id)
+	if not dungeon.is_empty():
+		_dungeon_mobs(dungeon[1], species)
+	species.erase("")
+	var out: Array = []
+	var kind := 1
+	while kind < CreatureView.SPECIES_MASK:
+		var name := CreatureView.species_for_kind(kind)
+		if name == "":
+			break
+		if species.has(name):
+			out.append(kind)
+			if bool(species[name]) and String(CreatureView.view_of(name).get("boss_model", "")) != "":
+				out.append(kind | CreatureView.BOSS_BIT)
+		kind += 1
+	return out
+
+## Every "mob" a dungeon's data names, at any depth (spawns, hatchlings,
+## cocoons); a boss's or miniboss's wants its boss body.
+static func _dungeon_mobs(data: Variant, species: Dictionary) -> void:
+	if data is Dictionary:
+		var entry := data as Dictionary
+		if entry.has("mob"):
+			var mob := String(entry["mob"])
+			var boss := String(entry.get("role", "")) in ["boss", "miniboss"] or entry.has("boss_key")
+			species[mob] = bool(species.get(mob, false)) or boss
+		for value: Variant in entry.values():
+			_dungeon_mobs(value, species)
+	elif data is Array:
+		for value: Variant in data:
+			_dungeon_mobs(value, species)
 
 func _add_hero() -> void:
 	var hero: Node3D = load(HeroViewScript).new()
@@ -153,6 +269,7 @@ func _add_combat_extras() -> void:
 	FloatingText.spawn(self, global_position + global_basis * (_grid(_slot) + Vector3.UP), "1234!",
 		Color(1.0, 0.8, 0.3), 1.3)
 	_slot += 1
+	_add_model(BOULDER_MODEL)
 
 func _grid(i: int) -> Vector3:
 	const COLUMNS := 7
@@ -174,22 +291,75 @@ func _process(delta: float) -> void:
 	if _fired < REFIRE.size() and _t >= float(REFIRE[_fired]):
 		_fire_spells()
 		_fired += 1
+		_frames_since_fire = 0
+	else:
+		_frames_since_fire += 1
 	var count := pipeline_count()
 	if count != _last_count:
 		_last_count = count
 		_quiet = 0.0
 	else:
 		_quiet += delta
-	if (_t >= MIN_TIME and _quiet >= QUIET) or _t >= MAX_TIME:
+	var drawn := _fired >= REFIRE.size() and _frames_since_fire >= DRAWN_FRAMES
+	if (drawn and _quiet >= QUIET) or _t >= MAX_TIME:
 		_finish("")
 
 func _finish(reason: String) -> void:
 	done = true
 	seconds = _t
 	compiled = _last_count - _start_count
+	_keep()
 	AudioServer.set_bus_mute(0, _mute_was)
 	last_report = {"bodies": bodies, "stages": stages, "compiled": compiled, "seconds": snappedf(seconds, 0.1),
 		"reason": reason}
 	print("[ShaderWarmup] %s%d bodies, %d spell stages, %d pipelines compiled in %.1f s" % [
 		(reason + ": ") if reason != "" else "", bodies, stages, compiled, _t])
 	queue_free()
+
+## Holds what the bodies were built from (each model's scene, the materials
+## and shaders their meshes, overlays and particles use) until the next warm-up, so the map's creatures,
+## chests and boulders reuse it in play: no disk read on a first appearance,
+## and the warmed pipelines stay with their live shaders. The previous map's
+## set is let go here, behind the loading screen.
+func _keep() -> void:
+	var kept := {}
+	for node: Node in find_children("*", "", true, false):
+		if node.scene_file_path != "" and not kept.has(node.scene_file_path):
+			kept[node.scene_file_path] = load(node.scene_file_path)
+		if node is GeometryInstance3D:
+			var geometry := node as GeometryInstance3D
+			_keep_material(geometry.material_override, kept)
+			_keep_material(geometry.material_overlay, kept)
+			if geometry is MeshInstance3D:
+				var mesh_instance := geometry as MeshInstance3D
+				for i in mesh_instance.get_surface_override_material_count():
+					_keep_material(mesh_instance.get_surface_override_material(i), kept)
+				_keep_mesh(mesh_instance.mesh, kept)
+			elif geometry is CPUParticles3D:
+				_keep_mesh((geometry as CPUParticles3D).mesh, kept)
+			elif geometry is GPUParticles3D:
+				var particles := geometry as GPUParticles3D
+				_keep_material(particles.process_material, kept)
+				for i in particles.draw_passes:
+					_keep_mesh(particles.get_draw_pass_mesh(i), kept)
+	_kept = kept.values()
+
+## A mesh's own surface materials (a PlaneMesh's or QuadMesh's material).
+static func _keep_mesh(mesh: Mesh, kept: Dictionary) -> void:
+	if mesh == null:
+		return
+	for i in mesh.get_surface_count():
+		_keep_material(mesh.surface_get_material(i), kept)
+
+## A material made in code (a chest's motes, a pool's glow) is kept itself:
+## a StandardMaterial3D's shader is shared by every material with its
+## features and freed with the last of them.
+static func _keep_material(material: Material, kept: Dictionary) -> void:
+	if material == null:
+		return
+	kept[str(material.get_instance_id())] = material
+	if material is ShaderMaterial and (material as ShaderMaterial).shader != null:
+		var shader := (material as ShaderMaterial).shader
+		kept[shader.resource_path if shader.resource_path != "" else str(shader.get_instance_id())] = shader
+	if material.next_pass != null:
+		_keep_material(material.next_pass, kept)

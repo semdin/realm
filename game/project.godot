@@ -9,6 +9,10 @@ config/name="Thousand Realms"
 ; settings under the project name ("Thousand Realms") with other keys.
 config/use_custom_user_dir=true
 config/custom_user_dir_name="ThousandRealms"
+; Dev and check runs (the editor binary: `godot --path game`) keep their own
+; folder (ThousandRealmsDev), so they never rewrite a player's settings,
+; quest marks or caches on the same machine; exported games are unaffected.
+config/custom_user_dir_name.editor="ThousandRealmsDev"
 run/main_scene="res://main.tscn"
 ; The window, taskbar and dock icon (the launcher's emblem); exports put it
 ; into the .exe and the macOS bundle too (export_presets.cfg).
