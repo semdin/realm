@@ -23,7 +23,13 @@ extends Node
 ##               coordinates + copy_offset()), a basic cast at the nearest
 ##               creature in sight; until the run is complete. Every curse
 ##               mark kind (DungeonHazards) is looked at and captured once.
-##   result      the result window with a medal and the rewards
+##   result      no window at the end: the result's line on the notice band
+##               (a medal) and the facts and rewards as chat lines
+##   result_guide K opens the guide on the finished run with "Run it again"
+##   replay_launch (with --check-dungeon-replay, in place of the way out)
+##               "Run it again" pressed in the guide: the server launches a
+##               new run from the finished copy; the verdict comes at the
+##               launch
 ##   to_exit     the rest of the tour, then the reward exit (trial_reward_exit)
 ##   exit        F at the reward exit; the loading screen; the scene is rebuilt
 ##   grounds     (after the reload) back on the grounds
@@ -305,7 +311,11 @@ func _process(delta: float) -> void:
 			if game.map_name != "dng_trial" or int(game.session.copy()) == 0:
 				_verdict("the launch did not lead into a Trial Hall copy (%s, copy %d)" % [game.map_name, int(game.session.copy())])
 				return
-			var walls: Node3D = game.get_node_or_null("Walls")
+			# the map's own scene (MapView), or the pack's grey walls with
+			# --placeholder-world
+			var walls: Node3D = game.get_node_or_null("MapView")
+			if walls == null:
+				walls = game.get_node_or_null("Walls")
 			if walls == null or not walls.position.is_equal_approx(_offset()) or _offset() == Vector3.ZERO:
 				_verdict("the copy's map is not drawn at its offset (%s, offset %s)" % [str(walls.position) if walls else "none", str(_offset())])
 				return
@@ -341,23 +351,64 @@ func _process(delta: float) -> void:
 		"fight":
 			_fight(delta)
 		"result":
-			var result: HudDungeonResult = dungeon.result_window
-			if result.visible and not result.rewards.is_empty():
+			# The end takes no window: the notice band's line and the chat
+			# lines (the facts, then the rewards), and "Run it again" in
+			# the guide (K).
+			var notice: String = game.hud.notices.last_text
+			var rewarded := (dungeon.outcome_lines as Array).any(func(l): return String(l).begins_with(tr("Your rewards")) \
+				or String(l) == tr("You came as a helper: no final chest today."))
+			if dungeon.outcome_notice_shown and rewarded:
 				if not _sent:
 					_sent = true
 					_held = 0.0
 				if _held > HOLD:
-					_seen("result_window", "medal %s, \"%s\", rewards exp %d oril %d, %d items, again button %s" % [
-						result.medal if result.medal != "" else "none", result.card._title_label.text,
-						int(result.rewards.get("exp", 0)), int(result.rewards.get("oril", 0)),
-						(result.rewards.get("items", []) as Array).size(), "shown" if result.again_button.visible else "hidden"])
+					var medal := String(DungeonData.RANK_MEDALS.get(int((dungeon.outcome.get("result", {}) as Dictionary).get("rank", -1)), ""))
+					var windows := 0
+					for w in game.hud.get_parent().get_children():
+						if w is HudWindow and (w as HudWindow).visible:
+							windows += 1
+					_seen("result_window", "no window (%d open), notice \"%s\", chat %s" % [windows, notice, str(dungeon.outcome_lines)])
 					_capture("result")
-					if result.medal == "":
+					if windows > 0:
+						_verdict("a window is open at the run's end")
+						return
+					if medal == "" and not OS.get_cmdline_user_args().has("--check-dungeon-replay"):
 						_verdict("the run earned no medal")
 						return
-					result.close()
-					_s["stop"] = _nearest_stop()
-					_go("to_exit")
+					# the guide's own key, as a player presses it
+					var key := InputEventKey.new()
+					key.physical_keycode = GameSettings.key("dungeon_guide") as Key
+					key.pressed = true
+					Input.parse_input_event(key)
+					_s["guide_at"] = _now()
+					_go("result_guide")
+		"result_guide":
+			# K at the end: the guide on the finished run, "Run it again" there
+			var guide: HudDungeonGuide = dungeon.guide_window
+			if _now() - float(_s.get("guide_at", 0.0)) > HOLD:
+				_seen("result_guide", "guide on %s %s, again %s %s" % [guide.dungeon_id, guide.difficulty,
+					"shown" if guide.again_button.visible else "hidden", "enabled" if not guide.again_button.disabled else "disabled"])
+				_capture("result_guide")
+				if not guide.again_button.visible or guide.again_button.disabled:
+					_verdict("Run it again is not offered in the guide")
+					return
+				if OS.get_cmdline_user_args().has("--check-dungeon-replay"):
+					_s["launches"] = int(dungeon.events.get("launch", 0))
+					guide.again_button.pressed.emit()
+					_go("replay_launch")
+					return
+				guide.close()
+				_s["stop"] = _nearest_stop()
+				_go("to_exit")
+		"replay_launch":
+			var guide: HudDungeonGuide = dungeon.guide_window
+			if int(dungeon.events.get("launch", 0)) > int(_s.get("launches", 0)):
+				_seen("replay_launch", "%d sent, refusals %s" % [guide.replays_sent, str(_s["refusals"])])
+				_verdict("")
+			elif guide.visible and not guide.again_button.disabled and _held > 2.0 and guide.replays_sent < 6:
+				# refused (the notice band said why): asked again, as the leader would
+				guide.again_button.pressed.emit()
+				_held = 0.0
 		"to_exit":
 			var stop := int(_s["stop"])
 			var goal: Vector2
@@ -549,7 +600,13 @@ func _verdict(failure: String) -> void:
 	var corrections := int(_s["corrections"]) + int(stats.get("corrections", 0))
 	var seen: Dictionary = _s["seen"]
 	var wanted := ["land", "gate_prompt", "gate_window", "loading_1", "launch_closed_window", "copy", "countdown",
-		"running", "fight", "complete", "rewards", "result_window", "exit_prompt", "loading_2", "grounds"]
+		"running", "fight", "complete", "rewards", "result_window", "result_guide", "exit_prompt", "loading_2", "grounds"]
+	if OS.get_cmdline_user_args().has("--check-dungeon-replay"):
+		# against a Trial Hall server started with --dev-dungeon-start done:
+		# the run ends as it starts, no fight, then the replay instead of the
+		# way out
+		wanted = wanted.slice(0, wanted.find("exit_prompt")) + ["replay_launch"]
+		wanted.erase("fight")
 	if int(DungeonData.difficulty(_difficulty_id()).get("affixes", 0)) > 0:
 		wanted.append_array(["curse_chips", "curse_line"])
 		for kind: String in _mark_kinds():

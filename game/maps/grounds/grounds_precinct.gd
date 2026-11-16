@@ -225,7 +225,8 @@ static func _trial_hall(root: Node3D, mats: Dictionary) -> void:
 	light.position = Vector3(0, 2.4, 1.2)
 	holder.add_child(light)
 	# on the porch's pediment, over the gate (not up in the sky)
-	Mats.label(holder, I18n.t("Trial Hall"), I18n.t("Press F at the door"), Vector3(0, 7.4, 4.4))
+	# the first dungeon's door, a goal of the first chapter: read a little farther
+	Mats.label(holder, I18n.t("Trial Hall"), I18n.t("Press F at the door"), Vector3(0, 7.4, 4.4), 120.0)
 
 
 ## The veil's noise: soft, seamless, domain-warped value noise.
@@ -373,7 +374,8 @@ static func _kestrin_forge(root: Node3D) -> void:
 	l.position = hearth
 	l.add_to_group("grounds_torch_lights")
 	root.add_child(l)
-	Mats.label(root, I18n.t("Kestrin's Forge"), "", g + basis * Vector3(0, 6.8, 3.0))
+	# a smithy on the square: read in Orvell and on the way in, not from the castle
+	Mats.label(root, I18n.t("Kestrin's Forge"), "", g + basis * Vector3(0, 6.8, 3.0), 85.0)
 
 
 # ------------------------------------------------------------------ cave mouth

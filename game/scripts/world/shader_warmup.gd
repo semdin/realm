@@ -75,6 +75,9 @@ var _start_count := 0
 var _last_count := 0
 var _mute_was := false
 var _slot := 0
+## A creature kind on this map: a second body of it is drawn burning away (a
+## fallen creature's dissolve, CreatureView.warm_burn).
+var _burn_kind := -1
 
 static func wanted() -> bool:
 	if DisplayServer.get_name() == "headless":
@@ -126,13 +129,17 @@ func _add_creatures(map_id: String) -> void:
 			"stone":
 				_add_model(String(view.get("model", "")))
 
-func _add_creature(kind: int) -> void:
+func _add_creature(kind: int, burning := false) -> void:
 	var body := CreatureView.new()
 	add_child(body)
 	if not body.setup(kind):
 		body.queue_free()
 		return
 	_place(body)
+	if burning:
+		body.warm_burn()
+	elif _burn_kind < 0:
+		_burn_kind = kind
 
 ## A bare model (a Dark Shard's, the boulder): its materials drawn once.
 func _add_model(path: String) -> void:
@@ -254,6 +261,8 @@ func _add_combat_extras() -> void:
 		for bit: int in StatusFX.BITS:
 			all |= bit
 		(first as CreatureView).set_status(all)
+	if _burn_kind >= 0:
+		_add_creature(_burn_kind, true)
 	for kind: int in [ChestView.KIND_CHEST, ChestView.KIND_CHEST_RARE]:
 		var chest := ChestView.new()
 		add_child(chest)
@@ -268,6 +277,10 @@ func _add_combat_extras() -> void:
 	_slot += 1
 	FloatingText.spawn(self, global_position + global_basis * (_grid(_slot) + Vector3.UP), "1234!",
 		Color(1.0, 0.8, 0.3), 1.3)
+	_slot += 1
+	# a damage number (fixed size on screen: its own material)
+	FloatingText.number(self, global_position + global_basis * (_grid(_slot) + Vector3.UP), "1234!",
+		Color(1.0, 0.7, 0.2), 1.55)
 	_slot += 1
 	_add_model(BOULDER_MODEL)
 

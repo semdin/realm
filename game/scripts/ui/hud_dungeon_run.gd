@@ -8,8 +8,8 @@ class_name HudDungeonRun
 ##   - the tracker on the right rail: the dungeon and difficulty in the
 ##     difficulty's colour, the run's curses, the clock against the medal times (it ticks here
 ##     from the run's start tick and its death penalty), the clear, the
-##     creatures still standing, the bosses, the deaths and the party's lives;
-##   - at completion with a result, the result window (HudDungeonResult).
+##     creatures still standing, the bosses, the deaths and the party's lives
+##     (at completion the clock stops; MapDungeon says the result).
 
 const MEDAL_TINTS := {"gold": Color(0.92, 0.74, 0.30), "silver": Color(0.76, 0.80, 0.86), "bronze": Color(0.82, 0.54, 0.32)}
 ## RunView.phase.
@@ -19,7 +19,6 @@ const RUNNING := 2
 const OVER := 3
 
 var session: Node
-var result_window: HudDungeonResult = null
 
 ## The newest run view ({} before the first) and every phase seen (the check
 ## reads them), the countdown numbers popped and the "Go!".
@@ -27,7 +26,6 @@ var state: Dictionary = {}
 var phases_seen := {}
 var counts_shown: Array = []
 var go_shown := false
-var result_shown := false
 
 var _count: Label
 var wait_label: Label
@@ -155,10 +153,6 @@ func on_state(view: Dictionary) -> void:
 		AudioManager.play_sound_at("ui_confirm", Vector3.ZERO, null, true)
 	_phase = phase
 	_refresh_tracker()
-	var result: Variant = view.get("result")
-	if bool(view.get("complete", false)) and result is Dictionary and not result_shown and result_window != null:
-		result_shown = true
-		result_window.show_result(view)
 
 func phase() -> int:
 	return _phase

@@ -22,6 +22,10 @@ class_name CombatView
 const CHEST := 1.15
 ## Damage numbers start this far above the body's feet.
 const NUMBER_HEIGHT := 2.0
+## A hit the local player takes: its number starts at the chest, this far to
+## the camera's right (the nameplate holds the space over the head).
+const OWN_NUMBER_HEIGHT := 1.3
+const OWN_NUMBER_SIDE := 0.75
 ## Where a hero without a wand prop casts from (the server's wand height).
 const WAND_HEIGHT := 1.2
 ## A body's girth where a spell meets it.
@@ -294,8 +298,10 @@ func _incoming(event: Dictionary) -> Vector3:
 	var at: Vector3 = drawn.get(int(event["target"]), Vector3.ZERO)
 	return at - (drawn.get(int(event["attacker"]), at - Vector3.FORWARD) as Vector3)
 
-## A damage number over the body that was hit: white, a bigger yellow-orange
-## with "!" for a critical hit, red when the local player is the one hit.
+## A damage number over the body that was hit, one size on screen at any
+## distance (FloatingText.number): white, red and larger when the local
+## player is the one hit, a bigger yellow-orange with "!" for a critical hit
+## (bigger still on the player).
 func _number(event: Dictionary) -> void:
 	var target := int(event["target"])
 	if not drawn.has(target):
@@ -303,19 +309,26 @@ func _number(event: Dictionary) -> void:
 	var amount := int(event.get("amount", 0))
 	if int(event.get("flags", 0)) & FLAG_EVADE:
 		evades_shown += 1
-		FloatingText.spawn(self, (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0), tr("Evaded"), EVADE_COLOUR, 1.1)
+		FloatingText.number(self, (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0), tr("Evaded"), EVADE_COLOUR, 0.85)
 		return
 	var crit := (int(event.get("flags", 0)) & FLAG_CRIT) != 0
-	var text := ("%d!" % amount) if crit else str(amount)
+	var text := ("%s!" % I18n.whole(amount)) if crit else I18n.whole(amount)
 	var colour := Color.WHITE
 	var size := 1.0
+	var at := (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0)
 	if target == own_id:
-		colour = Color(1.0, 0.2, 0.2)
-		size = 1.3
+		colour = Color(1.0, 0.24, 0.2)
+		size = 1.15
+		# beside the hero at the chest, clear of its own nameplate over the head
+		var cam := get_viewport().get_camera_3d()
+		at = (drawn[target] as Vector3) + Vector3(0, OWN_NUMBER_HEIGHT, 0)
+		if cam != null:
+			at += cam.global_basis.x * OWN_NUMBER_SIDE
 	elif crit:
 		colour = Color(1.0, 0.7, 0.2)
-		size = 1.5
-	FloatingText.spawn(self, (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0), text, colour, size)
+	if crit:
+		size *= 1.55
+	FloatingText.number(self, at, text, colour, size)
 
 ## A ward round `hero` for as long as the server holds it: the spell's
 ## duration, scaled by the caster's skill level when it is the player's own.

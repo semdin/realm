@@ -53,10 +53,19 @@ extends Node3D
 ##                                                    the scene reload a map change makes)
 ##   [--check-dungeon]                                the check walks to the Trial Hall gate, opens the
 ##                                                    gate window, enters Normal, fights through the
-##                                                    copy until the result window shows a medal and
-##                                                    the rewards, and leaves by the reward exit
-##                                                    (DungeonCheck; the servers run with
-##                                                    --dev-dungeon-scale 0.05)
+##                                                    copy until the run's end shows a medal on the
+##                                                    notice band and the rewards in the chat, opens
+##                                                    the guide (K) on its "Run it again", and leaves
+##                                                    by the reward exit (DungeonCheck; the servers
+##                                                    run with --dev-dungeon-scale 0.05); with
+##                                                    --check-dungeon-replay (Trial server
+##                                                    --dev-dungeon-start done) it presses "Run it
+##                                                    again" instead and ends at the launch
+##   [--check-controls]                               the basic attack held (Ctrl, the left button),
+##                                                    Ctrl on the broom, the loot keys, the zoom
+##                                                    limits, damage numbers, the safe-ground cue's
+##                                                    silence and the place signs' fade
+##                                                    (ControlsCheck; build/logs/w22_stack.sh)
 ##   [--check-guide]                                  the check walks to the Trial Hall gate, buys a
 ##                                                    Trial Hall Key in the gate window's Seal Shop
 ##                                                    and opens the dungeon guide with K (GuideCheck;
@@ -177,13 +186,18 @@ extends Node3D
 ## window. Inside a dungeon copy the whole map stands at
 ## RealmSession.copy_offset() (the pack's meshes and every content position on
 ## it are shifted by it; server positions are already absolute), with the
-## copy's gates, the run tracker and the result window.
+## copy's gates and the run tracker; the run's end is a notice line and chat
+## lines, its replay in the dungeon guide (K).
 ##
-## Controls: WASD move, Space jump, Ctrl descend, right-drag turns the camera,
-## wheel zooms. Left-click picks under the cursor: a creature becomes the target
-## and takes a basic cast, anything else takes the basic cast at that point.
-## A right-click on a loot chest (within 7 m) opens it; Z takes everything from
-## the nearest chest within 6 m. Tab cycles the nearest living creatures, Esc
+## Controls: WASD move, Space jump, Ctrl descend (on the broom), right-drag
+## turns the camera, wheel zooms (CAM_NEAR to CAM_FAR). Left-click picks under
+## the cursor: a creature becomes the target and takes a basic cast, anything
+## else takes the basic cast at that point; held, the basic cast repeats at
+## its own cadence (_tick_basic_hold). Its key (Ctrl on foot, bindable) casts
+## it at the target or the cursor's point and repeats the same way while held.
+## A right-click on a loot chest (within 7 m) opens it; Z (or the key under
+## Escape, by its place on any layout) takes everything from the nearest chest
+## within 6 m. Tab cycles the nearest living creatures, Esc
 ## closes a window or drops the target, I opens the bag, C the character
 ## window, V the skill window, J the quest log, O Kestrin's workshop
 ## (anywhere), K the dungeon guide; the action bar reads 1-4, Q, E, 5, 6 and
@@ -286,6 +300,7 @@ const CastleCheckScript := "res://maps/castle_interior/castle_check.gd"
 const DrawnMapCheckScript := "res://maps/dng_common/drawn_map_check.gd"
 const LightCheckScript := "res://scripts/systems/light_check.gd"
 const PolishCheckScript := "res://scripts/systems/polish_check.gd"
+const ControlsCheckScript := "res://scripts/systems/controls_check.gd"
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -326,6 +341,19 @@ const PICKUP_REACH := 6.0
 const CHECK_LOOT_REACH := 3.5
 const CHECK_LOOT_SHOW := 1.5
 const HELD_NOTICE_SECONDS := 0.8
+## The camera's zoom range on the wheel (metres from the head): near enough
+## to see the hero's back without the lens inside its hair or cloak, far
+## enough to see a pack around it, not so far that the world shrinks to a map.
+const CAM_NEAR := 1.4
+const CAM_FAR := 20.0
+## Nearer than CAM_LOOK_BLEND the point looked at rises from the neck (1.5 m)
+## to CAM_NEAR_LOOK at the near limit.
+const CAM_LOOK_BLEND := 5.0
+const CAM_NEAR_LOOK := 1.8
+## The basic cast held (the left button after a click on the world, or its
+## key): the next one is asked for this soon after the last at the least (its
+## cooldown sets the cadence; this keeps a lost answer from flooding).
+const BASIC_REPEAT_MIN := 0.2
 const NpcViewScript := "res://scripts/view/npc_view.gd"
 const QuestManagerScript := "res://scripts/systems/quest_manager.gd"
 const DialogueScript := "res://scripts/ui/npc_dialogue.gd"
@@ -586,6 +614,14 @@ var check_strafe_until := 0.0
 var check_strafe_side := 1.0
 ## When the next "you are stunned" notice may show.
 var _held_notice_at := 0.0
+## The basic cast held: "" none, "target" (the click took a creature: it
+## follows the target), "aim" (the click took the ground: it follows the
+## cursor, as a click there would), "key" (its key: the target, else the
+## cursor's point); when the next may be asked for (ticks clock, seconds).
+var basic_hold := ""
+var _basic_next_at := 0.0
+## Basic casts the hold repeated (the polish check reads it).
+var basic_repeats := 0
 ## The mark under the current target (TargetRing), the moving staircases
 ## (StairView), the screen's edge at low health (LowHpVignette), the
 ## protected-ground cue (SafeZoneCue) and the bestiary (B).
@@ -607,6 +643,9 @@ var drawn_check: Node = null
 var light_check: Node = null
 ## `--check-polish`: the small HUD pieces' check.
 var polish_check: Node = null
+var controls_check: Node = null
+## Loot takes asked for by key (Z or its second key; the controls check).
+var check_loot_presses := 0
 
 func _arg(name: String, fallback: String) -> String:
 	var args := OS.get_cmdline_user_args()
@@ -991,6 +1030,11 @@ func _build_ui() -> void:
 		polish_check.name = "PolishCheck"
 		polish_check.game = self
 		add_child(polish_check)
+	if user_args.has("--check-controls"):
+		controls_check = load(ControlsCheckScript).new()
+		controls_check.name = "ControlsCheck"
+		controls_check.game = self
+		add_child(controls_check)
 	if user_args.has("--check-dungeon") or user_args.has("--check-guide") or user_args.has("--check-boss") \
 			or user_args.has("--check-lair") or user_args.has("--check-hud2"):
 		var script := DungeonCheckScript
@@ -1426,6 +1470,11 @@ func _unhandled_input(event: InputEvent) -> void:
 					travel.toggle_ride()
 			"pickup_loot":
 				take_nearest_chest()
+			"basic_attack":
+				if built and _basic_key_ready() and not _held_refusal():
+					basic_hold = "key"
+					_basic_next_at = 0.0
+					_tick_basic_hold()
 			"target_cycle":
 				cycle_target()
 			"chat":
@@ -1444,11 +1493,15 @@ func _unhandled_input(event: InputEvent) -> void:
 			right_click_world(event.position)
 	elif event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_LEFT and built and not click_npc(event.position):
-			click_world(event.position)
+			var took := click_world(event.position)
+			if took != "":
+				# held, it goes on at the cast's own cadence
+				basic_hold = took
+				_basic_next_at = Time.get_ticks_msec() / 1000.0 + _basic_interval()
 		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			cam_distance = maxf(2.0, cam_distance * 0.9)
+			cam_distance = clampf(cam_distance * 0.9, CAM_NEAR, CAM_FAR)
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			cam_distance = minf(60.0, cam_distance * 1.1)
+			cam_distance = clampf(cam_distance * 1.1, CAM_NEAR, CAM_FAR)
 
 ## The debug readout on or off (its key; the polish check).
 func toggle_readout() -> void:
@@ -1470,8 +1523,6 @@ func _on_escape() -> void:
 		loot_window.close()
 	elif dungeon.gate_window.visible:
 		dungeon.gate_window.close()
-	elif dungeon.result_window.visible:
-		dungeon.result_window.close()
 	elif dungeon.guide_window.visible:
 		dungeon.guide_window.close()
 	elif character_window.visible:
@@ -1532,19 +1583,73 @@ func pick_at(at: Vector2) -> Dictionary:
 
 ## A left click on the world: a creature (or a standing duel foe) under the
 ## cursor becomes the target and takes the basic cast; another player becomes
-## the target; otherwise the basic cast goes to the point there.
-func click_world(at: Vector2) -> void:
+## the target; otherwise the basic cast goes to the point there. Returns what
+## a held button repeats: "target", "aim", or "" (nothing was cast at).
+func click_world(at: Vector2) -> String:
 	var hit := pick_at(at)
 	if hit.is_empty():
-		return
+		return ""
 	var entity := int(hit["entity"])
 	if _creature_index(entity) >= 0 or is_duel_foe(entity):
 		select_target(entity)
 		cast_spell("basic_cast")
+		return "target"
 	elif heroes.has(entity) and not player_identity(entity).is_empty():
 		select_target(entity)
+		return ""
 	elif not _held_refusal():
 		session.cast("basic_cast", 0, hit["point"])
+	return "aim"
+
+## The basic cast's cadence while held: its cooldown for this character.
+func _basic_interval() -> float:
+	return maxf(BASIC_REPEAT_MIN, float(session.cooldown_total("basic_cast")))
+
+## Whether the basic attack may be cast by its key or a held button now: on
+## foot (Ctrl is the broom's descend), alive, not typing.
+func _basic_key_ready() -> bool:
+	if player.is_mounted or feedback.is_dead() or hud.chat.is_open():
+		return false
+	var focus := get_viewport().gui_get_focus_owner()
+	return not (focus is LineEdit or focus is TextEdit)
+
+## The held basic cast, every frame: while the left button (after a click
+## that cast) or the key stays down, the next cast goes when the last one's
+## cooldown is over - at the target, or where the cursor points now, as a
+## click would. Mounted, dead, held (stunned) or typing, it waits quietly.
+func _tick_basic_hold() -> void:
+	if basic_hold == "":
+		return
+	var down := false
+	if basic_hold == "key":
+		down = GameSettings.pressed("basic_attack")
+	else:
+		down = Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT)
+	if not down or not built:
+		basic_hold = ""
+		return
+	var now := Time.get_ticks_msec() / 1000.0
+	if now < _basic_next_at or not _basic_key_ready() or bool(session.own_body().get("held", false)):
+		return
+	var has_target := target != 0 and drawn.has(target) and (_creature_index(target) >= 0 or is_duel_foe(target))
+	var sent := false
+	if has_target and basic_hold != "aim":
+		sent = session.cast("basic_cast", target, (drawn[target] as Vector3) + Vector3(0, CHEST, 0))
+	else:
+		var hit := pick_at(get_viewport().get_mouse_position())
+		if hit.is_empty():
+			return
+		var entity := int(hit["entity"])
+		if basic_hold != "key" and (_creature_index(entity) >= 0 or is_duel_foe(entity)):
+			# the button swept onto a creature: it is taken, as on a click
+			select_target(entity)
+			basic_hold = "target"
+			sent = session.cast("basic_cast", entity, (drawn[entity] as Vector3) + Vector3(0, CHEST, 0))
+		elif not heroes.has(entity):
+			sent = session.cast("basic_cast", 0, hit["point"])
+	if sent:
+		basic_repeats += 1
+		_basic_next_at = now + _basic_interval()
 
 ## Casts `spell` at the target's chest (a creature, or a standing duel foe), or
 ## with no such target at the point under the cursor.
@@ -2150,9 +2255,12 @@ func open_chest_window(id: int) -> void:
 		ft.duration = 1.0
 		return
 	loot_window.open_chest(id, chest.chest_kind == "chest_rare")
+	# the lid swings up and stays up while the window is on this chest
+	chest.open_lid(func() -> bool: return loot_window.visible and loot_window.chest_id == id)
 
 ## Z: everything that fits from the nearest chest within PICKUP_REACH.
 func take_nearest_chest() -> void:
+	check_loot_presses += 1
 	var best := 0
 	var best_distance := PICKUP_REACH
 	for id: int in chests:
@@ -2162,6 +2270,7 @@ func take_nearest_chest() -> void:
 			best = id
 	if best == 0:
 		return
+	(chests[best] as ChestView).open_lid()
 	if loot_window.visible and loot_window.chest_id == best:
 		loot_window.take(-1)   # the window's own take: its sound, its answers
 		return
@@ -2776,6 +2885,8 @@ func _process(delta: float) -> void:
 	elif polish_check != null and polish_check.drives():
 		forward = polish_check.walk_intent()
 		jump = polish_check.jump_intent()
+	elif controls_check != null and controls_check.drives():
+		forward = controls_check.walk_intent()
 	elif not hud.chat.is_open():
 		# while the chat has the keys, typing does not walk
 		strafe = float(GameSettings.pressed("move_right")) - float(GameSettings.pressed("move_left"))
@@ -2797,7 +2908,10 @@ func _process(delta: float) -> void:
 		player.drive_own(own, delta)
 		player.set_status(int(own.get("status", 0)))
 		check_own_statuses |= int(own.get("status", 0))
-	var look_at_point := me + Vector3(0, 1.5, 0)
+	# the eye looks at the neck from afar and rises to the head as it closes
+	# in, so the near view goes over the hero's head rather than into its back
+	var look_height := lerpf(CAM_NEAR_LOOK, 1.5, clampf((cam_distance - CAM_NEAR) / (CAM_LOOK_BLEND - CAM_NEAR), 0.0, 1.0))
+	var look_at_point := me + Vector3(0, look_height, 0)
 	var offset := Vector3(0, 0, cam_distance).rotated(Vector3.RIGHT, cam_pitch).rotated(Vector3.UP, cam_yaw + cam_side)
 	camera.position = look_at_point + offset
 	camera.look_at(look_at_point)
@@ -2896,7 +3010,10 @@ func _process(delta: float) -> void:
 	for table: Dictionary in [heroes, beasts]:
 		for id in table.keys():
 			if not seen.has(id):
-				table[id].queue_free()
+				# a corpse still burning away finishes on its own, out of
+				# every table (nothing targets, names or voices it)
+				if not (table[id].has_method("linger") and table[id].linger()):
+					table[id].queue_free()
 				table.erase(id)
 				player_names.erase(id)
 				player_infos.erase(id)
@@ -2922,6 +3039,7 @@ func _process(delta: float) -> void:
 	travel.tick(delta)
 	dungeon.tick(delta)
 	way.tick(delta)
+	_tick_basic_hold()
 
 	var stats: Dictionary = session.stats()
 	var now_ms := Time.get_ticks_msec()

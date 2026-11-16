@@ -147,7 +147,7 @@ func _build(state: Dictionary) -> Dictionary:
 	var label: Label3D = WorldSign.new()   # readable from afar, faded past 60 m
 	label.call("setup", 60.0, 15.0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.font = HudKit.deco()
+	label.font = UITheme.world_font(UITheme.W_DECO)
 	label.font_size = 30
 	label.outline_size = 10
 	label.outline_modulate = Color(0.02, 0.04, 0.1, 0.9)

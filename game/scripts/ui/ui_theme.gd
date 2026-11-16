@@ -222,7 +222,13 @@ static func chrome_at(id: String, px: float) -> Texture2D:
 		var img := source.get_image()
 		if img != null:
 			var scaled := img.duplicate() as Image
+			if scaled.is_compressed():
+				scaled.decompress()
+			scaled.clear_mipmaps()
 			scaled.resize(int(px), int(px), Image.INTERPOLATE_LANCZOS)
+			# drawn smaller than `px` too (map markers): the canvas filters
+			# with mipmaps (project default), which needs them on the copy
+			scaled.generate_mipmaps()
 			out = ImageTexture.create_from_image(scaled)
 	_icons[key] = out
 	return out
@@ -244,21 +250,34 @@ static var _resample_spent := 0
 static var _waiting: Dictionary = {}   # key -> [id, px, Array[WeakRef]]
 
 static func icon_pixels(id: String, px: int, rect: TextureRect = null) -> Texture2D:
-	var source := icon_for(id)
+	return texture_pixels(icon_for(id), px, rect)
+
+## The same for any picture (`source`), for the widgets that draw their icon
+## themselves (the action bar's and the skill window's slots): `owner` is a
+## TextureRect showing `source` (it gets the copy when it is made) or any
+## canvas item that draws it (it is redrawn then, and asks again).
+static func texture_pixels(source: Texture2D, px: int, owner: CanvasItem = null) -> Texture2D:
 	if source == null or px < 8 or px >= source.get_width():
 		return source
-	var key := "%s#%d" % [id, px]
+	var key := "%s#%d" % [source.resource_path if source.resource_path != "" else str(source.get_instance_id()), px]
 	if _icons.has(key):
 		return _icons[key]
 	if _resample_budget_left():
 		return _resample(source, px, key)
-	var waiting: Array = _waiting.get_or_add(key, [id, px, []])
-	if rect != null:
-		(waiting[2] as Array).append(weakref(rect))
+	var waiting: Array = _waiting.get_or_add(key, [weakref(source), px, []])
+	if owner != null:
+		(waiting[2] as Array).append(weakref(owner))
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree != null and not tree.process_frame.is_connected(_drain_waiting):
 		tree.process_frame.connect(_drain_waiting)
 	return source
+
+## `source` resampled for a box `logical` canvas units wide drawn by `item`:
+## its size in screen pixels (the window's content scale and the item's own
+## scale included), for `texture_pixels`.
+static func drawn_pixels(source: Texture2D, logical: float, item: CanvasItem) -> Texture2D:
+	var k := item.get_viewport().get_final_transform().get_scale().x * item.get_global_transform_with_canvas().get_scale().x
+	return texture_pixels(source, int(round(logical * k)), item)
 
 static func _resample_budget_left() -> bool:
 	var frame := Engine.get_process_frames()
@@ -275,12 +294,17 @@ static func _drain_waiting() -> void:
 			return
 		var waiting: Array = _waiting[key]
 		_waiting.erase(key)
-		var source := icon_for(String(waiting[0]))
+		var source := (waiting[0] as WeakRef).get_ref() as Texture2D
+		if source == null:
+			continue
 		var copy := _resample(source, int(waiting[1]), String(key))
 		for ref in waiting[2]:
-			var rect := (ref as WeakRef).get_ref() as TextureRect
-			if rect != null and rect.texture == source:
-				rect.texture = copy
+			var owner := (ref as WeakRef).get_ref() as CanvasItem
+			if owner is TextureRect:
+				if (owner as TextureRect).texture == source:
+					(owner as TextureRect).texture = copy
+			elif owner != null:
+				owner.queue_redraw()
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree != null and tree.process_frame.is_connected(_drain_waiting):
 		tree.process_frame.disconnect(_drain_waiting)
@@ -301,6 +325,7 @@ static func _resample(source: Texture2D, px: int, key: String) -> Texture2D:
 			w = px if aspect >= 1.0 else maxi(1, int(round(px * aspect)))
 			h = px if aspect <= 1.0 else maxi(1, int(round(px / aspect)))
 		scaled.resize(w, h, Image.INTERPOLATE_LANCZOS)
+		scaled.generate_mipmaps()
 		out = ImageTexture.create_from_image(scaled)
 	_icons[key] = out
 	_resample_spent += Time.get_ticks_usec() - started
@@ -410,6 +435,45 @@ static func _load_variable(file: String, weight: int) -> Font:
 	return v
 
 
+## The same face at `weight` for text standing in the 3D world (Label3D:
+## signs, NPC names, damage numbers). A Label3D's glyphs are a texture on a
+## quad: drawn from the 2D font's bitmaps (no mipmaps) at a third of their
+## size or less, then through the 3D frame's render scale and FXAA, letters
+## broke into grainy, smeared edges. A multichannel signed distance field
+## keeps every edge sharp at any size on screen with no mipmaps; the range
+## is wide enough for the thickest world outline (12: the range must be at
+## least twice the outline).
+const WORLD_MSDF_RANGE := 32
+const WORLD_MSDF_SIZE := 48
+
+static var _world_base: FontFile = null
+
+static func world_font(weight: int) -> Font:
+	var key := "world:%d" % weight
+	if _fonts.has(key):
+		return _fonts[key]
+	var out := font(weight)
+	var path := FONT_DIR + FONT_FILE
+	if _world_base == null and ResourceLoader.exists(path):
+		var source := load(path) as FontFile
+		if source != null:
+			_world_base = FontFile.new()
+			_world_base.data = source.data
+			_world_base.allow_system_fallback = source.allow_system_fallback
+			_world_base.multichannel_signed_distance_field = true
+			_world_base.msdf_pixel_range = WORLD_MSDF_RANGE
+			_world_base.msdf_size = WORLD_MSDF_SIZE
+	if _world_base != null:
+		var ts := TextServerManager.get_primary_interface()
+		var v := FontVariation.new()
+		v.base_font = _world_base
+		v.variation_opentype = {ts.name_to_tag("wght"): weight}
+		v.opentype_features = {ts.name_to_tag("lnum"): 1}
+		out = v
+	_fonts[key] = out
+	return out
+
+
 static func font_title() -> Font:
 	return font(W_TITLE)
 
@@ -468,6 +532,9 @@ static func _install_fonts(t: Theme) -> void:
 	var engine := ThemeDB.get_default_theme()
 	if engine != null:
 		engine.default_font = body
+		# a Label3D without a font of its own looks its type up in the global
+		# themes: world text takes the distance-field face (world_font)
+		engine.set_font("font", "Label3D", world_font(W_BODY))
 
 
 ## The last-resort theme, used only when `hpmmo.tres` cannot be loaded.

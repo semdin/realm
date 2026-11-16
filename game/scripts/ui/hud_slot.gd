@@ -93,7 +93,10 @@ func _draw() -> void:
 		var tint := Color(0.42, 0.42, 0.45) if unusable else Color.WHITE
 		if _dragging_out:
 			tint.a = 0.3
-		draw_texture_rect(icon_texture, inner, false, tint)
+		# resampled once to the cell's size in screen pixels (UITheme), so the
+		# 256 px art is drawn 1:1, not squeezed by the GPU
+		var icon := UITheme.drawn_pixels(icon_texture, minf(inner.size.x, inner.size.y), self)
+		draw_texture_rect(icon, inner, false, tint)
 		# Soft vignette so every icon sits in the frame the same way.
 		draw_rect(Rect2(inner.position, Vector2(inner.size.x, 4)), Color(0, 0, 0, 0.25))
 	elif empty_hint != "":

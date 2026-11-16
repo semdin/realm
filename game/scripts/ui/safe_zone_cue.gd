@@ -5,10 +5,11 @@ class_name SafeZoneCue
 ## player stands in a safe zone (SafeZones, the rule the server enforces:
 ## nobody takes or deals damage there) a shield and "Safe area · Combat
 ## disabled" sit over the taskbar ("Duel in progress" while a duel goes on
-## there: the foes agreed to it). Stepping in lights the row with a chime;
-## stepping out leaves it a moment in amber, "Leaving protected ground",
-## with a softer one. (Not on the notice band: entering a safe zone is mostly
-## entering a named place, whose banner stands there at the same moment.)
+## there: the foes agreed to it). Stepping in lights the row, silently (a
+## chime at every gate and square was noise); stepping out leaves it a moment
+## in amber, "Leaving protected ground", with a soft sound: combat is possible
+## again. (Not on the notice band: entering a safe zone is mostly entering a
+## named place, whose banner stands there at the same moment.)
 
 ## The zone is looked up this often (seconds), and how long the leaving
 ## line stays.
@@ -69,7 +70,6 @@ func _process(delta: float) -> void:
 			if here != "":
 				crossings.append("in:" + here)
 				_leaving_until = 0.0
-				AudioManager.play_sound_at("ui_confirm", Vector3.ZERO, null, true)
 			else:
 				crossings.append("out:" + zone)
 				_leaving_until = now + LEAVING_SECONDS

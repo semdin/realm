@@ -24,7 +24,8 @@ const TABS := ["general", "graphics", "audio", "controls", "credits"]
 const ACTION_NAMES := {
 	"move_forward": "Move forward", "move_backward": "Move backward",
 	"move_left": "Move left", "move_right": "Move right",
-	"jump": "Jump / rise", "descend": "Descend (broom)", "ride": "Mount / dismount broom",
+	"jump": "Jump / rise", "descend": "Descend (broom)", "basic_attack": "Basic attack (hold to repeat)",
+	"ride": "Mount / dismount broom",
 	"target_cycle": "Next target", "pickup_loot": "Pick up loot", "interact": "Talk / interact",
 	"chat": "Chat", "inventory": "Bag", "character": "Character", "quest_log": "Quests",
 	"workshop": "Kestrin's forge", "dungeon_guide": "Dungeon Guide", "skills": "Skills",
@@ -247,6 +248,14 @@ func _build_controls(c: VBoxContainer) -> void:
 		name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		r.add_child(name_label)
+		var second := GameSettings.second_key_name(action)
+		if second != "" and not action.begins_with("move_"):
+			# the fixed second key (loot: the key under Escape)
+			var also := HudKit.label(tr("also %s") % second, 13, HudKit.TEXT_DIM, HudKit.body(), 0)
+			also.name = "Also_" + action
+			also.auto_translate_mode = Node.AUTO_TRANSLATE_MODE_DISABLED
+			also.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+			r.add_child(also)
 		var button := HudKit.button("", 14)
 		button.name = "Bind_" + action
 		# a key's own name, never a catalogue word ("Enter" is not "Gir")
@@ -421,7 +430,7 @@ func refresh() -> void:
 		(_values[key] as Label).text = _format(key, v)
 	for action: String in bind_buttons:
 		var b: Button = bind_buttons[action]
-		b.text = tr("press a key…") if action == listening else GameSettings.key_name(action)
+		b.text = tr("press a key…") if action == listening else (GameSettings.key_name(action) if GameSettings.key(action) > 0 else "—")
 
 func action_name(action: String) -> String:
 	return tr(String(ACTION_NAMES.get(action, action.capitalize())))

@@ -1708,6 +1708,18 @@ msgstr "(+%d sn)"
 msgid "Lives %d / %d"
 msgstr "Can %d / %d"
 
+msgid "Clear %s%%"
+msgstr "Temizlik %%%s"
+
+msgid "+%s EXP"
+msgstr "+%s EXP"
+
+msgid "+%s Oril"
+msgstr "+%s Oril"
+
+msgid "Run it again from the Dungeon Guide (%s)."
+msgstr "Tekrar oynamak için Zindan Rehberi'ni aç (%s)."
+
 msgid "Hearthway"
 msgstr "Ocak Yolu"
 
@@ -3081,6 +3093,12 @@ msgstr "Zıpla / yüksel"
 
 msgid "Descend (broom)"
 msgstr "Alçal (süpürge)"
+
+msgid "Basic attack (hold to repeat)"
+msgstr "Temel saldırı (basılı tut, tekrarlar)"
+
+msgid "also %s"
+msgstr "ayrıca %s"
 
 msgid "Mount / dismount broom"
 msgstr "Süpürgeye bin / in"

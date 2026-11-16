@@ -25,6 +25,12 @@ class_name Nameplates
 ## floats over the plate (HeroView keeps both as its source of truth with
 ## `screen_plate`). On a headless run nothing is drawn, but the plates are
 ## still kept (the checks read `text_of`).
+##
+## Objects and people that carry their own label (an NPC's name, a training
+## dummy's or a Dark Shard's health) put it up here too (`put`), held at one
+## size on screen like the Label3D overlays they replace: those were drawn
+## into the 3D frame, so on the low preset (77 % render scale, bilinear
+## upscale, FXAA) their letters came out soft and grainy.
 
 const REF_DISTANCE := 7.0
 const MIN_SCALE := 0.62
@@ -72,6 +78,8 @@ class Plate:
 	var crest: Texture2D
 	var crest_line := -1
 	var hidden := false
+	## one size on screen at every distance (an object's own plate)
+	var fixed := false
 	## this frame: screen point (x, y) and camera distance (z)
 	var at := Vector3.ZERO
 	var id := 0
@@ -81,6 +89,9 @@ class Plate:
 	var shaped_px := -1
 
 static var _ga_texture: Texture2D
+## The objects' own plates (`put`), by their node's instance id. Static, so a
+## view built before this layer (or across a map's reload) still shows.
+static var _own: Dictionary = {}
 
 var _plates: Dictionary = {}
 var _drawn: Array = []
@@ -133,6 +144,39 @@ func set_creature(id: int, body: Node3D, height: float, title: String, level: in
 	var tint := BOSS_TINT if boss else (ELITE_TINT if elite else CREATURE_TINT)
 	_plate(id, body, height, CREATURE_RANGE, [[text, BOSS_PX if boss else CREATURE_PX, tint, true]], 0)
 
+## An object's own plate over `node` (`height` metres over its origin, shown
+## within `reach` metres): its lines top to bottom, [text, px, colour, bold]
+## each, the whole plate centred on the anchor (as the Label3D was), at one
+## size on screen. Call again
+## when the text changes; the plate goes with the node.
+static func put(node: Node3D, height: float, reach: float, lines: Array) -> void:
+	var id := node.get_instance_id()
+	var plate: Plate = _own.get(id)
+	if plate == null:
+		plate = Plate.new()
+		plate.id = id
+		plate.fixed = true
+		_own[id] = plate
+	plate.node = node
+	plate.height = height
+	plate.reach = reach
+	if lines != plate.lines:
+		plate.lines = lines
+		plate.shaped_px = -1
+
+## Hide an object's own plate without forgetting it (a Dark Shard falling in).
+static func hide_own(node: Node3D, on: bool) -> void:
+	var plate: Plate = _own.get(node.get_instance_id())
+	if plate != null:
+		plate.hidden = on
+
+## An object's own plate's lines joined by " / " ("" when it has none).
+static func own_text(node: Node3D) -> String:
+	var plate: Plate = _own.get(node.get_instance_id())
+	if plate == null:
+		return ""
+	return " / ".join(plate.lines.map(func(line): return String(line[0])))
+
 func _plate(id: int, node: Node3D, height: float, reach: float, lines: Array, name_line: int) -> Plate:
 	var plate: Plate = _plates.get(id)
 	if plate == null or plate.node != node:
@@ -180,39 +224,41 @@ func _process(delta: float) -> void:
 	if cam != null:
 		var from := cam.global_position
 		var view := get_viewport().get_visible_rect().grow(120.0)
-		for id: int in _plates.keys():
-			var plate: Plate = _plates[id]
-			if not is_instance_valid(plate.node):
-				_plates.erase(id)
-				continue
-			if plate.hidden or not plate.node.is_visible_in_tree():
-				continue
-			var anchor := plate.node.global_position + Vector3(0, plate.height, 0)
-			if plate.hero != null:
-				anchor.y += plate.hero.mount_blend * MOUNT_LIFT
-			if cam.is_position_behind(anchor):
-				continue
-			var distance := from.distance_to(anchor)
-			if distance > plate.reach:
-				continue
-			var p := cam.unproject_position(anchor)
-			if not view.has_point(p):
-				continue
-			plate.at = Vector3(p.x, p.y, distance)
-			_drawn.append(plate)
+		for plates: Dictionary in [_plates, _own]:
+			for id: int in plates.keys():
+				var plate: Plate = plates[id]
+				if not is_instance_valid(plate.node):
+					plates.erase(id)
+					continue
+				if plate.hidden or not plate.node.is_visible_in_tree():
+					continue
+				var anchor := plate.node.global_position + Vector3(0, plate.height, 0)
+				if plate.hero != null:
+					anchor.y += plate.hero.mount_blend * MOUNT_LIFT
+				if cam.is_position_behind(anchor):
+					continue
+				var distance := from.distance_to(anchor)
+				if distance > plate.reach:
+					continue
+				var p := cam.unproject_position(anchor)
+				if not view.has_point(p):
+					continue
+				plate.at = Vector3(p.x, p.y, distance)
+				_drawn.append(plate)
 		# far plates first, so nearer ones are drawn over them
 		_drawn.sort_custom(func(a: Plate, b: Plate): return a.at.z > b.at.z)
 		_declutter()
 	_canvas.queue_redraw()
 
 ## Nearest first, each plate claims its box on screen; a creature's plate over
-## a box already claimed is dropped (a player's or the target's never is).
+## a box already claimed is dropped (a player's, an object's own or the
+## target's never is).
 func _declutter() -> void:
 	_placed.clear()
 	for i in range(_drawn.size() - 1, -1, -1):
 		var plate: Plate = _drawn[i]
 		var box := _box(plate)
-		if plate.hero == null and plate.id != focus_id and _overlaps(box):
+		if plate.hero == null and not plate.fixed and plate.id != focus_id and _overlaps(box):
 			_drawn.remove_at(i)
 			continue
 		_placed.append(box)
@@ -225,20 +271,33 @@ func _overlaps(box: Rect2) -> bool:
 
 ## The plate's box on screen this frame (its lines shaped at its size).
 func _box(plate: Plate) -> Rect2:
-	var k := _scale(plate.at.z)
+	var k := _plate_scale(plate)
 	_shape(plate, k)
 	var w := 0.0
 	var h := 0.0
 	for i in plate.shaped.size():
 		w = maxf(w, (plate.shaped[i] as TextLine).get_size().x)
 		h += plate.heights[i]
-	var above := 0.0
+	return Rect2(plate.at.x - w * 0.5, _top(plate), w, h)
+
+## The plate's top on screen: its name line centred on the anchor (the rest
+## stacked around it), or an object's whole plate centred on it.
+static func _top(plate: Plate) -> float:
+	var top := plate.at.y - float(plate.heights[plate.name_line]) * 0.5
 	for i in plate.name_line:
-		above += plate.heights[i]
-	return Rect2(plate.at.x - w * 0.5, plate.at.y - plate.heights[plate.name_line] * 0.5 - above, w, h)
+		top -= float(plate.heights[i])
+	if plate.fixed:
+		var h := 0.0
+		for line_h in plate.heights:
+			h += line_h
+		top = plate.at.y - h * 0.5
+	return top
 
 static func _scale(distance: float) -> float:
 	return clampf(REF_DISTANCE / maxf(distance, 0.01), MIN_SCALE, MAX_SCALE)
+
+static func _plate_scale(plate: Plate) -> float:
+	return 1.0 if plate.fixed else _scale(plate.at.z)
 
 ## The plate's lines shaped at `k` (kept until the size or the text changes).
 func _shape(plate: Plate, k: float) -> void:
@@ -258,13 +317,10 @@ func _shape(plate: Plate, k: float) -> void:
 func _draw_plates() -> void:
 	var rid := _canvas.get_canvas_item()
 	for plate: Plate in _drawn:
-		var k := _scale(plate.at.z)
+		var k := _plate_scale(plate)
 		_shape(plate, k)
 		var heights := plate.heights
-		# the name line is centred on the anchor; the rest stack around it
-		var top := plate.at.y - float(heights[plate.name_line]) * 0.5
-		for i in plate.name_line:
-			top -= float(heights[i])
+		var top := _top(plate)
 		var y := top
 		for i in plate.lines.size():
 			var line: Array = plate.lines[i]
@@ -283,9 +339,10 @@ func _draw_plates() -> void:
 			var x := roundf(plate.at.x - (w + crest_w) * 0.5)
 			var at := Vector2(x + crest_w, roundf(y + (h - shaped.get_size().y) * 0.5))
 			if crest_w > 0.0:
-				var side := h * 1.3
-				RenderingServer.canvas_item_add_texture_rect(rid, Rect2(Vector2(x, y + (h - side) * 0.5), Vector2(side, side)),
-					plate.crest.get_rid())
+				# whole pixels: the crest is resampled to exactly this size
+				var side := roundf(h * 1.3)
+				RenderingServer.canvas_item_add_texture_rect(rid, Rect2(Vector2(x, roundf(y + (h - side) * 0.5)), Vector2(side, side)),
+					UITheme.drawn_pixels(plate.crest, side, _canvas).get_rid())
 			var outline := maxi(3, roundi(float(line[1]) * k * 0.26))
 			shaped.draw(rid, at + Vector2(0, 2), SHADOW)
 			shaped.draw_outline(rid, at, outline, OUTLINE)

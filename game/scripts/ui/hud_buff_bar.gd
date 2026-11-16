@@ -196,7 +196,7 @@ class BuffIcon extends Control:
 		var r := Rect2(Vector2((size.x - s) * 0.5, 0), Vector2(s, s))
 		draw_rect(r, Color(0, 0, 0, 0.7))
 		if texture != null:
-			draw_texture_rect(texture, r.grow(-2), false)
+			draw_texture_rect(UITheme.drawn_pixels(texture, s - 4.0, self), r.grow(-2), false)
 		# The time gone shaded, growing clockwise from twelve.
 		if duration > 0.0 and remaining >= 0.0:
 			var elapsed := clampf(1.0 - remaining / duration, 0.0, 1.0)

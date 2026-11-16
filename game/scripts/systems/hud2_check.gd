@@ -26,10 +26,10 @@ extends "res://scripts/systems/dungeon_check.gd"
 ##   safe_out   walks back out: the cue's leaving line (capture), then it goes
 ##
 ## then the dungeon check's own steps (the gate, the copy, the fight), and
-## at the result window:
+## at the run's end (no window: the notice band's line):
 ##
-##   result     the medal and "Run it again" shown and enabled for the
-##              player alone (its own leader); the week's record title
+##   result     K opens the guide on the finished run, "Run it again" shown
+##              and enabled for the player alone (its own leader); the week's record title
 ##              earned on this first clear shows its "New title" toast
 ##              (capture); "Run it again"
 ##   replay     the server starts another run from the finished copy: the
@@ -170,22 +170,22 @@ func _process(delta: float) -> void:
 			# Refused (the last kill still holds the party "in combat", as at
 			# the gate): the leader asks again once the button is back, as a
 			# player would, a few times at most.
-			var result: HudDungeonResult = game.dungeon.result_window
+			var guide: HudDungeonGuide = game.dungeon.guide_window
 			var refusals: Dictionary = _s["refusals"]
 			var refused := 0
 			for why: String in refusals:
 				refused += int(refusals[why])
-			if refused > int(_s.get("replay_refusals", 0)) and result.visible and not result.again_button.disabled:
+			if refused > int(_s.get("replay_refusals", 0)) and guide.visible and not guide.again_button.disabled:
 				if _held > 2.0:
-					if result.replays_sent >= 8:
+					if guide.replays_sent >= 8:
 						_verdict("Run it again was refused %d times (%s)" % [refused, str(refusals)])
 						return
 					_s["replay_refusals"] = refused
 					_say("asking again after a refusal (%s)" % str(refusals))
-					result.again_button.pressed.emit()
+					guide.again_button.pressed.emit()
 					_held = 0.0
 			elif _held > 45.0 and not MapLoadingScreen.shared(get_tree()).is_open():
-				_verdict("Run it again led nowhere (%d sent, refusals %s)" % [result.replays_sent, str(refusals)])
+				_verdict("Run it again led nowhere (%d sent, refusals %s)" % [guide.replays_sent, str(refusals)])
 		"replay_copy":
 			var run: HudDungeonRun = game.dungeon.run_view
 			var copy := int(game.session.copy())
@@ -411,20 +411,31 @@ func _ring() -> void:
 		_capture("target_ring")
 		game.select_target(0)
 
-## The result window: "Run it again" for the leader, the record title's
-## toast, then the replay.
+## The run's end (no window): K opens the guide, "Run it again" there for the
+## leader, the record title's toast, then the replay.
 func _result() -> void:
-	var result: HudDungeonResult = game.dungeon.result_window
-	if not result.visible or result.rewards.is_empty():
+	var dungeon: MapDungeon = game.dungeon
+	var guide: HudDungeonGuide = dungeon.guide_window
+	if not dungeon.outcome_notice_shown or not guide.leads():
 		return
 	if not _sent:
 		_sent = true
 		_held = 0.0
 		_s["first_copy"] = int(game.session.copy())
-		_seen2("result_window", "medal %s, again %s %s" % [result.medal if result.medal != "" else "none",
-			"shown" if result.again_button.visible else "hidden", "enabled" if not result.again_button.disabled else "disabled"])
+		# the end takes no window; K opens the guide on the finished run
+		var key := InputEventKey.new()
+		key.physical_keycode = GameSettings.key("dungeon_guide") as Key
+		key.pressed = true
+		Input.parse_input_event(key)
+		return
+	if not _has("result_window"):
+		if not guide.visible:
+			return
+		_seen2("result_window", "notice \"%s\", guide on %s %s, again %s %s" % [dungeon.outcome_notice, guide.dungeon_id,
+			guide.difficulty, "shown" if guide.again_button.visible else "hidden",
+			"enabled" if not guide.again_button.disabled else "disabled"])
 		_seen("complete", true)
-		if not result.again_button.visible or result.again_button.disabled:
+		if not guide.again_button.visible or guide.again_button.disabled:
 			_verdict("Run it again is not offered to the leader")
 			return
 	var titled: bool = (game.titles_toasted as Array).has("dungeon_record")
@@ -441,8 +452,8 @@ func _result() -> void:
 	if _held < HOLD or (not titled and _held < TITLE_WAIT):
 		return
 	_capture("result")
-	_seen2("replay_pressed", "portal %s, difficulty %d" % [result.portal(), result.difficulty])
-	result.again_button.pressed.emit()
+	_seen2("replay_pressed", "portal %s, difficulty %d" % [guide.replay_portal(), int(guide.finished.get("difficulty", 1))])
+	guide.again_button.pressed.emit()
 	_go("replay_wait")
 
 func _verdict(failure: String) -> void:

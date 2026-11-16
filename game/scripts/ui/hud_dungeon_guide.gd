@@ -16,6 +16,16 @@ class_name HudDungeonGuide
 ## way to the gate" lays the waypoint to the chosen dungeon's gate (MapWay:
 ## from another map the footprints lead to the door toward it) and closes
 ## the window.
+##
+## In a finished copy (MapDungeon.finished_run) the guide opens on that
+## dungeon and difficulty and carries "Run it again" (the end of a run has no
+## window of its own): the party leader's alone (disabled for everyone
+## else), it asks the server for another run of the same dungeon and
+## difficulty from inside the finished copy (RealmSession.dungeon_start with
+## a gate of this dungeon); the party's ready check follows as at the gate
+## (HudInvites) and "launch" takes everyone into a fresh copy. A refusal says
+## why on the notice band (the gate window's words) and lets the leader ask
+## again.
 
 const MEDAL_NAMES := {3: "Gold", 2: "Silver", 1: "Bronze", 0: "Cleared"}  # i18n
 const CURSE := Color(0.86, 0.62, 1.0)
@@ -31,6 +41,14 @@ var guide: Dictionary = {}
 var answers := 0
 ## What the board shows now (rows, the check reads it).
 var board_rows: Array = []
+## The finished run of this copy ({} none): its dungeon and difficulty
+## (protocol index) for "Run it again", and the replays asked for (the check
+## reads them).
+var finished: Dictionary = {}
+var again_button: Button
+var replays_sent := 0
+## A replay asked for and not yet answered (launch, refusal, cancel).
+var _asking := false
 
 var _list: VBoxContainer
 var _titles: VBoxContainer
@@ -84,7 +102,16 @@ func _ready() -> void:
 	way.name = "ShowWay"
 	way.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	way.pressed.connect(show_way_to_gate)
-	right.add_child(way)
+	var actions := HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 8)
+	actions.add_child(way)
+	again_button = HudKit.button(tr("Run it again"), 13)
+	again_button.name = "RunAgain"
+	again_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	again_button.visible = false
+	again_button.pressed.connect(replay)
+	actions.add_child(again_button)
+	right.add_child(actions)
 	var tab_row := HBoxContainer.new()
 	tab_row.add_theme_constant_override("separation", 6)
 	right.add_child(tab_row)
@@ -126,6 +153,10 @@ func _ready() -> void:
 	right.add_child(HudKit.label(tr("Curses and boards turn every Monday at 06:00."), 12, HudKit.TEXT_DIM, HudKit.body(), 2))
 
 func open() -> void:
+	if not finished.is_empty():
+		# the run just finished here: its dungeon and difficulty, the replay
+		dungeon_id = String(finished.get("dungeon", dungeon_id))
+		difficulty = DungeonData.difficulty_id(int(finished.get("difficulty", 1)))
 	if dungeon_id == "" and not DungeonData.all().is_empty():
 		dungeon_id = String(DungeonData.all().keys()[0])
 	super.open()
@@ -151,12 +182,73 @@ func _ask() -> void:
 	if session != null:
 		session.dungeon_guide()
 
-## The "dungeon" event `guide` (MapDungeon hands it over).
+## The "dungeon" events MapDungeon hands over: the `guide` answer, and for
+## "Run it again" a refusal, a cancelled ready check (the leader may ask
+## again; the notice band says why) or the launch (the copy is left).
 func on_event(event: Dictionary) -> void:
-	guide = event
-	answers += 1
+	match String(event.get("event", "guide")):
+		"guide":
+			guide = event
+			answers += 1
+			if visible:
+				refresh()
+		"refused", "cancelled":
+			_asking = false
+			_judge_again()
+		"launch":
+			_asking = false
+			finished = {}
+			_judge_again()
+
+## ------------------------------------------------------------ run it again
+
+## The run of this copy is over (MapDungeon): "Run it again" is offered.
+func finished_run(view: Dictionary) -> void:
+	finished = view
+	_judge_again()
 	if visible:
-		refresh()
+		open()
+
+## The party leader, or a player alone.
+func leads() -> bool:
+	if session == null:
+		return false
+	var party: Dictionary = session.party()
+	return int(party.get("party", 0)) == 0 or int(party.get("leader", 0)) == int(party.get("me", -1))
+
+## A gate of the finished run's dungeon (a door on an open map into its
+## map), the one the server starts the replay from; "" when there is none.
+func replay_portal() -> String:
+	var map := String(DungeonData.dungeon(String(finished.get("dungeon", ""))).get("map", ""))
+	var all: Variant = RealmContent.table("maps")
+	for p: Dictionary in ((all as Dictionary).get("portals", []) if all is Dictionary else []):
+		if map != "" and String(p.get("to_map", "")) == map and not TravelData.instanced(String(p.get("map_id", ""))):
+			return String(p.get("id", ""))
+	return ""
+
+## The button: shown in a finished copy whose dungeon has a gate, on that
+## run's page, pressable by the leader alone (asked again at every refresh:
+## the party may change).
+func _judge_again() -> void:
+	if again_button == null:
+		return
+	# on the finished run's own page (another tab is another run)
+	var own_page := dungeon_id == String(finished.get("dungeon", "")) \
+		and difficulty == DungeonData.difficulty_id(int(finished.get("difficulty", 1)))
+	again_button.visible = not finished.is_empty() and own_page and replay_portal() != ""
+	again_button.disabled = not leads() or _asking
+	again_button.tooltip_text = "" if leads() else tr("Only the party leader can start the dungeon.")
+
+## "Run it again": the finished run's dungeon and difficulty once more.
+func replay() -> void:
+	var gate := replay_portal()
+	if session == null or gate == "" or not leads():
+		return
+	replays_sent += 1
+	_asking = true
+	again_button.disabled = true
+	session.dungeon_start(gate, int(finished.get("difficulty", 1)))
+	AudioManager.play_sound_at("ui_confirm", Vector3.ZERO, null, true)
 
 ## The player's record on `dungeon` at difficulty index `index`: [rank,
 ## best_ms, rights] ([-1, 0, daily_rewards] when the answer has none).
@@ -232,6 +324,7 @@ func refresh() -> void:
 		_fact(tr("Curse"), "%s - %s" % [I18n.t(String(curse.get("display", id))), I18n.t(String(curse.get("desc", "")))], CURSE)
 	_fill_board(board_runs())
 	_fill_titles()
+	_judge_again()
 
 func _fact(key: String, value: String, colour: Color = HudKit.PARCHMENT) -> void:
 	_facts.add_child(HudKit.label(key, 13, HudKit.TEXT_DIM, HudKit.body(), 2))

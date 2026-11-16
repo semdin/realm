@@ -56,7 +56,12 @@ const VOLUMES := ["Master", "Music", "SFX", "UI", "Ambience"]
 ## The keys the settings may rebind and the key each has by default - the
 ## keys this client has always used. A rebind replaces the action's key, and a
 ## key already driving another action is refused, so no key ever does two
-## things. Escape (menu / close), Enter on the keypad and the mouse stay fixed.
+## things (but for SHARED pairs, which never apply at once). Escape (menu /
+## close), Enter on the keypad and the mouse stay fixed.
+##
+## The basic attack (the left mouse button's cast, repeating while held) has
+## its key too: Ctrl, either side (Control on a Mac), the broom's descend key,
+## since the attack is never cast mounted and descend does nothing on foot.
 const BINDABLE := {
 	"move_forward": KEY_W,
 	"move_backward": KEY_S,
@@ -64,6 +69,7 @@ const BINDABLE := {
 	"move_right": KEY_D,
 	"jump": KEY_SPACE,
 	"descend": KEY_CTRL,
+	"basic_attack": KEY_CTRL,
 	"ride": KEY_SHIFT,
 	"target_cycle": KEY_TAB,
 	"pickup_loot": KEY_Z,
@@ -94,9 +100,19 @@ const BINDABLE := {
 const DEBUG_KEY := KEY_F10
 ## Keys no action may take: they have their own fixed use.
 const RESERVED := [KEY_ESCAPE, KEY_F11, KEY_KP_ENTER, DEBUG_KEY]
-## The arrow keys walk too (the old client's second keys): they hold while
-## the WASD keys are rebound, and step aside for any action bound to one.
-const SECONDARY := {"move_forward": KEY_UP, "move_backward": KEY_DOWN, "move_left": KEY_LEFT, "move_right": KEY_RIGHT}
+## Second keys that are not rebound: the arrow keys walk too (the old
+## client's second keys), and loot is also taken with the key under Escape,
+## left of 1, by its place on the keyboard (physical keycodes), so it is the
+## same key on every layout: ` on a US board, " on a Turkish-Q one. A Mac's
+## ISO board reports that key as the section key (§), so it counts too. A
+## second key holds while its action is rebound and steps aside for any
+## action bound to it.
+const SECONDARY := {"move_forward": [KEY_UP], "move_backward": [KEY_DOWN], "move_left": [KEY_LEFT],
+	"move_right": [KEY_RIGHT], "pickup_loot": [KEY_QUOTELEFT, KEY_SECTION]}
+## Actions that may share one key because they never apply at once: the
+## broom's descend (read held, only mounted) and the basic attack (on foot).
+## The key's presses go to the second of the pair.
+const SHARED := [["descend", "basic_attack"]]
 
 static var _instance: GameSettings = null
 
@@ -128,15 +144,45 @@ static func reload_from_disk() -> GameSettings:
 static func key(action: String) -> int:
 	return int(instance().bindings.get(action, BINDABLE.get(action, 0)))
 
-## The action `keycode` drives ("" when none).
+## The action a press of `keycode` drives ("" when none): its bound action,
+## else the action whose fixed second key it is.
 static func action_for(keycode: int) -> String:
-	return String(instance()._by_key.get(keycode, ""))
+	var bound := String(instance()._by_key.get(keycode, ""))
+	if bound != "":
+		return bound
+	for action: String in SECONDARY:
+		if (SECONDARY[action] as Array).has(keycode):
+			return action
+	return ""
 
 static func pressed(action: String) -> bool:
 	if Input.is_physical_key_pressed(key(action)):
 		return true
-	var second := int(SECONDARY.get(action, 0))
-	return second != 0 and not instance()._by_key.has(second) and Input.is_physical_key_pressed(second)
+	for second: int in SECONDARY.get(action, []):
+		if not instance()._by_key.has(second) and Input.is_physical_key_pressed(second):
+			return true
+	return false
+
+## Whether `a` and `b` may hold one key (SHARED).
+static func shares(a: String, b: String) -> bool:
+	for pair: Array in SHARED:
+		if pair.has(a) and pair.has(b) and a != b:
+			return true
+	return false
+
+## The fixed second key's name for `action` as this keyboard prints it ("" when
+## it has none or something else is bound to it).
+static func second_key_name(action: String) -> String:
+	for second: int in SECONDARY.get(action, []):
+		if instance()._by_key.has(second):
+			continue
+		# the character the layout prints on it (", `, §), else its name
+		var label := int(DisplayServer.keyboard_get_label_from_physical(second as Key))
+		if label > 32 and label < int(KEY_SPECIAL):
+			return String.chr(label)
+		if label != 0:
+			return OS.get_keycode_string(label as Key)
+	return ""
 
 ## The key's name as a slot or a row shows it ("Q", "F1", "Space").
 static func key_name(action: String) -> String:
@@ -184,10 +230,15 @@ func load_from_disk() -> void:
 		var taken := {}
 		for action: String in BINDABLE:
 			var stored := int(config.get_value(BINDINGS, action, int(BINDABLE[action])))
-			# a hand-edited file must not bind one key twice or take a fixed key
-			if stored <= 0 or taken.has(stored) or RESERVED.has(stored):
+			# a hand-edited file must not bind one key twice or take a fixed
+			# key; an action new since the file was written whose default is
+			# already another's stays unbound until the player picks a key
+			if stored <= 0 or _clashes(taken, stored, action) or RESERVED.has(stored):
 				stored = int(BINDABLE[action])
-			taken[stored] = true
+				if _clashes(taken, stored, action):
+					stored = 0
+			if stored > 0:
+				taken[stored] = String(taken.get(stored, "")) + action + " "
 			bindings[action] = stored
 	elif error != ERR_FILE_NOT_FOUND:
 		load_error = "could not read %s (error %d)" % [SETTINGS_PATH, error]
@@ -210,10 +261,29 @@ func save_to_disk() -> void:
 		load_error = "could not write %s (error %d)" % [SETTINGS_PATH, error]
 		push_warning("[GameSettings] " + load_error)
 
+## Whether `keycode` is held by an action `action` may not share it with.
+static func _clashes(taken: Dictionary, keycode: int, action: String) -> bool:
+	for other: String in String(taken.get(keycode, "")).split(" ", false):
+		if not shares(action, other):
+			return true
+	return false
+
 func _index_keys() -> void:
 	_by_key.clear()
 	for action: String in bindings:
-		_by_key[int(bindings[action])] = action
+		var keycode := int(bindings[action])
+		if keycode <= 0:
+			continue
+		# a shared key's presses go to the pair's second action
+		var held := String(_by_key.get(keycode, ""))
+		if held == "" or _second_of_pair(action, held):
+			_by_key[keycode] = action
+
+static func _second_of_pair(action: String, other: String) -> bool:
+	for pair: Array in SHARED:
+		if pair.size() == 2 and pair[1] == action and pair[0] == other:
+			return true
+	return false
 
 ## ------------------------------------------------------------------ apply
 
@@ -301,9 +371,9 @@ func set_binding(action: String, keycode: int) -> String:
 		return "invalid"
 	if RESERVED.has(keycode):
 		return "reserved"
-	var other := String(_by_key.get(keycode, ""))
-	if other != "" and other != action:
-		return "taken:" + other
+	for other: String in bindings:
+		if other != action and int(bindings[other]) == keycode and not shares(action, other):
+			return "taken:" + other
 	bindings[action] = keycode
 	_index_keys()
 	save_to_disk()

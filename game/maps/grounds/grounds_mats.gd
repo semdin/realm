@@ -8,8 +8,10 @@ extends RefCounted
 
 const PBR := preload("res://maps/grounds/grounds_pbr.gd")
 const WorldSign := preload("res://scripts/world/world_sign.gd")
-## How far a place's name over it shows (metres).
-const LABEL_REACH := 110.0
+## How far a place's name over it shows (metres) unless the place says: well
+## inside the valley (it is about a kilometre across), so a name is read on
+## the way to its place, not from across the grounds.
+const LABEL_REACH := 100.0
 
 static var _mats: Dictionary = {}
 
@@ -140,11 +142,11 @@ static func plant(root: Node3D, node_name: String, meshes: Array, spots: Array, 
 
 ## A floating name over a place (already translated), with an optional hint
 ## line under it: never smaller than readable on screen, faded out past
-## LABEL_REACH (WorldSign).
-static func label(parent: Node3D, text: String, sub: String, at: Vector3) -> void:
+## `reach` metres (LABEL_REACH unless the place says; WorldSign).
+static func label(parent: Node3D, text: String, sub: String, at: Vector3, reach := LABEL_REACH) -> void:
 	var sign: Label3D = WorldSign.new()
 	sign.text = I18n.upper(text)
-	sign.font = HudKit.deco()
+	sign.font = UITheme.world_font(UITheme.W_DECO)
 	sign.font_size = 44
 	sign.outline_size = 10
 	sign.modulate = Color(1.0, 0.86, 0.55)
@@ -152,13 +154,13 @@ static func label(parent: Node3D, text: String, sub: String, at: Vector3) -> voi
 	sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	sign.pixel_size = 0.006
 	sign.position = at
-	sign.call("setup", LABEL_REACH)
+	sign.call("setup", reach)
 	parent.add_child(sign)
 	if sub == "":
 		return
 	var line := Label3D.new()
 	line.text = sub
-	line.font = HudKit.bold()
+	line.font = UITheme.world_font(UITheme.W_BOLD)
 	line.font_size = 30
 	line.outline_size = 8
 	line.modulate = Color(0.85, 0.9, 1.0)
@@ -167,7 +169,7 @@ static func label(parent: Node3D, text: String, sub: String, at: Vector3) -> voi
 	line.pixel_size = 0.005
 	# under the name, as its child: it grows with it
 	line.position = Vector3(0, -0.55, 0)
-	WorldSign.fade_line(line, LABEL_REACH)
+	WorldSign.fade_line(line, reach)
 	sign.add_child(line)
 
 

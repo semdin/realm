@@ -125,8 +125,9 @@ func _draw() -> void:
 	draw_circle(c, m * 0.5 - 2, Color(0.024, 0.031, 0.051, 0.96))
 	draw_circle(c, m * 0.5 - 8, Color(0.075, 0.098, 0.153, 1.0))
 	if crest != null:
-		var cs := m * 0.62
-		draw_texture_rect(crest, Rect2(c - Vector2(cs, cs) * 0.5, Vector2(cs, cs)), false)
+		# whole pixels: the crest is resampled to exactly this size
+		var cs := roundf(m * 0.62)
+		draw_texture_rect(UITheme.drawn_pixels(crest, cs, self), Rect2((c - Vector2(cs, cs) * 0.5).round(), Vector2(cs, cs)), false)
 	if _ring != null:
 		draw_texture_rect(_ring, Rect2(c - Vector2(m, m) * 0.5, Vector2(m, m)), false)
 	else:
