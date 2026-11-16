@@ -97,14 +97,19 @@ func _draw() -> void:
 		# Soft vignette so every icon sits in the frame the same way.
 		draw_rect(Rect2(inner.position, Vector2(inner.size.x, 4)), Color(0, 0, 0, 0.25))
 	elif empty_hint != "":
+		# one or two short lines, centred under the key label
 		var f := HudKit.body()
-		var fs := 11
-		var w := f.get_string_size(empty_hint, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		draw_string(f, Vector2((size.x - w) * 0.5, size.y * 0.5 + fs * 0.35), empty_hint, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.22))
+		var fs := 10
+		var lines := empty_hint.split("\n")
+		var y := size.y * 0.5 + 4.0 + fs * 0.35 - (lines.size() - 1) * fs * 0.55
+		for line in lines:
+			var w := f.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			draw_string(f, Vector2((size.x - w) * 0.5, y), line, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1, 1, 1, 0.34))
+			y += fs * 1.1
 	# Radial cooldown: the dark wedge is the time still to run, swept clockwise.
 	if cooldown_fraction > 0.0:
 		_draw_sweep(inner, cooldown_fraction)
-		var txt := ("%.1f" % cooldown_seconds) if cooldown_seconds < 3.0 else str(int(ceil(cooldown_seconds)))
+		var txt := I18n.num(cooldown_seconds) if cooldown_seconds < 3.0 else str(int(ceil(cooldown_seconds)))
 		var fs2 := int(size.y * 0.36)
 		var bf := HudKit.bold()
 		var tw := bf.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs2).x

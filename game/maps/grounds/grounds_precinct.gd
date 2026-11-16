@@ -224,7 +224,8 @@ static func _trial_hall(root: Node3D, mats: Dictionary) -> void:
 	light.omni_range = 9.0
 	light.position = Vector3(0, 2.4, 1.2)
 	holder.add_child(light)
-	Mats.label(holder, I18n.t("Trial Hall"), I18n.t("Press F at the door"), Vector3(0, HALL_H + 6.2, 3.0))
+	# on the porch's pediment, over the gate (not up in the sky)
+	Mats.label(holder, I18n.t("Trial Hall"), I18n.t("Press F at the door"), Vector3(0, 7.4, 4.4))
 
 
 ## The veil's noise: soft, seamless, domain-warped value noise.

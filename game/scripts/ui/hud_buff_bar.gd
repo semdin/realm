@@ -136,7 +136,7 @@ class BuffIcon extends Control:
 		draw_rect(r, HudKit.RED if debuff else HudKit.GOLD, false, 1.5)
 		# The seconds left under the icon.
 		if remaining > 0.0:
-			var txt := ("%.1f" % remaining) if remaining < 3.0 else "%ds" % int(ceil(remaining))
+			var txt := I18n.num(remaining) if remaining < 3.0 else "%ds" % int(ceil(remaining))
 			var f := HudKit.bold()
 			var fs := 12
 			var w := f.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x

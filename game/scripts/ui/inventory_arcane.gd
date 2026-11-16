@@ -427,14 +427,9 @@ func _coin_icon(px: int) -> TextureRect:
 	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return coin
 
-## 22874 -> "22,874"
+## 22874 -> "22.874" (Turkish) / "22,874" (English)
 static func oril_text(amount: int) -> String:
-	var digits := str(absi(amount))
-	var out := ""
-	while digits.length() > 3:
-		out = "," + digits.substr(digits.length() - 3) + out
-		digits = digits.substr(0, digits.length() - 3)
-	return ("-" if amount < 0 else "") + digits + out
+	return I18n.whole(amount)
 
 ## The flat cell look of the bag and the doll (no frame art): a dark well with a
 ## thin border, gold on hover; the icon fills it edge to edge. A doll slot also

@@ -14,6 +14,7 @@ class_name WaylinkViews
 ## MapTravel asks `grab_candidate` which boot the local body could hold.
 
 const BOOT := "res://assets/models/travel/waylink_boot.glb"
+const WorldSign := preload("res://scripts/world/world_sign.gd")
 const BLUE := Color(0.5, 0.75, 1.0)
 ## The owner's hand reaches the ground this long into the Place clip.
 const DROP_DELAY := 0.9
@@ -143,7 +144,8 @@ func _build(state: Dictionary) -> Dictionary:
 		Vector2(0.25, 0.9), Vector2(0.010, 0.022))
 	RisingMotes.set_rate(motes, 0.6)
 	root.add_child(motes)
-	var label := Label3D.new()
+	var label: Label3D = WorldSign.new()   # readable from afar, faded past 60 m
+	label.call("setup", 60.0, 15.0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	label.font = HudKit.deco()
 	label.font_size = 30

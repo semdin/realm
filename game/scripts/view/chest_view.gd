@@ -16,6 +16,7 @@ class_name ChestView
 const KIND_CHEST := 0x1000
 const KIND_CHEST_RARE := 0x1001
 const CHEST_MODEL := "res://assets/models/environment/loot_chest.glb"
+const WorldSign := preload("res://scripts/world/world_sign.gd")
 const RIM_SHADER := "res://assets/shaders/loot/chest_rim.gdshader"
 const POOL_SHADER := "res://assets/shaders/loot/chest_pool.gdshader"
 const BEAM_SHADER := "res://assets/shaders/loot/chest_beam.gdshader"
@@ -97,7 +98,8 @@ func _build_glow() -> void:
 	light.omni_range = 2.3
 	light.omni_attenuation = 1.2
 	add_child(light)
-	label = Label3D.new()
+	label = WorldSign.new()   # readable from afar, faded past 45 m
+	label.call("setup", 45.0, 15.0)
 	label.name = "Label3D"
 	label.position = Vector3(0, 1.2, 0)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED

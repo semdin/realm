@@ -78,6 +78,11 @@ var _prompt_label: Label
 var _fade_rect: ColorRect
 var _fade_tween: Tween
 var _pending_arrival := ""
+## This client set off in flames (with their sound) on a trip that has not
+## arrived yet: a trip on the same map sounds once, so its arrival is silent.
+## (A trip to another map arrives in a rebuilt MapTravel, after the loading
+## screen, and sounds there.)
+var _departure_sounded := false
 var _loading_done := false
 var _settle_frames := 0
 
@@ -144,11 +149,9 @@ func _warm_then_settle() -> void:
 ## The ground a travel object authored at y 0 stands on (TravelNodes.point):
 ## the map view's drawn ground (`height_at`: the grounds' Terrain3D, the very
 ## heights of the pack's terrain grid) under (x, z). Not RealmSession.pick:
-## its line test walks a height grid in 1 m steps and answers the last step
-## above the terrain (up to 1 m high), and from a point under the terrain it
-## answers that point, so stepping down from hit to hit (as this did, to look
-## under the Hearth Pavilion's roof) sank the hearths and the Orvell hatch
-## 1.1-2.1 m into the ground. Without a drawn ground (headless, the
+## from a point under the terrain it answers that point, so stepping down
+## from hit to hit (as this did, to look under the Hearth Pavilion's roof)
+## sank the hearths and the Orvell hatch 1.1-2.1 m into the ground. Without a drawn ground (headless, the
 ## placeholder world): the lowest surface picks from the sky meet, stepping
 ## down from hit to hit; a pick that answers its own start is inside a solid
 ## or under the terrain, and three metres of those end the search.
@@ -322,6 +325,7 @@ func toggle_ride() -> void:
 ## up in the hearth; the trip is asked for as they peak.
 func _hearth_depart(from_node: String, dest_node: String) -> void:
 	TravelNodes.burst(game, nodes.mouth(from_node), "hearthway")
+	_departure_sounded = true
 	await get_tree().create_timer(HEARTH_DELAY).timeout
 	if is_instance_valid(game) and game.session != null:
 		game.session.travel(from_node, dest_node)
@@ -330,6 +334,7 @@ func _hearth_depart(from_node: String, dest_node: String) -> void:
 ## one end.
 func _passage_depart(node_id: String) -> void:
 	TravelNodes.burst(game, nodes.mouth(node_id), String(TravelData.node(node_id).get("kind", "")))
+	_departure_sounded = true
 	await get_tree().create_timer(PASSAGE_DELAY).timeout
 	if is_instance_valid(game) and game.session != null:
 		game.session.travel(node_id, "")
@@ -340,6 +345,7 @@ func on_event(event: Dictionary) -> void:
 		"travel_result":
 			results.append(event)
 			if not bool(event["ok"]):
+				_departure_sounded = false   # no trip follows the flames
 				var text := refusal_text(String(event["what"]), String(event["reason"]))
 				last_refusal = text
 				if text != "":
@@ -424,7 +430,8 @@ func _play_arrival() -> void:
 	var at: Vector3 = game.session.own_position()
 	match kind:
 		"hearthway", "cabinet", "passage", "waylink":
-			TravelNodes.burst(game, at, kind)
+			TravelNodes.burst(game, at, kind, not _departure_sounded)
+			_departure_sounded = false
 		_:
 			# through a door: it opens onto a hall or a dungeon, and shuts
 			# behind on the way back out (the old game's door pair)

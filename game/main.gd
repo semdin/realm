@@ -1924,10 +1924,13 @@ func _show_game_events() -> void:
 				if loot_window.visible and loot_window.chest_id == int(event["chest"]):
 					loot_window.on_result(int(event["chest"]), bool(event["ok"]), reason)
 				elif reason == "bag_full":
-					# a Z take: the window is not there to say it
+					# a Z take: the window is not there to say it (the deny
+					# sound as the window's take has it)
 					hud.show_notice(tr("Your bag is full."), "warn")
+					AudioManager.play_deny()
 				elif reason == "out_of_range":
 					hud.show_notice(tr("Too far away."), "warn")
+					AudioManager.play_deny()
 			"death":
 				check_deaths += 1
 				if check_fell_at == 0.0:
@@ -2068,9 +2071,13 @@ func take_nearest_chest() -> void:
 		if distance < best_distance:
 			best_distance = distance
 			best = id
-	if best != 0:
-		session.take_loot(best, -1)
-		AudioManager.play_sound_at("ui_loot", Vector3.ZERO, null, true)
+	if best == 0:
+		return
+	if loot_window.visible and loot_window.chest_id == best:
+		loot_window.take(-1)   # the window's own take: its sound, its answers
+		return
+	session.take_loot(best, -1)
+	AudioManager.play_sound_at("ui_loot", Vector3.ZERO, null, true)   # once, as the window's take
 
 ## What the map announced, on the notice band in the old game's words:
 ## a world boss stirring, rising and falling (with its horn), a Dark Shard's

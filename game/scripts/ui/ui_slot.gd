@@ -226,7 +226,7 @@ func set_cooldown(remaining: float, fraction: float) -> void:
 		_cooldown.offset_left = 0.0
 		_cooldown.offset_right = 0.0
 		_cooldown.offset_bottom = -size.y * clampf(fraction, 0.0, 1.0)
-		_cooldown_label.text = ("%.1f" % remaining) if remaining < 10.0 else "%d" % int(remaining)
+		_cooldown_label.text = I18n.num(remaining) if remaining < 10.0 else "%d" % int(remaining)
 
 
 func clear() -> void:

@@ -211,7 +211,8 @@ func _run() -> void:
 	for m: Dictionary in window.markers:
 		kinds[String(m["kind"])] = int(kinds.get(String(m["kind"]), 0)) + 1
 	if kinds.has("npc") and kinds.has("gate") and kinds.has("hearth"):
-		_see("map_markers", kinds)
+		_see("map_markers", "%s, labels %d drawn, %d left out for want of room" % [kinds,
+			window.view.labels_drawn, window.view.labels_skipped])
 	if kinds.has("quest") or kinds.has("place"):
 		_see("map_quest", window.markers.filter(func(m): return String(m["kind"]) in ["quest", "place"]).map(
 			func(m): return String(m["label"])))

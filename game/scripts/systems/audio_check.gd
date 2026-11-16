@@ -20,6 +20,11 @@ extends Node
 ##   broom    mounts, rises and flies: the broom's wind follows the speed
 ##            (level and pitch hovering against flying); lands and dismounts
 ##
+## `--audio-quick` leaves out the fight and the calm (their layers are then not
+## wanted): about a minute, for the zone, the hearth trip and the broom. The
+## hearth trip must sound once (its departure; the same-map arrival is
+## silent), and the zone must change only where the walk really crosses it.
+##
 ## The verdict line says what was seen, the audio layer's frame cost (the
 ## microseconds of AudioManager's and WorldAudio's work per frame), and
 ## quits 0 only when every layer was seen.
@@ -43,6 +48,9 @@ var _jump := false
 var _descend := false
 var _steer := false
 var _tension_max := 0.0
+var _quick := OS.get_cmdline_user_args().has("--audio-quick")
+## The layers the fight and the calm show (not wanted with --audio-quick).
+const FIGHT_LAYERS := ["creature_alert", "creature_hurt", "creature_death", "tension_rose", "tension_fell"]
 
 func _ready() -> void:
 	_started = _now()
@@ -170,6 +178,12 @@ func _run() -> void:
 	if AudioManager.zone != zone_from:
 		_see("zone_change", "%s -> %s" % [zone_from, AudioManager.zone])
 	# ---- fight whatever comes
+	if not _quick:
+		await _fight_and_calm()
+	await _hearth_and_broom()
+
+func _fight_and_calm() -> void:
+	var world: WorldAudio = game.world_audio
 	await _fight()
 	if world.voices["alert"] > 0:
 		_see("creature_alert", "%d (%s)" % [world.voices["alert"], _keys_like("_alert")])
@@ -182,6 +196,8 @@ func _run() -> void:
 	# ---- calm: the tension falls
 	if await _until(func(): return AudioManager.tension < 0.05 and not AudioManager.combat_music_active(), 40.0):
 		_see("tension_fell", "%.2f, music %s" % [AudioManager.tension, AudioManager.get_music_state()])
+
+func _hearth_and_broom() -> void:
 	# ---- the hearth: its sound, then Orvell's music and bed
 	var travel: MapTravel = game.travel
 	var mouth := travel.nodes.mouth(HOME_HEARTH) + TravelData.facing(TravelData.node(HOME_HEARTH)) * 1.2
@@ -200,8 +216,12 @@ func _run() -> void:
 			go.pressed.emit()
 	var square: Array = TravelData.node(ORVELL_HEARTH).get("pos", [0, 0, 0])
 	await _until(func(): return Vector2(_me().x - float(square[0]), _me().z - float(square[2])).length() < 14.0, 15.0)
-	if AudioManager.played_count("hearth_whoosh") > whoosh_before:
-		_see("hearth_sound", "hearth_whoosh x%d" % (AudioManager.played_count("hearth_whoosh") - whoosh_before))
+	await _wait(1.5)   # the arrival's flames are up by now
+	var whooshes := AudioManager.played_count("hearth_whoosh") - whoosh_before
+	if whooshes == 1:
+		_see("hearth_sound", "hearth_whoosh x1")
+	else:
+		print("realm check audio: the hearth trip sounded %d times (wanted once)" % whooshes)
 	await _until(func(): return AudioManager.zone == "village", 6.0)
 	await _wait(1.0)
 	for fade: Dictionary in AudioManager.crossfades.slice(fades_before):
@@ -292,7 +312,7 @@ func _verdict(failure: String) -> void:
 	_walk = 0.0
 	_jump = false
 	_descend = false
-	var missing := WANTED.filter(func(k): return not _seen.has(k))
+	var missing := WANTED.filter(func(k): return not _seen.has(k) and not (_quick and FIGHT_LAYERS.has(k)))
 	var cost := AudioManager.cost_summary()
 	var world: WorldAudio = game.world_audio
 	print("realm check audio: %s | seen {%s} | missing [%s]" % [
@@ -300,7 +320,8 @@ func _verdict(failure: String) -> void:
 			", ".join(_seen.keys().map(func(k): return "%s: %s" % [k, _seen[k]])), ", ".join(missing)],
 		" | voices %s, steps own %d other %d, zones [%s], crossfades [%s], stingers [%s]" % [world.voices,
 			world.own_steps, world.other_steps,
-			", ".join(world.zone_changes.map(func(z): return "%s->%s" % [z["from"], z["to"]])),
+			", ".join(world.zone_changes.map(func(z): return "%s->%s at (%d, %d) %.1f s" % [z["from"], z["to"],
+				roundi((z["pos"] as Vector3).x), roundi((z["pos"] as Vector3).z), float(z["at"])])),
 			", ".join(AudioManager.crossfades.map(func(f): return "%s->%s (%s)" % [f["from"], f["to"], f["reason"]])),
 			", ".join(AudioManager.stingers_played)],
 		" | audio layer %d frames: mean %.1f us, p99 %d us, max %d us; %d frames read a file (longest %d us) | %d fps | mix %s" % [

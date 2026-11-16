@@ -377,7 +377,7 @@ func _fill_tip(spell_id: String) -> void:
 	_tip_body.add_child(_pair(_tl(I18n.t(String(spell.get("name", spell_id))), 17, HudKit.GOLD_HI),
 			_tl(rank, 13, HudKit.GOLD_HI if master else HudKit.GOLD_LT, HudKit.bold() if master else null)))
 	_tip_body.add_child(_pair(_tl(tr("%d Mana") % int(spell.get("mana_cost", 0)), 13, MANA),
-			_tl(tr("%.1f s cooldown") % _cooldown(spell_id, shown_lv), 13, HudKit.TEXT)))
+			_tl(tr("%s s cooldown") % I18n.num(_cooldown(spell_id, shown_lv)), 13, HudKit.TEXT)))
 	_tip_body.add_child(_gap(5))
 	_tip_body.add_child(_tl(I18n.t(String(spell.get("desc", ""))), 13, HudKit.PARCHMENT, null, true))
 	_tip_body.add_child(_gap(4))
@@ -397,7 +397,7 @@ func _fill_tip(spell_id: String) -> void:
 		if later == null:
 			later = GridContainer.new()
 			later.columns = 2
-		var cd := _tl(tr("Cooldown %.1f s") % _cooldown(spell_id, next), 13, NEXT_NUM)
+		var cd := _tl(tr("Cooldown %s s") % I18n.num(_cooldown(spell_id, next)), 13, NEXT_NUM)
 		later.add_child(cd)
 		_tip_body.add_child(later)
 	if not trainable and not locked:
@@ -485,18 +485,18 @@ func _control_lines(spell_id: String, lv: int) -> Array:
 	var effect := effect_multiplier(lv) if Levels.skill_upgradeable(spell_id) else 1.0
 	var out: Array = []
 	if int(spell.get("stun_ms", 0)) > 0:
-		out.append(tr("Stun %.1fs") % (float(spell.stun_ms) * effect / 1000.0))
+		out.append(tr("Stun %s s") % I18n.num(float(spell.stun_ms) * effect / 1000.0))
 	var launch: Dictionary = spell.get("launch", {})
 	if not launch.is_empty():
 		if int(launch.get("land_stun_ms", 0)) > 0:
-			out.append(tr("Throws enemies, knocked down %.1fs") % (float(launch.land_stun_ms) * effect / 1000.0))
+			out.append(tr("Throws enemies, knocked down %s s") % I18n.num(float(launch.land_stun_ms) * effect / 1000.0))
 		else:
 			out.append(tr("Knocks enemies back"))
 	if int(spell.get("freeze_ms", 0)) > 0:
-		out.append(tr("Freeze %.1fs") % (float(spell.freeze_ms) * effect / 1000.0))
+		out.append(tr("Freeze %s s") % I18n.num(float(spell.freeze_ms) * effect / 1000.0))
 	var slow: Dictionary = spell.get("slow", {})
 	if not slow.is_empty():
-		out.append(tr("Slow %d%% for %.1fs") % [roundi((1.0 - float(slow.get("factor", 1.0))) * 100.0), float(slow.get("ms", 0)) * effect / 1000.0])
+		out.append(tr("Slow %d%% for %s s") % [roundi((1.0 - float(slow.get("factor", 1.0))) * 100.0), I18n.num(float(slow.get("ms", 0)) * effect / 1000.0)])
 	var bleed: Dictionary = spell.get("bleed", {})
 	if not bleed.is_empty():
 		out.append(tr("Bleed %d x %d") % [int(bleed.get("damage", 0)), int(bleed.get("ticks", 0))])
@@ -504,7 +504,7 @@ func _control_lines(spell_id: String, lv: int) -> Array:
 	if not burn.is_empty():
 		out.append(tr("Burn %d x %d") % [int(burn.get("damage", 0)), int(burn.get("ticks", 0))])
 	if int(spell.get("weaken_ms", 0)) > 0:
-		out.append(tr("Disarm %.1fs") % (float(spell.weaken_ms) * effect / 1000.0))
+		out.append(tr("Disarm %s s") % I18n.num(float(spell.weaken_ms) * effect / 1000.0))
 	return out
 
 

@@ -134,11 +134,10 @@ func apply_quality(p_preset: Dictionary) -> void:
 	_apply_scenery(preset)
 
 
-## The hour's light (DayNight, as the lamps change): the clock faces glow
-## from behind as the night comes and are a plain dial by day.
+## The hour's light (DayNight, as the lamps change): the clock dials glow
+## from behind as the night comes and are a plain painted dial by day.
 func apply_daylight(night: float) -> void:
-	if Castle.clock_material != null:
-		Castle.clock_material.emission_energy_multiplier = Castle.CLOCK_GLOW * lerpf(0.08, 1.0, night)
+	Castle.daylight(night)
 
 
 ## The grounds' own lamps and site geometry, and their particles.
@@ -230,7 +229,8 @@ func _broom_landing() -> void:
 	ring.mesh = tm
 	ring.position.y = 0.1
 	pad.add_child(ring)
-	var label := Label3D.new()
+	var label: Label3D = Mats.WorldSign.new()   # readable from afar, faded past 80 m
+	label.call("setup", 80.0, 15.0)
 	label.text = I18n.upper(I18n.t("Broom landing"))
 	label.font = HudKit.deco()
 	label.font_size = 30

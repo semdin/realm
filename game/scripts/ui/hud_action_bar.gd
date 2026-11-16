@@ -92,7 +92,7 @@ func _ready() -> void:
 		var q := HudSlot.new(SLOT)
 		q.name = "Quick%d" % (i + 1)
 		q.key_text = GameSettings.key_name("quick_%d" % (i + 1))
-		q.empty_hint = tr("drop")
+		q.empty_hint = tr("potion\nhere")   # an empty potion slot: what goes in it
 		q.accept_drop = _accept_quick_drop
 		q.item_dropped.connect(_on_quick_drop.bind(i))
 		q.cleared.connect(func(_s): _assign(i, ""))
@@ -404,8 +404,8 @@ func _spell_tooltip(key: String, spell: Dictionary, trained: int, cooldown: floa
 	if spell.is_empty():
 		return ""
 	var grade := tr("Not learned") if trained <= 0 else (tr("Master") if Levels.skill_is_master(trained) else tr("Level %d") % trained)
-	var tip := tr("[%s] %s  ·  %s\n%d mana · %.1fs cooldown\n%s\nDrag onto another slot to swap") % [key,
-		I18n.t(String(spell.get("name", ""))), grade, int(spell.get("mana_cost", 0)), cooldown, I18n.t(String(spell.get("desc", "")))]
+	var tip := tr("[%s] %s  ·  %s\n%d mana · %s s cooldown\n%s\nDrag onto another slot to swap") % [key,
+		I18n.t(String(spell.get("name", ""))), grade, int(spell.get("mana_cost", 0)), I18n.num(cooldown), I18n.t(String(spell.get("desc", "")))]
 	if trained <= 0 and points > 0:
 		tip += "\n" + tr("Click to learn - spends a skill point (%d left)") % points
 	return tip

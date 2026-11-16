@@ -41,6 +41,9 @@ var _fight_shown := false
 var _last_count := -1
 var _marked: Dictionary = {}   # entity -> the hero it was set on
 var _mark_check_ms := 0
+## After the end: the grey "out" marks stay over the ones who went out until
+## this time (ms), then go; 0 when none linger.
+var _linger_until_ms := 0
 var _arena: MeshInstance3D = null
 var _arena_mat: ShaderMaterial = null
 
@@ -60,6 +63,11 @@ var _banner_tween: Tween
 var pops_shown: PackedStringArray = []
 var last_result: Dictionary = {}
 var duels_shown := 0
+## Who was out when the last duel ended (entities), for the checks.
+var last_out := PackedInt32Array()
+## How long the losers keep their grey mark over the result (ms). A 1v1 ends
+## the moment its loser goes out, so without it the mark never showed.
+const OUT_LINGER_MS := 3500
 
 ## The wall: its soft glow fades upward from a bright band near the ground,
 ## breathing in broad bands round the circle; a slow noise drifting through
@@ -171,6 +179,9 @@ func on_event(event: Dictionary) -> void:
 		fight_in = maxf(0.0, (float(event.get("fight_tick", 0)) - server_now) / hz)
 		ends_in = maxf(0.0, (float(event.get("end_tick", 0)) - server_now) / hz)
 	if id != _duel_id:
+		if _linger_until_ms != 0:   # the last duel's grey marks go
+			_linger_until_ms = 0
+			_clear_marks()
 		_duel_id = id
 		_fight_shown = false
 		_last_count = -1
@@ -210,6 +221,15 @@ func _finish(event: Dictionary) -> void:
 	_warn.visible = false
 	_clear_marks()
 	_free_arena()
+	# The ones who went out keep their grey mark a moment over the result.
+	last_out = PackedInt32Array(event.get("out", PackedInt32Array()))
+	for foe: Dictionary in event.get("foes", []):
+		var id := int(foe.get("entity", 0))
+		var hero: Node = heroes.get(id)
+		if last_out.has(id) and hero != null and is_instance_valid(hero):
+			hero.set_duel_mark(MARK_OUT, String(foe.get("name", "")))
+			_marked[id] = hero
+	_linger_until_ms = Time.get_ticks_msec() + OUT_LINGER_MS if not _marked.is_empty() else 0
 	var result := String(event.get("result", "draw"))
 	var sub := _result_line(event)
 	var title := tr("Victory") if result == "won" else (tr("Defeat") if result == "lost" else tr("Draw"))
@@ -257,6 +277,9 @@ func _result_line(event: Dictionary) -> String:
 
 func _process(_delta: float) -> void:
 	if _duel_id == 0:
+		if _linger_until_ms != 0 and Time.get_ticks_msec() >= _linger_until_ms:
+			_linger_until_ms = 0
+			_clear_marks()
 		return
 	var now := Time.get_ticks_msec()
 	# The countdown: whole seconds to the first blow, then "Fight!".

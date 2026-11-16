@@ -435,7 +435,7 @@ func on_hit(event: Dictionary) -> void:
 func _show_target_health(hp: int) -> void:
 	_target_stat.set_value(hp, 255)
 	var pct := 100.0 * float(hp) / 255.0
-	target_hp_text.text = ("%.1f%%" % pct) if pct < 10.0 and pct > 0.0 else "%d%%" % int(round(pct))
+	target_hp_text.text = tr("%s%%") % (I18n.num(pct) if pct < 10.0 and pct > 0.0 else str(roundi(pct)))
 
 ## ------------------------------------------------------------------ update
 
@@ -496,7 +496,7 @@ func _process(delta: float) -> void:
 	_exp_stat.set_value(earned, needed)
 	# Rounded down: 7347 / 7350 is 99.9 %, never a full bar that has not levelled.
 	var pct := floorf(float(earned) / maxf(1.0, float(needed)) * 1000.0) / 10.0
-	exp_label.text = tr("Level %d   ·   %d / %d EXP   ·   %.1f%%") % [level, earned, needed, pct]
+	exp_label.text = tr("Level %d   ·   %s / %s EXP   ·   %s%%") % [level, I18n.whole(earned), I18n.whole(needed), I18n.num(pct)]
 	unit_frame.set_identity(String(data["name"]), String(data["house"]), level)
 	unit_frame.set_oril(int(data["oril"]))
 	_apply_house_standing(data)

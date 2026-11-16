@@ -35,16 +35,22 @@ var cells: Dictionary = {}
 var data: Dictionary = {}
 var _slot_names: PackedStringArray
 var _revision := -1
+## RealmSession.sheet_revision is there (an extension built before it lacks
+## it: then the whole sheet is read each frame, as it used to be).
+var _cheap_revision := false
 
 func _init(realm_session: Node) -> void:
 	session = realm_session
+	_cheap_revision = session.has_method("sheet_revision")
 	_slot_names = session.slot_names()
 	add_to_group("players")
 
 func _process(_delta: float) -> void:
-	var sheet: Dictionary = session.sheet()
-	if not sheet.is_empty() and int(sheet.get("revision", 0)) != _revision:
-		_read(sheet)
+	# the revision alone each frame; the whole sheet only when it changed
+	if not _cheap_revision or int(session.sheet_revision()) != _revision:
+		var sheet: Dictionary = session.sheet()
+		if not sheet.is_empty() and int(sheet.get("revision", 0)) != _revision:
+			_read(sheet)
 	for answer: Dictionary in session.take_item_results():
 		equipment_answer.emit({"request_id": int(answer.op_id), "ok": bool(answer.ok),
 			"reason": String(answer.reason), "amount": int(answer.amount)})

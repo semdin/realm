@@ -402,7 +402,7 @@ func _format(key: String, value: float) -> String:
 	if key.begins_with("vol_") or key == "shake" or key == "flash":
 		return "%d%%" % roundi(value * 100.0)
 	if key == "mouse_sensitivity":
-		return "%.2fx" % value
+		return I18n.num(value, 2) + "x"
 	return "%d%%" % roundi(value * 100.0)
 
 func refresh() -> void:

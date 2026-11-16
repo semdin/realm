@@ -235,6 +235,16 @@ class MapView extends Control:
 	var _icons := {}
 	## Drawing time a frame, averaged (ms).
 	var cost_ms := 0.0
+	## This frame's labels, laid out together after the markers are drawn
+	## (`_place_labels`): each takes the first of its spots that overlaps no
+	## marker and no label placed before it, kept inside the frame.
+	var _labels: Array = []
+	## Screen rects labels keep off this frame: marker icons, the player's
+	## arrow, the waypoint's pin, the storey title.
+	var _blocked: Array[Rect2] = []
+	## Labels drawn / skipped for want of room last frame (the check reads them).
+	var labels_drawn := 0
+	var labels_skipped := 0
 
 	func _init() -> void:
 		clip_contents = true
@@ -338,11 +348,92 @@ class MapView extends Control:
 			return
 		draw_texture_rect(tex, Rect2(at - Vector2(px, px) * 0.5, Vector2(px, px)), false)
 
-	func _text(txt: String, at: Vector2, fs: int, colour: Color, font: Font, outline: Color, outline_px := 5) -> void:
-		var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var p := at - Vector2(w * 0.5, 0)
-		draw_string_outline(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, outline_px, outline)
-		draw_string(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, colour)
+	## Keep labels off a marker of `px` pixels drawn centred on `at`.
+	func _block_icon(at: Vector2, px: float) -> void:
+		_blocked.append(Rect2(at - Vector2(px, px) * 0.5, Vector2(px, px)))
+
+	## Queue a label for `_place_labels`. `spots` are the places it may take
+	## round `at`, best first: Vector3(dx, dy, align) - the baseline at
+	## at + (dx, dy), the text's left edge (align 0), centre (0.5) or right
+	## edge (1) on that point. Labels go down in `rank` order (lower first); a
+	## `required` one is drawn at its least-crowded spot when none is free,
+	## any other is left out.
+	func _label(txt: String, at: Vector2, spots: Array, fs: int, colour: Color, font: Font, outline: Color,
+			outline_px: int, rank: int, required := false) -> void:
+		if txt == "" or not Rect2(Vector2.ZERO, size).has_point(at):
+			return
+		_labels.append({"txt": txt, "at": at, "spots": spots, "fs": fs, "colour": colour, "font": font,
+			"outline": outline, "outline_px": outline_px, "rank": rank, "required": required, "i": _labels.size()})
+
+	## Below, above, right and left of a marker `radius` pixels round
+	## (`first` "above" puts above ahead of below).
+	static func _around(radius: float, fs: int, first := "below") -> Array:
+		var below := Vector3(0.0, radius + fs * 0.85, 0.5)
+		var above := Vector3(0.0, -radius - fs * 0.25, 0.5)
+		var side := fs * 0.35
+		var spots := [below, above] if first == "below" else [above, below]
+		spots.append_array([Vector3(radius + 4.0, side, 0.0), Vector3(-radius - 4.0, side, 1.0),
+			Vector3(radius + 2.0, radius + fs * 0.85, 0.0), Vector3(-radius - 2.0, radius + fs * 0.85, 1.0),
+			Vector3(radius + 2.0, -radius - fs * 0.25, 0.0), Vector3(-radius - 2.0, -radius - fs * 0.25, 1.0)])
+		return spots
+
+	## A region's or room's name: on its point, else nudged up or down, else
+	## beside it (ending or starting a little off the point).
+	static func _centred(fs: int) -> Array:
+		var line := fs * 1.1
+		var spots := [Vector3(0, 0, 0.5), Vector3(0, -line * 0.6, 0.5), Vector3(0, line * 0.6, 0.5),
+			Vector3(0, -line * 1.2, 0.5), Vector3(0, line * 1.2, 0.5)]
+		for dy: float in [0.0, -line, line]:
+			spots.append(Vector3(-line, dy, 1.0))
+			spots.append(Vector3(line, dy, 0.0))
+		return spots
+
+	static func _overlap(r: Rect2, others: Array) -> float:
+		var area := 0.0
+		for o: Rect2 in others:
+			var i := r.intersection(o)
+			area += i.get_area()
+		return area
+
+	## Lay the queued labels out and draw them.
+	func _place_labels() -> void:
+		var frame := Rect2(Vector2.ZERO, size).grow(-3.0)
+		var placed: Array = []
+		var blocked: Array = _blocked
+		_labels.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+			return int(a["rank"]) < int(b["rank"]) if int(a["rank"]) != int(b["rank"]) else int(a["i"]) < int(b["i"]))
+		labels_drawn = 0
+		labels_skipped = 0
+		for l: Dictionary in _labels:
+			var font: Font = l["font"]
+			var fs: int = l["fs"]
+			var txt: String = l["txt"]
+			var pad := float(l["outline_px"]) * 0.5
+			var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var ascent := font.get_ascent(fs)
+			var height := ascent + font.get_descent(fs)
+			var best := Rect2()
+			var best_cost := INF
+			for spot: Vector3 in l["spots"]:
+				var base: Vector2 = l["at"] + Vector2(spot.x, spot.y)
+				var r := Rect2(base.x - w * spot.z - pad, base.y - ascent - pad, w + pad * 2.0, height + pad * 2.0)
+				# kept inside the frame: never cut at an edge
+				r.position.x = clampf(r.position.x, frame.position.x, maxf(frame.position.x, frame.end.x - r.size.x))
+				r.position.y = clampf(r.position.y, frame.position.y, maxf(frame.position.y, frame.end.y - r.size.y))
+				var cost := _overlap(r, placed) * 4.0 + _overlap(r, blocked)
+				if cost < best_cost:
+					best_cost = cost
+					best = r
+				if cost <= 0.0:
+					break
+			if best_cost > 0.0 and not bool(l["required"]):
+				labels_skipped += 1
+				continue
+			placed.append(best.grow(1.0))
+			var p := Vector2(best.position.x + pad, best.position.y + pad + ascent)
+			draw_string_outline(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, int(l["outline_px"]), l["outline"])
+			draw_string(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, l["colour"])
+			labels_drawn += 1
 
 	func _draw() -> void:
 		if host.way.game.session == null:
@@ -354,14 +445,17 @@ class MapView extends Control:
 			var r := _rect()
 			var tl := world_to_screen(r.position)
 			draw_texture_rect(host.sheet["texture"], Rect2(tl, r.size * zoom), false)
+		_labels.clear()
+		_blocked.clear()
 		_draw_places()
 		_draw_markers()
 		_draw_party()
 		_draw_route()
 		_draw_player()
-		_draw_cursor_coords()
 		if host.mode == "castle":
 			_draw_storey_title()
+		_place_labels()
+		_draw_cursor_coords()
 		draw_rect(Rect2(Vector2.ZERO, size), HudKit.GOLD.darkened(0.2), false, 2.0)
 		cost_ms = lerpf(cost_ms, (Time.get_ticks_usec() - started) / 1000.0, 0.05)
 
@@ -373,8 +467,10 @@ class MapView extends Control:
 			"grounds":
 				for spec: Array in MapPlaces.GROUNDS_LABELS:
 					var fs := int(clampf(15.0 * float(spec[2]) * (0.75 + zoom * 0.6), 11.0, 30.0))
-					_text(I18n.t(String(spec[0])), world_to_screen(spec[1]), fs, Color(0.22, 0.13, 0.06), deco,
-						Color(0.98, 0.94, 0.84, 0.85))
+					# the big regions claim their room after the quests and gates,
+					# the small landmarks after the people
+					_label(I18n.t(String(spec[0])), world_to_screen(spec[1]), _centred(fs), fs, Color(0.22, 0.13, 0.06), deco,
+						Color(0.98, 0.94, 0.84, 0.85), 5, 15 if float(spec[2]) >= 1.0 else 40)
 			"castle":
 				var offset: Vector3 = host.way.game.session.copy_offset()
 				for room: Array in MapPlaces.CASTLE_ROOMS:
@@ -382,14 +478,14 @@ class MapView extends Control:
 						continue
 					var c := Vector2((float(room[2]) + float(room[3])) * 0.5, (float(room[4]) + float(room[5])) * 0.5)
 					var fs := int(clampf(6.0 + zoom * 2.2, 10.0, 22.0))
-					_text(I18n.t(String(room[0])), world_to_screen(c + Vector2(offset.x, offset.z)) + Vector2(0, fs * 0.35),
-						fs, INK, deco, Color(0.95, 0.88, 0.72, 0.7), 3)
+					_label(I18n.t(String(room[0])), world_to_screen(c + Vector2(offset.x, offset.z)) + Vector2(0, fs * 0.35),
+						_centred(fs), fs, INK, deco, Color(0.95, 0.88, 0.72, 0.7), 3, 55)
 			"caverns":
 				for region: Dictionary in MapPlaces.hunting_regions(host.way.map_name):
 					var c: Array = region.get("center", [0.0, 0.0])
 					var fs := int(clampf(10.0 + zoom * 3.0, 11.0, 20.0))
-					_text(I18n.t(String(region.get("display", ""))), world_to_screen(Vector2(float(c[0]), float(c[1]))),
-						fs, HudKit.GOLD_HI, HudKit.bold(), Color(0, 0, 0, 0.9))
+					_label(I18n.t(String(region.get("display", ""))), world_to_screen(Vector2(float(c[0]), float(c[1]))),
+						_centred(fs), fs, HudKit.GOLD_HI, HudKit.bold(), Color(0, 0, 0, 0.9), 5, 55)
 
 	## Doors, gates, travel objects, NPCs, quest targets.
 	func _draw_markers() -> void:
@@ -410,26 +506,33 @@ class MapView extends Control:
 						Color(0.08, 0.03, 0.12, 0.95))
 					r -= 3.0
 					draw_colored_polygon(PackedVector2Array([at + Vector2(0, -r), at + Vector2(r, 0), at + Vector2(0, r), at + Vector2(-r, 0)]), GATE)
-					_text(label, at + Vector2(0, 24), 14, Color(0.86, 0.7, 1.0), bold, Color(0, 0, 0, 0.9))
+					_block_icon(at, 20.0)
+					_label(label, at, _around(11.0, 14), 14, Color(0.86, 0.7, 1.0), bold, Color(0, 0, 0, 0.9), 5, 12, true)
 				"door":
 					_draw_icon("ui_portal", at, 20.0)
+					_block_icon(at, 20.0)
 					if zoom > 0.9:
-						_text(label, at + Vector2(0, 22), 12, HudKit.GOLD_HI, bold, Color(0, 0, 0, 0.85), 4)
+						_label(label, at, _around(10.0, 12), 12, HudKit.GOLD_HI, bold, Color(0, 0, 0, 0.85), 4, 35)
 				"hearth":
 					_draw_icon("hearth_dust", at, 22.0)
+					_block_icon(at, 22.0)
 					if zoom > 0.6:
-						_text(label, at + Vector2(0, 24), 12, Color(0.7, 1.0, 0.72), bold, Color(0, 0, 0, 0.85), 4)
+						_label(label, at, _around(11.0, 12), 12, Color(0.7, 1.0, 0.72), bold, Color(0, 0, 0, 0.85), 4, 25)
 				"link":
 					_draw_icon("ui_portal", at, 18.0)
+					_block_icon(at, 18.0)
 					if zoom > 0.9:
-						_text(label, at + Vector2(0, 22), 12, HudKit.GOLD_HI, bold, Color(0, 0, 0, 0.85), 4)
+						_label(label, at, _around(9.0, 12), 12, HudKit.GOLD_HI, bold, Color(0, 0, 0, 0.85), 4, 35)
 				"npc":
 					_draw_icon("minimap_npc", at, 20.0)
+					_block_icon(at, 20.0)
 					if bool(m.get("wanted", false)):
 						_draw_icon("ui_quest", at + Vector2(0, -16), 16.0)
+						_block_icon(at + Vector2(0, -16), 16.0)
 					if zoom > 0.7:
-						draw_string_outline(bold, at + Vector2(10, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, 4, Color(0, 0, 0, 0.85))
-						draw_string(bold, at + Vector2(10, 4), label, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, HudKit.GOLD_HI)
+						var spots := _around(10.0, 13)
+						spots.push_front(Vector3(12.0, 4.0, 0.0))   # beside it first, the old map's way
+						_label(label, at, spots, 13, HudKit.GOLD_HI, bold, Color(0, 0, 0, 0.85), 4, 30)
 				"place", "quest":
 					# a quest's target: a gold ring breathing round it, the quest's
 					# title over it
@@ -438,8 +541,10 @@ class MapView extends Control:
 					if String(m["kind"]) == "place":
 						draw_circle(at, r, Color(QUEST, 0.10 + 0.05 * pulse))
 					draw_arc(at, r + 2.0 * pulse, 0.0, TAU, 48, Color(QUEST, 0.85), 2.0, true)
-					_draw_icon("ui_quest", at - Vector2(0, minf(r, 40.0) + 12.0), 18.0)
-					_text(label, at - Vector2(0, minf(r, 40.0) + 26.0), 13, QUEST, bold, Color(0, 0, 0, 0.9), 4)
+					var icon_at := at - Vector2(0, minf(r, 40.0) + 12.0)
+					_draw_icon("ui_quest", icon_at, 18.0)
+					_block_icon(icon_at, 18.0)
+					_label(label, icon_at, _around(9.0, 13, "above"), 13, QUEST, bold, Color(0, 0, 0, 0.9), 4, 10, true)
 
 	func _draw_party() -> void:
 		var game: Node = host.way.game
@@ -451,10 +556,11 @@ class MapView extends Control:
 			var at := world_to_screen(Vector2((pos as Vector3).x, (pos as Vector3).z))
 			draw_circle(at, 6.0, Color(0.03, 0.05, 0.1, 0.9))
 			draw_circle(at, 4.5, PARTY_COLOUR)
+			_block_icon(at, 12.0)
 			if zoom > 0.6:
-				var bold := HudKit.bold()
-				draw_string_outline(bold, at + Vector2(9, 4), String(party[id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, 4, Color(0, 0, 0, 0.85))
-				draw_string(bold, at + Vector2(9, 4), String(party[id]), HORIZONTAL_ALIGNMENT_LEFT, -1, 12, PARTY_COLOUR)
+				var spots := _around(6.0, 12)
+				spots.push_front(Vector3(9.0, 4.0, 0.0))
+				_label(String(party[id]), at, spots, 12, PARTY_COLOUR, HudKit.bold(), Color(0, 0, 0, 0.85), 4, 20)
 
 	## The waypoint's route as a dotted trail of footprints, and its pin.
 	func _draw_route() -> void:
@@ -492,9 +598,10 @@ class MapView extends Control:
 		draw_colored_polygon(PackedVector2Array([pin, pin + Vector2(-6, -12), pin + Vector2(6, -12)]), colour.darkened(0.2))
 		draw_circle(pin + Vector2(0, -14), 6.5, colour)
 		draw_circle(pin + Vector2(0, -14), 2.4, Color(1, 1, 1, 0.9))
-		var f := HudKit.bold()
+		_blocked.append(Rect2(pin + Vector2(-8, -22), Vector2(16, 22)))
 		var txt := host.coords_of(Vector2(finder.goal.x, finder.goal.z))
-		_text(txt, pin + Vector2(0, -26), 12, Color(1.0, 0.92, 0.7), f, Color(0, 0, 0, 0.9), 4)
+		_label(txt, pin + Vector2(0, -12), _around(10.0, 12, "above"), 12, Color(1.0, 0.92, 0.7), HudKit.bold(),
+			Color(0, 0, 0, 0.9), 4, 5, true)
 
 	func _draw_player() -> void:
 		var game: Node = host.way.game
@@ -504,6 +611,7 @@ class MapView extends Control:
 		var pp := world_to_screen(Vector2(me.x, me.z))
 		MapMarker.draw_view_cone(self, pp, Vector2(-sin(game.cam_yaw), -cos(game.cam_yaw)), 90.0)
 		MapMarker.draw_arrow(self, pp, Vector2(sin(game.player.facing), cos(game.player.facing)), 13.0)
+		_block_icon(pp, 30.0)
 
 	## A small dark tag beside the cursor with the map point under it.
 	func _draw_cursor_coords() -> void:
@@ -524,6 +632,7 @@ class MapView extends Control:
 		var title := MapPlaces.floor_title(host.castle_level)
 		var tf := HudKit.deco()
 		var tw := tf.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, 17).x
+		_blocked.append(Rect2(Vector2(8, 8), Vector2(tw + 20, 28)))
 		draw_rect(Rect2(Vector2(8, 8), Vector2(tw + 20, 28)), Color(0.89, 0.81, 0.64, 0.92))
 		draw_rect(Rect2(Vector2(8, 8), Vector2(tw + 20, 28)), Color(INK, 0.6), false, 1.0)
 		draw_string(tf, Vector2(18, 28), title, HORIZONTAL_ALIGNMENT_LEFT, -1, 17, Color(INK, 0.9))

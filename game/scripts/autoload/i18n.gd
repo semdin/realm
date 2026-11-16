@@ -99,6 +99,30 @@ static func t(message: String, context: String = "") -> String:
 		return message
 	return String(TranslationServer.translate(message, context))
 
+## Numbers as the shown language writes them, one rule for every window:
+## Turkish (and the other languages listed) write 1,8 and 10.000, English 1.8
+## and 10,000. Patterns take the number as `%s` from these, never `%.1f`
+## (which always writes a point).
+const DECIMAL_COMMA := ["tr", "de", "es", "pt", "fr", "ru"]
+
+static func _uses_comma() -> bool:
+	return DECIMAL_COMMA.has(TranslationServer.get_locale().get_slice("_", 0))
+
+## `value` with `decimals` places: 1,8 / 1.8.
+static func num(value: float, decimals := 1) -> String:
+	var text := ("%." + str(maxi(decimals, 0)) + "f") % value
+	return text.replace(".", ",") if _uses_comma() else text
+
+## A whole number in groups of three: 10.000 / 10,000.
+static func whole(value: int) -> String:
+	var digits := str(absi(value))
+	var sep := "." if _uses_comma() else ","
+	var out := ""
+	while digits.length() > 3:
+		out = sep + digits.substr(digits.length() - 3) + out
+		digits = digits.substr(0, digits.length() - 3)
+	return ("-" if value < 0 else "") + digits + out
+
 ## Text the world server composed in English (chat replies, boss and monolith
 ## lines, dungeon messages, creature names): a fixed line is its own message
 ## id; a line with a name or a number in it is matched against COMPOSED and

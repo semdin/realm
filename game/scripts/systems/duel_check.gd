@@ -16,7 +16,7 @@ extends Node
 ##   fight      the basic cast at the foe every CAST_SECONDS until the server
 ##              puts it out; counts the hits and their damage numbers on it,
 ##              the red mark over it, then the grey one
-##   banner     waits for the Victory banner
+##   banner     waits for the Victory banner, the foe still marked grey
 ##
 ## Every step holds HOLD seconds of frame time on screen (captures). The
 ## verdict prints what it saw and quits 0 when every step was seen, with no
@@ -190,8 +190,10 @@ func _process(delta: float) -> void:
 			if (duel.state().get("out", PackedInt32Array()) as PackedInt32Array).has(_foe):
 				_out_seen = true
 			if not duel.last_result.is_empty():
+				_out_seen = _out_seen or duel.last_out.has(_foe)
 				_go("banner")
 		"banner":
+			_note_foe()   # the loser's grey mark stays over the result
 			if duel.banner_visible() and not duel.last_result.is_empty():
 				_result = duel.last_result
 				_banner = "%s / %s" % [_result["title"], _result["sub"]]
@@ -312,7 +314,7 @@ func _verdict() -> void:
 	var counted := duel.pops_shown.size() >= 4 and duel.pops_shown[duel.pops_shown.size() - 1] == I18n.upper(tr("Fight!"))
 	var passed := _failure == "" and _card_kind == "duel" and _card != "" and _menu.contains(tr("Challenge to Duel")) \
 		and _menu_dimmed and _accepted and counted and _arena != "" and _plaque != "" and _plaque_time != "" \
-		and _foe != 0 and _target_rank != "" and _hits > 0 and _numbers > 0 and _mark_red and _out_seen \
+		and _foe != 0 and _target_rank != "" and _hits > 0 and _numbers > 0 and _mark_red and _mark_grey and _out_seen \
 		and String(_result.get("result", "")) == "won" and _banner != "" and corrections == 0 \
 		and int(stats.get("snapshots", 0)) > 0
 	get_tree().quit(0 if passed else 1)

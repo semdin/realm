@@ -1740,6 +1740,16 @@ impl RealmSession {
         out
     }
 
+    /// The sheet's revision (bumped by every change the server makes), or -1
+    /// before the server has sent it: what a reader polls each frame instead
+    /// of building the whole `sheet()` dictionary.
+    #[func]
+    fn sheet_revision(&self) -> i64 {
+        self.sheet
+            .as_ref()
+            .map_or(-1, |sheet| sheet.revision as i64)
+    }
+
     /// The player's character sheet: `id`, `name`, `house`, `level`, `exp`,
     /// `hp`, `mana`, `max_hp`, `max_mana`, `oril`, `bag` (40 cells: an item
     /// dictionary or null), `equipment` (slot name -> item dictionary),

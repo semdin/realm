@@ -49,6 +49,10 @@ const OTHER_STEP := 0.6
 const ROBE_EVERY := [3, 5]
 ## Above this height over the ground the grounds' zone holds.
 const SKY_HOLD := 25.0
+## A zone's edge is this wide (metres): the zone the listener is in holds
+## while it lies within this of the listener, so walking along a boundary (the
+## courtyard's rim, a region's edge) does not flap the music and the banner.
+const ZONE_EDGE := 4.0
 
 ## Hunting region (spawn_tables.json) -> grounds zone. Unlisted: open valley.
 const REGION_ZONES := {
@@ -242,6 +246,8 @@ func _detect_zone(me: Vector3) -> void:
 	_map = map_id
 	if not map_changed and not AudioManager.is_indoors() and AudioManager.altitude > SKY_HOLD:
 		wanted = AudioManager.zone
+	if not first and not map_changed and wanted != AudioManager.zone and _zone_within_edge(map_id, me - offset):
+		wanted = AudioManager.zone
 	if wanted == AudioManager.zone:
 		_zone_candidate = ""
 		return
@@ -252,8 +258,16 @@ func _detect_zone(me: Vector3) -> void:
 	# A new map (a door, a trip) switches at once; region edges wait a scan.
 	if first or map_changed or _zone_count >= 2:
 		_zone_candidate = ""
-		zone_changes.append({"from": AudioManager.zone, "to": wanted, "at": _now()})
+		zone_changes.append({"from": AudioManager.zone, "to": wanted, "at": _now(), "pos": me - offset})
 		AudioManager.set_zone(wanted, first)
+
+## Whether the current zone lies within ZONE_EDGE of `pos` (four points round
+## it), so it holds.
+func _zone_within_edge(map_id: String, pos: Vector3) -> bool:
+	for d: Vector3 in [Vector3(ZONE_EDGE, 0, 0), Vector3(-ZONE_EDGE, 0, 0), Vector3(0, 0, ZONE_EDGE), Vector3(0, 0, -ZONE_EDGE)]:
+		if zone_at(map_id, pos + d) == AudioManager.zone:
+			return true
+	return false
 
 # ------------------------------------------------------------------ steps
 

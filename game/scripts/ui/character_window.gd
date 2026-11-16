@@ -349,7 +349,7 @@ func _stat_texts(sheet: Dictionary, stats: Dictionary) -> Dictionary:
 		"armour": str(int(stat.call("armor"))),
 		"crit": "%d%%" % int(_crit(stats)),
 		"spell_power": "+%d%%" % int(stat.call("spell_power")),
-		"skill": "x%.2f" % (skill_sum / maxf(1.0, float(skills.size()))),
+		"skill": "x" + I18n.num(skill_sum / maxf(1.0, float(skills.size())), 2),
 		"oril": oril_text.call(int(sheet.get("oril", 0))),
 		"attack_speed": "%+d%%" % int(stat.call("attack_speed")),
 		"cast_speed": "%+d%%" % int(stat.call("cast_speed")),
@@ -363,7 +363,7 @@ func _stat_texts(sheet: Dictionary, stats: Dictionary) -> Dictionary:
 		"reflect": "%d%%" % int(stat.call("reflect")),
 		"hp_regen": "+%d /s" % int(stat.call("hp_regen")),
 		"mana_regen": "+%d /s" % int(stat.call("mana_regen")),
-		"broom": "%.1f" % stat.call("mount_speed"),
+		"broom": I18n.num(float(stat.call("mount_speed"))),
 		"exp_bonus": "+%d%%" % int(stat.call("exp_bonus")),
 		"gold_bonus": "+%d%%" % int(stat.call("oril_bonus")),
 	}
@@ -501,7 +501,7 @@ func _attribute_total(key: String, points: int) -> String:
 		if not words.has(stat):
 			continue
 		var amount := float(gives[stat]) * points
-		var shown := str(roundi(amount)) if is_equal_approx(amount, roundf(amount)) else "%.1f" % amount
+		var shown := str(roundi(amount)) if is_equal_approx(amount, roundf(amount)) else I18n.num(amount)
 		out.append(String(words[stat]) % shown)
 	return "  ·  ".join(out)
 
@@ -581,7 +581,7 @@ func _refresh() -> void:
 	var oril_text: Callable = preload("res://scripts/ui/inventory_arcane.gd").oril_text
 	var exp_now := int(sheet["exp"])
 	var exp_max := maxi(1, int(sheet.get("exp_next", 1)))
-	var exp_line := "%s / %s  ·  %.1f%%" % [oril_text.call(exp_now), oril_text.call(exp_max), floorf(1000.0 * exp_now / exp_max) / 10.0]
+	var exp_line := "%s / %s  ·  %s" % [oril_text.call(exp_now), oril_text.call(exp_max), tr("%s%%") % I18n.num(floorf(1000.0 * exp_now / exp_max) / 10.0)]
 	var free := int(sheet.get("attribute_points", 0))
 	_free_shown = free
 	var attributes: Dictionary = sheet.get("attributes", {})

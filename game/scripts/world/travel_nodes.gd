@@ -250,9 +250,12 @@ func _hearth_fire(root: Node3D) -> void:
 
 ## The effect a traveller steps into and out of, by kind (flipbooks): the
 ## Hearthway's pinch of dust and roaring emerald column, the Twinned Cabinet's
-## violet smoke, the passage's dust, the Waylink's whirlwind.
-static func burst(parent: Node, at: Vector3, kind: String = "hearthway") -> void:
+## violet smoke, the passage's dust, the Waylink's whirlwind. `sound` false:
+## the flames without their sound (a trip sounds once).
+static func burst(parent: Node, at: Vector3, kind: String = "hearthway", sound := true) -> void:
 	var fx: Array = KIND_FX.get(kind, KIND_FX["hearthway"])
+	if not sound:
+		fx = [fx[0], ""]
 	var tint: Color = fx[0]
 	match kind:
 		"hearthway":

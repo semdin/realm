@@ -186,9 +186,4 @@ func _draw_house_standing(colour: Color) -> void:
 	draw_rect(Rect2(bar.position, Vector2(bar.size.x * pct, bar.size.y)), colour)
 
 static func thousands(v: int) -> String:
-	var s := str(absi(v))
-	var out := ""
-	while s.length() > 3:
-		out = "," + s.substr(s.length() - 3) + out
-		s = s.substr(0, s.length() - 3)
-	return ("-" if v < 0 else "") + s + out
+	return I18n.whole(v)

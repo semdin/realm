@@ -65,8 +65,8 @@ func tick() -> void:
 	var height := float(land.get("height", -1.0))
 	_controls.text = tr("%s rise · %s descend · %s dismount") % [
 		GameSettings.key_name("jump"), GameSettings.key_name("descend"), GameSettings.key_name("ride")]
-	_flight.text = tr("Height %s · speed %.1f m/s") % [
-		(tr("%.1f m") % height) if height >= 0.0 else "—", Vector2(velocity.x, velocity.z).length()]
+	_flight.text = tr("Height %s · speed %s m/s") % [
+		(tr("%s m") % I18n.num(height)) if height >= 0.0 else "—", I18n.num(Vector2(velocity.x, velocity.z).length())]
 	var blocked := not bool(land.get("ok", false))
 	if blocked:
 		landing_text = tr("Cannot land here: descend near level ground (%s)") % GameSettings.key_name("descend")

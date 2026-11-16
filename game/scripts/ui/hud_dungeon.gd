@@ -543,7 +543,7 @@ func refresh() -> void:
 
 	var facts: Array = []
 	facts.append([tr("Creatures"), tr("Lv %d–%d") % [low, high], HudKit.PARCHMENT])
-	facts.append([tr("Health · damage"), "×%.2f · ×%.2f" % [trash, float(rules.get("damage", 1.0))], HudKit.PARCHMENT])
+	facts.append([tr("Health · damage"), "×%s · ×%s" % [I18n.num(trash, 2), I18n.num(float(rules.get("damage", 1.0)), 2)], HudKit.PARCHMENT])
 	facts.append([tr("Needs"), tr("%d+ players · Lv %d+") % [int(rules.get("min_party", 1)), need],
 		BAD if members.size() > 0 and members.size() < int(rules.get("min_party", 1)) else HudKit.PARCHMENT])
 	facts.append([tr("Gold medal"), tr("full clear within %s") % DungeonData.clock(par * float(medals.get("gold", 1.0))), HudKit.PARCHMENT])

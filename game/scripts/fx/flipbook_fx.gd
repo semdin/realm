@@ -42,7 +42,7 @@ static func play(parent: Node, at: Vector3, layers: Array, opts: Dictionary = {}
 		fx._light.light_energy = 0.0
 		fx._light_energy = float(opts.get("light_energy", 4.0))
 		fx.add_child(fx._light)
-	if opts.has("sound"):
+	if String(opts.get("sound", "")) != "":
 		var audio := parent.get_node_or_null("/root/AudioManager")
 		if audio != null and audio.has_method("play_sound_at"):
 			audio.call("play_sound_at", String(opts["sound"]), at, null, false)
