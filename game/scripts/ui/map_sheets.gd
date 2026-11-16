@@ -22,6 +22,8 @@ const CASTLE_RECT := Rect2(-118.0, -98.0, 222.0, 222.0)
 ## Pixels per metre by style, and the most pixels a side may have.
 const DENSITY := {"terrain": 1.0, "cave": 2.0, "plan": 4.0}
 const MAX_PX := 2048
+## A dungeon's storey: everything standing up to this high over its floor.
+const DUNGEON_STOREY := 30.0
 
 ## key -> {texture, rect, style, ms (painting, on its thread), wait_ms (asked
 ## to handed over), upload_ms (the frame's share)}
@@ -70,6 +72,12 @@ static func sheet(session: Node, map_id: String, level: int = 0) -> Dictionary:
 		var side := maxf(rect.size.x, rect.size.y)
 		if style == "plan":
 			side += 24.0
+			# a dungeon is one storey: its walls are inked where they stand
+			# over its floor (painted with no floor, a plan has no walls)
+			var floor_at := dungeon_floor(map_id)
+			if floor_at > -INF:
+				lo = floor_at + offset.y
+				hi = lo + DUNGEON_STOREY
 		rect = Rect2(rect.get_center() - Vector2(side, side) * 0.5, Vector2(side, side))
 	var px := clampi(roundi(rect.size.x * float(DENSITY[style])), 256, MAX_PX)
 	var job: int = session.map_image_start(rect, px, lo, hi, style)
@@ -92,6 +100,29 @@ static func _collect(session: Node, key: String) -> Dictionary:
 	_kept[key] = entry
 	last = entry
 	return entry
+
+## A dungeon map's floor (its entry spawn stands 0.5 m over it,
+## maps.json), or -INF for a map that is no dungeon.
+static func dungeon_floor(map_id: String) -> float:
+	if not map_id.begins_with("dng_"):
+		return -INF
+	var maps: Variant = RealmContent.table("maps")
+	if not (maps is Dictionary):
+		return -INF
+	var entry: Dictionary = (maps as Dictionary).get("maps", {}).get(map_id, {})
+	var spawns: Dictionary = entry.get("spawn_points", {})
+	var at: Array = spawns.get("entry", spawns.get("default", []))
+	return float(at[1]) - 0.5 if at.size() == 3 else -INF
+
+## The colour round a sheet (the disc and the window show it past the
+## sheet's edge): the parchment of a plan, the dark of rock or the void.
+static func outside_of(entry: Dictionary) -> Color:
+	match String(entry.get("style", "")):
+		"plan":
+			return Color(0.86, 0.78, 0.62)
+		"cave":
+			return Color(0.07, 0.065, 0.07)
+	return Color(0.07, 0.065, 0.075)
 
 static func style_of(map_id: String) -> String:
 	match map_id:

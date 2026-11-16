@@ -164,6 +164,7 @@ func tick(me: Vector3, sheet: Dictionary, facing: float, cam_yaw: float) -> void
 		_sheet = sheet
 		if not sheet.is_empty():
 			(_disc.material as ShaderMaterial).set_shader_parameter("sheet", sheet["texture"])
+			(_disc.material as ShaderMaterial).set_shader_parameter("outside", MapSheets.outside_of(sheet))
 	_centre = me
 	_disc.visible = not sheet.is_empty()
 	if not sheet.is_empty():

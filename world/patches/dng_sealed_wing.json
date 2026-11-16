@@ -1263,6 +1263,62 @@
     },
     {
       "center": [
+        -20.0,
+        1200.85,
+        -164.5
+      ],
+      "half": [
+        0.5,
+        0.85,
+        0.5
+      ],
+      "note": "brazier at (-20.0, -164.5): drawn, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        -20.0,
+        1200.85,
+        -211.5
+      ],
+      "half": [
+        0.5,
+        0.85,
+        0.5
+      ],
+      "note": "brazier at (-20.0, -211.5): drawn, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        20.0,
+        1200.85,
+        -164.5
+      ],
+      "half": [
+        0.5,
+        0.85,
+        0.5
+      ],
+      "note": "brazier at (20.0, -164.5): drawn, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
+        20.0,
+        1200.85,
+        -211.5
+      ],
+      "half": [
+        0.5,
+        0.85,
+        0.5
+      ],
+      "note": "brazier at (20.0, -211.5): drawn, no collider",
+      "yaw_deg": 0
+    },
+    {
+      "center": [
         18.0,
         1200.185,
         -172.0
