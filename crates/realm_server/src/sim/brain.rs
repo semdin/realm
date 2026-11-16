@@ -23,7 +23,7 @@ use realm_rules::creatures::{
     HOME_RADIUS, LEASH_HOT_MS, LEASH_HOT_SCALE, MELEE_LUNGE, MELEE_SLACK, RETURN_REGEN_SHARE,
     RING_PACE, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
 };
-use realm_sim::nav::{NavQuery, NavScratch};
+use realm_sim::nav::{NavQuery, NavScratch, OBSTACLE_CLEARANCE};
 use realm_sim::world::World as Terrain;
 use realm_sim::{SIM_DT, SIM_HZ, Vec3};
 use std::time::Instant;
@@ -40,10 +40,6 @@ const RESPAWN_CHECK_TICKS: u32 = 15;
 const WORLD_BOSS_WARNING: u32 = 60 * SIM_HZ;
 /// Another pack's anchor this close rejects a respawn spot.
 const ANCHOR_SPACING: f32 = 6.2;
-/// Steepest ground a pack respawns on (normal's up component).
-const FLAT_ENOUGH: f32 = 0.72;
-/// How far from any trunk or spire a creature is placed (about a body).
-const OBSTACLE_CLEARANCE: f32 = 0.5;
 /// A creature leaves a protected zone it walked into this often.
 const SAFE_CHECK_TICKS: u32 = 8;
 /// A body this close to its place on the ring holds there.
@@ -62,6 +58,13 @@ const WANDER_REST_MS: (u32, u32) = (2000, 5000);
 const WANDER_RANGE: (f32, f32) = (2.5, 6.0);
 const WANDER_PACE: f32 = 0.3;
 const WANDER_GIVE_UP_MS: u32 = 7000;
+/// A creature off a ledge falls at most this far to the ground (m).
+const FALL_REACH: f32 = 80.0;
+/// A creature's body when it looks for walls on a straight walk: its
+/// radius and the step it walks up without noticing (the navigation mesh's
+/// agent's, realm_worldc nav.rs).
+const BODY_RADIUS: f32 = 0.35;
+const CLIMB: f32 = 0.45;
 
 fn ticks(ms: u32) -> u32 {
     (ms * SIM_HZ).div_ceil(1000)
@@ -156,9 +159,14 @@ impl Walk<'_> {
         if dist <= stop {
             return false;
         }
-        if dist < DIRECT_CHASE {
+        // Straight at a goal close by, unless the body would brush a wall,
+        // a building or a trunk on the way (then round it on the mesh like
+        // a far one).
+        if dist < DIRECT_CHASE && self.terrain.walk_clear(mob.pos, goal, BODY_RADIUS, CLIMB) {
             mob.path.clear();
             mob.path.push(goal);
+            // Whenever the line closes, a path is planned at once.
+            mob.replan_at = tick;
         } else {
             let goal_moved = planar_distance_sq(goal, mob.path_goal) > REPLAN_DRIFT * REPLAN_DRIFT;
             if mob.path.is_empty() || goal_moved || tick >= mob.replan_at {
@@ -227,23 +235,24 @@ impl Walk<'_> {
             mob.pos = start;
             return false;
         }
-        // Height follows the ground every third tick, creatures spread over
-        // the three.
-        if (tick + mob.rng).is_multiple_of(GROUND_EVERY) {
-            let t_ground = Instant::now();
-            // Never more than a step up at once: a probe that starts inside
-            // a wall (a body pushed into one) would otherwise lift the
-            // creature onto the wall's top.
-            if let Some(ground) = self
-                .terrain
-                .ray_down(mob.pos + Vec3::new(0.0, 1.5, 0.0), 4.0)
-                .filter(|g| g.point.y <= mob.pos.y + 1.0)
-            {
-                mob.pos.y = ground.point.y;
-            }
-            self.ground_ms += t_ground.elapsed().as_secs_f64() * 1000.0;
-        }
         true
+    }
+
+    /// Puts `mob` on the ground under it: up a step at most, down any
+    /// height (off a ledge it falls to whatever lies below).
+    fn settle(&mut self, mob: &mut Mob) {
+        let t_ground = Instant::now();
+        // Never more than a step up at once: a probe that starts inside a
+        // wall (a body pushed into one) would otherwise lift the creature
+        // onto the wall's top.
+        if let Some(ground) = self
+            .terrain
+            .ray_down(mob.pos + Vec3::new(0.0, 1.5, 0.0), 1.5 + FALL_REACH)
+            .filter(|g| g.point.y <= mob.pos.y + 1.0)
+        {
+            mob.pos.y = ground.point.y;
+        }
+        self.ground_ms += t_ground.elapsed().as_secs_f64() * 1000.0;
     }
 }
 
@@ -416,6 +425,12 @@ impl Sim {
                 mob.state = STATE_IDLE;
                 continue;
             }
+            // Height follows the ground every third tick (creatures spread
+            // over the three) while it walks, fights or goes home; at rest
+            // it stays where it settled.
+            if mob.mode != MobMode::Idle && (tick + mob.rng).is_multiple_of(GROUND_EVERY) {
+                walk.settle(&mut mob);
+            }
             // A creature that walked into a protected zone leaves it.
             if (tick + mob.rng).is_multiple_of(SAFE_CHECK_TICKS)
                 && matches!(mob.mode, MobMode::Chase(_))
@@ -438,6 +453,7 @@ impl Sim {
                         mob.hp = mob.max_hp;
                         mob.mode = MobMode::Idle;
                         mob.path.clear();
+                        walk.settle(&mut mob);
                     }
                 }
                 MobMode::Idle | MobMode::Wander(_) => {
@@ -476,6 +492,7 @@ impl Sim {
                         mob.state = if moved { STATE_MOVING } else { STATE_IDLE };
                         if !moved || tick >= mob.next_think {
                             mob.mode = MobMode::Idle;
+                            walk.settle(&mut mob);
                             let rest = ticks(WANDER_REST_MS.0)
                                 + xorshift(&mut mob.rng)
                                     % ticks(WANDER_REST_MS.1 - WANDER_REST_MS.0);
@@ -487,10 +504,26 @@ impl Sim {
                             let a = unit(&mut mob.rng) * core::f32::consts::TAU;
                             let r = WANDER_RANGE.0
                                 + unit(&mut mob.rng) * (WANDER_RANGE.1 - WANDER_RANGE.0);
-                            mob.mode = MobMode::Wander(
-                                mob.home + Vec3::new(libm::cosf(a) * r, 0.0, libm::sinf(a) * r),
+                            let (x, z) = (
+                                mob.home.x + libm::cosf(a) * r,
+                                mob.home.z + libm::sinf(a) * r,
                             );
-                            mob.next_think = tick + ticks(WANDER_GIVE_UP_MS);
+                            // A stroll stays on the ground it stands on (found
+                            // from its own height, so indoors too): not onto
+                            // a roof or a prop, over an edge, into a trunk or
+                            // through a wall.
+                            let to = terrain
+                                .ray_down(Vec3::new(x, mob.home.y + 1.5, z), 4.0)
+                                .map(|g| g.point)
+                                .filter(|to| walk.nav.on_ground(terrain, *to))
+                                .filter(|to| !terrain.in_obstacle(*to, OBSTACLE_CLEARANCE))
+                                .filter(|to| terrain.walk_clear(mob.pos, *to, BODY_RADIUS, CLIMB));
+                            if let Some(to) = to {
+                                mob.mode = MobMode::Wander(to);
+                                mob.next_think = tick + ticks(WANDER_GIVE_UP_MS);
+                            } else {
+                                mob.next_think = tick + ticks(WANDER_REST_MS.0);
+                            }
                         }
                     }
                 }
@@ -1053,14 +1086,14 @@ impl Sim {
                     let a = unit(&mut self.dice_state) * core::f32::consts::TAU;
                     let (lo, hi) = t.spawn_distance;
                     let r = lo + unit(&mut self.dice_state) * (hi - lo).max(0.0);
-                    // Not inside a trunk or a spire: step round the stone.
+                    // On the ground (not on a roof, in a trunk or a
+                    // spire): step round the stone.
                     let at = (0..8)
-                        .map(|k| {
+                        .find_map(|k| {
                             let a = a + 0.4 * k as f32;
                             let (x, z) = (pos.x + libm::cosf(a) * r, pos.z + libm::sinf(a) * r);
-                            Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(pos.y), z)
+                            self.nav.creature_spot(&self.terrain, x, z)
                         })
-                        .find(|at| !self.terrain.in_obstacle(*at, OBSTACLE_CLEARANCE))
                         .unwrap_or(pos);
                     self.summon(waves, species, *level, at, attacker);
                 }
@@ -1207,8 +1240,9 @@ impl Sim {
         }
     }
 
-    /// A spot in the pack's area: on the ground, dry, not too steep, not
-    /// protected, apart from other packs and (`initial` aside) from players.
+    /// A spot in the pack's area: on the walkable ground (`creature_spot`:
+    /// never a roof or a prop, dry, not too steep), not protected, apart
+    /// from other packs and (`initial` aside) from players.
     fn pack_spot(&mut self, pack: usize, initial: bool) -> Option<Vec3> {
         let p = &self.game.packs[pack];
         let (center, half, clear_radius) = (p.center, p.half_extent, p.clear_radius);
@@ -1216,18 +1250,10 @@ impl Sim {
         for _ in 0..attempts {
             let x = center.0 + (unit(&mut self.dice_state) * 2.0 - 1.0) * half.0.max(1.0);
             let z = center.1 + (unit(&mut self.dice_state) * 2.0 - 1.0) * half.1.max(1.0);
-            let Some(h) = self.terrain.ground_height(x, z) else {
+            let Some(spot) = self.nav.creature_spot(&self.terrain, x, z) else {
                 continue;
             };
-            let spot = Vec3::new(x, h, z);
-            let flat = self
-                .terrain
-                .ray_down(spot + Vec3::new(0.0, 1.0, 0.0), 2.0)
-                .is_some_and(|g| g.normal.y >= FLAT_ENOUGH);
-            if !flat
-                || self.terrain.in_obstacle(spot, OBSTACLE_CLEARANCE)
-                || self.terrain.water_surface_at(x, z).is_some_and(|w| w > h)
-                || self.protected(spot)
+            if self.protected(spot)
                 || self.packs.iter().enumerate().any(|(i, s)| {
                     i != pack
                         && !s.members.is_empty()
@@ -1244,6 +1270,33 @@ impl Sim {
             return Some(spot);
         }
         None
+    }
+
+    /// Prints where the creatures stood up at boot: how many stand on the
+    /// walkable ground (`NavQuery::on_ground`) and every one that does not
+    /// (on a roof, a prop, in the air), which the placement never allows.
+    pub(super) fn report_creature_ground(&self) {
+        let (mut on, mut off) = (0, Vec::new());
+        for m in self.world.iter_entities().filter_map(|e| e.get::<Mob>()) {
+            let pack = &self.game.packs[m.pack];
+            // Dark Shards and dummies stand on their authored posts.
+            if self.game.species[pack.species].object || m.mode == MobMode::Dead {
+                continue;
+            }
+            let rests = self
+                .terrain
+                .ray_down(m.pos + Vec3::new(0.0, 0.2, 0.0), 0.5)
+                .is_some_and(|g| (g.point.y - m.pos.y).abs() < 0.05);
+            if rests && self.nav.on_ground(&self.terrain, m.pos) {
+                on += 1;
+            } else {
+                off.push((m.pack, m.pos));
+            }
+        }
+        println!("[creatures] {} on the ground, {} off it", on, off.len());
+        for (pack, pos) in off.iter().take(10) {
+            println!("[creatures]   pack {pack} stands off the ground at {pos}");
+        }
     }
 
     /// Stands a pack up on a fresh anchor: members on a ring around it,
@@ -1266,7 +1319,9 @@ impl Sim {
             Some(spot) => spot,
             None if initial => {
                 let (x, z) = self.game.packs[pack].center;
-                Vec3::new(x, self.ground(x, z), z)
+                self.nav
+                    .creature_spot(&self.terrain, x, z)
+                    .unwrap_or_else(|| Vec3::new(x, self.ground(x, z), z))
             }
             None => return false,
         };
@@ -1303,18 +1358,18 @@ impl Sim {
         let start = unit(&mut self.dice_state) * core::f32::consts::TAU;
         for i in 0..self.packs[pack].members.len() {
             let a = start + core::f32::consts::TAU * i as f32 / count as f32;
-            // A member whose place on the ring is inside a trunk or a spire
-            // steps round the ring; with no room it stands on the anchor.
+            // A member whose place on the ring is no ground for it (a roof,
+            // a trunk, a spire) steps round the ring; with no room it stands
+            // on the anchor.
             let home = (0..8)
-                .map(|k| {
+                .find_map(|k| {
                     let a = a + 0.35 * k as f32;
                     let (x, z) = (
                         anchor.x + libm::cosf(a) * ring,
                         anchor.z + libm::sinf(a) * ring,
                     );
-                    Vec3::new(x, self.terrain.ground_height(x, z).unwrap_or(anchor.y), z)
+                    self.nav.creature_spot(&self.terrain, x, z)
                 })
-                .find(|h| !self.terrain.in_obstacle(*h, OBSTACLE_CLEARANCE))
                 .unwrap_or(anchor);
             // Bosses and their escorts never roll elite, nor do objects.
             let is_elite = !boss && !object && unit(&mut self.dice_state) < elite.chance;

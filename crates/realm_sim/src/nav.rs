@@ -8,8 +8,25 @@ use std::collections::{BinaryHeap, HashMap};
 
 use crate::Vec3;
 use crate::pack::{NavMesh, v3};
+use crate::world::World;
 
 const CELL: f32 = 8.0;
+
+/// The smallest connected walkable area (m²) that is ground for creatures.
+/// A roof, a wall top or a crate's lid bakes into a small island of its own
+/// (a greenhouse's glass roof is about 110 m²); the ground of a map, a
+/// fortress yard or a cavern hall is far bigger.
+pub const GROUND_GROUP_AREA: f32 = 1000.0;
+/// How far the mesh's surface may lie from a spot on the terrain: its
+/// polygons only approximate rolling ground, metres off in places.
+const TERRAIN_SLACK: f32 = 8.0;
+/// ... and from a spot on built floor (a collider's flat or stepped top),
+/// which the mesh follows closely.
+const FLOOR_SLACK: f32 = 1.0;
+/// Steepest ground a creature is put on (the normal's up component).
+pub const FLAT_ENOUGH: f32 = 0.72;
+/// How far from any trunk or spire a creature is put (about a body).
+pub const OBSTACLE_CLEARANCE: f32 = 0.5;
 
 struct Poly {
     vertices: Vec<Vec3>,
@@ -18,6 +35,8 @@ struct Poly {
     links: Vec<(u32, Vec3, Vec3)>,
     min: (f32, f32),
     max: (f32, f32),
+    /// The connected group (island) it belongs to.
+    group: u32,
 }
 
 /// Reusable search state: entries are valid only where `stamp` equals the
@@ -70,6 +89,8 @@ impl NavScratch {
 pub struct NavQuery {
     polys: Vec<Poly>,
     grid: HashMap<(i32, i32), Vec<u32>>,
+    /// Each connected group's walkable area (m², on the ground plane).
+    group_area: Vec<f32>,
 }
 
 #[derive(PartialEq)]
@@ -122,6 +143,7 @@ impl NavQuery {
                     links: Vec::new(),
                     min,
                     max,
+                    group: u32::MAX,
                 }
             })
             .collect();
@@ -138,7 +160,128 @@ impl NavQuery {
                 }
             }
         }
-        Self { polys, grid }
+        // Connected groups and their areas.
+        let mut group_area = Vec::new();
+        for start in 0..polys.len() {
+            if polys[start].group != u32::MAX {
+                continue;
+            }
+            let group = group_area.len() as u32;
+            let mut area = 0.0;
+            let mut stack = vec![start];
+            polys[start].group = group;
+            while let Some(p) = stack.pop() {
+                area += area_xz(&polys[p].vertices);
+                for k in 0..polys[p].links.len() {
+                    let n = polys[p].links[k].0 as usize;
+                    if polys[n].group == u32::MAX {
+                        polys[n].group = group;
+                        stack.push(n);
+                    }
+                }
+            }
+            group_area.push(area);
+        }
+        Self {
+            polys,
+            grid,
+            group_area,
+        }
+    }
+
+    /// The walkable area (m²) of the connected group `poly` belongs to: a
+    /// roof or a wall top is a small island, the map's ground a big one.
+    #[must_use]
+    pub fn group_area(&self, poly: u32) -> f32 {
+        self.group_area[self.polys[poly as usize].group as usize]
+    }
+
+    /// Whether `spot` (feet, on the highest surface under the sky there, as
+    /// `World::ground_height` finds it) is ground a creature may be put on:
+    /// over a polygon of a big walkable group (`GROUND_GROUP_AREA`), not on
+    /// a roof, a wall top or a prop, and not on ground too steep or too
+    /// cramped to walk.
+    #[must_use]
+    pub fn on_ground(&self, world: &World, spot: Vec3) -> bool {
+        let on_terrain = world
+            .terrain_at(spot.x, spot.z)
+            .is_some_and(|(height, _)| spot.y - height < 0.3);
+        let slack = if on_terrain {
+            TERRAIN_SLACK
+        } else {
+            FLOOR_SLACK
+        };
+        self.locate_surface(spot, slack)
+            .is_some_and(|poly| self.group_area(poly) >= GROUND_GROUP_AREA)
+    }
+
+    /// Where a creature put down at (x, z) stands: the highest surface there
+    /// under the sky (through trunks and spires), when that is ground for
+    /// it (`on_ground`), flat enough, dry and clear of every obstacle; None
+    /// on a roof, a prop, a steep slope, in water or in a trunk.
+    #[must_use]
+    pub fn creature_spot(&self, world: &World, x: f32, z: f32) -> Option<Vec3> {
+        let spot = Vec3::new(x, world.ground_height(x, z)?, z);
+        let flat = world
+            .ray_down(spot + Vec3::new(0.0, 1.0, 0.0), 2.0)
+            .is_some_and(|g| g.normal.y >= FLAT_ENOUGH);
+        let wet = world.water_surface_at(x, z).is_some_and(|w| w > spot.y);
+        (flat
+            && !wet
+            && !world.in_obstacle(spot, OBSTACLE_CLEARANCE)
+            && self.on_ground(world, spot))
+        .then_some(spot)
+    }
+
+    /// The largest connected group's area (m²).
+    #[must_use]
+    pub fn largest_group_area(&self) -> f32 {
+        self.group_area.iter().copied().fold(0.0, f32::max)
+    }
+
+    /// Height of `poly`'s surface at the planar point (x, z), from the
+    /// triangle fan of its vertices (the point is assumed inside it).
+    #[must_use]
+    pub fn surface_y(&self, poly: u32, x: f32, z: f32) -> f32 {
+        let v = &self.polys[poly as usize].vertices;
+        let p = Vec3::new(x, 0.0, z);
+        for k in 1..v.len().saturating_sub(1) {
+            let (a, b, c) = (v[0], v[k], v[k + 1]);
+            let d = cross_xz(a, b, c);
+            if d.abs() < 1e-8 {
+                continue;
+            }
+            let wb = cross_xz(a, p, c) / d;
+            let wc = cross_xz(a, b, p) / d;
+            let wa = 1.0 - wb - wc;
+            if wa >= -1e-3 && wb >= -1e-3 && wc >= -1e-3 {
+                return wa * a.y + wb * b.y + wc * c.y;
+            }
+        }
+        self.polys[poly as usize].center.y
+    }
+
+    /// The polygon whose surface under `p` lies closest to `p`'s height
+    /// (within `max_dy`): where something standing at `p` actually is on
+    /// the mesh, unlike `locate`'s nearest polygon centre.
+    #[must_use]
+    pub fn locate_surface(&self, p: Vec3, max_dy: f32) -> Option<u32> {
+        let cell = ((p.x / CELL).floor() as i32, (p.z / CELL).floor() as i32);
+        let mut best: Option<(f32, u32)> = None;
+        for &i in self.grid.get(&cell)? {
+            let poly = &self.polys[i as usize];
+            if p.x < poly.min.0 || p.x > poly.max.0 || p.z < poly.min.1 || p.z > poly.max.1 {
+                continue;
+            }
+            if !inside_xz(&poly.vertices, p) {
+                continue;
+            }
+            let dy = (self.surface_y(i, p.x, p.z) - p.y).abs();
+            if dy <= max_dy && best.is_none_or(|(b, _)| dy < b) {
+                best = Some((dy, i));
+            }
+        }
+        best.map(|(_, i)| i)
     }
 
     #[must_use]
@@ -206,8 +349,12 @@ impl NavQuery {
         max_nodes: usize,
         scratch: &mut NavScratch,
     ) -> Option<Vec<Vec3>> {
-        let start = self.locate(from, 2.5)?;
-        let goal = self.locate(to, 2.5)?;
+        // Where each end stands on the mesh: the polygon whose surface under
+        // it lies closest (a polygon's centre can lie metres off the rolling
+        // ground it spans, and a search that cannot start would leave the
+        // walker a straight line through whatever stands between).
+        let start = self.locate_surface(from, TERRAIN_SLACK)?;
+        let goal = self.locate_surface(to, TERRAIN_SLACK)?;
         if start == goal {
             return Some(vec![to]);
         }
@@ -286,6 +433,15 @@ fn inside_xz(vertices: &[Vec3], p: Vec3) -> bool {
         }
     }
     true
+}
+
+/// Area of a convex polygon on the ground plane.
+fn area_xz(vertices: &[Vec3]) -> f32 {
+    let mut twice = 0.0;
+    for k in 1..vertices.len().saturating_sub(1) {
+        twice += cross_xz(vertices[0], vertices[k], vertices[k + 1]);
+    }
+    twice.abs() * 0.5
 }
 
 /// Twice the signed area of (a, b, c) on the ground plane, in the sign

@@ -382,6 +382,17 @@ impl World {
         best
     }
 
+    /// Whether a body of `radius` walks from `from` to `to` (feet) without
+    /// touching a collider: a ball of that radius carried `climb` over the
+    /// feet (kerbs and steps under it do not count) along the straight line.
+    /// The terrain is left out (a walker follows it).
+    #[must_use]
+    pub fn walk_clear(&self, from: Vec3, to: Vec3, radius: f32, climb: f32) -> bool {
+        let lift = Vec3::new(0.0, climb + radius, 0.0);
+        self.sweep(&Capsule::new_y(0.0, radius), from + lift, to - from)
+            .is_none()
+    }
+
     /// How far a capsule at `center` sinks into the world, as the push that
     /// gets it out (zero when it is clear). Resolves the deepest contact only;
     /// callers repeat it a few times for corners.

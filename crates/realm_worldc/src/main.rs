@@ -23,7 +23,9 @@
 //! `check` loads every pack into a collision world and plays bodies from each
 //! of the map's spawn points: they must come to rest on walkable ground within
 //! two seconds, and walking four ways for three seconds must keep them inside
-//! the map's height band.
+//! the map's height band. It samples every creature pack's area the way the
+//! server places creatures: each must find walkable ground there, never a
+//! roof or a prop (`check_creature_ground`).
 
 mod nav;
 mod patch;
@@ -621,6 +623,136 @@ fn check_obstacle_points(
     );
 }
 
+/// Samples taken in each open-world pack's area.
+const GROUND_SAMPLES: usize = 32;
+
+/// Creatures stand on the walkable ground: never on a roof, a wall top or a
+/// prop, in a trunk or in the air. Every open-world pack's area
+/// (spawn_tables.json) is sampled the way the server puts its members down
+/// (`NavQuery::creature_spot`): each pack must find ground there, and each
+/// spot taken must rest on the surface under it, clear of obstacles. A
+/// dungeon group (dungeons.json) settles on the floor under its authored
+/// point, which must be ground as well. Spots the highest
+/// surface offers but that stand on a structure off the walkable mesh (more
+/// than 1.5 m over the terrain) are counted as refused roofs; spots taken
+/// that high are on built floors the mesh walks (a bridge, a yard).
+fn check_creature_ground(
+    map: &str,
+    content: &Content,
+    pack: &MapPack,
+    world: &realm_sim::world::World,
+    problems: &mut Vec<String>,
+) {
+    let query = NavQuery::new(&pack.nav);
+    let num = |v: &Value| v.as_f64().map_or(0.0, |x| x as f32);
+    let mut rng = 0x6C8E_9CF5_u32;
+    let mut unit = || {
+        rng ^= rng << 13;
+        rng ^= rng >> 17;
+        rng ^= rng << 5;
+        rng as f32 / u32::MAX as f32
+    };
+    let (mut packs, mut taken, mut roofs, mut floors) = (0, 0, 0, 0);
+    let fail = |what: String, problems: &mut Vec<String>| problems.push(format!("{map}: {what}"));
+    let spawns = content.file("spawn_tables.json").unwrap_or(&Value::Null);
+    for p in spawns["packs"].as_array().into_iter().flatten() {
+        if p["map"].as_str() != Some(map) {
+            continue;
+        }
+        packs += 1;
+        let area = &p["area"];
+        let (cx, cz) = (num(&area[0]), num(&area[1]));
+        let (hx, hz) = (num(&area[2]).max(1.0), num(&area[3]).max(1.0));
+        let mut found = 0;
+        for _ in 0..GROUND_SAMPLES {
+            let x = cx + (unit() * 2.0 - 1.0) * hx;
+            let z = cz + (unit() * 2.0 - 1.0) * hz;
+            let Some(spot) = query.creature_spot(world, x, z) else {
+                let terrain = world.terrain_at(x, z).map(|t| t.0);
+                if let (Some(top), Some(t)) = (world.ground_height(x, z), terrain)
+                    && top - t > 1.5
+                {
+                    roofs += 1;
+                }
+                continue;
+            };
+            found += 1;
+            if world
+                .terrain_at(x, z)
+                .is_some_and(|(t, _)| spot.y - t > 1.5)
+            {
+                floors += 1;
+                // A built floor is ground only as part of the map's main
+                // walkable network (a bridge, a rampart walk), never an
+                // island of its own (a roof).
+                let main = query
+                    .locate_surface(spot, 1.0)
+                    .is_some_and(|poly| query.group_area(poly) >= query.largest_group_area());
+                if !main {
+                    fail(
+                        format!("pack {} would stand on a structure at {spot}", p["id"]),
+                        problems,
+                    );
+                }
+            }
+            let rests = world
+                .ray_down(spot + Vec3::new(0.0, 0.2, 0.0), 0.5)
+                .is_some_and(|g| (g.point.y - spot.y).abs() < 0.05);
+            if !rests || world.in_obstacle(spot, realm_sim::nav::OBSTACLE_CLEARANCE) {
+                fail(
+                    format!("pack {} would stand off the ground at {spot}", p["id"]),
+                    problems,
+                );
+            }
+        }
+        taken += found;
+        if found == 0 {
+            fail(
+                format!(
+                    "pack {} ({}) finds no ground in its area around ({cx}, {cz})",
+                    p["id"], p["mob"]
+                ),
+                problems,
+            );
+        }
+    }
+    let mut groups = 0;
+    let dungeons = content.file("dungeons.json").unwrap_or(&Value::Null);
+    for (key, d) in dungeons["dungeons"].as_object().into_iter().flatten() {
+        if d["map"].as_str() != Some(map) {
+            continue;
+        }
+        for step in d["steps"].as_array().into_iter().flatten() {
+            for e in step["spawn"].as_array().into_iter().flatten() {
+                groups += 1;
+                // The pack holds one copy in the dungeon's own frame (the
+                // server lays the copies side by side).
+                let at = Vec3::new(num(&e["at"][0]), num(&e["at"][1]), num(&e["at"][2]));
+                // The server's settle: the floor up to 1.5 m over the point
+                // or 6.5 m under it.
+                let floor = world
+                    .ray_down(at + Vec3::new(0.0, 1.5, 0.0), 8.0)
+                    .map(|g| g.point);
+                if !floor.is_some_and(|f| query.on_ground(world, f)) {
+                    fail(
+                        format!(
+                            "dungeon {key} step {} group of {} at {:?} is not on the ground ({floor:?})",
+                            step["id"], e["mob"], e["at"]
+                        ),
+                        problems,
+                    );
+                }
+            }
+        }
+    }
+    if packs + groups > 0 {
+        println!(
+            "check {map:<24} creature ground: {packs} packs, {taken}/{} samples on the ground ({floors} on built floors over the terrain), {roofs} roof spots refused; {groups} dungeon groups",
+            packs * GROUND_SAMPLES
+        );
+    }
+}
+
 fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
     let infos = map_infos(content_dir)?;
     let content = Content::load(content_dir)?;
@@ -695,6 +827,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         );
         check_nav(map, &pack, &mut problems);
         check_obstacle_points(map, info, &content, &pack, &world, &mut problems);
+        check_creature_ground(map, &content, &pack, &world, &mut problems);
     }
     if problems.is_empty() {
         Ok(())
