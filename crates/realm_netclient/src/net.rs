@@ -43,6 +43,10 @@ pub struct NetHandle {
 
 /// How long dropping the handle waits for the server to hear the goodbye.
 const CLOSE_WAIT: Duration = Duration::from_millis(500);
+/// A handshake not done in this long starts again on a new socket.
+const HANDSHAKE_TRY: Duration = Duration::from_secs(4);
+/// That many handshakes before the join reports "timed out".
+const HANDSHAKE_TRIES: u32 = 4;
 
 impl NetHandle {
     /// Connects to `server` (`name` is the TLS server name), trusting only
@@ -85,15 +89,31 @@ impl NetHandle {
         let rtt_out = rtt_ms.clone();
         runtime.spawn(async move {
             let run = async {
-                let mut endpoint =
-                    Endpoint::client("0.0.0.0:0".parse().map_err(|e| format!("{e}"))?)
+                // Some paths drop a whole UDP flow (a source port) - seen live
+                // through a zero-trust network agent: not one packet of a
+                // handshake reached the server, while the next socket got
+                // through at once. Resending on the same socket cannot help,
+                // so a handshake that is not done in HANDSHAKE_TRY starts
+                // again on a new socket (a new source port), HANDSHAKE_TRIES
+                // times. The ticket is only sent after the handshake.
+                let mut tries = 0;
+                let (endpoint, connection) = loop {
+                    tries += 1;
+                    let mut endpoint =
+                        Endpoint::client("0.0.0.0:0".parse().map_err(|e| format!("{e}"))?)
+                            .map_err(|e| e.to_string())?;
+                    endpoint.set_default_client_config(config.clone());
+                    let connecting = endpoint
+                        .connect(server, &name)
                         .map_err(|e| e.to_string())?;
-                endpoint.set_default_client_config(config);
-                let connection = endpoint
-                    .connect(server, &name)
-                    .map_err(|e| e.to_string())?
-                    .await
-                    .map_err(|e| e.to_string())?;
+                    match tokio::time::timeout(HANDSHAKE_TRY, connecting).await {
+                        Ok(done) => break (endpoint, done.map_err(|e| e.to_string())?),
+                        Err(_) if tries < HANDSHAKE_TRIES => {
+                            endpoint.close(quinn::VarInt::from_u32(0), b"retry");
+                        }
+                        Err(_) => return Err("timed out".to_owned()),
+                    }
+                };
                 let (mut send, mut recv) = connection.open_bi().await.map_err(|e| e.to_string())?;
                 send.write_all(&control::frame(&realm_proto::encode_hello(&Hello {
                     protocol: PROTOCOL_VERSION,
