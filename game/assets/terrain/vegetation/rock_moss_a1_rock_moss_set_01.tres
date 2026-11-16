@@ -1,8 +1,8 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/rock_moss_a1_rock_moss_set_01_diff_1k.jpg" id="1_j35gb"]
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/rock_moss_a1_rock_moss_set_01_rough_1k.jpg" id="2_tp177"]
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/rock_moss_a1_rock_moss_set_01_nor_gl_1k.jpg" id="3_imbl1"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/rock_moss_a0_rock_moss_set_01_diff_1k.jpg" id="1_j35gb"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/rock_moss_a0_rock_moss_set_01_rough_1k.jpg" id="2_tp177"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/rock_moss_a0_rock_moss_set_01_nor_gl_1k.jpg" id="3_imbl1"]
 
 [resource]
 resource_name = "rock_moss_set_01"

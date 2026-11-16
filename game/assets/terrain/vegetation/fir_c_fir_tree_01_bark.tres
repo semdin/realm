@@ -1,8 +1,8 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/fir_c_fir_tree_01_bark_diff_1k.jpg" id="1_ae0gi"]
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/fir_c_fir_tree_01_bark_arm_1k.jpg" id="2_1h2pe"]
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/fir_c_fir_tree_01_bark_nor_gl_1k.jpg" id="3_4i433"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/fir_a_fir_tree_01_bark_diff_1k.jpg" id="1_ae0gi"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/fir_a_fir_tree_01_bark_arm_1k.jpg" id="2_1h2pe"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/fir_a_fir_tree_01_bark_nor_gl_1k.jpg" id="3_4i433"]
 
 [resource]
 resource_name = "fir_tree_01_bark"

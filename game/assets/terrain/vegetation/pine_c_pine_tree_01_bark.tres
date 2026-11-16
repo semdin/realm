@@ -1,8 +1,8 @@
 [gd_resource type="StandardMaterial3D" format=3]
 
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/pine_c_pine_tree_01_bark_diff_1k.jpg" id="1_nwc21"]
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/pine_c_pine_tree_01_bark_arm_1k.jpg" id="2_q831j"]
-[ext_resource type="Texture2D" path="res://assets/models/vegetation/pine_c_pine_tree_01_bark_nor_gl_1k.jpg" id="3_q3cyt"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/pine_a_pine_tree_01_bark_diff_1k.jpg" id="1_nwc21"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/pine_a_pine_tree_01_bark_arm_1k.jpg" id="2_q831j"]
+[ext_resource type="Texture2D" path="res://assets/models/vegetation/pine_a_pine_tree_01_bark_nor_gl_1k.jpg" id="3_q3cyt"]
 
 [resource]
 resource_name = "pine_tree_01_bark"
