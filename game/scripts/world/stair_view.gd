@@ -10,13 +10,14 @@ class_name StairView
 ## stone moves where the body is carried). Nothing here collides: the core
 ## already does.
 ##
-## A flight (built once per flight size, one mesh of four surfaces):
+## A flight (built once per flight size, one mesh of three surfaces):
 ##   the deck slab and its 0.2 m stone steps (stone ashlar, sampled in the
 ##   flight's own space so it stays on the stone as it swings), an oak runner
-##   on every step, the two railings in the castle's oak and a travelling
-##   enchantment line along both deck edges. Each step's top straddles the
-##   walked slope (the deck collider) by half a step, so feet on the slope
-##   neither float nor sink more than 0.1 m.
+##   on every step and the two railings in the castle's oak; no glowing edge
+##   lines (a flight's state is shown by its wards and the warning line
+##   below). Each step's top straddles the walked slope (the deck collider)
+##   by half a step, so feet on the slope neither float nor sink more than
+##   0.1 m.
 ## The gates are drawn as wards (stair_ward.gdshader): a shimmering veil of
 ## noise with embers along its edges, standing in the plane of the gate box
 ## the core collides with and as tall as it (its ragged crest licks a little
@@ -196,8 +197,8 @@ func _spec(flight: int) -> Dictionary:
 					_specs.append(entry)
 	return _specs[flight] if flight < _specs.size() else {}
 
-## Deck, steps, runners, railings and edge lines in the flight's frame: one
-## mesh, a surface per material, shared by every flight of the same size.
+## Deck, steps, runners and railings in the flight's frame: one mesh, a
+## surface per material, shared by every flight of the same size.
 func _flight_mesh(rise: float, run: float, width: float, steps: int) -> ArrayMesh:
 	var key := "%.2f/%.2f/%.2f/%d" % [rise, run, width, steps]
 	if _meshes.has(key):
@@ -210,7 +211,6 @@ func _flight_mesh(rise: float, run: float, width: float, steps: int) -> ArrayMes
 	var stone := SurfaceTool.new()
 	var rail := SurfaceTool.new()
 	var runner := SurfaceTool.new()
-	var glow := SurfaceTool.new()
 	_box(stone, Vector3(width, 0.3, ramp), Transform3D(tilt, mid - up * 0.15))
 	var step_h := rise / float(steps)
 	var step_run := run / float(steps)
@@ -230,16 +230,13 @@ func _flight_mesh(rise: float, run: float, width: float, steps: int) -> ArrayMes
 	for side in [-1.0, 1.0]:
 		_box(rail, Vector3(0.16, 1.1, ramp),
 			Transform3D(tilt, mid + up * 0.55 + Vector3(side * (width * 0.5 + 0.12), 0.0, 0.0)))
-		_box(glow, Vector3(0.08, 0.05, ramp),
-			Transform3D(tilt, mid + up * 0.12 + Vector3(side * (width * 0.5 - 0.04), 0.0, 0.0)))
 	var mesh := ArrayMesh.new()
 	var materials := [
 		Kit.surface("stone_ashlar_01", Color(0.88, 0.86, 0.82), 3.0, true),
 		Kit.surface("medieval_wood", Color(0.9, 0.82, 0.74), 0.0, true),
 		Kit.surface("medieval_wood", Color(1.0, 0.86, 0.66), 0.0, true),
-		_glow_material(),
 	]
-	var tools := [stone, rail, runner, glow]
+	var tools := [stone, rail, runner]
 	for k in tools.size():
 		(tools[k] as SurfaceTool).commit(mesh)
 		mesh.surface_set_material(k, materials[k])
@@ -250,17 +247,6 @@ static func _box(st: SurfaceTool, size: Vector3, xform: Transform3D) -> void:
 	var box := BoxMesh.new()
 	box.size = size
 	st.append_from(box, 0, xform)
-
-## A travelling enchantment: the one part of the ride that reads at a glance
-## from the hall floor.
-static func _glow_material() -> StandardMaterial3D:
-	var glow := StandardMaterial3D.new()
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.albedo_color = Color(0.55, 0.85, 1.0)
-	glow.emission_enabled = true
-	glow.emission = Color(0.35, 0.7, 1.0)
-	glow.emission_energy_multiplier = 1.6
-	return glow
 
 # ------------------------------------------------------------------ wards
 

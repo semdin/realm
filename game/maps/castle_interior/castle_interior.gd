@@ -8,9 +8,10 @@ extends Node3D
 ##                       L0 at y = 200 (castle_kit.gd: surfaces, occluders,
 ##                       room lights); the map server's pack was compiled from
 ##                       the same glb's colliders, so floors, walls, doorways
-##                       and landings stand where the server's do
-##     CastleDecor       candles, chandeliers, torches, hearths, moonlight,
-##                       props and the laid tables (castle_decor.gd)
+##                       and landings stand where the server's do; the parts
+##                       the realm left out (Kit.LEFT_OUT) are gone
+##     CastleDecor       candles, chandeliers, torches, braziers, hearths,
+##                       moonlight, props and the laid tables (castle_decor.gd)
 ##   PortalDoor_<id>     a portal that is a place (maps.json `dressing`
 ##                       "locked_door"): the Sealed Wing's door in its wall bay,
 ##                       its warning sign and two torches

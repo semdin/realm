@@ -571,32 +571,6 @@
       "purpose": "A barn owl's eerie screech far away at night",
       "source": "Stable Audio 3 small-sfx (local, CPU); amb_owl_2__s104.wav"
     },
-    "amb_owl_flutter": {
-      "path": "assets/audio/ambience/castle/owl_flutter.wav",
-      "bus": "sfx",
-      "gain_db": -21.0,
-      "pitch_variation": 0.06,
-      "loop": false,
-      "loop_mode": "disabled",
-      "spatial": true,
-      "sample_rate": 44100,
-      "seconds": 2.476,
-      "purpose": "An owl's wings flapping overhead under a high stone ceiling, then a soft hoot",
-      "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2; tools/audio/audio_spec.json"
-    },
-    "amb_portrait_whisper": {
-      "path": "assets/audio/ambience/castle/portrait_whisper.wav",
-      "bus": "sfx",
-      "gain_db": -23.0,
-      "pitch_variation": 0.06,
-      "loop": false,
-      "loop_mode": "disabled",
-      "spatial": true,
-      "sample_rate": 44100,
-      "seconds": 2.48,
-      "purpose": "Faint unintelligible hushed whispering from old paintings in a quiet corridor, mysterious",
-      "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2; tools/audio/audio_spec.json"
-    },
     "amb_quill": {
       "path": "assets/audio/ambience/library/quill.wav",
       "bus": "sfx",

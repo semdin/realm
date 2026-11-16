@@ -5,11 +5,14 @@ extends RefCounted
 ##   * Feast Hall: two rows of iron wheel chandeliers hung on chains over the
 ##     tables, each with its warm light; the tables, the house banners on the
 ##     dais wall and the laid tableware (castle_feast.gd);
-##   * Entrance Hall: two iron ring chandeliers and a torch per bay;
+##   * Entrance Hall: two iron ring chandeliers, a torch per bay and two iron
+##     fire bowls on stone pedestals by the east wall (where the glb's
+##     hourglasses stood, castle_kit.gd LEFT_OUT);
 ##   * moonlight through the windows (a shadowed directional light);
 ##   * the rooms' light sources, authored in the glb as FX_<kind>_<n> empties
-##     (sconces, hearths, green braziers, lanterns, chandeliers, owls);
-##   * the hero props (the golden owl lectern, two suits of armour).
+##     (sconces, hearths, green braziers, lanterns, chandeliers; the Rookery's
+##     FX_owl perches stay empty);
+##   * the hero props (two suits of armour).
 ## Built at the low preset the old game picked for Intel iGPUs (the only
 ## preset of this renderer): no chandelier shadows, a 2-split
 ## moon. Nothing here collides: the props' boxes are in the map pack.
@@ -31,6 +34,19 @@ const PROPS := [
 	{"name": "armour", "at": Vector3(-17.15, 0.0, 49.6), "yaw": 90.0, "height": 2.45},
 	{"name": "armour", "at": Vector3(-17.15, 0.0, 62.4), "yaw": 90.0, "height": 2.45},
 ]
+
+## The Entrance Hall's fire bowls (layout space, the pedestal's foot): by the
+## east wall either side of the bay's portrait, clear of the wall shafts
+## (x > 17.36) and of the marble stair (x < 14). Their boxes are in
+## world/patches/castle_interior.json: keep the two in step.
+const ENTRANCE_BRAZIERS := [Vector3(16.5, 0.0, 38.5), Vector3(16.5, 0.0, 45.5)]
+## Pedestal: square, this wide at its foot and this tall to the bowl.
+const BRAZIER_BASE := 0.9
+const BRAZIER_TOP := 1.0
+## Iron bowl: rim radius and depth over the pedestal.
+const BOWL_RADIUS := 0.45
+const BOWL_DEPTH := 0.3
+const EMBER_NOISE := "res://assets/vfx/tex/noise_erosion_512.png"
 
 const FX_WARM := Color(1.0, 0.64, 0.34)
 const FX_COLD := Color(0.62, 0.95, 0.82)
@@ -54,6 +70,8 @@ static func build(parent: Node3D, map_y: float, layout: Dictionary) -> Node3D:
 	for z in [27.3, 42.0, 56.7]:
 		for side in [-1.0, 1.0]:
 			_sconce(root, Vector3(side * 17.6, map_y + 7.0, z), -side)
+	for at: Vector3 in ENTRANCE_BRAZIERS:
+		_brazier(root, at + Vector3(0.0, map_y, 0.0))
 	_moonlight(root)
 	_build_fx(parent, root)
 	for p in PROPS:
@@ -227,6 +245,97 @@ static func _sconce(root: Node3D, at: Vector3, facing_x: float) -> void:
 	light.position = Vector3(facing_x * 1.0, 0.8, 0.0)
 	node.add_child(light)
 
+# --------------------------------------------------------------- braziers
+
+## A fire bowl on a stone pedestal, its foot at `at`: a stepped sandstone
+## pedestal, a wide iron bowl on it, a bed of coals glowing through noise, a
+## flame, embers lifting off it and a warm light.
+static func _brazier(root: Node3D, at: Vector3) -> void:
+	var node := Node3D.new()
+	node.name = "Brazier"
+	node.position = at
+	root.add_child(node)
+	var stone := preload("res://maps/castle_interior/castle_kit.gd").surface("sandstone_blocks_08", Color(0.78, 0.74, 0.68), 1.5)
+	# foot, shaft and cap, the cap's top BRAZIER_TOP over the floor
+	for part: Array in [[BRAZIER_BASE, 0.0, 0.2], [BRAZIER_BASE * 0.7, 0.2, BRAZIER_TOP - 0.32],
+			[BRAZIER_BASE * 0.84, BRAZIER_TOP - 0.12, BRAZIER_TOP]]:
+		var block := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		var lo: float = part[1]
+		var hi: float = part[2]
+		box.size = Vector3(float(part[0]), hi - lo, float(part[0]))
+		block.mesh = box
+		block.material_override = stone
+		block.position = Vector3(0.0, (lo + hi) * 0.5, 0.0)
+		node.add_child(block)
+	var collar := MeshInstance3D.new()
+	var neck := CylinderMesh.new()
+	neck.top_radius = BOWL_RADIUS * 0.45
+	neck.bottom_radius = BOWL_RADIUS * 0.55
+	neck.height = 0.2
+	neck.material = _iron()
+	collar.mesh = neck
+	collar.position = Vector3(0.0, BRAZIER_TOP - 0.12 + 0.1, 0.0)
+	node.add_child(collar)
+	var bowl := MeshInstance3D.new()
+	var cup := CylinderMesh.new()
+	cup.top_radius = BOWL_RADIUS
+	cup.bottom_radius = BOWL_RADIUS * 0.55
+	cup.height = BOWL_DEPTH
+	cup.radial_segments = 24
+	cup.material = _iron()
+	bowl.mesh = cup
+	bowl.position = Vector3(0.0, BRAZIER_TOP + 0.08 + BOWL_DEPTH * 0.5, 0.0)
+	node.add_child(bowl)
+	var rim := MeshInstance3D.new()
+	var lip := TorusMesh.new()
+	lip.inner_radius = BOWL_RADIUS - 0.03
+	lip.outer_radius = BOWL_RADIUS + 0.04
+	lip.rings = 24
+	lip.ring_segments = 6
+	lip.material = _iron()
+	rim.mesh = lip
+	rim.position = Vector3(0.0, BRAZIER_TOP + 0.08 + BOWL_DEPTH, 0.0)
+	node.add_child(rim)
+	# the coals: a low mound whose glow is noise (hot cracks between dark lumps)
+	var coals := MeshInstance3D.new()
+	var bed := SphereMesh.new()
+	bed.radius = BOWL_RADIUS * 0.92
+	bed.height = 0.22
+	bed.radial_segments = 20
+	bed.rings = 6
+	var ember := StandardMaterial3D.new()
+	var noise: Texture2D = load(EMBER_NOISE)
+	ember.albedo_color = Color(0.08, 0.05, 0.04)
+	ember.roughness = 1.0
+	ember.emission_enabled = true
+	ember.emission = Color(1.0, 0.38, 0.1)
+	ember.emission_energy_multiplier = 1.5
+	ember.emission_texture = noise
+	ember.uv1_scale = Vector3(2.0, 1.0, 1.0)
+	bed.material = ember
+	coals.mesh = bed
+	coals.position = Vector3(0.0, BRAZIER_TOP + 0.08 + BOWL_DEPTH - 0.04, 0.0)
+	coals.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(coals)
+	var flame_at := Vector3(0.0, BRAZIER_TOP + 0.08 + BOWL_DEPTH + 0.02, 0.0)
+	CastleFire.make(node, flame_at, Vector2(0.8, 1.1), Color(1, 1, 1), 1.6)
+	CastleFire.make(node, flame_at + Vector3(0.12, -0.04, 0.08), Vector2(0.55, 0.8), Color(1, 1, 1), 1.3)
+	var sparks := RisingMotes.make(BOWL_RADIUS * 0.6, 4.0, Color(1.0, 0.5, 0.18), 14, 1.8,
+		Vector2(0.5, 1.1), Vector2(0.012, 0.024))
+	RisingMotes.set_inner(sparks, 0.8)
+	sparks.position = flame_at
+	node.add_child(sparks)
+	sparks.emitting = true
+	var light := OmniLight3D.new()
+	light.light_color = Color(1.0, 0.6, 0.3)
+	light.light_energy = 2.2
+	light.omni_range = 9.0
+	light.omni_attenuation = 1.3
+	light.position = flame_at + Vector3(-0.6, 0.6, 0.0)
+	_fade(light, 45.0)
+	node.add_child(light)
+
 # --------------------------------------------------------------- moonlight
 
 ## Cool moonlight from the south-west, low enough to come in through the long
@@ -248,7 +357,6 @@ static func _moonlight(root: Node3D) -> void:
 
 static func _build_fx(scan_root: Node, root: Node3D) -> void:
 	var green_count := 0
-	var owls: Array = []
 	var kinds := {}
 	for node in scan_root.find_children("FX_*", "Node3D", true, false):
 		var n := node as Node3D
@@ -256,6 +364,8 @@ static func _build_fx(scan_root: Node, root: Node3D) -> void:
 		if parts.size() < 3:
 			continue
 		var kind := "_".join(parts.slice(1, parts.size() - 1))
+		if kind == "owl":
+			continue   # the Rookery's perches stay empty
 		kinds[kind] = int(kinds.get(kind, 0)) + 1
 		var xf := n.global_transform
 		var scale := xf.basis.get_scale().x
@@ -278,13 +388,7 @@ static func _build_fx(scan_root: Node, root: Node3D) -> void:
 				_fx_lamp(holder)
 			"chandelier":
 				_chandelier(holder, Vector3.ZERO, scale, int(scale * 7.0))
-			"owl":
-				owls.append(Transform3D(holder.global_transform.basis.scaled(Vector3.ONE * scale),
-					holder.global_transform.origin))
-				holder.free()
 	stats["fx"] = kinds
-	if not owls.is_empty():
-		_owl_flock(root, owls)
 
 ## Far torches cost nothing: they fade out instead of shading the far rooms.
 static func _fade(light: Light3D, begin: float = 38.0) -> void:
@@ -451,32 +555,3 @@ static func _lantern(parent: Node3D, at: Vector3, s: float = 1.0) -> void:
 	flame.position = at
 	flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	parent.add_child(flame)
-
-## Every owl in one MultiMesh (the owl model, height-normalised so an FX
-## point's scale is the bird's height in metres).
-static func _owl_flock(root: Node3D, transforms: Array) -> void:
-	var path := "res://assets/castle/props/owl.glb"
-	if not ResourceLoader.exists(path):
-		return
-	var scene := (load(path) as PackedScene).instantiate() as Node3D
-	var found := scene.find_children("*", "MeshInstance3D", true, false)
-	if found.is_empty():
-		scene.free()
-		return
-	var mesh := (found[0] as MeshInstance3D).mesh
-	var box := mesh.get_aabb()
-	var h := maxf(box.size.y, 0.001)
-	var norm := Transform3D(Basis().scaled(Vector3.ONE / h),
-		-Vector3(box.get_center().x, box.position.y, box.get_center().z) / h)
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = mesh
-	mm.instance_count = transforms.size()
-	for i in transforms.size():
-		mm.set_instance_transform(i, root.global_transform.affine_inverse() * (transforms[i] as Transform3D) * norm)
-	var flock := MultiMeshInstance3D.new()
-	flock.name = "Owls"
-	flock.multimesh = mm
-	root.add_child(flock)
-	scene.free()
-	stats["owls"] = transforms.size()

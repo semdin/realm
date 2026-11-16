@@ -36,6 +36,25 @@ const PBR_SETS := {
 	"stone_ashlar_01": ["albedo", "normal", "png", 8.0],
 }
 
+## Parts of the glb this build leaves out (freed as the castle is loaded,
+## before anything is styled): the Entrance Hall's four house-points hourglasses on
+## their plinth (brass frames, glass, gems, the plinth's wood; their only
+## collider, the plinth's box, is taken out of the map pack by
+## world/patches/castle_interior.json `remove`). Iron braziers stand there now
+## (castle_decor.gd ENTRANCE_BRAZIERS).
+const LEFT_OUT := ["D_entrance_hall_brass", "D_entrance_hall_glass_clear", "D_entrance_hall_gem_red",
+	"D_entrance_hall_gem_green", "D_entrance_hall_gem_blue", "D_entrance_hall_gem_yellow", "V_hourglass_wood"]
+
+## Portraits whose paintings are not the realm's own: their frames show
+## another portrait of the castle's, mirrored, until they get paintings of
+## their own ([painting, mirrored]).
+const PORTRAIT_STAND_IN := {
+	"portrait_8": ["portrait_0", true],
+	"portrait_9": ["portrait_3", true],
+	"portrait_10": ["portrait_4", true],
+	"portrait_12": ["portrait_5", true],
+}
+
 ## Slots whose surfaces must not cast shadows: glazing, cloth, paintings and
 ## the boarded vault ceilings would block the moonlight.
 const NO_SHADOW := ["glass", "sky_vault", "glass_clear", "stained_side", "stained_west", "compass",
@@ -47,12 +66,20 @@ static func load_layout() -> Dictionary:
 	var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(LAYOUT))
 	return parsed if parsed is Dictionary else {}
 
-## The imported castle, or null when this build does not carry it.
+## The imported castle, or null when this build does not carry it; the
+## LEFT_OUT parts are already gone.
 static func instantiate() -> Node3D:
 	if not ResourceLoader.exists(GOTHIC):
 		return null
 	var packed := load(GOTHIC) as PackedScene
-	return packed.instantiate() as Node3D if packed != null else null
+	var castle := packed.instantiate() as Node3D if packed != null else null
+	if castle != null:
+		for part: String in LEFT_OUT:
+			var node := castle.find_child(part, true, false)
+			if node != null:
+				node.get_parent().remove_child(node)
+				node.free()
+	return castle
 
 ## A world-space triplanar PBR surface on the lite path. `object_space`
 ## samples in the mesh's own space instead (a moving staircase flight: the
@@ -91,7 +118,11 @@ static func _glowing(colour: Color, energy: float, roughness: float) -> Standard
 static func kit_material(slot: String) -> Material:
 	if slot.begins_with("portrait_"):
 		var canvas := StandardMaterial3D.new()
-		canvas.albedo_texture = load(TEXTURES % (slot + ".jpg"))
+		var painting: Array = PORTRAIT_STAND_IN.get(slot, [slot, false])
+		canvas.albedo_texture = load(TEXTURES % (String(painting[0]) + ".jpg"))
+		if bool(painting[1]):
+			canvas.uv1_scale = Vector3(-1.0, 1.0, 1.0)
+			canvas.uv1_offset = Vector3(1.0, 0.0, 0.0)
 		canvas.roughness = 0.8
 		return canvas
 	match slot:
@@ -156,10 +187,6 @@ static func kit_material(slot: String) -> Material:
 			return _plain(Color(0.83, 0.64, 0.3), 0.38, 1.0)
 		"iron":
 			return _plain(Color(0.12, 0.11, 0.11), 0.5, 0.85)
-		"gem_red", "gem_green", "gem_blue", "gem_yellow":
-			# the Entrance Hall's four house gems, in the houses' own colours
-			var houses := preload("res://scripts/content/house_colors.gd")
-			return _glowing(houses.cloth("cloth_" + slot.trim_prefix("gem_")) / houses.CLOTH_SHADE, 2.2, 0.15)
 		"compass":
 			# a round inlay: the texture's corners are cut away by its alpha
 			var painted := StandardMaterial3D.new()

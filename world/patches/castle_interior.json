@@ -1,5 +1,5 @@
 {
-  "_comment": "Colliders for drawn solids the castle glb carries without one (found by comparing every drawn surface with the colliders on a 2 m grid, 1.4 m over each room's floor): the stone under the Entrance Hall, library and dungeon stairwell stairs (their colliders are only the walkway slab and the rails, so a body could walk under the drawn stair) and the potions room's cauldrons on their benches. Each box stays a few cm inside the drawn stone and under the walkway's underside; none is near the Grand Staircase's swinging flights (pivot (0, -6), reach ~16.5 m). Pack coordinates (layout + 200 m up). Applied by realm_worldc patch. The Feast Hall's angled tables and benches (castle_feast.gd HALL_TABLES) are boxes here too; `remove` takes the old long rows they replaced out of the pack.",
+  "_comment": "Colliders for drawn solids the castle glb carries without one (found by comparing every drawn surface with the colliders on a 2 m grid, 1.4 m over each room's floor): the stone under the Entrance Hall, library and dungeon stairwell stairs (their colliders are only the walkway slab and the rails, so a body could walk under the drawn stair) and the potions room's cauldrons on their benches. Each box stays a few cm inside the drawn stone and under the walkway's underside; none is near the Grand Staircase's swinging flights (pivot (0, -6), reach ~16.5 m). Pack coordinates (layout + 200 m up). Applied by realm_worldc patch. The Feast Hall's angled tables and benches (castle_feast.gd HALL_TABLES) are boxes here too; `remove` takes the old long rows they replaced out of the pack. The Entrance Hall's hourglass plinth is removed too; the two fire bowls that stand there now (castle_decor.gd ENTRANCE_BRAZIERS) are boxes.",
   "boxes": [
     {
       "note": "Entrance Hall west stair under-stair stone, column 0 (drawn solid, its colliders are only the walkway and rails)",
@@ -2184,6 +2184,34 @@
         0.11
       ],
       "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall fire bowl on its pedestal at 16.5, 38.5 (castle_decor.gd ENTRANCE_BRAZIERS): 0.9 m square, to the coals [brazier]",
+      "center": [
+        16.5,
+        200.69,
+        38.5
+      ],
+      "half": [
+        0.45,
+        0.69,
+        0.45
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall fire bowl on its pedestal at 16.5, 45.5 (castle_decor.gd ENTRANCE_BRAZIERS): 0.9 m square, to the coals [brazier]",
+      "center": [
+        16.5,
+        200.69,
+        45.5
+      ],
+      "half": [
+        0.45,
+        0.69,
+        0.45
+      ],
+      "yaw_deg": 0
     }
   ],
   "remove": [
@@ -2393,6 +2421,19 @@
         -95.4,
         203.0,
         56.7
+      ]
+    },
+    {
+      "note": "Entrance Hall: the hourglass plinth (glb B_hourglass_plinth), its hourglasses left out of the drawn build (castle_kit.gd LEFT_OUT) [hourglass]",
+      "min": [
+        15.75,
+        199.95,
+        32.95
+      ],
+      "max": [
+        17.85,
+        201.05,
+        47.05
       ]
     }
   ]
