@@ -35,6 +35,11 @@ ROOT = Path(__file__).resolve().parents[2]
 HOUSES = ROOT / "content" / "data" / "houses.json"
 ICONS = ROOT / "game" / "assets" / "ui" / "icons"
 BANNERS = ROOT / "game" / "assets" / "castle" / "textures"
+## Painted crests (fal bytedance/seedream/v5.5/text-to-image, 2048 px RGBA, the
+## prompts in art/crests_seedream/README.md); raw art stays out of the repo.
+## With --painted the icons are these, and the banners carry them instead of
+## the embroidered animal.
+PAINTED = ROOT.parent / "art" / "crests_seedream"
 ## The castle kit's banner slots (castle_interior.glb `kit_banner_<colour>`)
 ## stand for one house each (house_colors.gd SLOT_HOUSE).
 BANNER_SLOT = {"velkar": "red", "nisera": "green", "ilvane": "blue", "torvan": "yellow"}
@@ -416,7 +421,7 @@ def premul_resize(img: Image.Image, size) -> Image.Image:
 # ----------------------------------------------------------------- banners
 
 
-def banner(house: str, field_hex: str, metal_hex: str, w=512, h=2064) -> Image.Image:
+def banner(house: str, field_hex: str, metal_hex: str, w=512, h=2064, emblem: Image.Image | None = None) -> Image.Image:
     """The woven house banner: cloth in the house colour with vertical folds,
     a metal-thread border, the animal embroidered in metal, a fringe."""
     S = 2
@@ -442,24 +447,36 @@ def banner(house: str, field_hex: str, metal_hex: str, w=512, h=2064) -> Image.I
     for inset, width in ((14 * S, 10 * S), (34 * S, 3 * S)):
         b = band(inset, width)
         col = col * (1 - b[..., None]) + thread * shade[..., None] * b[..., None]
-    # the emblem: the crest's animal, embroidered in metal
-    side = int(W * 0.8)
-    box = fit_box(ANIMALS[house](), 3.0)
-    m = ANIMALS[house]().mask(side, box)
-    ox, oy = (W - side) // 2, int(cloth_h * 0.36) - side // 2
-    an = np.zeros((H, W), np.float32)
-    an[oy:oy + side, ox:ox + side] = m
-    if house == "torvan":
-        tm = np.zeros((H, W), np.float32)
-        tm[oy:oy + side, ox:ox + side] = tusk().mask(side, box)
-    an_h = ndimage.gaussian_filter(bevel(an, side * 0.02, 0.6) * 0.6, 1.5)
-    n_an = normals(an_h, side * 0.06)
-    an_col = metal(n_an, m_lin, 22.0) * folds[..., None]
-    sh = ndimage.gaussian_filter(np.roll(an, 5 * S, 0), 5 * S)
-    col *= (1 - 0.45 * sh)[..., None]
-    col = col * (1 - an[..., None]) + an_col * an[..., None]
-    if house == "torvan":
-        col = col * (1 - tm[..., None]) + srgb_to_lin(hexrgb("#e9dfc6"))[None, None, :] * folds[..., None] * tm[..., None]
+    if emblem is None:
+        # the emblem: the crest's animal, embroidered in metal
+        side = int(W * 0.8)
+        box = fit_box(ANIMALS[house](), 3.0)
+        m = ANIMALS[house]().mask(side, box)
+        ox, oy = (W - side) // 2, int(cloth_h * 0.36) - side // 2
+        an = np.zeros((H, W), np.float32)
+        an[oy:oy + side, ox:ox + side] = m
+        if house == "torvan":
+            tm = np.zeros((H, W), np.float32)
+            tm[oy:oy + side, ox:ox + side] = tusk().mask(side, box)
+        an_h = ndimage.gaussian_filter(bevel(an, side * 0.02, 0.6) * 0.6, 1.5)
+        n_an = normals(an_h, side * 0.06)
+        an_col = metal(n_an, m_lin, 22.0) * folds[..., None]
+        sh = ndimage.gaussian_filter(np.roll(an, 5 * S, 0), 5 * S)
+        col *= (1 - 0.45 * sh)[..., None]
+        col = col * (1 - an[..., None]) + an_col * an[..., None]
+        if house == "torvan":
+            col = col * (1 - tm[..., None]) + srgb_to_lin(hexrgb("#e9dfc6"))[None, None, :] * folds[..., None] * tm[..., None]
+    else:
+        # the painted crest, sewn on: shaded by the cloth's folds
+        side = int(W * 0.78)
+        e = np.asarray(emblem.convert("RGBA").resize((side, side), Image.LANCZOS), dtype=np.float32) / 255.0
+        ox, oy = (W - side) // 2, int(cloth_h * 0.36) - side // 2
+        a_ = e[..., 3:4]
+        e_lin = srgb_to_lin(e[..., :3]) * folds[oy:oy + side, ox:ox + side, None]
+        sh = ndimage.gaussian_filter(np.roll(np.pad(e[..., 3], ((oy, H - oy - side), (ox, W - ox - side))), 6 * S, 0), 6 * S)
+        col *= (1 - 0.5 * sh)[..., None]
+        reg = col[oy:oy + side, ox:ox + side]
+        col[oy:oy + side, ox:ox + side] = reg * (1 - a_) + e_lin * a_
     # fringe: metal threads hanging below the hem on a dark ground
     fr = np.zeros((H, W, 3), np.float32) + 0.02
     strands = (np.sin(xx * math.tau / (9.0 * S)) > -0.2).astype(np.float32)
@@ -484,6 +501,7 @@ def main() -> None:
     ap.add_argument("--only", default="")
     ap.add_argument("--no-banners", action="store_true")
     ap.add_argument("--out", default="", help="write here instead of the game's folders (a preview)")
+    ap.add_argument("--painted", action="store_true", help="use the painted crests in art/crests_seedream")
     args = ap.parse_args()
     icons, banners = (Path(args.out), Path(args.out)) if args.out else (ICONS, BANNERS)
     houses = json.loads(HOUSES.read_text(encoding="utf-8"))
@@ -491,12 +509,13 @@ def main() -> None:
     crests = {}
     for key in names:
         hd = houses[key]
-        big = crest(key, hd["primary_color"], hd["secondary_color"])
+        painted = Image.open(PAINTED / f"{key}.png").convert("RGBA") if args.painted else None
+        big = painted if painted is not None else crest(key, hd["primary_color"], hd["secondary_color"])
         icon = premul_resize(big, (512, 512))
         icon.save(icons / f"icon_house_{key}.png", optimize=True)
         crests[key] = icon
         if not args.no_banners:
-            banner(key, hd["primary_color"], hd["secondary_color"]).save(
+            banner(key, hd["primary_color"], hd["secondary_color"], emblem=painted).save(
                 banners / f"banner_{BANNER_SLOT[key]}.png", optimize=True)
         print("made", key)
     if args.sheet:
