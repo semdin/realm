@@ -32,7 +32,9 @@ extends SceneTree
 ##
 ## Every finding is written to <out>/placement_<map>.json; the verdict line
 ## quits 0 only when nothing was found. `--shot` captures a camera view
-## (PNG in <out>/<name>.png) after the checks.
+## (PNG in <out>/<name>.png) after the checks; `--show 12,40` draws those
+## pack colliders see-through red in it; `--explain 12,40` prints their
+## invisible samples one by one.
 
 const Layout := preload("res://maps/grounds/grounds_layout.gd")
 const Scatter := preload("res://maps/grounds/grounds_scatter.gd")
@@ -74,9 +76,21 @@ const MAX_FOOT := 48
 const SEAT_REACH := 1.5
 const NPC_TOL := 0.1
 
-## Findings looked at and meant (map, part, field, substring, why): listed
-## under counts.allowed, not failed.
+## Findings looked at and meant (map, part, field, substring, why[, kind]):
+## listed under counts.allowed, not failed. With a kind, only findings of
+## that kind (a seat's "sunk", "floats", "tilted") are allowed.
 const ALLOW := [
+	# spider_caverns.gd _crags: the stalagmite clumps are planted into the
+	# floor on purpose (a spire 0.5 m, a small clump 0.2 m, each tipped up to
+	# 0.08 / 0.15 rad): a flat-footed rock clump on the uneven cave floor
+	["spider_caverns", "seats", "unit", "Crags_", "stalagmite clumps planted into the floor (_crags)", "sunk"],
+	# dng_sealed_wing.gd _dress_hall: the hound's trapdoor (0.69 m of frame
+	# and door at 1.35x) is set 0.3 m into the hall's floor, a lip showing
+	["dng_sealed_wing", "seats", "unit", "(fc_trapdoor.glb)", "the trapdoor is set into the floor", "sunk"],
+	# castle_interior.gd _dress_portals: the Sealed Wing's door stands in the
+	# third-floor corridor's wall, the back of its frame over the wall's
+	# 0.55 m skirting, which runs on behind it
+	["castle_interior", "seats", "unit", "(fc_door.glb)", "the Sealed Wing's door set into the corridor wall, over its skirting", "sunk"],
 	["grounds", "seats", "unit", "(boar.glb)",
 		"the gate boars' pedestals stand against the balustrade's piers (the pier's top is over the pedestal's corner)"],
 	# the crooked storybook house's chimney: its collider (village_kit.json,
@@ -100,6 +114,9 @@ var _space: PhysicsDirectSpaceState3D
 var _findings: Dictionary = {}
 var _counts: Dictionary = {}
 var _probe_root: Node3D
+## Pack collider indices whose invisible samples are printed one by one
+## (`--explain 12,40`).
+var _explain: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -132,6 +149,8 @@ func _fail(why: String) -> void:
 
 func _run() -> void:
 	map_id = _arg("--map", "grounds")
+	for k in _arg("--explain").split(",", false):
+		_explain[int(k)] = true
 	out_dir = _path(_arg("--out", "../build/w1"))
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	var content := _path("../content/data")
@@ -335,7 +354,15 @@ func _drawn_bodies() -> void:
 			var mi := gi as MeshInstance3D
 			if mi.mesh == null:
 				continue
-			var faces := mi.mesh.get_faces()
+			# a skinned body (a suit of armour standing in its pose) is where
+			# its bones put it: its rest vertices can be another size entirely
+			# (armour_guard.glb: a 1 cm figure under a 100x armature)
+			var drawn_mesh: Mesh = mi.mesh
+			if mi.skin != null and mi.get_node_or_null(mi.skeleton) is Skeleton3D:
+				var posed := mi.bake_mesh_from_current_skeleton_pose()
+				if posed != null:
+					drawn_mesh = posed
+			var faces := drawn_mesh.get_faces()
 			if faces.is_empty():
 				continue
 			var unit := _unit_of(mi)
@@ -345,7 +372,7 @@ func _drawn_bodies() -> void:
 					"model": unit != mi or mi.scene_file_path != "", "origin": (unit as Node3D).global_position.y}
 			var rid := _body(_faces_shape(faces), mi.global_transform, DRAWN_LAYER, id)
 			(_units[id]["rids"] as Array).append(rid)
-			_units[id]["verts"] = (_units[id]["verts"] as PackedVector3Array) + _world_verts(mi.mesh, mi.global_transform)
+			_units[id]["verts"] = (_units[id]["verts"] as PackedVector3Array) + _world_verts(drawn_mesh, mi.global_transform)
 		elif gi is MultiMeshInstance3D:
 			var mmi := gi as MultiMeshInstance3D
 			var mm := mmi.multimesh
@@ -354,12 +381,15 @@ func _drawn_bodies() -> void:
 			if not shapes.has(mm.mesh):
 				shapes[mm.mesh] = _faces_shape(mm.mesh.get_faces())
 			var local := _world_verts(mm.mesh, Transform3D.IDENTITY)
+			# a flat card (a candle's flame, a web) has no foot to seat
+			var extent := mm.mesh.get_aabb().size
+			var card := minf(extent.x, minf(extent.y, extent.z)) < 0.001
 			var count := mm.instance_count if mm.visible_instance_count < 0 else mm.visible_instance_count
 			for i in count:
 				var xform := mmi.global_transform * mm.get_instance_transform(i)
 				var id := "%d#%d" % [mmi.get_instance_id(), i]
 				var rid := _body(shapes[mm.mesh], xform, SCATTER_LAYER, id)
-				_units[id] = {"name": "%s[%d]" % [_describe(mmi), i], "rids": [rid], "verts": xform * local, "model": true,
+				_units[id] = {"name": "%s[%d]" % [_describe(mmi), i], "rids": [rid], "verts": xform * local, "model": not card,
 					"scatter": true, "origin": xform.origin.y}
 
 
@@ -409,7 +439,8 @@ func _drawn_under(from: Vector3, reach: float, exclude: Array = [], scatter := t
 
 func _add(part: String, entry: Dictionary) -> void:
 	for a: Array in ALLOW:
-		if String(a[0]) == map_id and String(a[1]) == part and String(entry.get(a[2], "")).contains(String(a[3])):
+		if String(a[0]) == map_id and String(a[1]) == part and String(entry.get(a[2], "")).contains(String(a[3])) \
+				and (a.size() < 6 or String(entry.get("kind", "")) == String(a[5])):
 			entry["allowed"] = a[4]
 			if not _counts.has("allowed"):
 				_counts["allowed"] = []
@@ -511,8 +542,15 @@ func _check_invisible() -> void:
 					if not is_nan(d2) and (is_nan(drawn) or d2 > drawn):
 						drawn = d2
 				var gap := top - drawn if not is_nan(drawn) else 3.0
-				if gap > INVISIBLE_TOL and _enclosed(Vector3(x, top + 0.05, z)):
+				var enclosed := gap > INVISIBLE_TOL and _enclosed(Vector3(x, top + 0.05, z))
+				if enclosed:
 					gap = 0.0
+				if _explain.has(index):
+					var up := _ray(Vector3(x, top + 0.05, z), Vector3(x, top + 5.05, z))
+					var down := _ray(Vector3(x, top + 5.05, z), Vector3(x, top + 0.05, z))
+					print("[placement] explain #%d sample %.2f, %.2f top %.3f drawn %.3f enclosed %s up %s down %s" % [
+						index, x, z, top, drawn, enclosed, [up.get("position"), up.get("normal")] if not up.is_empty() else "-",
+						[down.get("position"), down.get("normal")] if not down.is_empty() else "-"])
 				if gap > INVISIBLE_TOL:
 					bare += 1
 					if gap > worst:
@@ -535,14 +573,34 @@ func _check_invisible() -> void:
 
 ## Whether `at` is inside something drawn (a collider's top hidden in a
 ## drawn roof or wall): drawn surfaces over it and on three sides of four.
+## Each way is a small fan of rays, any of which may meet it: a model built
+## of loose shards (the caverns' stalagmite clumps) lets a single ray
+## through the gaps between them.
 func _enclosed(at: Vector3) -> bool:
-	if _ray(at, at + Vector3.UP * 5.0).is_empty():
+	if not _fan_hits(at, Vector3.UP, 5.0):
 		return false
 	var sides := 0
 	for d: Vector3 in [Vector3.LEFT, Vector3.RIGHT, Vector3.FORWARD, Vector3.BACK]:
-		if not _ray(at, at + d * 8.0).is_empty():
+		if _fan_hits(at, d, 8.0):
 			sides += 1
 	return sides >= 3
+
+
+## Whether any ray of a fan round `dir` meets something drawn: the straight
+## one within `reach`, four FAN_TILT off it within FAN_REACH (a hand's width
+## aside at most: the shards round the point, not a wall beside it).
+const FAN_TILT := 0.15
+const FAN_REACH := 2.0
+
+func _fan_hits(at: Vector3, dir: Vector3, reach: float) -> bool:
+	if not _ray(at, at + dir * reach).is_empty():
+		return true
+	var a := dir.cross(Vector3.FORWARD if absf(dir.z) < 0.9 else Vector3.RIGHT).normalized()
+	var b := dir.cross(a).normalized()
+	for off: Vector3 in [a, -a, b, -b]:
+		if not _ray(at, at + (dir + off * FAN_TILT).normalized() * minf(reach, FAN_REACH)).is_empty():
+			return true
+	return false
 
 
 func _ray(from: Vector3, to: Vector3) -> Dictionary:
@@ -651,6 +709,14 @@ func _check_seats() -> void:
 				if not is_nan(g2) and (is_nan(g) or (g2 > g and g2 <= f.y + FLOAT_TOL)):
 					g = g2
 			var burial := (g - f.y) if not is_nan(g) else -2.0
+			# nothing under a foot buried deeper than the probe's start (a
+			# base set into a slope): the surface over it says how deep
+			if is_nan(g):
+				var q := PhysicsRayQueryParameters3D.create(f, f + Vector3.UP * 3.0, DRAWN_LAYER, rids)
+				q.hit_back_faces = true
+				var over := _space.intersect_ray(q)
+				if not over.is_empty():
+					burial = (over["position"] as Vector3).y - f.y
 			n_float += 1 if -burial > float_tol else 0
 			n_sunk += 1 if burial > sink_tol else 0
 			if -burial > most_float:
@@ -708,6 +774,25 @@ func _check_npcs() -> void:
 
 func _shots(cam: Camera3D) -> void:
 	var args := OS.get_cmdline_user_args()
+	# `--show 12,40`: those pack colliders drawn see-through red in the shots
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(1.0, 0.1, 0.1, 0.45)
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+	for k in _arg("--show").split(",", false):
+		var c: Dictionary = _colliders.get(int(k), {})
+		if c.is_empty():
+			continue
+		var v: Array = c["vertices"]
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for idx: int in c["indices"]:
+			st.add_vertex(Vector3(v[idx * 3], v[idx * 3 + 1], v[idx * 3 + 2]))
+		var shown := MeshInstance3D.new()
+		shown.mesh = st.commit()
+		shown.material_override = mat
+		root.add_child(shown)
 	for i in args.size() - 1:
 		if args[i] != "--shot":
 			continue

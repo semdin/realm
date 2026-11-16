@@ -58,6 +58,10 @@ var built_stats: Dictionary = {}
 ## Drawn solids the old game gave no collider: [{note, center, half, yaw_deg}]
 ## in the map's own (pack) coordinates; tools write them as patches.
 var solids: Array = []
+## The old game's colliders for things drawn otherwise now: [{note, min,
+## max}], world boxes the export's colliders inside are taken out by (the
+## patch's `remove`, realm_worldc patch.rs); `solids` gives the drawn shape.
+var removed: Array = []
 ## Baked stalagmites placed as solids: [{xform: the stalag mesh's placement
 ## (pack coordinates), note}]. map_solids.gd boxes each inside its drawn rock
 ## from the mesh (the caverns' spires' raster, DungeonView.raster_solids) as
@@ -482,30 +486,6 @@ func _solid_prop(path: String, at: Vector3, yaw_deg: float, scale_by: float, not
 		"half": [snappedf(half.x, 0.01), snappedf(half.y, 0.01), snappedf(half.z, 0.01)], "yaw_deg": 0})
 	return node
 
-## A placed model's solid as patch boxes, one per height band: `layers` are
-## [from, to, core] - the band as fractions of the mesh's height from its
-## foot (below 0 reaches under it), `core` the share of its width the box
-## keeps (a spire's flank narrows as it rises). `xform` places the mesh
-## (yaw and uniform scale; a slight tilt is ignored); `bounds` is the mesh's
-## own AABB. Map (pack) coordinates when `xform` is.
-static func layered_solids(bounds: AABB, xform: Transform3D, layers: Array, note: String) -> Array:
-	var out: Array = []
-	var scale := xform.basis.x.length()
-	var yaw := atan2(-xform.basis.x.z, xform.basis.x.x)
-	var flat := Transform3D(Basis(Vector3.UP, yaw).scaled(Vector3.ONE * scale), xform.origin)
-	var c := bounds.get_center()
-	for layer: Array in layers:
-		var y0 := bounds.position.y + bounds.size.y * float(layer[0])
-		var y1 := bounds.position.y + bounds.size.y * float(layer[1])
-		var core := float(layer[2])
-		var at := flat * Vector3(c.x, (y0 + y1) * 0.5, c.z)
-		out.append({"note": "%s (band %.0f-%.0f %%)" % [note, float(layer[0]) * 100.0, float(layer[1]) * 100.0],
-			"center": [snappedf(at.x, 0.01), snappedf(at.y, 0.01), snappedf(at.z, 0.01)],
-			"half": [snappedf(bounds.size.x * 0.5 * core * scale, 0.01), snappedf((y1 - y0) * 0.5 * scale, 0.01),
-				snappedf(bounds.size.z * 0.5 * core * scale, 0.01)],
-			"yaw_deg": snappedf(rad_to_deg(yaw), 0.01)})
-	return out
-
 ## A placed model's solid parts as patch boxes: `parts` are rectangles in
 ## the mesh's own space, [x0, x1, z0, z1, top] (metres; the box rises from
 ## `down` metres under the mesh's origin to `top`). `xform` places the mesh
@@ -530,18 +510,32 @@ static func part_solids(xform: Transform3D, parts: Array, down: float, note: Str
 ## A mesh's top surface sampled on an n x n grid over its footprint (mesh
 ## space): each cell centre's highest point of the mesh (its triangles, and
 ## its vertices for cells no triangle lands on whole), then cells far under
-## the median of their neighbours (a scan's cracks) raised to it:
-## {top: PackedFloat32Array (row z, column x; -INF off the mesh), n, box}.
-static func top_raster(mesh: Mesh, n: int) -> Dictionary:
-	var box := mesh.get_aabb()
+## the median of their neighbours (a scan's cracks) raised to it. With
+## `yaw` the grid is the mesh's space turned that much about its up axis (a
+## model whose shape runs on a diagonal, a tent's ridge): the mesh turned by
+## -yaw is sampled.
+## {top: PackedFloat32Array (row z, column x; -INF off the mesh), n, box, yaw}.
+static func top_raster(mesh: Mesh, n: int, yaw: float = 0.0) -> Dictionary:
+	var turn := Transform3D(Basis(Vector3.UP, -yaw), Vector3.ZERO)
+	var surfaces: Array = []
+	var box := AABB()
+	var first := true
+	for s in mesh.get_surface_count():
+		var arrays := mesh.surface_get_arrays(s)
+		var verts: PackedVector3Array = turn * (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array)
+		surfaces.append([verts, arrays[Mesh.ARRAY_INDEX]])
+		for v in verts:
+			box = AABB(v, Vector3.ZERO) if first else box.expand(v)
+			first = false
+	if yaw == 0.0:
+		box = mesh.get_aabb()
 	var top := PackedFloat32Array()
 	top.resize(n * n)
 	top.fill(-INF)
 	var cell := Vector2(box.size.x / n, box.size.z / n)
-	for s in mesh.get_surface_count():
-		var arrays := mesh.surface_get_arrays(s)
-		var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-		var index: PackedInt32Array = arrays[Mesh.ARRAY_INDEX] if arrays[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
+	for surface: Array in surfaces:
+		var verts: PackedVector3Array = surface[0]
+		var index: PackedInt32Array = surface[1] if surface[1] != null else PackedInt32Array()
 		for v in verts:
 			var at := clampi(floori((v.z - box.position.z) / cell.y), 0, n - 1) * n \
 				+ clampi(floori((v.x - box.position.x) / cell.x), 0, n - 1)
@@ -584,7 +578,7 @@ static func top_raster(mesh: Mesh, n: int) -> Dictionary:
 				if median > -INF and top[j * n + i] < median - box.size.y * 0.1:
 					filled[j * n + i] = median
 		top = filled
-	return {"top": top, "n": n, "box": box}
+	return {"top": top, "n": n, "box": box, "yaw": yaw}
 
 ## The largest rectangle of a raster's cells whose top reaches `t`, as
 ## mesh-space [x0, x1, z0, z1] from cell centre to cell centre (half a cell
@@ -626,10 +620,13 @@ static func raster_rect(raster: Dictionary, t: float) -> Array:
 ## (raster_rect), from the band's bottom (the first from the mesh's foot) to
 ## that top. `xform` places the mesh (yaw, uniform scale, a slight tilt: each
 ## box stands on the tilted axis, narrowed by what the tilt leans over its
-## height). Bands stop at the first one the shape is too thin for.
+## height; a raster sampled turned (top_raster's `yaw`) turns its boxes the
+## same). Bands stop at the first one the shape is too thin for.
 static func raster_solids(raster: Dictionary, xform: Transform3D, bands: Array, note: String) -> Array:
 	var out: Array = []
 	var box: AABB = raster["box"]
+	var turn := float(raster.get("yaw", 0.0))
+	xform = xform * Transform3D(Basis(Vector3.UP, turn), Vector3.ZERO)
 	var scale := xform.basis.x.length()
 	var yaw := atan2(-xform.basis.x.z, xform.basis.x.x)
 	var lean := tan(acos(clampf(xform.basis.y.normalized().y, -1.0, 1.0)))

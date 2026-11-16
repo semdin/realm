@@ -353,19 +353,28 @@ impl World {
         // A thin vertical capsule (a bead) stands in for the line.
         let mut best = self.sweep(&bead(), from, motion).map(|hit| hit.fraction);
         // The terrain is a height grid, not a collider: walk the segment.
+        // The walk decides whether the line meets the ground; the crossing is
+        // then found exactly between the last sample above it and the first
+        // under it (the walk alone would answer up to a step short).
         let steps = (length / TERRAIN_LINE_STEP).ceil().max(1.0) as usize;
+        let under = |t: f32| {
+            let p = from + motion * t;
+            self.terrain_at(p.x, p.z)
+                .is_some_and(|(height, _)| p.y < height)
+        };
         let mut previous = 0.0_f32;
         for i in 1..=steps {
             let t = i as f32 / steps as f32;
             if best.is_some_and(|b| b <= t) {
                 break;
             }
-            let p = from + motion * t;
-            if self
-                .terrain_at(p.x, p.z)
-                .is_some_and(|(height, _)| p.y < height)
-            {
-                best = Some(previous);
+            if under(t) {
+                best = Some(if previous == 0.0 && under(0.0) {
+                    // the line starts under the ground
+                    0.0
+                } else {
+                    terrain_crossing(previous, t, length, &under)
+                });
                 break;
             }
             previous = t;
@@ -558,6 +567,29 @@ impl Terrain {
     }
 }
 
+/// Bisects the terrain crossing between `above` (a fraction over the
+/// ground) and `below` (one under it) to a millimetre of the line:
+/// the last fraction found over the ground.
+fn terrain_crossing(
+    mut above: f32,
+    mut below: f32,
+    length: f32,
+    under: &dyn Fn(f32) -> bool,
+) -> f32 {
+    for _ in 0..TERRAIN_BISECT_MAX {
+        if (below - above) * length <= TERRAIN_BISECT_TOL {
+            break;
+        }
+        let mid = 0.5 * (above + below);
+        if under(mid) {
+            below = mid;
+        } else {
+            above = mid;
+        }
+    }
+    above
+}
+
 /// The thin capsule `line_hit` sweeps along a line (also for callers that
 /// test only colliders).
 #[must_use]
@@ -569,6 +601,10 @@ pub fn bead() -> Capsule {
 const LINE_RADIUS: f32 = 0.04;
 /// Spacing of the terrain samples along a line.
 const TERRAIN_LINE_STEP: f32 = 1.0;
+/// How close (m along the line) `line_hit` refines a terrain crossing, and
+/// at most how many halvings it takes for it.
+const TERRAIN_BISECT_TOL: f32 = 1.0e-3;
+const TERRAIN_BISECT_MAX: u32 = 24;
 
 fn capsule_aabb(capsule: &Capsule, center: Vec3) -> Aabb {
     let r = capsule.radius;

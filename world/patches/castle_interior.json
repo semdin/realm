@@ -1,5 +1,5 @@
 {
-  "_comment": "Colliders for drawn solids the castle glb carries without one (found by comparing every drawn surface with the colliders on a 2 m grid, 1.4 m over each room's floor): the stone under the Entrance Hall, library and dungeon stairwell stairs (their colliders are only the walkway slab and the rails, so a body could walk under the drawn stair) and the potions room's cauldrons on their benches. Each box stays a few cm inside the drawn stone and under the walkway's underside; none is near the Grand Staircase's swinging flights (pivot (0, -6), reach ~16.5 m). Pack coordinates (layout + 200 m up). Applied by realm_worldc patch.",
+  "_comment": "Colliders for drawn solids the castle glb carries without one (found by comparing every drawn surface with the colliders on a 2 m grid, 1.4 m over each room's floor): the stone under the Entrance Hall, library and dungeon stairwell stairs (their colliders are only the walkway slab and the rails, so a body could walk under the drawn stair) and the potions room's cauldrons on their benches. Each box stays a few cm inside the drawn stone and under the walkway's underside; none is near the Grand Staircase's swinging flights (pivot (0, -6), reach ~16.5 m). Pack coordinates (layout + 200 m up). Applied by realm_worldc patch. The Feast Hall's angled tables and benches (castle_feast.gd HALL_TABLES) are boxes here too; `remove` takes the old long rows they replaced out of the pack.",
   "boxes": [
     {
       "note": "Entrance Hall west stair under-stair stone, column 0 (drawn solid, its colliders are only the walkway and rails)",
@@ -1134,6 +1134,1266 @@
         0.24
       ],
       "yaw_deg": 0
+    },
+    {
+      "note": "Feast Hall table 1 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -81,
+        200.425,
+        49
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 1 bench (-z side of the board)",
+      "center": [
+        -81.5,
+        200.23,
+        48.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 1 bench (+z side of the board)",
+      "center": [
+        -80.5,
+        200.23,
+        49.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 2 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -67,
+        200.425,
+        49
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 2 bench (-z side of the board)",
+      "center": [
+        -67.5,
+        200.23,
+        48.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 2 bench (+z side of the board)",
+      "center": [
+        -66.5,
+        200.23,
+        49.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 3 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -53,
+        200.425,
+        49
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 3 bench (-z side of the board)",
+      "center": [
+        -53.5,
+        200.23,
+        48.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 3 bench (+z side of the board)",
+      "center": [
+        -52.5,
+        200.23,
+        49.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 4 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -39,
+        200.425,
+        49
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 4 bench (-z side of the board)",
+      "center": [
+        -39.5,
+        200.23,
+        48.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 4 bench (+z side of the board)",
+      "center": [
+        -38.5,
+        200.23,
+        49.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": 30
+    },
+    {
+      "note": "Feast Hall table 5 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -81,
+        200.425,
+        63
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 5 bench (-z side of the board)",
+      "center": [
+        -80.5,
+        200.23,
+        62.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 5 bench (+z side of the board)",
+      "center": [
+        -81.5,
+        200.23,
+        63.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 6 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -67,
+        200.425,
+        63
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 6 bench (-z side of the board)",
+      "center": [
+        -66.5,
+        200.23,
+        62.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 6 bench (+z side of the board)",
+      "center": [
+        -67.5,
+        200.23,
+        63.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 7 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "center": [
+        -53,
+        200.425,
+        63
+      ],
+      "half": [
+        6.0,
+        0.425,
+        0.7
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 7 bench (-z side of the board)",
+      "center": [
+        -52.5,
+        200.23,
+        62.134
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Feast Hall table 7 bench (+z side of the board)",
+      "center": [
+        -53.5,
+        200.23,
+        63.866
+      ],
+      "half": [
+        5.7,
+        0.23,
+        0.2
+      ],
+      "yaw_deg": -30
+    },
+    {
+      "note": "Torvan common room sofa at 56.0, -30.3: the seat (drawn) [sofa]",
+      "center": [
+        56.0,
+        190.23,
+        -30.3
+      ],
+      "half": [
+        1.98,
+        0.23,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 56.0, -30.3: the back (drawn) [sofa]",
+      "center": [
+        56.0,
+        190.515,
+        -29.985
+      ],
+      "half": [
+        1.98,
+        0.515,
+        0.115
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 56.0, -30.3: the first arm (drawn) [sofa]",
+      "center": [
+        54.15,
+        190.35,
+        -30.3
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 56.0, -30.3: the second arm (drawn) [sofa]",
+      "center": [
+        57.85,
+        190.35,
+        -30.3
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 53.0, -32.5: the seat (drawn) [sofa]",
+      "center": [
+        53.0,
+        190.23,
+        -32.5
+      ],
+      "half": [
+        0.43,
+        0.23,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 53.0, -32.5: the back (drawn) [sofa]",
+      "center": [
+        52.685,
+        190.515,
+        -32.5
+      ],
+      "half": [
+        0.115,
+        0.515,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 53.0, -32.5: the first arm (drawn) [sofa]",
+      "center": [
+        53.0,
+        190.35,
+        -33.65
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 53.0, -32.5: the second arm (drawn) [sofa]",
+      "center": [
+        53.0,
+        190.35,
+        -31.35
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 59.0, -32.5: the seat (drawn) [sofa]",
+      "center": [
+        59.0,
+        190.23,
+        -32.5
+      ],
+      "half": [
+        0.43,
+        0.23,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 59.0, -32.5: the back (drawn) [sofa]",
+      "center": [
+        59.315,
+        190.515,
+        -32.5
+      ],
+      "half": [
+        0.115,
+        0.515,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 59.0, -32.5: the first arm (drawn) [sofa]",
+      "center": [
+        59.0,
+        190.35,
+        -33.65
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Torvan common room sofa at 59.0, -32.5: the second arm (drawn) [sofa]",
+      "center": [
+        59.0,
+        190.35,
+        -31.35
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -76.3, -25.5: the seat (drawn) [sofa]",
+      "center": [
+        -76.3,
+        190.23,
+        -25.5
+      ],
+      "half": [
+        0.43,
+        0.23,
+        1.98
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -76.3, -25.5: the back (drawn) [sofa]",
+      "center": [
+        -75.985,
+        190.515,
+        -25.5
+      ],
+      "half": [
+        0.115,
+        0.515,
+        1.98
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -76.3, -25.5: the first arm (drawn) [sofa]",
+      "center": [
+        -76.3,
+        190.35,
+        -27.35
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -76.3, -25.5: the second arm (drawn) [sofa]",
+      "center": [
+        -76.3,
+        190.35,
+        -23.65
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -28.5: the seat (drawn) [sofa]",
+      "center": [
+        -78.5,
+        190.23,
+        -28.5
+      ],
+      "half": [
+        1.28,
+        0.23,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -28.5: the back (drawn) [sofa]",
+      "center": [
+        -78.5,
+        190.515,
+        -28.815
+      ],
+      "half": [
+        1.28,
+        0.515,
+        0.115
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -28.5: the first arm (drawn) [sofa]",
+      "center": [
+        -79.65,
+        190.35,
+        -28.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -28.5: the second arm (drawn) [sofa]",
+      "center": [
+        -77.35,
+        190.35,
+        -28.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -22.5: the seat (drawn) [sofa]",
+      "center": [
+        -78.5,
+        190.23,
+        -22.5
+      ],
+      "half": [
+        1.28,
+        0.23,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -22.5: the back (drawn) [sofa]",
+      "center": [
+        -78.5,
+        190.515,
+        -22.185
+      ],
+      "half": [
+        1.28,
+        0.515,
+        0.115
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -22.5: the first arm (drawn) [sofa]",
+      "center": [
+        -79.65,
+        190.35,
+        -22.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -22.5: the second arm (drawn) [sofa]",
+      "center": [
+        -77.35,
+        190.35,
+        -22.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -41.0, -16.7: the seat (drawn) [sofa]",
+      "center": [
+        -41.0,
+        250.23,
+        -16.7
+      ],
+      "half": [
+        1.98,
+        0.23,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -41.0, -16.7: the back (drawn) [sofa]",
+      "center": [
+        -41.0,
+        250.515,
+        -17.015
+      ],
+      "half": [
+        1.98,
+        0.515,
+        0.115
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -41.0, -16.7: the first arm (drawn) [sofa]",
+      "center": [
+        -42.85,
+        250.35,
+        -16.7
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -41.0, -16.7: the second arm (drawn) [sofa]",
+      "center": [
+        -39.15,
+        250.35,
+        -16.7
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -44.0, -14.5: the seat (drawn) [sofa]",
+      "center": [
+        -44.0,
+        250.23,
+        -14.5
+      ],
+      "half": [
+        0.43,
+        0.23,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -44.0, -14.5: the back (drawn) [sofa]",
+      "center": [
+        -44.315,
+        250.515,
+        -14.5
+      ],
+      "half": [
+        0.115,
+        0.515,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -44.0, -14.5: the first arm (drawn) [sofa]",
+      "center": [
+        -44.0,
+        250.35,
+        -15.65
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -44.0, -14.5: the second arm (drawn) [sofa]",
+      "center": [
+        -44.0,
+        250.35,
+        -13.35
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -38.0, -14.5: the seat (drawn) [sofa]",
+      "center": [
+        -38.0,
+        250.23,
+        -14.5
+      ],
+      "half": [
+        0.43,
+        0.23,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -38.0, -14.5: the back (drawn) [sofa]",
+      "center": [
+        -37.685,
+        250.515,
+        -14.5
+      ],
+      "half": [
+        0.115,
+        0.515,
+        1.28
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -38.0, -14.5: the first arm (drawn) [sofa]",
+      "center": [
+        -38.0,
+        250.35,
+        -15.65
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Ilvane common room sofa at -38.0, -14.5: the second arm (drawn) [sofa]",
+      "center": [
+        -38.0,
+        250.35,
+        -13.35
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 35.7, -28.5: the seat (drawn) [sofa]",
+      "center": [
+        35.7,
+        270.23,
+        -28.5
+      ],
+      "half": [
+        0.43,
+        0.23,
+        1.98
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 35.7, -28.5: the back (drawn) [sofa]",
+      "center": [
+        36.015,
+        270.515,
+        -28.5
+      ],
+      "half": [
+        0.115,
+        0.515,
+        1.98
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 35.7, -28.5: the first arm (drawn) [sofa]",
+      "center": [
+        35.7,
+        270.35,
+        -30.35
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 35.7, -28.5: the second arm (drawn) [sofa]",
+      "center": [
+        35.7,
+        270.35,
+        -26.65
+      ],
+      "half": [
+        0.43,
+        0.35,
+        0.13
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -31.5: the seat (drawn) [sofa]",
+      "center": [
+        33.5,
+        270.23,
+        -31.5
+      ],
+      "half": [
+        1.28,
+        0.23,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -31.5: the back (drawn) [sofa]",
+      "center": [
+        33.5,
+        270.515,
+        -31.815
+      ],
+      "half": [
+        1.28,
+        0.515,
+        0.115
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -31.5: the first arm (drawn) [sofa]",
+      "center": [
+        32.35,
+        270.35,
+        -31.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -31.5: the second arm (drawn) [sofa]",
+      "center": [
+        34.65,
+        270.35,
+        -31.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -25.5: the seat (drawn) [sofa]",
+      "center": [
+        33.5,
+        270.23,
+        -25.5
+      ],
+      "half": [
+        1.28,
+        0.23,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -25.5: the back (drawn) [sofa]",
+      "center": [
+        33.5,
+        270.515,
+        -25.185
+      ],
+      "half": [
+        1.28,
+        0.515,
+        0.115
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -25.5: the first arm (drawn) [sofa]",
+      "center": [
+        32.35,
+        270.35,
+        -25.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -25.5: the second arm (drawn) [sofa]",
+      "center": [
+        34.65,
+        270.35,
+        -25.5
+      ],
+      "half": [
+        0.13,
+        0.35,
+        0.43
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 49.6: the pedestal (drawn) [armour]",
+      "center": [
+        -17.175,
+        200.055,
+        49.6
+      ],
+      "half": [
+        0.425,
+        0.055,
+        0.47
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 49.6: the body to the shoulders (drawn) [armour]",
+      "center": [
+        -17.2,
+        200.96,
+        49.6
+      ],
+      "half": [
+        0.18,
+        0.96,
+        0.37
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 49.6: the helmet (drawn) [armour]",
+      "center": [
+        -17.21,
+        202.115,
+        49.6
+      ],
+      "half": [
+        0.12,
+        0.195,
+        0.11
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 62.4: the pedestal (drawn) [armour]",
+      "center": [
+        -17.175,
+        200.055,
+        62.4
+      ],
+      "half": [
+        0.425,
+        0.055,
+        0.47
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 62.4: the body to the shoulders (drawn) [armour]",
+      "center": [
+        -17.2,
+        200.96,
+        62.4
+      ],
+      "half": [
+        0.18,
+        0.96,
+        0.37
+      ],
+      "yaw_deg": 0
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 62.4: the helmet (drawn) [armour]",
+      "center": [
+        -17.21,
+        202.115,
+        62.4
+      ],
+      "half": [
+        0.12,
+        0.195,
+        0.11
+      ],
+      "yaw_deg": 0
+    }
+  ],
+  "remove": [
+    {
+      "note": "Feast Hall: the old four long table rows and their eight benches (glb B_house_table_1..4, K_bench_489..496), replaced by the angled tables above",
+      "min": [
+        -88.5,
+        199.9,
+        45.0
+      ],
+      "max": [
+        -26.5,
+        201.2,
+        67.0
+      ]
+    },
+    {
+      "note": "Torvan common room sofa at 56.0, -30.3: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        53.95,
+        189.95,
+        -30.8
+      ],
+      "max": [
+        58.05,
+        190.85,
+        -29.8
+      ]
+    },
+    {
+      "note": "Torvan common room sofa at 53.0, -32.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        52.5,
+        189.95,
+        -33.85
+      ],
+      "max": [
+        53.5,
+        190.85,
+        -31.15
+      ]
+    },
+    {
+      "note": "Torvan common room sofa at 59.0, -32.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        58.5,
+        189.95,
+        -33.85
+      ],
+      "max": [
+        59.5,
+        190.85,
+        -31.15
+      ]
+    },
+    {
+      "note": "Nisera common room sofa at -76.3, -25.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        -76.8,
+        189.95,
+        -27.55
+      ],
+      "max": [
+        -75.8,
+        190.85,
+        -23.45
+      ]
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -28.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        -79.85,
+        189.95,
+        -29.0
+      ],
+      "max": [
+        -77.15,
+        190.85,
+        -28.0
+      ]
+    },
+    {
+      "note": "Nisera common room sofa at -78.5, -22.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        -79.85,
+        189.95,
+        -23.0
+      ],
+      "max": [
+        -77.15,
+        190.85,
+        -22.0
+      ]
+    },
+    {
+      "note": "Ilvane common room sofa at -41.0, -16.7: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        -43.05,
+        249.95,
+        -17.2
+      ],
+      "max": [
+        -38.95,
+        250.85,
+        -16.2
+      ]
+    },
+    {
+      "note": "Ilvane common room sofa at -44.0, -14.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        -44.5,
+        249.95,
+        -15.85
+      ],
+      "max": [
+        -43.5,
+        250.85,
+        -13.15
+      ]
+    },
+    {
+      "note": "Ilvane common room sofa at -38.0, -14.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        -38.5,
+        249.95,
+        -15.85
+      ],
+      "max": [
+        -37.5,
+        250.85,
+        -13.15
+      ]
+    },
+    {
+      "note": "Velkar common room sofa at 35.7, -28.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        35.2,
+        269.95,
+        -30.55
+      ],
+      "max": [
+        36.2,
+        270.85,
+        -26.45
+      ]
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -31.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        32.15,
+        269.95,
+        -32.0
+      ],
+      "max": [
+        34.85,
+        270.85,
+        -31.0
+      ]
+    },
+    {
+      "note": "Velkar common room sofa at 33.5, -25.5: the old hull (0.8 m over seat, arms and back alike) [sofa]",
+      "min": [
+        32.15,
+        269.95,
+        -26.0
+      ],
+      "max": [
+        34.85,
+        270.85,
+        -25.0
+      ]
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 49.6: the old box (2.45 m tall over its whole pedestal) [armour]",
+      "min": [
+        -17.585,
+        199.95,
+        49.135
+      ],
+      "max": [
+        -16.715,
+        202.5,
+        50.065
+      ]
+    },
+    {
+      "note": "Entrance Hall suit of armour at -17.1, 62.4: the old box (2.45 m tall over its whole pedestal) [armour]",
+      "min": [
+        -17.585,
+        199.95,
+        61.935
+      ],
+      "max": [
+        -16.715,
+        202.5,
+        62.865
+      ]
+    },
+    {
+      "note": "Feast Hall dais: the owl lectern's collider (the lectern itself was removed with the hall's redesign)",
+      "min": [
+        -97.4,
+        200.9,
+        54.7
+      ],
+      "max": [
+        -95.4,
+        203.0,
+        56.7
+      ]
     }
   ]
 }

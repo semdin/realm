@@ -188,11 +188,13 @@ func drawn_surface(x: float, z: float, from_y: float) -> float:
 	return ground
 
 
-## The pack's top surface under (x, z) from `from_y` (a whole number; NAN when
-## none within 600 m). RealmSession.pick sweeps a bead (BEAD) against the
-## colliders, exact, and walks the terrain grid in 1 m steps (the last step
-## above it): a collider's surface is the bead's contact less its radius; the
-## terrain's is found by halving the last step with millimetre picks.
+## The pack's top surface under (x, z) from `from_y` (NAN when none within
+## 600 m). RealmSession.pick sweeps a bead (BEAD) against the colliders and
+## finds the terrain crossing to a millimetre (realm_sim World::line_hit): a
+## collider's surface is the bead's contact less its radius, the terrain's
+## the point itself. Which one it met: a short pick up from under the point
+## starts under the terrain (it answers its start) but leaves a collider's
+## top (a contact it moves away from: no hit).
 func pack_surface(x: float, z: float, from_y: float) -> float:
 	var hit: Dictionary = game.session.pick(Vector3(x, from_y, z), Vector3.DOWN, 600.0)
 	if hit.is_empty():
@@ -200,19 +202,10 @@ func pack_surface(x: float, z: float, from_y: float) -> float:
 	var p: Vector3 = hit["point"]
 	if p.y <= from_y - 599.9:
 		return NAN
-	var fall := from_y - p.y
-	if absf(fall - roundf(fall)) > 0.002:
-		return p.y - BEAD
-	var hi := p.y
-	var lo := p.y - 1.0
-	for i in 24:
-		var mid := (lo + hi) * 0.5
-		var probe: Dictionary = game.session.pick(Vector3(x, mid, z), Vector3.DOWN, 0.001)
-		if (probe["point"] as Vector3).y > mid - 0.0009:
-			lo = mid
-		else:
-			hi = mid
-	return hi - 0.001
+	var start := Vector3(x, p.y - 0.75 * BEAD, z)
+	var up: Dictionary = game.session.pick(start, Vector3.UP, 0.5 * BEAD)
+	var terrain := (up["point"] as Vector3).y < start.y + 0.001
+	return p.y if terrain else p.y - BEAD
 
 
 func _feet(key: String) -> float:

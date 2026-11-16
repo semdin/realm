@@ -7,13 +7,18 @@ extends SceneTree
 ## (crates/realm_worldc/src/patch.rs), then `realm_worldc patch` adds them to
 ## the packs:
 ##
-##   godot --headless --path game -s res://maps/dng_common/map_solids.gd -- --write ../world/patches
+##   godot --headless --path game -s res://maps/dng_common/map_solids.gd -- --write ../world/patches [--maps spider_caverns,grounds]
 ##   ./build/lead_target/release/realm_worldc patch world/maps content/data
 ##
 ## The caverns' big stalagmite spires (the view's `spires`) are boxed here
 ## from the stalag mesh, as `obstacle` boxes stacked inside the drawn rock;
 ## a dungeon's stalagmites (the view's `stalagmites`, the Web Mother's lair)
-## the same way, as ordinary colliders.
+## the same way, as ordinary colliders. A view's `removed` (the old game's
+## colliders for things drawn otherwise now) is written as the patch's
+## `remove`. Other props a view lists in `shaped`
+## (the caverns' tent) are boxed inside their drawn shape the same way, the
+## raster turned to the yaw that boxes the most of it (a tent's diagonal
+## ridge). `--maps` limits the maps built and written (the grounds by name).
 ##
 ## The grounds are not built: their solids are the Terrain3D instancer's
 ## trees and big rocks, read from the baked instances the view plants
@@ -86,10 +91,14 @@ func _run() -> void:
 	var args := OS.get_cmdline_user_args()
 	var i := args.find("--write")
 	var out_dir := args[i + 1] if i >= 0 and i + 1 < args.size() else ""
+	var m := args.find("--maps")
+	var only: PackedStringArray = args[m + 1].split(",", false) if m >= 0 and m + 1 < args.size() else PackedStringArray()
 	if out_dir != "" and out_dir.is_relative_path():
 		out_dir = ProjectSettings.globalize_path("res://").path_join(out_dir).simplify_path()
 	var failed := false
 	for map in MAPS:
+		if not only.is_empty() and not only.has(map):
+			continue
 		var path := "res://maps/%s/%s.tscn" % [map, map]
 		var view: Node3D = (load(path) as PackedScene).instantiate()
 		root.add_child(view)
@@ -101,6 +110,9 @@ func _run() -> void:
 		var stalagmites: Variant = view.get("stalagmites")
 		if stalagmites is Array and not stalagmites.is_empty():
 			solids = solids + _stalagmite_solids(stalagmites)
+		var shaped: Variant = view.get("shaped")
+		if shaped is Array and not shaped.is_empty():
+			solids = solids + _shaped_solids(shaped)
 		print("map %s: %s" % [map, view.get("built_stats")])
 		var obstacles := 0
 		for s: Dictionary in solids:
@@ -115,8 +127,14 @@ func _run() -> void:
 					"(a dungeon's copy-local ones). Applied by realm_worldc patch.") % [map, map],
 				"boxes": solids,
 			}
+			var removed: Variant = view.get("removed")
+			if removed is Array and not removed.is_empty():
+				doc["remove"] = removed
 			failed = not _write(out_dir.path_join(map + ".json"), JSON.stringify(doc, "  ") + "\n", solids.size()) or failed
 		view.queue_free()
+	if not only.is_empty() and not only.has("grounds"):
+		quit(1 if failed else 0)
+		return
 	var grounds := _grounds_solids()
 	if out_dir != "":
 		# One box a line: some twenty thousand of them.
@@ -167,6 +185,35 @@ func _stalagmite_solids(stalagmites: Array) -> Array:
 	for s: Dictionary in stalagmites:
 		out.append_array(DungeonView.raster_solids(raster, s["xform"], SPIRE_BANDS, String(s["note"])))
 	print("  %d stalagmites -> %d boxes" % [stalagmites.size(), out.size()])
+	return out
+
+## Props boxed inside their drawn shape (a view's `shaped`: {prop, xform,
+## bands, note}): for each, the raster turned every SHAPE_TURN degrees and
+## the turn whose boxes (DungeonView.raster_solids) hold the most volume.
+const SHAPE_TURN := 7.5
+const SHAPE_CELLS := 48
+
+func _shaped_solids(shaped: Array) -> Array:
+	var out: Array = []
+	for s: Dictionary in shaped:
+		var scene: Node = (load(String(s["prop"])) as PackedScene).instantiate()
+		var mesh: Mesh = (scene.find_children("*", "MeshInstance3D", true, false)[0] as MeshInstance3D).mesh
+		scene.free()
+		var best: Array = []
+		var most := 0.0
+		var turn := 0.0
+		while turn < 180.0:
+			var raster := DungeonView.top_raster(mesh, SHAPE_CELLS, deg_to_rad(turn))
+			var boxes := DungeonView.raster_solids(raster, s["xform"], s["bands"], String(s["note"]))
+			var volume := 0.0
+			for b: Dictionary in boxes:
+				volume += float(b["half"][0]) * float(b["half"][1]) * float(b["half"][2])
+			if volume > most:
+				most = volume
+				best = boxes
+			turn += SHAPE_TURN
+		print("  %s: %d boxes, %.2f m3" % [s["note"], best.size(), most * 8.0])
+		out.append_array(best)
 	return out
 
 ## The stalag mesh's top surface (DungeonView.top_raster), measured once.

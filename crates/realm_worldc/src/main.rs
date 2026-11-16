@@ -1,6 +1,6 @@
 //! realm_worldc build <export_dir> <maps_dir> <content_dir>
 //! realm_worldc check <maps_dir> <content_dir>
-//! realm_worldc patch <maps_dir> <content_dir>
+//! realm_worldc patch <maps_dir> <content_dir> [map ...]
 //! realm_worldc dump <maps_dir> <map> <out.json>
 //!
 //! `dump` writes a pack's static colliders and obstacles as world-space
@@ -60,13 +60,15 @@ fn main() -> ExitCode {
                 .and_then(|()| check(Path::new(maps), Path::new(content)))
         }
         [cmd, maps, content] if cmd == "check" => check(Path::new(maps), Path::new(content)),
-        [cmd, maps, content] if cmd == "patch" => patch_packs(Path::new(maps), Path::new(content))
-            .and_then(|()| check(Path::new(maps), Path::new(content))),
+        [cmd, maps, content, only @ ..] if cmd == "patch" => {
+            patch_packs(Path::new(maps), Path::new(content), only)
+                .and_then(|()| check(Path::new(maps), Path::new(content)))
+        }
         [cmd, maps, map, out] if cmd == "dump" => dump(Path::new(maps), map, Path::new(out)),
         [cmd, maps, map, x, z] if cmd == "probe" => probe(Path::new(maps), map, x, z),
         _ => {
             eprintln!(
-                "usage:\n  realm_worldc build <export_dir> <maps_dir> <content_dir>\n  realm_worldc check <maps_dir> <content_dir>\n  realm_worldc patch <maps_dir> <content_dir>"
+                "usage:\n  realm_worldc build <export_dir> <maps_dir> <content_dir>\n  realm_worldc check <maps_dir> <content_dir>\n  realm_worldc patch <maps_dir> <content_dir> [map ...]"
             );
             return ExitCode::from(2);
         }
@@ -225,10 +227,17 @@ fn renamer(content_dir: &Path) -> Result<Renamer, String> {
 
 /// Adds the patch boxes to the built packs that have a patch, and bakes
 /// their navmesh again.
-fn patch_packs(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
+/// `only`: the maps to patch (none: every map).
+fn patch_packs(maps_dir: &Path, content_dir: &Path, only: &[String]) -> Result<(), String> {
     let infos = map_infos(content_dir)?;
     let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
+    if let Some(unknown) = only.iter().find(|m| !infos.contains_key(*m)) {
+        return Err(format!("patch: no map {unknown}"));
+    }
     for (map, info) in &infos {
+        if !only.is_empty() && !only.contains(map) {
+            continue;
+        }
         let path = maps_dir.join(format!("{map}.realmmap"));
         let mut pack = read_pack(&path)?;
         let (added, changed) = patch::apply(&mut pack, &patches, map)?;
@@ -401,6 +410,7 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
         let patches = maps_dir.parent().unwrap_or(maps_dir).join("patches");
         let mut obstacles = Vec::new();
         let mut patch_colliders = 0;
+        patch::remove_inside(&mut colliders, &patch::removals(&patches, map)?);
         for (b, obstacle) in patch::boxes(&patches, map)? {
             if obstacle {
                 obstacles.push(b);

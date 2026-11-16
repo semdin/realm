@@ -46,7 +46,7 @@ func _build() -> void:
 	# The hall is taller than the rooms either side: wall over their doorways.
 	_box(Vector3(0, f + 11.0, -160), Vector3(8.2, 6.0, 1))
 	_box(Vector3(0, f + 11.0, -216), Vector3(8.2, 6.0, 1))
-	# (The harp's pedestal is a server box; the harp model draws it.)
+	# (The harp stands on its own round foot: _dress_hall.)
 	_dress_corridor(f)
 	_dress_gallery(f)
 	_dress_cellar(f)
@@ -134,7 +134,16 @@ func _dress_hall(f: float) -> void:
 		_torch(Vector3(23.3, f + 5.0, z), Color(1.0, 0.62, 0.3), 2.2, 16.0)
 	# A great hanging brazier light over the arena so the hound reads at range.
 	_light(Vector3(0, f + 12.0, -190), Color(1.0, 0.7, 0.42), 2.4, 34.0)
-	# The harp on its pedestal (the pedestal is the server's box).
+	# The harp on its round foot (fc_harp.glb: a 0.38 m drum 1.1 m across,
+	# the strung frame over it in its x-y plane, turned to run along z). The
+	# old game's 1 m pedestal box (1.6 m square) is not drawn: it goes, and
+	# the drum and the frame get boxes inside them.
+	removed.append({"note": "the old harp pedestal (1 m box, 1.6 m square): the harp's drum is drawn",
+		"min": [HARP.x - 0.9, f - 0.1, HARP.z - 0.9], "max": [HARP.x + 0.9, f + 1.1, HARP.z + 0.9]})
+	solids.append({"note": "the harp's drum: drawn, inside its round foot",
+		"center": [HARP.x, f + 0.185, HARP.z], "half": [0.38, 0.185, 0.38], "yaw_deg": 0})
+	solids.append({"note": "the harp's strung frame: drawn",
+		"center": [HARP.x, f + 0.9, HARP.z], "half": [0.05, 0.9, 0.6], "yaw_deg": 0})
 	var harp := Node3D.new()
 	harp.name = "Harp"
 	harp.position = Vector3(HARP.x, f + 1.0, HARP.z)
