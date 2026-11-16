@@ -45,15 +45,11 @@ const PBR_SETS := {
 const LEFT_OUT := ["D_entrance_hall_brass", "D_entrance_hall_glass_clear", "D_entrance_hall_gem_red",
 	"D_entrance_hall_gem_green", "D_entrance_hall_gem_blue", "D_entrance_hall_gem_yellow", "V_hourglass_wood"]
 
-## Portraits whose paintings are not the realm's own: their frames show
-## another portrait of the castle's, mirrored, until they get paintings of
-## their own ([painting, mirrored]).
-const PORTRAIT_STAND_IN := {
-	"portrait_8": ["portrait_0", true],
-	"portrait_9": ["portrait_3", true],
-	"portrait_10": ["portrait_4", true],
-	"portrait_12": ["portrait_5", true],
-}
+## Portraits whose frame shows another painting ([painting, mirrored]); none
+## since the four house founders were painted for portrait_8/9/10/12
+## (Velkar, Nisera, Ilvane, Torvan; fal seedream 5.5, prompts in the local
+## art/portraits_seedream).
+const PORTRAIT_STAND_IN := {}
 
 ## Slots whose surfaces must not cast shadows: glazing, cloth, paintings and
 ## the boarded vault ceilings would block the moonlight.
