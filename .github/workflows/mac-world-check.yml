@@ -8,6 +8,12 @@ name: mac-world-check
 
 on:
   workflow_dispatch:
+    inputs:
+      engine_args:
+        description: 'Extra engine arguments before -- (e.g. --rendering-method forward_plus)'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -39,9 +45,9 @@ jobs:
           # to 240 s in all. A pty keeps output line-buffered.
           set +e
           ( script -q "$work/play.log" perl -e 'alarm 240; exec @ARGV' \
-              arch -arm64 "$game" --verbose -- --check-play "$SMOKE_USER" "$SMOKE_PASS" ) &
+              arch -arm64 "$game" --verbose ${{ inputs.engine_args }} -- --check-play "$SMOKE_USER" "$SMOKE_PASS" ) &
           sleep 60
-          pid="$(pgrep -f "Thousand Realms.app/Contents/MacOS/Thousand Realms" | head -1)"
+          pid="$(pgrep -x "Thousand Realms" | head -1)"
           echo "game pid: ${pid:-none}"
           if [ -n "$pid" ]; then sample "$pid" 8 -file "$work/sample.txt" >/dev/null 2>&1; fi
           wait
