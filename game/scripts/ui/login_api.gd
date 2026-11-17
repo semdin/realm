@@ -114,6 +114,10 @@ static func look_of(pairs: Variant) -> Dictionary:
 func _call(path: String, body: Dictionary, bearer: bool, method := HTTPClient.METHOD_POST, with_token := "") -> Dictionary:
 	var http := HTTPRequest.new()
 	http.timeout = TIMEOUT
+	# Its own thread: polled from frames, a request barely moves while the
+	# first frames compile shaders for seconds (a Mac's first start), and the
+	# timeout ran out before it was even sent ("unreachable (result 13)").
+	http.use_threads = true
 	add_child(http)
 	var headers := PackedStringArray(["Content-Type: application/json"])
 	if bearer:
