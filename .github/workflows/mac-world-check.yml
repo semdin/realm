@@ -34,10 +34,17 @@ jobs:
           game="$(ls -d "$work"/install/versions/*/"Thousand Realms.app/Contents/MacOS/Thousand Realms")"
           chmod +x "$game"   # the launcher sets it when it starts the game
           sysctl -n machdep.cpu.brand_string; sw_vers
-          # Windowed (Metal), native arm64, 240 s at most; a pty keeps output line-buffered.
+          # Windowed (Metal), native arm64, --verbose; after 60 s a native stack
+          # sample of the running game (where it is stuck, if it is), then up
+          # to 240 s in all. A pty keeps output line-buffered.
           set +e
-          script -q "$work/play.log" perl -e 'alarm 240; exec @ARGV' \
-            arch -arm64 "$game" -- --check-play "$SMOKE_USER" "$SMOKE_PASS"
+          ( script -q "$work/play.log" perl -e 'alarm 240; exec @ARGV' \
+              arch -arm64 "$game" --verbose -- --check-play "$SMOKE_USER" "$SMOKE_PASS" ) &
+          sleep 60
+          pid="$(pgrep -f "Thousand Realms.app/Contents/MacOS/Thousand Realms" | head -1)"
+          echo "game pid: ${pid:-none}"
+          if [ -n "$pid" ]; then sample "$pid" 8 -file "$work/sample.txt" >/dev/null 2>&1; fi
+          wait
           rc=$?
           set -e
           tr -d '\r' < "$work/play.log" > "$work/play_clean.log"
@@ -56,5 +63,6 @@ jobs:
           path: |
             ${{ runner.temp }}/tr/play_clean.log
             ${{ runner.temp }}/tr/godot.log
+            ${{ runner.temp }}/tr/sample.txt
           if-no-files-found: ignore
           retention-days: 7
