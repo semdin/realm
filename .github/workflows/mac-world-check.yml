@@ -32,6 +32,7 @@ jobs:
           "$bin" --install-root "$work/install" --user-dir "$work/install/user" --update | tee update.json
           grep -q '"ok":true' update.json
           game="$(ls -d "$work"/install/versions/*/"Thousand Realms.app/Contents/MacOS/Thousand Realms")"
+          chmod +x "$game"   # the launcher sets it when it starts the game
           sysctl -n machdep.cpu.brand_string; sw_vers
           # Windowed (Metal), native arm64, 240 s at most; a pty keeps output line-buffered.
           set +e
