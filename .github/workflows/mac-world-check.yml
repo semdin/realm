@@ -1,0 +1,59 @@
+# The latest release on an Apple Silicon Mac (GitHub-hosted macos-15, Metal),
+# windowed: the published launcher installs it, the game logs in to the live
+# realm with the CI smoke account (secrets REALM_MAC_SMOKE_USER/PASS; the first
+# run registers it), picks or makes its character and must reach the world
+# (--check-play). The client log is printed and kept as an artifact.
+# Manual: gh workflow run mac-world-check.yml
+name: mac-world-check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  world:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - name: Install the latest release and enter the world (Metal)
+        env:
+          SMOKE_USER: ${{ secrets.REALM_MAC_SMOKE_USER }}
+          SMOKE_PASS: ${{ secrets.REALM_MAC_SMOKE_PASS }}
+        run: |
+          set -eu
+          base="https://github.com/${{ github.repository }}/releases/latest/download"
+          work="$RUNNER_TEMP/tr"
+          mkdir -p "$work" && cd "$work"
+          curl -fsSL -o launcher.zip "$base/ThousandRealms_Launcher-macos.zip"
+          ditto -x -k launcher.zip .
+          bin="$work/Thousand Realms Launcher.app/Contents/MacOS/ThousandRealms_Launcher"
+          "$bin" --install-root "$work/install" --user-dir "$work/install/user" --update | tee update.json
+          grep -q '"ok":true' update.json
+          game="$(ls -d "$work"/install/versions/*/"Thousand Realms.app/Contents/MacOS/Thousand Realms")"
+          sysctl -n machdep.cpu.brand_string; sw_vers
+          # Windowed (Metal), native arm64, 240 s at most; a pty keeps output line-buffered.
+          set +e
+          script -q "$work/play.log" perl -e 'alarm 240; exec @ARGV' \
+            arch -arm64 "$game" -- --check-play "$SMOKE_USER" "$SMOKE_PASS"
+          rc=$?
+          set -e
+          tr -d '\r' < "$work/play.log" > "$work/play_clean.log"
+          cat "$work/play_clean.log"
+          ud="$HOME/Library/Application Support/ThousandRealms/logs"
+          ls -la "$ud" || true
+          cp "$ud/godot.log" "$work/godot.log" 2>/dev/null || true
+          echo "exit $rc"
+          grep -q "PASS" "$work/play_clean.log"
+
+      - name: Keep the logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: mac-world-logs
+          path: |
+            ${{ runner.temp }}/tr/play_clean.log
+            ${{ runner.temp }}/tr/godot.log
+          if-no-files-found: ignore
+          retention-days: 7

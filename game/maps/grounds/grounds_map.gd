@@ -63,36 +63,43 @@ func setup(p_session: Node, p_main: Node) -> void:
 	Pbr.set_lite(bool(preset.get("lite_surfaces", false)))
 	var started := Time.get_ticks_usec()
 	var last := [started]
-	var lap := func(part: String) -> void:
+	# Each part says when it starts, so a build that never finishes on some
+	# machine (a driver stall) names the part in the log (flushed per line).
+	var lap := func(part: String, next: String = "") -> void:
 		var now := Time.get_ticks_usec()
 		build_ms[part] = (now - int(last[0])) / 1000.0
 		last[0] = now
+		if next != "":
+			print("[grounds] building %s" % next)
+	print("[grounds] building terrain")
 	terrain = (load(TERRAIN_SCENE) as PackedScene).instantiate() as Node3D
 	add_child(terrain)
 	Layout.terrain = terrain
-	lap.call("terrain")
+	lap.call("terrain", "castle")
 	var sun := main.get_node_or_null("Sun") as DirectionalLight3D
 	var env_node := main.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	var env: Environment = env_node.environment if env_node != null else null
 	_sky_and_sun(sun, env)
 	Castle.build(self)
-	lap.call("castle")
+	lap.call("castle", "courtyard")
 	Courtyard.build(self)
-	lap.call("courtyard")
+	lap.call("courtyard", "precinct")
 	Precinct.build(self)
 	_broom_landing()
-	lap.call("precinct")
+	lap.call("precinct", "sites")
 	Sites.build_all(self)
-	lap.call("sites")
+	lap.call("sites", "lake+horizon+lamps")
 	var lake := Node3D.new()
 	lake.name = "Lake"
 	add_child(lake)
 	Lake.build(lake)
+	print("[grounds] building horizon")
 	Horizon.build(self)
+	print("[grounds] building road lamps")
 	_road_lamps()
-	lap.call("lake+horizon+lamps")
+	lap.call("lake+horizon+lamps", "vegetation")
 	terrain.call("plant", preset)
-	lap.call("vegetation")
+	lap.call("vegetation", "quality")
 	_apply_scenery(preset)
 	lap.call("quality")
 	build_ms["total"] = (Time.get_ticks_usec() - started) / 1000.0
