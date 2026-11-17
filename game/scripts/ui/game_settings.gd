@@ -207,7 +207,7 @@ func load_from_disk() -> void:
 	mouse_sensitivity = SENSITIVITY_DEFAULT
 	shake = INTENSITY_DEFAULT
 	flash = INTENSITY_DEFAULT
-	fullscreen = false
+	fullscreen = fullscreen_default()
 	graphics_quality = GRAPHICS_DEFAULT
 	time_of_day = TIME_OF_DAY_DEFAULT
 	bindings.clear()
@@ -222,7 +222,7 @@ func load_from_disk() -> void:
 			SENSITIVITY_MIN, SENSITIVITY_MAX)
 		shake = clampf(float(config.get_value(GENERAL, "shake", INTENSITY_DEFAULT)), INTENSITY_MIN, INTENSITY_MAX)
 		flash = clampf(float(config.get_value(GENERAL, "flash", INTENSITY_DEFAULT)), INTENSITY_MIN, INTENSITY_MAX)
-		fullscreen = bool(config.get_value(GENERAL, "fullscreen", false))
+		fullscreen = bool(config.get_value(GENERAL, "fullscreen", fullscreen_default()))
 		var quality := String(config.get_value(GENERAL, "graphics_quality", GRAPHICS_DEFAULT))
 		graphics_quality = quality if GRAPHICS_CHOICES.has(quality) else GRAPHICS_DEFAULT
 		var hour := String(config.get_value(GENERAL, "time_of_day", TIME_OF_DAY_DEFAULT))
@@ -296,6 +296,12 @@ func apply_ui_scale() -> void:
 	var tree := Engine.get_main_loop() as SceneTree
 	if tree != null and tree.root != null:
 		tree.root.content_scale_factor = ui_scale * UI_SCALE_BASE
+
+## Until the player chooses, a Mac starts fullscreen (its windowed mode opens
+## a small window off to one side, where Mac players expect the whole
+## screen); elsewhere the game starts in a window.
+static func fullscreen_default() -> bool:
+	return OS.get_name() == "macOS"
 
 func apply_window_mode() -> void:
 	if DisplayServer.get_name() == "headless":
