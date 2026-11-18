@@ -34,7 +34,7 @@ jobs:
             godot_bin: Godot_v4.8-beta3_win64_console.exe
             ext: realm_client.dll
           - os: macos-26
-            godot_zip: macos.universal.zip
+            godot_zip: macos.arm64.zip
             godot_bin: Godot.app/Contents/MacOS/Godot
             ext: librealm_client.dylib
     runs-on: ${{ matrix.os }}
