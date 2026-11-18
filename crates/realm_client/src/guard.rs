@@ -199,6 +199,8 @@ struct Watch {
     reports: Reports,
     /// The stall under way: its next report is due at this wait.
     next_report_ms: u64,
+    /// The longest wait for a frame seen since the last stall ended.
+    longest_ms: u64,
     stalled: bool,
     sampled: bool,
 }
@@ -229,6 +231,7 @@ impl Watch {
 
     fn check_stall(&mut self, now: u64) {
         let waited = now.saturating_sub(LAST_FRAME_MS.load(Ordering::Relaxed));
+        self.longest_ms = self.longest_ms.max(waited);
         if waited >= self.next_report_ms {
             let first = !self.stalled;
             self.stalled = true;
@@ -244,17 +247,18 @@ impl Watch {
                 sample_stacks(&self.dir);
             }
         } else if self.stalled && waited < POLL.as_millis() as u64 * 4 {
-            // Frames again: the stall's length is the time since the frame
-            // before it, which only the running report still knows closely.
-            let total = self.next_report_ms / 2;
+            let total = self.longest_ms;
             say(&format!(
-                "realm watch: frames are back after a stall of at least {} s (phase: {})",
+                "realm watch: frames are back after a stall of {} s (phase: {})",
                 total / 1000,
                 phase()
             ));
             self.report("stall", "resumed", total, true);
             self.stalled = false;
             self.next_report_ms = STALL_FIRST_MS;
+            self.longest_ms = 0;
+        } else if !self.stalled {
+            self.longest_ms = 0;
         }
     }
 
@@ -279,6 +283,7 @@ impl Watch {
                 LAST_FRAME_MS.store(now, Ordering::Relaxed);
                 self.stalled = false;
                 self.next_report_ms = STALL_FIRST_MS;
+                self.longest_ms = 0;
             } else {
                 self.check_stall(now);
             }
@@ -331,6 +336,7 @@ pub fn main_loop_started() {
         dir,
         facts: platform_facts(),
         next_report_ms: STALL_FIRST_MS,
+        longest_ms: 0,
         stalled: false,
         sampled: false,
     };
