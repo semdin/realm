@@ -143,6 +143,7 @@ Cut-out icons, 512 px:
 * `icon_wand_hawthorn.png` - Thornbark Rod: a thorny bark rod wrapped in salt-cured cord.
 * `icon_wand_ithrel_replica.png` - Starcore Rod: a forged iron bar with glowing seams.
 * `icon_status_despair.png` - Numbed: frost creeping over a clenched hand.
+* `icon_ui_kestrin.png` - a smith's hammer on a glowing bar across an anvil.
 
 Bestiary portraits, `assets/ui/bestiary/`, cut-out, 320 px:
 
@@ -150,6 +151,8 @@ Bestiary portraits, `assets/ui/bestiary/`, cut-out, 320 px:
 * `wheelwarden.png` - Wheelwarden: a brass and iron colossus with a great gear wheel, in flood water.
 * `goblin_teller.png` - Goblin Scavenger: a goblin in patched leathers hauling a sack of scrap.
 * `goblin_guard.png` - Goblin Bruiser: a goblin in scrap-metal armour with an improvised club.
+* `goblin_hexer.png` - Goblin shard-burner: a goblin in patched leathers and scrap charms with glowing
+  dust between its palms.
 * `fidgetling.png` - Galeling: a grey-violet wind sprite trailing into a curl of air.
 * `drowned_one.png` - Saltwight: a dried corpse crusted with lake salt on a salt shore.
 * `drowned_warden.png` - Brine Warden: a salt-crusted dried corpse in rusted mail with a spear.
