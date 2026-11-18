@@ -1,7 +1,8 @@
 extends SkeletonModifier3D
 class_name BroomGripModifier
 
-## Solve the rider onto the shaft after the animated pose and cast layer.
+## Seat the rider in the skiff after the animated pose and cast layer: the feet
+## on the floor of the well, the back in a riding lean, the hands on the helm bar.
 ## Bone poses are temporary inside this pass: never reapply them deferred.
 const LEAN_SHARE := {"Spine": 0.5, "Chest": 0.3, "UpperChest": 0.2}
 ## The rider's spine (hips -> neck) may lean anywhere in this band; each broom
@@ -18,6 +19,12 @@ const PALM_DEPTH := 0.039
 # grip region are centred 4.2-4.8 cm above GripSocket (build_broom.py).
 const SHAFT_RISE := 0.045
 
+## The foot rests this far toe-down from level on the boards.
+const FOOT_PITCH_DEG := 16.0
+const LEGS := [
+	{"side": "L", "root": "LeftUpperLeg", "mid": "LeftLowerLeg", "end": "LeftFoot", "toes": "LeftToes", "out": 1.0},
+	{"side": "R", "root": "RightUpperLeg", "mid": "RightLowerLeg", "end": "RightFoot", "toes": "RightToes", "out": -1.0},
+]
 const ARMS := [
 	{"side": "L", "root": "LeftUpperArm", "mid": "LeftLowerArm", "end": "LeftHand", "offset": -GRIP_SPREAD},
 	{"side": "R", "root": "RightUpperArm", "mid": "RightLowerArm", "end": "RightHand", "offset": GRIP_SPREAD},
@@ -56,6 +63,7 @@ func _process_modification_with_delta(delta: float) -> void:
 	if skeleton == null or weight <= 0.001:
 		return
 	_capture_bases(skeleton)
+	_seat_legs(skeleton)
 	_lean(skeleton)
 	for side in ["L", "R"]:
 		RigIK.close_hand(skeleton, side, weight, PALM_DEPTH)
@@ -78,7 +86,80 @@ func _capture_bases(skeleton: Skeleton3D) -> void:
 			var index := RigIK.bone_index(skeleton, String(arm[key]))
 			if index >= 0:
 				_bases[index] = skeleton.get_bone_pose_rotation(index)
+	for leg in LEGS:
+		for key in ["root", "mid", "end"]:
+			var index := RigIK.bone_index(skeleton, String(leg[key]))
+			if index >= 0:
+				_bases[index] = skeleton.get_bone_pose_rotation(index)
 	skeleton.force_update_all_bone_transforms()
+
+
+## Put each ankle on its socket with the knee up and a little out, the foot flat
+## on the boards. Worked out from the one set of global poses and written
+## without a skeleton update (the hips do not move here): riders are many.
+func _seat_legs(skeleton: Skeleton3D) -> void:
+	if broom == null or not is_instance_valid(broom):
+		return
+	var foot_l: Node3D = broom.get("foot_l")
+	var foot_r: Node3D = broom.get("foot_r")
+	var model: Node3D = broom.get("model_root_ref")
+	if foot_l == null or foot_r == null or model == null:
+		return
+	var to_local: Transform3D = skeleton.global_transform.affine_inverse()
+	var forward: Vector3 = (to_local.basis * model.global_basis.z).normalized()
+	var up: Vector3 = (to_local.basis * model.global_basis.y).normalized()
+	var left: Vector3 = up.cross(forward).normalized()
+	var pitch := deg_to_rad(FOOT_PITCH_DEG)
+	var toe_line := (forward * cos(pitch) - up * sin(pitch)).normalized()
+	for leg in LEGS:
+		var root := RigIK.bone_index(skeleton, String(leg["root"]))
+		var mid := RigIK.bone_index(skeleton, String(leg["mid"]))
+		var end := RigIK.bone_index(skeleton, String(leg["end"]))
+		var toes := RigIK.bone_index(skeleton, String(leg["toes"]))
+		if root < 0 or mid < 0 or end < 0:
+			continue
+		var socket: Node3D = foot_l if String(leg["side"]) == "L" else foot_r
+		var target: Vector3 = to_local * socket.global_position
+		var root_pose := skeleton.get_bone_global_pose(root)
+		var mid_pose := skeleton.get_bone_global_pose(mid)
+		var end_pose := skeleton.get_bone_global_pose(end)
+		var hip := root_pose.origin
+		var knee_now := mid_pose.origin
+		var ankle_now := end_pose.origin
+		var thigh := hip.distance_to(knee_now)
+		var shin := knee_now.distance_to(ankle_now)
+		var toward := target - hip
+		if thigh < 0.001 or shin < 0.001 or toward.length_squared() < 1e-6:
+			continue
+		var axis := toward.normalized()
+		var pole := forward * 0.8 + up * 0.5 + left * float(leg["out"]) * 0.3
+		pole = (pole - axis * pole.dot(axis)).normalized()
+		var span := clampf(toward.length(), absf(thigh - shin) + 1e-3, thigh + shin - 1e-3)
+		var along := (thigh * thigh + span * span - shin * shin) / (2.0 * span)
+		var knee := hip + axis * along + pole * sqrt(maxf(0.0, thigh * thigh - along * along))
+		var ankle_goal := hip + axis * span
+		var turn_thigh := Quaternion((knee_now - hip).normalized(), (knee - hip).normalized())
+		var ankle_moved: Vector3 = hip + turn_thigh * (ankle_now - hip)
+		var turn_shin := Quaternion((ankle_moved - knee).normalized(), (ankle_goal - knee).normalized())
+		var turned := turn_shin * turn_thigh
+		var parent := skeleton.get_bone_parent(root)
+		var parent_rotation := Quaternion()
+		if parent >= 0:
+			parent_rotation = skeleton.get_bone_global_pose(parent).basis.orthonormalized().get_rotation_quaternion()
+		var thigh_rotation := turn_thigh * root_pose.basis.orthonormalized().get_rotation_quaternion()
+		var shin_rotation := turned * mid_pose.basis.orthonormalized().get_rotation_quaternion()
+		var foot_rotation := turned * end_pose.basis.orthonormalized().get_rotation_quaternion()
+		if toes >= 0:
+			var toe_now: Vector3 = turned * (skeleton.get_bone_global_pose(toes).origin - ankle_now)
+			foot_rotation = Quaternion(toe_now.normalized(), toe_line) * foot_rotation
+		_write_leg(skeleton, root, parent_rotation.inverse() * thigh_rotation)
+		_write_leg(skeleton, mid, thigh_rotation.inverse() * shin_rotation)
+		_write_leg(skeleton, end, shin_rotation.inverse() * foot_rotation)
+
+
+func _write_leg(skeleton: Skeleton3D, bone: int, wanted: Quaternion) -> void:
+	var base: Quaternion = _bases[bone]
+	skeleton.set_bone_pose_rotation(bone, base.slerp(wanted.normalized(), weight))
 
 
 ## Aim the spine at an absolute riding lean. Adding a fixed angle to each
@@ -137,9 +218,17 @@ func _reach_deficit(skeleton: Skeleton3D, shaft: Dictionary) -> float:
 		var palm := RigIK.grip_frame(skeleton, String(arm["side"]), PALM_DEPTH).origin.length()
 		# Keep a little bend in the elbow: 96% of the straight-arm reach.
 		var reach := (shoulder.distance_to(elbow) + elbow.distance_to(wrist) + palm) * 0.96
-		var target: Vector3 = shaft["hold"] + (shaft["direction"] as Vector3) * float(arm["offset"])
+		var target := _palm_point(shaft, arm)
 		worst = maxf(worst, shoulder.distance_to(target) - reach)
 	return worst
+
+
+## Where this arm's palm goes: its end of the helm bar, or on a straight shaft
+## its place along the wood.
+func _palm_point(shaft: Dictionary, arm: Dictionary) -> Vector3:
+	if shaft.has("hands"):
+		return (shaft["hands"] as Dictionary)[String(arm["side"])]
+	return shaft["hold"] + (shaft["direction"] as Vector3) * float(arm["offset"])
 
 
 ## Match the palm's full frame to the handle, then solve the wrist position.
@@ -149,7 +238,6 @@ func _grip(skeleton: Skeleton3D) -> void:
 	if shaft.is_empty():
 		_hand_error = -1.0
 		return
-	var origin: Vector3 = shaft["origin"]
 	var direction: Vector3 = shaft["direction"]
 	_hand_error = 0.0
 	_hand_alignment = 1.0
@@ -160,13 +248,16 @@ func _grip(skeleton: Skeleton3D) -> void:
 		if root < 0 or mid < 0 or end < 0:
 			continue
 		var shoulder := skeleton.get_bone_global_pose(root).origin
-		var palm_point: Vector3 = shaft["hold"] + direction * float(arm["offset"])
+		var palm_point := _palm_point(shaft, arm)
+		# The handle's line through this palm: across the helm bar, index
+		# fingers toward the middle; along a straight shaft, both forward.
+		var across: Vector3 = direction
+		if shaft.has("bar"):
+			across = (shaft["bar"] as Vector3) * (-1.0 if String(arm["side"]) == "L" else 1.0)
 		var down := palm_point - shoulder
-		down = (down - direction * down.dot(direction)).normalized()
+		down = (down - across * down.dot(across)).normalized()
 		var grip := RigIK.grip_frame(skeleton, String(arm["side"]), PALM_DEPTH)
-		# grip_frame already mirrors the palm normal. Both index sides point
-		# forward; reversing the left frame again turns its palm away from wood.
-		var across := direction
+		# grip_frame already mirrors the palm normal.
 		var wanted := Basis(across, down, across.cross(down)).orthonormalized() * grip.basis.inverse()
 		var target := palm_point - wanted * grip.origin
 		RigIK.two_bone(skeleton, root, mid, end, target, Vector3.DOWN, weight, _bases)
@@ -174,8 +265,8 @@ func _grip(skeleton: Skeleton3D) -> void:
 		var local := skeleton.get_bone_global_pose(parent).basis.orthonormalized().inverse() * wanted
 		RigIK.write_rotation(skeleton, end, local.get_rotation_quaternion(), weight, _bases[end])
 		var wrist := skeleton.get_bone_global_pose(end)
-		_hand_error = maxf(_hand_error, RigIK.distance_to_line(wrist * grip.origin, origin, direction))
-		_hand_alignment = minf(_hand_alignment, absf((wrist.basis * grip.basis.x).normalized().dot(direction)))
+		_hand_error = maxf(_hand_error, RigIK.distance_to_line(wrist * grip.origin, palm_point, across))
+		_hand_alignment = minf(_hand_alignment, absf((wrist.basis * grip.basis.x).normalized().dot(across)))
 
 
 ## The shaft's centreline in skeleton space: the SeatSocket projecting onto it,
@@ -206,5 +297,14 @@ func _shaft(skeleton: Skeleton3D) -> Dictionary:
 	# The seat sits `drop` above the centreline.
 	var drop := absf((seat_socket as Node3D).position.y - (grip_socket as Node3D).position.y)
 	var origin := seat - up * (drop - SHAFT_RISE)
-	return {"origin": origin, "direction": direction,
+	var out := {"origin": origin, "direction": direction,
 		"up": up, "grip": grip + up * SHAFT_RISE, "hold": origin + direction * GRIP_AHEAD}
+	var hand_l: Node3D = broom.get("hand_l")
+	var hand_r: Node3D = broom.get("hand_r")
+	if hand_l != null and hand_r != null:
+		var left: Vector3 = to_local * hand_l.global_position
+		var right: Vector3 = to_local * hand_r.global_position
+		out["hands"] = {"L": left, "R": right}
+		out["bar"] = (left - right).normalized()
+		out["hold"] = (left + right) * 0.5
+	return out

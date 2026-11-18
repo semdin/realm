@@ -115,7 +115,7 @@ func refresh_broom() -> void:
 		broom_icon.name = "Buff_broom"
 		broom_icon.mount = true
 		broom_icon.custom_minimum_size = Vector2(ICON, ICON + 14)
-		broom_icon.title = tr("Broom Flight")
+		broom_icon.title = tr("Skiff Flight")
 		add_child(broom_icon)
 		move_child(broom_icon, 0)
 		shown["broom"] = true

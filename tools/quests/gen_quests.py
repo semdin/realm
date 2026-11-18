@@ -46,7 +46,7 @@ SIZES = {
 }
 
 CHAPTERS = [
-    (1, 'The First Watch', "Take your oath at Kaf Castle, the Vigil's fortress over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your patrol broom."),
+    (1, 'The First Watch', "Take your oath at Kaf Castle, the Vigil's fortress over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your patrol skiff."),
     (6, 'The Forest Edge', "Darkened shards fall into the Raven Woods and the creatures grow bolder; learn the forge and the trial."),
     (11, 'Roads to Orvell', 'Bandits prowl the roads; the village needs a rod it can trust.'),
     (16, 'Crypts and Trolls', "The dead stir in the crypts, the trolls come down from their hollow - and an old name turns up in the records: the Ash Priest."),
@@ -68,7 +68,7 @@ CHAIN = [
      'Open your bag with {key:inventory} and right-click the cloak Commander Teral Venn gave you. It costs a little speed and buys a lot of armour.', 'Commander Teral Venn',
      {'items': [('potion_health', 5)]}),
     (1, 's', 'dummy', '', 5, 'Rod Drills', 'Hit a training dummy 5 times',
-     'Three training dummies stand in the fenced training yard east of the castle doors, beside the broom landing pad - they never hit back. Left-click to cast; spells hurt nothing on protected ground.', 'Commander Teral Venn',
+     'Three training dummies stand in the fenced training yard east of the castle doors, beside the skiff landing pad - they never hit back. Left-click to cast; spells hurt nothing on protected ground.', 'Commander Teral Venn',
      {'items': [('hat_apprentice', 1)]}),
     (2, 'n', 'kill', 'black_weaver', 6, 'Spiders at the Gate', 'Defeat 6 Black Weavers',
      'Leave the courtyard for the Village Outskirts or the Field Outskirts. Hit one spider and its pack answers - keep moving.', 'Commander Teral Venn',
@@ -85,18 +85,18 @@ CHAIN = [
     (4, 's', 'enter_map', 'castle_interior', 1, 'Through the Great Doors', 'Enter Kaf Castle',
      'Walk up the castle approach and press {key:interact} in the doorway to go inside.', 'Archivist Emrel Sav',
      {'items': [('ring_apprentice', 1)]}),
-    (5, 'b', 'talk', 'Sergeant Kaelen Rook', 1, 'Your First Broom', 'Collect your broom from Sergeant Kaelen Rook',
-     'At level 5 every recruit is issued a patrol broom. Sergeant Kaelen Rook waits at the castle approach.', 'Sergeant Kaelen Rook',
+    (5, 'b', 'talk', 'Sergeant Kaelen Rook', 1, 'Your First Skiff', 'Collect your skiff from Sergeant Kaelen Rook',
+     'At level 5 every recruit is issued a patrol skiff. Sergeant Kaelen Rook waits at the castle approach.', 'Sergeant Kaelen Rook',
      {'items': [('broom_ashwood', 1)]}),
-    (5, 'n', 'visit', 'Patrol Field', 1, 'First Patrol', 'Fly your broom to the Patrol Field',
-     'Equip the broom, press {key:ride} to mount, {key:jump} to rise and {key:descend} to descend. Land on level ground and press {key:ride} to dismount.', 'Sergeant Kaelen Rook',
+    (5, 'n', 'visit', 'Patrol Field', 1, 'First Patrol', 'Fly your skiff to the Patrol Field',
+     'Equip the skiff, press {key:ride} to mount, {key:jump} to rise and {key:descend} to descend. Land on level ground and press {key:ride} to dismount.', 'Sergeant Kaelen Rook',
      {'mounted': True, 'items': [('potion_mana', 5)]}),
     # ---------------------------------------------------------------- 6-10 The Forest Edge
     (6, 'n', 'kill', 'drowned_one', 12, 'Ash and Bone', 'Defeat 12 Saltwights',
      'The Saltwights gather again at the Forest Edge and in Greenhouse Meadow.', 'Ombrek',
      {'items': [('mat_phoenix_ash', 3)]}),
     (6, 's', 'talk', 'Kestrin', 1, "Kestrin's Forge", 'Fly to Orvell and speak with Kestrin',
-     'Kestrin keeps his forge on the west side of Orvell square, east of the castle along the road. Mount your broom and fly there - he can make a rod stronger, at a price.', 'Kestrin', {}),
+     'Kestrin keeps his forge on the west side of Orvell square, east of the castle along the road. Mount your skiff and fly there - he can make a rod stronger, at a price.', 'Kestrin', {}),
     (7, 'n', 'refine', '', 1, 'A Stronger Rod', 'Refine your rod once at Kestrin',
      "Press {key:workshop} to open Kestrin's workshop, drag your rod onto the anvil and refine it with Forge Cinder and Oril.", 'Kestrin',
      {'items': [('scroll_imbue', 2)]}),
@@ -136,7 +136,7 @@ CHAIN = [
     (14, 'n', 'kill', 'black_weaver', 18, 'Webs in the Glade', 'Defeat 18 Black Weavers',
      'Spiders and dead share the Lakeside Glade now. Clear the spiders first.', 'Ombrek', {}),
     (14, 'n', 'refine', '', 2, 'Steel for the Road', 'Refine any item twice',
-     'Kestrin can refine cloaks, accessories and brooms as well as rods.', 'Kestrin',
+     'Kestrin can refine cloaks, accessories and skiffs as well as rods.', 'Kestrin',
      {'items': [('scroll_imbue', 2)]}),
     (15, 'b', 'kill', 'dark_bandit', 18, 'Breaking the Ring', 'Defeat 18 Bandits',
      'Bessa has heard the bandits answer to a captain. Weaken them before he moves.', 'Bessa Tull',
@@ -324,7 +324,7 @@ CHAIN = [
 # accumulate in the log and none has to be done in order.
 REQUIRES = {
     2: [1],      # wear the cloak Commander Teral Venn gave you
-    10: [9],     # fly the broom Kaelen Rook gave you
+    10: [9],     # fly the skiff Kaelen Rook gave you
     13: [12],    # refine after meeting Kestrin
     15: [13],    # enchant with the scrolls the refine quest paid
     20: [19],    # equip the wand the Trial Hall paid
@@ -440,7 +440,7 @@ def main():
         "the player claims it, which pays the reward. Types: talk (target = NPC name, within talk_radius), kill (target = mob species from its scene; "
         "`boss` counts only boss kills), dummy (hits on a training dummy), equip (target = equipment slot), refine (a successful "
         "refinement), enchant (a successful imbue), monolith, dungeon (target = dungeons.json id, the run completes), enter_map "
-        "(target = map id), visit (target = a place below; `mounted` requires the broom). Rewards: reward_exp (a share of the "
+        "(target = map id), visit (target = a place below; `mounted` requires the skiff). Rewards: reward_exp (a share of the "
         "level's experience threshold by size; a level's quests with the kills they ask for pay at least its threshold, so "
         "the chain never waits for a level: tools/quests/quest_flow.py), reward_gold, reward_house_rep, reward_items [{id, amount}] (bag, or a personal "
         "chest at the player's feet when it is full). Progress persists in the character's `quests` object (progress, "

@@ -244,7 +244,7 @@ func _broom_landing() -> void:
 	pad.add_child(ring)
 	var label: Label3D = Mats.WorldSign.new()   # readable from afar, faded past 80 m
 	label.call("setup", 80.0, 15.0)
-	label.text = I18n.upper(I18n.t("Broom landing"))
+	label.text = I18n.upper(I18n.t("Skiff landing"))
 	label.font = UITheme.world_font(UITheme.W_DECO)
 	label.font_size = 30
 	label.outline_size = 8

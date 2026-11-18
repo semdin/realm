@@ -281,13 +281,13 @@ msgid "The Ancient Ward saved you!"
 msgstr "Kadim Koruma Seni Kurtardı!"
 
 msgid "You cannot mount right now."
-msgstr "Şu an süpürgeye binemezsin."
+msgstr "Şu an kayığa binemezsin."
 
 msgid "You are defeated!"
 msgstr "Yenildin!"
 
-msgid "You have no mount - equip a broom first."
-msgstr "Bineğin yok - önce bir süpürge kuşan."
+msgid "You have no mount - equip a skiff first."
+msgstr "Bineğin yok - önce bir kayık kuşan."
 
 msgid "You are stunned!"
 msgstr "Sersemledin!"
@@ -319,8 +319,8 @@ msgstr "Burada ayağa kalkacak yer yok!"
 msgid "The ceiling is too low to dismount!"
 msgstr "Tavan inmek için fazla alçak!"
 
-msgid "Broom Flight"
-msgstr "Süpürge Uçuşu"
+msgid "Skiff Flight"
+msgstr "Kayık Uçuşu"
 
 msgid "Space rises · Ctrl descends · Shift dismounts on level ground."
 msgstr "Boşluk yükselir · Ctrl alçalır · Shift düz zeminde iner."
@@ -514,8 +514,8 @@ msgstr "Görünümü Düzenle"
 msgid "Equip a rod first"
 msgstr "Önce bir asa kuşan"
 
-msgid "Equip a broom first"
-msgstr "Önce bir süpürge kuşan"
+msgid "Equip a skiff first"
+msgstr "Önce bir kayık kuşan"
 
 msgid "Not enough Mana"
 msgstr "Yeterli mana yok"
@@ -562,8 +562,8 @@ msgstr "Şu an olmaz"
 msgid "The map is still loading"
 msgstr "Harita hâlâ yükleniyor"
 
-msgid "The broom cannot fly here"
-msgstr "Süpürge burada uçamaz"
+msgid "The skiff cannot fly here"
+msgstr "Kayık burada uçamaz"
 
 msgid "Casting"
 msgstr "Büyü yapılıyor"
@@ -703,8 +703,8 @@ msgstr "geçersiz tuş"
 msgid "Critical"
 msgstr "Kritik"
 
-msgid "Welcome to Kaf Castle! Spells on 1-4, Q, E · potions on F1-F4 · Shift mounts the broom."
-msgstr "Kaf Kalesi'ne hoş geldin! Büyüler 1-4, Q, E tuşlarında · iksirler F1-F4'te · Shift ile süpürgeye binersin."
+msgid "Welcome to Kaf Castle! Spells on 1-4, Q, E · potions on F1-F4 · Shift mounts the skiff."
+msgstr "Kaf Kalesi'ne hoş geldin! Büyüler 1-4, Q, E tuşlarında · iksirler F1-F4'te · Shift ile kayığa binersin."
 
 msgid "Enter to chat, start a line with ! to shout to everyone. M opens the map, Esc the menu."
 msgstr "Sohbet için Enter; herkese seslenmek için satırı ! ile başlat. M haritayı, Esc menüyü açar."
@@ -1168,8 +1168,8 @@ msgstr "Hareket ve ganimet"
 msgid "Movement speed"
 msgstr "Hareket hızı"
 
-msgid "Broom speed"
-msgstr "Süpürge hızı"
+msgid "Skiff speed"
+msgstr "Kayık hızı"
 
 msgid "Experience"
 msgstr "Tecrübe"
@@ -1396,8 +1396,8 @@ msgstr "%s kapının yanında değil."
 msgid "%s is dead."
 msgstr "%s ölü."
 
-msgid "%s is on a broom."
-msgstr "%s süpürgede."
+msgid "%s is on a skiff."
+msgstr "%s kayıkta."
 
 msgid "%s is in a duel."
 msgstr "%s düelloda."
@@ -1519,8 +1519,8 @@ msgstr "uzakta"
 msgid "dead"
 msgstr "ölü"
 
-msgid "on a broom"
-msgstr "süpürgede"
+msgid "on a skiff"
+msgstr "kayıkta"
 
 msgid "duelling"
 msgstr "düelloda"
@@ -2116,8 +2116,8 @@ msgstr "Yüzük I"
 msgid "Ring II"
 msgstr "Yüzük II"
 
-msgid "Broom"
-msgstr "Süpürge"
+msgid "Skiff"
+msgstr "Kayık"
 
 msgid "Wait five seconds after combat."
 msgstr "Savaştan sonra beş saniye bekle."
@@ -2128,8 +2128,8 @@ msgstr "Önce büyüyü bitir."
 msgid "You are defeated."
 msgstr "Yenildin."
 
-msgid "Dismount before changing your broom."
-msgstr "Süpürgeni değiştirmeden önce in."
+msgid "Dismount before changing your skiff."
+msgstr "Kayığını değiştirmeden önce in."
 
 msgid "Your level is too low for that item."
 msgstr "Bu eşya için seviyen çok düşük."
@@ -2323,8 +2323,8 @@ msgstr "Tek El Asa"
 msgid "Body Armour"
 msgstr "Zırh"
 
-msgid "Broom mount"
-msgstr "Süpürge bineği"
+msgid "Windskiff"
+msgstr "Yel kayığı"
 
 msgid "Consumable"
 msgstr "Tüketilebilir"
@@ -2947,8 +2947,8 @@ msgstr "Yükseltmek ya da tılsımlamak istediğin eşyayı buraya sürükle ya 
 msgid "Take it off the anvil"
 msgstr "Örsten kaldır"
 
-msgid "Takes rods, cloaks, brooms and accessories from +0 to +9. Every step needs materials and Oril; the chance falls with each level, and from +%d a failure drops the item one level."
-msgstr "Asa, cüppe, süpürge ve takıları +0'dan +9'a çıkarır. Her adım malzeme ve Oril ister; şans her seviyede düşer, +%d'ten sonra başarısızlık eşyayı bir seviye indirir."
+msgid "Takes rods, cloaks, skiffs and accessories from +0 to +9. Every step needs materials and Oril; the chance falls with each level, and from +%d a failure drops the item one level."
+msgstr "Asa, cüppe, kayık ve takıları +0'dan +9'a çıkarır. Her adım malzeme ve Oril ister; şans her seviyede düşer, +%d'ten sonra başarısızlık eşyayı bir seviye indirir."
 
 msgid "An item holds up to %d enchantments. An Imbue rune adds a new one (the more it has, the lower the chance); a Reweave rune rerolls them all."
 msgstr "Eşyaya en çok %d tılsım basılır. Tılsım Rünü yeni bir tılsım ekler (tılsım arttıkça şans düşer), Tılsım Değiştirme Rünü hepsini yeniden atar."
@@ -3034,8 +3034,8 @@ msgstr "Bir sürüyü kışkırt"
 msgid "Hit a Black Weaver or a Saltwight outside the safe zone and survive the pack's answer."
 msgstr "Güvenli bölgenin dışında bir Kara Ağcı'ya ya da bir Tuz Hortlağı'na vur ve sürünün karşılığından sağ çık."
 
-msgid "Broom controls"
-msgstr "Süpürge kontrolleri"
+msgid "Skiff controls"
+msgstr "Kayık kontrolleri"
 
 msgid "Shift to mount, Space to rise, then land on level ground and Shift to dismount."
 msgstr "Binmek için Shift, yükselmek için Boşluk; sonra düz zemine kon ve inmek için Shift."
@@ -3044,7 +3044,7 @@ msgid "Enter the castle"
 msgstr "Şatoya gir"
 
 msgid "Dismount at the entrance and press F in the doorway to enter Kaf Castle."
-msgstr "Girişte süpürgeden in ve Kaf Kalesi'ne girmek için kapıda F'ye bas."
+msgstr "Girişte kayıktan in ve Kaf Kalesi'ne girmek için kapıda F'ye bas."
 
 msgid "Getting started"
 msgstr "Başlarken"
@@ -3061,8 +3061,8 @@ msgstr "Sıradaki"
 msgid "Later"
 msgstr "Sonra"
 
-msgid "\nCONTROLS\nWASD move · Right-drag camera · Wheel zoom\nLMB attack · 1–4 / Q / E spells · F1–F4 potions · Tab target\nShift mount · Space rise · Ctrl descend\nF talk · Z loot · I bag · O forge · M map\nJ guide · Esc menu & settings · Enter chat (!text shouts)\n\nEQUIPMENT\nSelect to compare. Right-click, double-click, or drag to equip. Changes require five seconds out of combat. Dismount to change brooms."
-msgstr "\nKONTROLLER\nWASD hareket · Sağ sürükle kamera · Tekerlek yakınlaştır\nSol tık saldır · 1–4 / Q / E büyüler · F1–F4 iksirler · Tab hedef\nShift bin · Boşluk yüksel · Ctrl alçal\nF konuş · Z ganimet · I çanta · O demirci · M harita\nJ rehber · Esc menü ve ayarlar · Enter sohbet (!metin bağırır)\n\nEKİPMAN\nKarşılaştırmak için seç. Kuşanmak için sağ tıkla, çift tıkla ya da sürükle. Değişiklik için savaştan beş saniye uzak kalmalısın. Süpürge değiştirmek için in."
+msgid "\nCONTROLS\nWASD move · Right-drag camera · Wheel zoom\nLMB attack · 1–4 / Q / E spells · F1–F4 potions · Tab target\nShift mount · Space rise · Ctrl descend\nF talk · Z loot · I bag · O forge · M map\nJ guide · Esc menu & settings · Enter chat (!text shouts)\n\nEQUIPMENT\nSelect to compare. Right-click, double-click, or drag to equip. Changes require five seconds out of combat. Dismount to change skiffs."
+msgstr "\nKONTROLLER\nWASD hareket · Sağ sürükle kamera · Tekerlek yakınlaştır\nSol tık saldır · 1–4 / Q / E büyüler · F1–F4 iksirler · Tab hedef\nShift bin · Boşluk yüksel · Ctrl alçal\nF konuş · Z ganimet · I çanta · O demirci · M harita\nJ rehber · Esc menü ve ayarlar · Enter sohbet (!metin bağırır)\n\nEKİPMAN\nKarşılaştırmak için seç. Kuşanmak için sağ tıkla, çift tıkla ya da sürükle. Değişiklik için savaştan beş saniye uzak kalmalısın. Kayık değiştirmek için in."
 
 msgid "Training complete"
 msgstr "Eğitim tamamlandı"
@@ -3091,8 +3091,8 @@ msgstr "Sağa git"
 msgid "Jump / rise"
 msgstr "Zıpla / yüksel"
 
-msgid "Descend (broom)"
-msgstr "Alçal (süpürge)"
+msgid "Descend (skiff)"
+msgstr "Alçal (kayık)"
 
 msgid "Basic attack (hold to repeat)"
 msgstr "Temel saldırı (basılı tut, tekrarlar)"
@@ -3100,8 +3100,8 @@ msgstr "Temel saldırı (basılı tut, tekrarlar)"
 msgid "also %s"
 msgstr "ayrıca %s"
 
-msgid "Mount / dismount broom"
-msgstr "Süpürgeye bin / in"
+msgid "Mount / dismount skiff"
+msgstr "Kayığa bin / in"
 
 msgid "Next target"
 msgstr "Sonraki hedef"
@@ -3310,8 +3310,8 @@ msgstr "Tuz Hortlakları kav gibi kurudur: Alev Dalgası onları iki kat hasarla
 msgid "Hold the right mouse button to turn the camera; the wheel zooms."
 msgstr "Kamerayı döndürmek için farenin sağ tuşunu basılı tut; tekerlek yakınlaştırır."
 
-msgid "Land on level ground before you dismount your broom."
-msgstr "Süpürgeden inmeden önce düz bir zemine kon."
+msgid "Land on level ground before you dismount your skiff."
+msgstr "Kayıktan inmeden önce düz bir zemine kon."
 
 msgid "Dark Shards summon waves of creatures - bring friends."
 msgstr "Kara Kırıklar yaratık dalgaları çağırır - arkadaşlarını getir."
@@ -3481,8 +3481,8 @@ msgstr "Eğitim kuklaları kale kapısının doğusundaki talim alanında duruyo
 msgid "Reflected!"
 msgstr "Yansıtıldı!"
 
-msgid "Broom landing"
-msgstr "Süpürge iniş alanı"
+msgid "Skiff landing"
+msgstr "Kayık iniş alanı"
 
 msgid "Press F at the door"
 msgstr "Kapıda F'ye bas"
@@ -3511,17 +3511,17 @@ msgstr "%s'ye bas - Yol Kazığı'na tutun (%s yönüne)"
 msgid "Press %s - %s"
 msgstr "%s'ye bas - %s"
 
-msgid "Mounted - the castle door is closed to broom flight. Dismount to enter."
-msgstr "Binekliyken şato kapısı süpürgeye kapalı. Girmek için in."
+msgid "Mounted - the castle door is closed to skiff flight. Dismount to enter."
+msgstr "Binekliyken şato kapısı kayığa kapalı. Girmek için in."
 
 msgid "No flying inside the castle!"
 msgstr "Şatonun içinde uçmak yasak!"
 
-msgid "The broom cannot fly inside the castle - it stays stowed until you are outside."
-msgstr "Süpürge şatonun içinde uçamaz - dışarı çıkana kadar kaldırılır."
+msgid "The skiff cannot fly inside the castle - it stays stowed until you are outside."
+msgstr "Kayık şatonun içinde uçamaz - dışarı çıkana kadar kaldırılır."
 
-msgid "Dismount before entering - the broom cannot fly inside the castle."
-msgstr "Girmeden önce in - süpürge şatonun içinde uçamaz."
+msgid "Dismount before entering - the skiff cannot fly inside the castle."
+msgstr "Girmeden önce in - kayık şatonun içinde uçamaz."
 
 msgid "Map transfers are unavailable: the synced map-transfer API is missing from this build."
 msgstr "Harita geçişleri kullanılamıyor: bu sürümde harita geçiş arayüzü eksik."
@@ -3595,11 +3595,11 @@ msgstr "Zindan Katı"
 msgid "Kaf Castle - %s"
 msgstr "Kaf Kalesi - %s"
 
-msgid "   |   Broom landing pad"
-msgstr "   |   Süpürge iniş alanı"
+msgid "   |   Skiff landing pad"
+msgstr "   |   Kayık iniş alanı"
 
-msgid "The broom cannot fly inside the castle - dismount on the landing pad first."
-msgstr "Süpürge şatonun içinde uçamaz - önce iniş alanında in."
+msgid "The skiff cannot fly inside the castle - dismount on the landing pad first."
+msgstr "Kayık şatonun içinde uçamaz - önce iniş alanında in."
 
 msgid "There is no doorway here."
 msgstr "Burada bir kapı yok."
@@ -3844,44 +3844,44 @@ msgstr "Yıldızlar ve hilallerle bezeli gümüş-mavi ipek; gece göğü gibi �
 msgid "Reedrunner"
 msgstr "Sazkoşan"
 
-msgid "Lake reed lashed to a bent ashwood haft. The patrol's favourite over open water."
-msgstr "Eğri dişbudak sapa bağlanmış göl sazı. Devriyenin açık su üstünde en sevdiği süpürge."
+msgid "Lake reed bundled over a bent ashwood frame, with woven mat sails. The patrol's favourite over open water."
+msgstr "Eğri dişbudak bir iskelete sarılmış göl sazı, örme hasır yelkenler. Devriyenin açık su üstünde en sevdiği tekne."
 
-msgid "Thunderhaft"
-msgstr "Fırtınasap"
+msgid "Stormkeel"
+msgstr "Fırtına Omurgası"
 
-msgid "Storm-seasoned oak with a keel of shard-iron. It hums in a crosswind and never slows for it."
-msgstr "Fırtınada kurutulmuş meşe, kırık demirinden bir omurga. Yan rüzgârda uğuldar ama asla yavaşlamaz."
+msgid "Storm-seasoned oak plated in shard-iron, with a ram at the bow. It hums in a crosswind and never slows for it."
+msgstr "Kırık demiriyle kaplanmış, fırtınada kurutulmuş meşe; pruvasında bir mahmuz. Yan rüzgârda uğuldar ama asla yavaşlamaz."
 
-msgid "Ashwood Sweeper"
-msgstr "Dişbudak Süpürge"
+msgid "Ashwood Skiff"
+msgstr "Dişbudak Kayığı"
 
-msgid "A patrol-issue broom of unvarnished ash, its reeds tied with hemp cord. Every rider starts somewhere."
-msgstr "Cilasız dişbudaktan devriye süpürgesi; sazları kenevir iple bağlı. Her binici bir yerden başlar."
+msgid "A patrol-issue skiff of unvarnished ash with a patched canvas vane on either side. Every rider starts somewhere."
+msgstr "Cilasız dişbudaktan devriye kayığı; iki yanında yamalı birer keten yelken. Her binici bir yerden başlar."
 
-msgid "Runebound Walnut"
-msgstr "Rünlü Ceviz"
+msgid "Brassbound Walnut"
+msgstr "Pirinç Kuşaklı Ceviz"
 
-msgid "Polished walnut bound in brass bands whose blue runes steady the flight."
-msgstr "Mavi rünleri uçuşu dengeleyen pirinç kuşaklı cilalı ceviz."
+msgid "A polished walnut hull bound in brass, its deep blue sails trimmed to steady the flight."
+msgstr "Pirinç kuşaklı cilalı ceviz gövde; koyu mavi yelkenleri uçuşu dengeler."
 
-msgid "Silverthorn Racer"
-msgstr "Gümüşdiken Yarışçı"
+msgid "Silverthorn Cutter"
+msgstr "Gümüşdiken Kotrası"
 
-msgid "Black-lacquered ebony with silver fittings and emerald runes, its tail trimmed into a racer's dart."
-msgstr "Gümüş bağlantılı, zümrüt rünlü siyah cilalı abanoz; kuyruğu yarışçı oku gibi budanmış."
+msgid "Black-lacquered ebony with silver fittings and a bladed prow, cut narrow for speed."
+msgstr "Gümüş bağlantılı, pruvası bıçak gibi siyah cilalı abanoz; hız için dar kesilmiş."
 
-msgid "Emberwing"
-msgstr "Korkanat"
+msgid "Emberwing Galley"
+msgstr "Korkanat Kadırgası"
 
-msgid "Crimson lacquer and gold filigree crowned by a velkar head; its feathered tail smoulders like live embers."
-msgstr "Bir velkar başıyla taçlanmış kızıl cila ve altın telkari; tüylü kuyruğu canlı korlar gibi için için yanar."
+msgid "Crimson lacquer and gold fittings under two fan sails that smoulder like live embers."
+msgstr "Kızıl cila ve altın bağlantılar; iki yelpaze yelkeni canlı korlar gibi için için yanar."
 
-msgid "Moonveil Seraph"
-msgstr "Ayörtü Serafı"
+msgid "Moonveil Sloop"
+msgstr "Ayörtü Şalopası"
 
-msgid "Pale moonwood threaded with starlight, a crystal tip and bristles spun from moonlight itself."
-msgstr "Yıldız ışığıyla örülmüş soluk ay ağacı; kristal uç ve ay ışığından eğrilmiş kıllar."
+msgid "Pale moonwood threaded with starlight, a crystal at the prow and sails spun from moonlight itself."
+msgstr "Yıldız ışığıyla örülmüş soluk ay ağacı; pruvada kristal, ay ışığından eğrilmiş yelkenler."
 
 msgid "Healing Draught"
 msgstr "Şifa İksiri"
@@ -3922,14 +3922,14 @@ msgstr "Ustalık işi yükseltme için bir katalizör."
 msgid "Rune of Imbuing"
 msgstr "Tılsım Rünü"
 
-msgid "A scroll that weaves one new enchantment into a rod, robe or broom at Kestrin's. The more an item already holds, the likelier the weave slips."
-msgstr "Kestrin'de bir asaya, cüppeye ya da süpürgeye yeni bir tılsım basan parşömen. Eşyada ne kadar çok tılsım varsa tutmama ihtimali o kadar artar."
+msgid "A scroll that weaves one new enchantment into a rod, robe or skiff at Kestrin's. The more an item already holds, the likelier the weave slips."
+msgstr "Kestrin'de bir asaya, cüppeye ya da kayığa yeni bir tılsım basan parşömen. Eşyada ne kadar çok tılsım varsa tutmama ihtimali o kadar artar."
 
 msgid "Rune of Reweaving"
 msgstr "Tılsım Değiştirme Rünü"
 
-msgid "Unravels every enchantment on a rod, robe or broom and weaves the same number anew at Kestrin's."
-msgstr "Kestrin'de bir asa, cüppe ya da süpürgedeki tüm tılsımları çözer ve aynı sayıda yenisini basar."
+msgid "Unravels every enchantment on a rod, robe or skiff and weaves the same number anew at Kestrin's."
+msgstr "Kestrin'de bir asa, cüppe ya da kayıktaki tüm tılsımları çözer ve aynı sayıda yenisini basar."
 
 msgid "Recruit Hat"
 msgstr "Acemi Şapkası"
@@ -4588,8 +4588,8 @@ msgstr "Mahzen kapağından aşağı in"
 msgid "The First Watch"
 msgstr "İlk Nöbet"
 
-msgid "Take your oath at Kaf Castle, the Vigil's fortress over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your patrol broom."
-msgstr "Düşen Dünya Yıldızı Ithrel'in kırığı üstündeki Nöbet kalesi Kaf'ta yeminini et: pelerinin, ilk büyülerin, devriye süpürgen."
+msgid "Take your oath at Kaf Castle, the Vigil's fortress over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your patrol skiff."
+msgstr "Düşen Dünya Yıldızı Ithrel'in kırığı üstündeki Nöbet kalesi Kaf'ta yeminini et: pelerinin, ilk büyülerin, devriye kayığın."
 
 msgid "The Forest Edge"
 msgstr "Orman Kıyısı"
@@ -4660,8 +4660,8 @@ msgstr "Asa Talimi"
 msgid "Hit a training dummy 5 times"
 msgstr "Bir eğitim kuklasına 5 kez vur"
 
-msgid "Three training dummies stand in the fenced training yard east of the castle doors, beside the broom landing pad - they never hit back. Left-click to cast; spells hurt nothing on protected ground."
-msgstr "Kale kapısının doğusunda, süpürge iniş pistinin yanındaki çitli talim alanında üç eğitim kuklası duruyor - asla karşılık vermezler. Büyü için sol tıkla; korunan bölgede büyüler kimseye zarar vermez."
+msgid "Three training dummies stand in the fenced training yard east of the castle doors, beside the skiff landing pad - they never hit back. Left-click to cast; spells hurt nothing on protected ground."
+msgstr "Kale kapısının doğusunda, kayık iniş pistinin yanındaki çitli talim alanında üç eğitim kuklası duruyor - asla karşılık vermezler. Büyü için sol tıkla; korunan bölgede büyüler kimseye zarar vermez."
 
 msgid "Spiders at the Gate"
 msgstr "Kapıdaki Ağcılar"
@@ -4705,23 +4705,23 @@ msgstr "Kaf Kalesi'ne gir"
 msgid "Walk up the castle approach and press F in the doorway to go inside."
 msgstr "Şato yolundan yukarı yürü ve içeri girmek için kapıda F'ye bas."
 
-msgid "Your First Broom"
-msgstr "İlk Süpürgen"
+msgid "Your First Skiff"
+msgstr "İlk Kayığın"
 
-msgid "Collect your broom from Sergeant Kaelen Rook"
-msgstr "Süpürgeni Çavuş Kaelen Rook'tan al"
+msgid "Collect your skiff from Sergeant Kaelen Rook"
+msgstr "Kayığını Çavuş Kaelen Rook'tan al"
 
-msgid "At level 5 every recruit is issued a patrol broom. Sergeant Kaelen Rook waits at the castle approach."
-msgstr "5. seviyede her acemiye bir devriye süpürgesi verilir. Çavuş Kaelen Rook kale yolunda bekliyor."
+msgid "At level 5 every recruit is issued a patrol skiff. Sergeant Kaelen Rook waits at the castle approach."
+msgstr "5. seviyede her acemiye bir devriye kayığı verilir. Çavuş Kaelen Rook kale yolunda bekliyor."
 
 msgid "First Patrol"
 msgstr "İlk Devriye"
 
-msgid "Fly your broom to the Patrol Field"
-msgstr "Süpürgenle Devriye Meydanı'na uç"
+msgid "Fly your skiff to the Patrol Field"
+msgstr "Kayığınla Devriye Meydanı'na uç"
 
-msgid "Equip the broom, press Shift to mount, Space to rise and Ctrl to descend. Land on level ground and press Shift to dismount."
-msgstr "Süpürgeyi kuşan; binmek için Shift, yükselmek için Boşluk, alçalmak için Ctrl'ye bas. Düz zemine kon ve inmek için Shift'e bas."
+msgid "Equip the skiff, press Shift to mount, Space to rise and Ctrl to descend. Land on level ground and press Shift to dismount."
+msgstr "Kayığı kuşan; binmek için Shift, yükselmek için Boşluk, alçalmak için Ctrl'ye bas. Düz zemine kon ve inmek için Shift'e bas."
 
 msgid "Ash and Bone"
 msgstr "Kül ve Kemik"
@@ -4735,8 +4735,8 @@ msgstr "Tuz Hortlakları Orman Kıyısı'nda ve Sera Çayırı'nda yeniden topla
 msgid "Fly to Orvell and speak with Kestrin"
 msgstr "Orvell'e uç ve Kestrin'le konuş"
 
-msgid "Kestrin keeps his forge on the west side of Orvell square, east of the castle along the road. Mount your broom and fly there - he can make a rod stronger, at a price."
-msgstr "Kestrin'in ocağı Orvell meydanının batı yüzünde, kaleden yol boyunca doğuda. Süpürgene bin ve oraya uç - bedeli karşılığında bir asayı güçlendirebilir."
+msgid "Kestrin keeps his forge on the west side of Orvell square, east of the castle along the road. Mount your skiff and fly there - he can make a rod stronger, at a price."
+msgstr "Kestrin'in ocağı Orvell meydanının batı yüzünde, kaleden yol boyunca doğuda. Kayığına bin ve oraya uç - bedeli karşılığında bir asayı güçlendirebilir."
 
 msgid "A Stronger Rod"
 msgstr "Daha Güçlü Bir Asa"
@@ -4867,8 +4867,8 @@ msgstr "Yol İçin Çelik"
 msgid "Refine any item twice"
 msgstr "Herhangi bir eşyayı iki kez yükselt"
 
-msgid "Kestrin can refine cloaks, accessories and brooms as well as rods."
-msgstr "Kestrin asaların yanı sıra pelerinleri, takıları ve süpürgeleri de yükseltebilir."
+msgid "Kestrin can refine cloaks, accessories and skiffs as well as rods."
+msgstr "Kestrin asaların yanı sıra pelerinleri, takıları ve kayıkları de yükseltebilir."
 
 msgid "Breaking the Ring"
 msgstr "Halkayı Kırmak"

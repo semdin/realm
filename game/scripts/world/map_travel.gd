@@ -269,7 +269,7 @@ func tick(_delta: float) -> void:
 		if _is_gate(active_portal):
 			text = tr("Press %s - %s") % [GameSettings.key_name("interact"), tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
 		elif mounted():
-			text = tr("Mounted - the castle door is closed to broom flight. Dismount to enter.")
+			text = tr("Mounted - the castle door is closed to skiff flight. Dismount to enter.")
 		else:
 			text = tr("Press %s - %s") % [GameSettings.key_name("interact"), tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
 	elif not active_waylink.is_empty():
@@ -329,7 +329,7 @@ func interact() -> bool:
 			game.dungeon.open_gate(String(active_portal.get("id", "")))
 			return true
 		if mounted():
-			_refuse(tr("Dismount before entering - the broom cannot fly inside the castle."))
+			_refuse(tr("Dismount before entering - the skiff cannot fly inside the castle."))
 			return true
 		doors_asked += 1
 		game.session.door(String(active_portal.get("id", "")))
@@ -506,7 +506,7 @@ func refusal_text(what: String, reason: String) -> String:
 			"no_flight":
 				return tr("Flight is not allowed on this map!")
 			"no_broom":
-				return tr("You have no mount - equip a broom first.")
+				return tr("You have no mount - equip a skiff first.")
 			"dead":
 				return tr("You are defeated!")
 			"stunned":
@@ -517,7 +517,7 @@ func refusal_text(what: String, reason: String) -> String:
 	match reason:
 		"mounted":
 			if what == "door":
-				return tr("Dismount before entering - the broom cannot fly inside the castle.")
+				return tr("Dismount before entering - the skiff cannot fly inside the castle.")
 			if what == "hearthway":
 				return tr("Dismount before stepping into the fireplace.")
 			return tr("Not while mounted!")
@@ -536,7 +536,7 @@ func refusal_text(what: String, reason: String) -> String:
 		"no_portal":
 			return tr("There is no doorway here.")
 		"no_flight":
-			return tr("The broom cannot fly inside the castle - dismount on the landing pad first.")
+			return tr("The skiff cannot fly inside the castle - dismount on the landing pad first.")
 		"map_unavailable":
 			return tr("The destination map is unavailable.")
 		"map_full":

@@ -275,9 +275,10 @@
     "id": "broom_windcutter_2000",
     "name": "Reedrunner",
     "type": "mount",
-    "desc": "Lake reed lashed to a bent ashwood haft. The patrol's favourite over open water.",
+    "desc": "Lake reed bundled over a bent ashwood frame, with woven mat sails. The patrol's favourite over open water.",
     "rarity": "rare",
     "mount_speed": 13.0,
+    "model": "res://assets/models/props/skiffs/skiff_reed.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -285,11 +286,12 @@
   },
   "broom_skysplitter": {
     "id": "broom_skysplitter",
-    "name": "Thunderhaft",
+    "name": "Stormkeel",
     "type": "mount",
-    "desc": "Storm-seasoned oak with a keel of shard-iron. It hums in a crosswind and never slows for it.",
+    "desc": "Storm-seasoned oak plated in shard-iron, with a ram at the bow. It hums in a crosswind and never slows for it.",
     "rarity": "legendary",
     "mount_speed": 18.0,
+    "model": "res://assets/models/props/skiffs/skiff_storm.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -297,14 +299,14 @@
   },
   "broom_ashwood": {
     "id": "broom_ashwood",
-    "name": "Ashwood Sweeper",
+    "name": "Ashwood Skiff",
     "type": "mount",
-    "desc": "A patrol-issue broom of unvarnished ash, its reeds tied with hemp cord. Every rider starts somewhere.",
+    "desc": "A patrol-issue skiff of unvarnished ash with a patched canvas vane on either side. Every rider starts somewhere.",
     "rarity": "common",
     "item_tier": 1,
     "required_level": 1,
     "mount_speed": 12.0,
-    "model": "res://assets/models/props/brooms/broom_ashwood.glb",
+    "model": "res://assets/models/props/skiffs/skiff_ashwood.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -312,14 +314,14 @@
   },
   "broom_runebound": {
     "id": "broom_runebound",
-    "name": "Runebound Walnut",
+    "name": "Brassbound Walnut",
     "type": "mount",
-    "desc": "Polished walnut bound in brass bands whose blue runes steady the flight.",
+    "desc": "A polished walnut hull bound in brass, its deep blue sails trimmed to steady the flight.",
     "rarity": "uncommon",
     "item_tier": 2,
     "required_level": 10,
     "mount_speed": 13.5,
-    "model": "res://assets/models/props/brooms/broom_runebound.glb",
+    "model": "res://assets/models/props/skiffs/skiff_runebound.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -327,14 +329,14 @@
   },
   "broom_silverthorn": {
     "id": "broom_silverthorn",
-    "name": "Silverthorn Racer",
+    "name": "Silverthorn Cutter",
     "type": "mount",
-    "desc": "Black-lacquered ebony with silver fittings and emerald runes, its tail trimmed into a racer's dart.",
+    "desc": "Black-lacquered ebony with silver fittings and a bladed prow, cut narrow for speed.",
     "rarity": "rare",
     "item_tier": 3,
     "required_level": 20,
     "mount_speed": 15.0,
-    "model": "res://assets/models/props/brooms/broom_silverthorn.glb",
+    "model": "res://assets/models/props/skiffs/skiff_silverthorn.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -342,14 +344,14 @@
   },
   "broom_emberwing": {
     "id": "broom_emberwing",
-    "name": "Emberwing",
+    "name": "Emberwing Galley",
     "type": "mount",
-    "desc": "Crimson lacquer and gold filigree crowned by a firebird head; its feathered tail smoulders like live embers.",
+    "desc": "Crimson lacquer and gold fittings under two fan sails that smoulder like live embers.",
     "rarity": "epic",
     "item_tier": 4,
     "required_level": 35,
     "mount_speed": 17.0,
-    "model": "res://assets/models/props/brooms/broom_emberwing.glb",
+    "model": "res://assets/models/props/skiffs/skiff_emberwing.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -357,14 +359,14 @@
   },
   "broom_moonveil": {
     "id": "broom_moonveil",
-    "name": "Moonveil Seraph",
+    "name": "Moonveil Sloop",
     "type": "mount",
-    "desc": "Pale moonwood threaded with starlight, a crystal tip and bristles spun from moonlight itself.",
+    "desc": "Pale moonwood threaded with starlight, a crystal at the prow and sails spun from moonlight itself.",
     "rarity": "legendary",
     "item_tier": 5,
     "required_level": 50,
     "mount_speed": 18.5,
-    "model": "res://assets/models/props/brooms/broom_moonveil.glb",
+    "model": "res://assets/models/props/skiffs/skiff_moonveil.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -429,7 +431,7 @@
     "id": "scroll_imbue",
     "name": "Rune of Imbuing",
     "type": "material",
-    "desc": "A scroll that weaves one new enchantment into a rod, robe or broom at Kestrin's. The more an item already holds, the likelier the weave slips.",
+    "desc": "A scroll that weaves one new enchantment into a rod, robe or skiff at Kestrin's. The more an item already holds, the likelier the weave slips.",
     "rarity": "rare",
     "icon": "scroll",
     "slots": []
@@ -438,7 +440,7 @@
     "id": "scroll_reweave",
     "name": "Rune of Reweaving",
     "type": "material",
-    "desc": "Unravels every enchantment on a rod, robe or broom and weaves the same number anew at Kestrin's.",
+    "desc": "Unravels every enchantment on a rod, robe or skiff and weaves the same number anew at Kestrin's.",
     "rarity": "rare",
     "icon": "scroll",
     "slots": []

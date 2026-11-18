@@ -27,7 +27,7 @@ const TIPS := [
 	"Shardglass Ward reflects projectiles back at their caster.",
 	"Saltwights are dry as tinder: Flame Wave burns them for double damage.",
 	"Hold the right mouse button to turn the camera; the wheel zooms.",
-	"Land on level ground before you dismount your broom.",
+	"Land on level ground before you dismount your skiff.",
 	"Dark Shards summon waves of creatures - bring friends.",
 	"Kestrin can refine your rod. Higher tiers glow brighter.",
 ]

@@ -467,6 +467,8 @@ func _update_mount(velocity: Vector3, delta: float) -> void:
 			_seat_broom()
 	body.position.y = mount_blend * (0.34 + sin(_flight_time * 3.0) * 0.05)
 	var speed_ratio := Vector2(velocity.x, velocity.z).length() / maxf(1.0, mounted_speed)
+	if broom != null and broom.visible:
+		broom.pose_vanes(mount_blend, speed_ratio, _flight_time)
 	body.rotation.x = lerpf(body.rotation.x, -0.2 * speed_ratio * mount_blend, minf(1.0, delta * 5.0))
 
 var _wand_hidden := false
@@ -480,7 +482,7 @@ func _seat_broom() -> void:
 	if hips < 0:
 		return
 	var hips_at := skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
-	broom.scale = Vector3.ONE / body.scale
+	broom.scale = Vector3.ONE / body.scale * lerpf(0.72, 1.0, smoothstep(0.0, 0.8, mount_blend))
 	broom.rotation = Vector3.ZERO
 	broom.position = body.to_local(hips_at) - broom.basis * broom.seat_local()
 

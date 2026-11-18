@@ -292,8 +292,8 @@ msgstr "{key:inventory} ile çantanı aç ve Komutan Teral Venn'in verdiği pele
 msgid "Walk up the castle approach and press {key:interact} in the doorway to go inside."
 msgstr "Şato yolundan yukarı yürü ve içeri girmek için kapıda {key:interact} tuşuna bas."
 
-msgid "Equip the broom, press {key:ride} to mount, {key:jump} to rise and {key:descend} to descend. Land on level ground and press {key:ride} to dismount."
-msgstr "Süpürgeyi kuşan; binmek için {key:ride}, yükselmek için {key:jump}, alçalmak için {key:descend} tuşuna bas. Düz zemine kon ve inmek için {key:ride} tuşuna bas."
+msgid "Equip the skiff, press {key:ride} to mount, {key:jump} to rise and {key:descend} to descend. Land on level ground and press {key:ride} to dismount."
+msgstr "Kayığı kuşan; binmek için {key:ride}, yükselmek için {key:jump}, alçalmak için {key:descend} tuşuna bas. Düz zemine kon ve inmek için {key:ride} tuşuna bas."
 
 msgid "Press {key:workshop} to open Kestrin's workshop, drag your rod onto the anvil and refine it with Forge Cinder and Oril."
 msgstr "Kestrin'in atölyesini açmak için {key:workshop} tuşuna bas, asanı örsün üzerine sürükle ve Demirci Közü ile Oril kullanarak yükselt."

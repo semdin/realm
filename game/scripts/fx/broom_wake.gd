@@ -1,11 +1,12 @@
 extends Node3D
 
-## The broom's wake: smoke shed at the bristle tip into world space, so it
-## streams out along the flight path, lags behind a turn and hangs where it
-## was left, drifting and fading (GPU particles, broom_wake.gdshader; drawn by
-## broom_wake_puff.gdshader with the broom mist flipbook). Every hero on a
-## broom wears one (BroomRig): the own player and the replicated ones alike,
-## since everything here is read from where the tip actually went:
+## The skiff's wake: warm wind-blown haze shed at the stern into world space,
+## so it streams out along the flight path, lags behind a turn and hangs where
+## it was left, drifting and fading (GPU particles, broom_wake.gdshader; drawn by
+## broom_wake_puff.gdshader with the mist flipbook), and embers falling from the
+## wind-stone under the keel. Every hero aboard wears one (BroomRig): the own
+## player and the replicated ones alike, since everything here is read from
+## where the stern actually went:
 ##   * at speed: more puffs, each a thin wisp drawn out along the flight, so
 ##     the wake is long and narrow; hovering: a few slow round puffs sinking
 ##     from the bristles;
@@ -13,7 +14,7 @@ extends Node3D
 ##     turns with the bank, so the wake hooks round outside the turn;
 ##   * a hard push off (a take-off, or speeding up from a hover): a ring of
 ##     puffs flung out round the tail and a flurry of glints;
-##   * glints (the wake's embers): a faint trickle at speed, more on a turn.
+##   * embers: a faint trickle from the keel, more at speed and on a turn.
 ## Getting off stops the shedding; what is in the air fades on its own.
 ## The CPU side is a handful of uniforms a frame (a rider beyond FAR none);
 ## the particles live on the GPU.
@@ -23,6 +24,8 @@ const PUFF := preload("res://assets/shaders/broom_wake_puff.gdshader")
 const SPARK := preload("res://assets/shaders/ember_spark.gdshader")
 const MIST_ATLAS := "res://assets/vfx/atlases/broom_mist_8x8_1k.png"
 const EROSION := "res://assets/vfx/tex/noise_erosion_512.png"
+## The haze carries the amber of the wind that lifts the skiff.
+const WAKE_TINT := Color(1.0, 0.91, 0.8, 1.0)
 
 ## Mist puffs alive at most (high preset; the preset's particle_scale thins
 ## them) and how long the longest of them lives.
@@ -52,8 +55,10 @@ static var _mist_pass: QuadMesh
 static var _glint_pass: QuadMesh
 static var _glint_ramp: GradientTexture1D
 
-## The bristle tip (BroomRig's TailSocket).
+## The stern (BroomRig's TailSocket) and the wind-stone under the keel, where
+## the embers start (its LiftSocket; the stern when there is none).
 var tail: Node3D
+var lift: Node3D
 var flying := false
 var _mist: GPUParticles3D
 var _glints: GPUParticles3D
@@ -113,6 +118,7 @@ static func _shared_passes() -> void:
 	puff.shader = PUFF
 	puff.set_shader_parameter(&"atlas", SpellEffect.asset(MIST_ATLAS))
 	puff.set_shader_parameter(&"erosion", SpellEffect.asset(EROSION))
+	puff.set_shader_parameter(&"tint", WAKE_TINT)
 	_mist_pass = QuadMesh.new()
 	_mist_pass.material = puff
 	var spark := ShaderMaterial.new()
@@ -182,6 +188,8 @@ func _process(delta: float) -> void:
 		return
 	var at := tail.global_position
 	global_position = at
+	if _glints != null and lift != null and is_instance_valid(lift) and lift.is_inside_tree():
+		_glints.global_position = lift.global_position
 	if not flying:
 		return
 	# a rider far off sheds nothing (a wake there is a few pixels) and costs
@@ -271,7 +279,7 @@ func _shed(motion: Vector3, delta: float) -> void:
 	g.set_shader_parameter(&"emit_motion", motion)
 	g.set_shader_parameter(&"travel", travel)
 	g.set_shader_parameter(&"carry", _velocity * 0.15 + Vector3.UP * 0.2)
-	g.set_shader_parameter(&"rate", (0.12 + banking * 0.5) * moving + (1.0 if _flurry > 0.0 else 0.0))
+	g.set_shader_parameter(&"rate", 0.28 + (0.2 + banking * 0.5) * moving + (1.0 if _flurry > 0.0 else 0.0))
 	# the wake's character: only when it changed enough to see
 	var look := Vector3(moving, banking, -_turn)
 	if look.distance_to(_look) < 0.03:

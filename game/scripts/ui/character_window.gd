@@ -27,7 +27,7 @@ const GROUPS := [
 	["Attack", [["attack_speed", "Attack speed"], ["cast_speed", "Casting speed"], ["pierce", "Piercing hit"], ["life_steal", "Life drain"]]],
 	["Defence", [["melee_res", "Melee resist"], ["projectile_res", "Projectile resist"], ["spell_res", "Spell resist"], ["block", "Block"], ["reflect", "Reflect"]]],
 	["Regeneration", [["hp_regen", "Health regen"], ["mana_regen", "Mana regen"]]],
-	["Movement and loot", [["move_speed", "Movement speed"], ["broom", "Broom speed"], ["exp_bonus", "Experience"], ["gold_bonus", "Oril found"]]],
+	["Movement and loot", [["move_speed", "Movement speed"], ["broom", "Skiff speed"], ["exp_bonus", "Experience"], ["gold_bonus", "Oril found"]]],
 ]
 # i18n-end
 ## Properties key -> derived stat (RealmSession.derived_stats).

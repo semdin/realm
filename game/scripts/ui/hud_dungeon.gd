@@ -435,7 +435,7 @@ static func reason_text(reason: String, who: String, value: int) -> String:
 		"dead":
 			return I18n.t("%s is dead.") % whom
 		"mounted":
-			return I18n.t("%s is on a broom.") % whom
+			return I18n.t("%s is on a skiff.") % whom
 		"in_duel":
 			return I18n.t("%s is in a duel.") % whom
 		"in_combat":
@@ -736,7 +736,7 @@ func _status_word(status: String) -> String:
 		"dead":
 			return tr("dead")
 		"mounted":
-			return tr("on a broom")
+			return tr("on a skiff")
 		"in_duel":
 			return tr("duelling")
 		"in_combat":

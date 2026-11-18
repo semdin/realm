@@ -17,7 +17,7 @@ class_name ItemTooltip
 const KIND_LABEL := {
 	"weapon": "One-Handed Rod",
 	"armor": "Body Armour",
-	"mount": "Broom mount",
+	"mount": "Skiff mount",
 	"consumable": "Consumable",
 	"material": "Crafting material",
 }
