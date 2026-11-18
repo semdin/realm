@@ -1661,6 +1661,7 @@ dependencies = [
  "argon2",
  "getrandom 0.4.3",
  "realm_data",
+ "realm_filter",
  "realm_http",
  "realm_proto",
  "realm_rules",

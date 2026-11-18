@@ -9,6 +9,7 @@ publish.workspace = true
 [dependencies]
 realm_proto = { workspace = true, features = ["client"] }
 realm_rules.workspace = true
+realm_filter.workspace = true
 realm_data.workspace = true
 realm_http.workspace = true
 serde.workspace = true

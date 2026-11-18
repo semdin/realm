@@ -6248,3 +6248,24 @@ msgstr "Şu an çok fazla oyuncu çevrim içi. Lütfen birkaç dakika sonra tekr
 
 msgid "The realm is going into maintenance."
 msgstr "Diyar bakıma giriyor."
+
+msgid "That account name is not available."
+msgstr "Bu hesap adı kullanılamaz."
+
+msgid "That name is not available."
+msgstr "Bu isim kullanılamaz."
+
+msgid "The realm is full. You are number %d in line."
+msgstr "Diyar dolu. Sıradaki yerin: %d."
+
+msgid "The realm is full. Please try again in a few minutes."
+msgstr "Diyar dolu. Lütfen birkaç dakika sonra tekrar dene."
+
+msgid "Leave the Line"
+msgstr "Sıradan Çık"
+
+msgid "Realm full: you may have to wait"
+msgstr "Diyar dolu: beklemen gerekebilir"
+
+msgid "The realm is having problems"
+msgstr "Diyarda sorun var"

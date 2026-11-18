@@ -6,7 +6,7 @@ use std::path::Path;
 
 use realm_proto::persist::{PersistMsg, PersistReply};
 use realm_rules::CharacterSheet;
-use realm_rules::names::name_key;
+use realm_rules::names::name_skeleton;
 use serde::{Deserialize, Serialize};
 
 use crate::App;
@@ -112,12 +112,12 @@ impl crate::State {
     }
 
     pub fn name_taken(&self, name: &str) -> bool {
-        let key = name_key(name);
+        let key = name_skeleton(name);
         self.ledger
             .accounts
             .iter()
             .flat_map(|a| a.characters.iter())
-            .any(|(_, n)| name_key(n) == key)
+            .any(|(_, n)| name_skeleton(n) == key)
     }
 }
 

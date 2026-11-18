@@ -40,6 +40,8 @@ const SERVICE_LINES := [
 	"Account names are 3-24 letters, digits, _ or -.",
 	"Passwords need 8 or more characters with letters and digits.",
 	"That account name is taken.",
+	"That account name is not available.",
+	"That name is not available.",
 	"Service unavailable.",
 	"Too many failed logins. Try again in a few minutes.",
 	"Invalid username or password.",
@@ -253,6 +255,17 @@ func _call(path: String, body: Dictionary, bearer: bool, method := HTTPClient.ME
 		var res := _answer(false, code, data, tr("The server is under maintenance. Please try again a little later."))
 		res["maintenance"] = true
 		return res
+	if String(data.get("code", "")) == "realm_full":
+		var position := int(data.get("position", 0))
+		var line := tr("The realm is full. You are number %d in line.") % position if position > 0 \
+			else tr("The realm is full. Please try again in a few minutes.")
+		var res := _answer(false, code, data, line)
+		res["queued"] = position > 0
+		res["retry_s"] = maxf(2.0, float(data.get("retry_s", 5)))
+		return res
+	if String(data.get("code", "")) == "banned":
+		var why := MaintenanceUI.sanction_text({"state": "ban", "reason": data.get("reason", ""), "until": data.get("until", 0)})
+		return _answer(false, code, data, "%s\n%s" % [tr("This account is banned"), why])
 	if code == 426 or String(data.get("code", "")) == "update_required":
 		var res := _answer(false, code, data, tr("Your game is out of date. Close it and open the launcher to update."))
 		res["update_required"] = true

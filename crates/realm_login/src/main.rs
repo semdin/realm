@@ -187,6 +187,13 @@ fn recovery_hash(code: &str) -> String {
     format!("sha256:{}", hex(hasher.finalize().as_slice()))
 }
 
+/// A new account's name may not pass for staff, or be a listed word.
+fn reserved_account(name: &str) -> Option<&'static str> {
+    realm_filter::shared()
+        .name_refused(name)
+        .then_some("That account name is not available.")
+}
+
 fn account_problem(name: &str) -> Option<&'static str> {
     let ok = (3..=24).contains(&name.len())
         && name
@@ -444,7 +451,10 @@ async fn register(app: &App, who: Caller, body: &Value) -> Reply {
     }
     let name = text(body, "username").trim().to_owned();
     let password = text(body, "password").to_owned();
-    if let Some(p) = account_problem(&name).or_else(|| password_problem(&password)) {
+    if let Some(p) = account_problem(&name)
+        .or_else(|| reserved_account(&name))
+        .or_else(|| password_problem(&password))
+    {
         return error(400, p);
     }
     if let Some(refused) = consent_problem(body) {
@@ -543,6 +553,9 @@ async fn login(app: &App, who: Caller, body: &Value) -> Reply {
             .failed(Secret::Login, who, &name);
         return error(401, BAD_LOGIN);
     };
+    if let Some(refused) = banned(app, found.id).await {
+        return refused;
+    }
     let Ok(t) = token() else {
         return error(503, "Service unavailable.");
     };
@@ -828,6 +841,9 @@ fn new_character_parts(houses: &[String], body: &Value) -> Result<NewCharacter, 
     if let Some(p) = name_problem(&name) {
         return Err(error(400, p));
     }
+    if realm_filter::shared().name_refused(&name) {
+        return Err(error(400, "That name is not available."));
+    }
     if !houses.contains(&house) {
         return Err(error(400, "Unknown house."));
     }
@@ -987,6 +1003,27 @@ fn create(state: &mut State, account: u64, body: &Value) -> Reply {
     )
 }
 
+/// The refusal for a banned account. A coordinator that cannot be asked
+/// refuses nobody here: `/api/play` needs it anyway.
+async fn banned(app: &App, account: u64) -> Option<Reply> {
+    let asked = json!({"account": account});
+    let (_, v) = app.admin("/admin/access", &asked, "POST").await?;
+    (v["banned"] == true).then(|| ban_reply(&v))
+}
+
+fn ban_reply(v: &Value) -> Reply {
+    (
+        403,
+        json!({
+            "success": false,
+            "error": "banned",
+            "code": "banned",
+            "reason": v["reason"],
+            "until": v["until"],
+        }),
+    )
+}
+
 async fn play(app: &App, account: u64, body: &Value) -> Reply {
     if let Some(refused) = outdated(body) {
         return refused;
@@ -1017,38 +1054,42 @@ async fn play(app: &App, account: u64, body: &Value) -> Reply {
     };
     let start = state.lock().await.start_map.clone();
     let map = map.unwrap_or_else(|| start.clone());
-    let Some((200, maps)) = app.admin("/admin/maps", &json!({}), "GET").await else {
-        return coded(
+    // The coordinator decides: bans, maintenance, the realm's and the map's
+    // room, the line. A map that is not open sends the character to the start.
+    let asked = json!({"account": account, "character": character, "map": map, "start": start});
+    let unreachable = || {
+        coded(
             503,
             "realm_unreachable",
             "The realm is not reachable right now.",
-        );
+        )
     };
-    if maps["accepting"] != true {
-        return coded(503, "maintenance", "maintenance");
+    let Some((200, answer)) = app.admin("/admin/admit", &asked, "POST").await else {
+        return unreachable();
+    };
+    if answer["ok"] != true {
+        return match answer["error"].as_str().unwrap_or("") {
+            "maintenance" => coded(503, "maintenance", "maintenance"),
+            "banned" => ban_reply(&answer),
+            "realm_full" => (
+                503,
+                json!({
+                    "success": false,
+                    "error": "realm_full",
+                    "code": "realm_full",
+                    "scope": answer["scope"],
+                    "position": answer["position"],
+                    "queue": answer["queue"],
+                    "retry_s": answer["retry_s"],
+                }),
+            ),
+            _ => unreachable(),
+        };
     }
-    let address_of = |name: &str| {
-        maps["maps"].as_array().and_then(|list| {
-            list.iter()
-                .find(|m| m["map"] == name)
-                .and_then(|m| m["address"].as_str().map(str::to_owned))
-        })
+    let (Some(map), Some(address)) = (answer["map"].as_str(), answer["address"].as_str()) else {
+        return unreachable();
     };
-    // A map that is not open (a dungeon whose server is down) sends the
-    // character to the start map.
-    let (map, address) = match address_of(&map) {
-        Some(a) => (map, a),
-        None => match address_of(&start) {
-            Some(a) => (start, a),
-            None => {
-                return coded(
-                    503,
-                    "realm_unreachable",
-                    "The realm is not reachable right now.",
-                );
-            }
-        },
-    };
+    let (map, address) = (map.to_owned(), address.to_owned());
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
@@ -1076,6 +1117,31 @@ async fn play(app: &App, account: u64, body: &Value) -> Reply {
 /// `maintenance` stay the launcher's contract (either way the realm is
 /// closed for now); `realm` tells a maintenance from a realm that cannot be
 /// reached. Answers are shared for a few seconds, however many clients ask.
+/// GET /api/health/realm, for an uptime monitor: 200 while players can get in
+/// or the realm is down on purpose, 503 when something is wrong. (/api/health
+/// only says this service is up: the deployment waits on that one.)
+async fn realm_health(app: &App) -> Reply {
+    let (_, status) = realm_status(app).await;
+    let realm = status["realm"].as_str().unwrap_or("unreachable");
+    let code = if matches!(realm, "open" | "full" | "maintenance") {
+        200
+    } else {
+        503
+    };
+    (
+        code,
+        json!({
+            "status": if code == 200 { "ok" } else { "problem" },
+            "service": "realm",
+            "realm": realm,
+            "players": status["players"],
+            "queue": status["queue"],
+            "alerts": status["alerts"],
+            "time": status["time"],
+        }),
+    )
+}
+
 async fn realm_status(app: &App) -> Reply {
     {
         let s = app.state.lock().await;
@@ -1085,19 +1151,48 @@ async fn realm_status(app: &App) -> Reply {
             return (200, value.clone());
         }
     }
-    let realm = match app.admin("/admin/maps", &json!({}), "GET").await {
-        Some((200, v)) if v["accepting"] == true => "open",
-        Some((200, _)) => "maintenance",
-        _ => "unreachable",
+    let health = match app.admin("/admin/health", &json!({}), "GET").await {
+        Some((200, v)) => v,
+        _ => Value::Null,
     };
-    let open = realm == "open";
+    let start = app.state.lock().await.start_map.clone();
+    let start_up = health["maps_up"]
+        .as_array()
+        .is_some_and(|m| m.iter().any(|x| x == start.as_str()));
+    let some_down = health["maps_down"]
+        .as_array()
+        .is_some_and(|m| !m.is_empty());
+    let full = health["queue"].as_u64().unwrap_or(0) > 0
+        || health["players"].as_u64().unwrap_or(0)
+            >= health["realm_cap"].as_u64().unwrap_or(u64::MAX);
+    let realm = if health.is_null() {
+        "unreachable"
+    } else if health["accepting"] != true {
+        "maintenance"
+    } else if !start_up || some_down || health["persist_ok"] != true {
+        "degraded"
+    } else if full {
+        "full"
+    } else {
+        "open"
+    };
+    let open = matches!(realm, "open" | "full" | "degraded");
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());
     let value = json!({
-        "state": if open { "ONLINE" } else { "MAINTENANCE" },
+        "state": match realm {
+            "degraded" => "DEGRADED",
+            _ if open => "ONLINE",
+            _ => "MAINTENANCE",
+        },
         "realm": realm,
         "maintenance": !open,
+        "reason": health["reason"],
+        "players": health["players"],
+        "capacity": health["realm_cap"],
+        "queue": health["queue"],
+        "alerts": health["alerts"].as_array().map_or(0, Vec::len),
         "message": if open { "Diyar açık." } else { "Diyar şu an bakımda." },
         // The launcher holds a release whose protocol range misses this.
         "protocol_version": realm_proto::PROTOCOL_VERSION.to_string(),
@@ -1112,6 +1207,7 @@ async fn route(app: &Arc<App>, who: Caller, req: Request) -> Reply {
     let path = req.path.as_str();
     match (req.method.as_str(), path) {
         ("GET", "/api/health") => (200, json!({"status": "ok", "service": "realm_login"})),
+        ("GET", "/api/health/realm") => realm_health(app).await,
         ("GET", "/api/status") => realm_status(app).await,
         ("POST", "/api/register") => register(app, who, &req.body).await,
         ("POST", "/api/login") => login(app, who, &req.body).await,

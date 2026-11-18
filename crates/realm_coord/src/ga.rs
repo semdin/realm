@@ -59,6 +59,7 @@ impl Book {
         };
         if changed {
             println!("[ga] {} account {account}", if on { "+" } else { "-" });
+            self.audit(None, "ga", json!({"account": account, "on": on}));
             let msg = self.gas_msg();
             for l in self.links.values() {
                 let _ = l.tx.send(msg.clone());

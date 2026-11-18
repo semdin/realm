@@ -942,7 +942,14 @@ func _on_confirm_create_pressed() -> void:
 
 ## ================================================================ enter, log out
 
+## Waiting for a place in a full realm; the button then leaves the line.
+var _in_line := false
+
 func _on_enter_world_pressed() -> void:
+	if _in_line:
+		_in_line = false
+		play_failed("")
+		return
 	if current_slot >= characters.size() or enter_btn.disabled:
 		return
 	var c: Dictionary = characters[current_slot]
@@ -950,8 +957,22 @@ func _on_enter_world_pressed() -> void:
 	enter_btn.text = tr("Loading World...")
 	set_status("")
 	var res: Dictionary = await api.play(int(c.get("id", 0)))
+	_in_line = bool(res.get("queued", false))
+	while _in_line and is_inside_tree():
+		enter_btn.disabled = false
+		enter_btn.text = tr("Leave the Line")
+		set_status(res.error, "warn")
+		await get_tree().create_timer(float(res["retry_s"])).timeout
+		if not _in_line or not is_inside_tree():
+			return
+		res = await api.play(int(c.get("id", 0)))
+		if not _in_line or not is_inside_tree():
+			return
+		_in_line = bool(res.get("queued", false))
 	if not is_inside_tree():
 		return
+	enter_btn.disabled = true
+	enter_btn.text = tr("Loading World...")
 	if not res.ok:
 		play_failed(res.error, res.maintenance)
 		return

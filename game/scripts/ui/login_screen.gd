@@ -642,6 +642,10 @@ func apply_status(res: Dictionary) -> void:
 			server_state = "MAINTENANCE"
 		"unreachable":
 			server_state = "REALM_DOWN"
+		"full":
+			server_state = "FULL"
+		"degraded":
+			server_state = "DEGRADED"
 		"":
 			server_state = "OFFLINE"
 		_:
@@ -673,6 +677,12 @@ func _render_server_state() -> void:
 		"REALM_DOWN":
 			colour = COLOR_WARN
 			text = tr("The realm is not reachable")
+		"FULL":
+			colour = COLOR_WARN
+			text = tr("Realm full: you may have to wait")
+		"DEGRADED":
+			colour = COLOR_WARN
+			text = tr("The realm is having problems")
 		"OUTDATED":
 			colour = COLOR_ERROR
 			text = tr("Update required")

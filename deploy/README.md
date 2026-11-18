@@ -132,3 +132,33 @@ watch it replay and promote (`select pg_is_in_recovery()` turns false), then
 start the services.
 
 `bash tools/ops/backup_check.sh` rehearses all of it in Docker (~20 s, CI).
+
+## Moderation, capacity and alerts
+
+Game admins (`REALM_GA_ACCOUNTS`) use chat; a name with spaces goes in quotes
+or with `_` for its spaces, durations are `30m`, `2h`, `7d` or `perm`:
+
+    /ga kick Name reason        /ga mute Name 2h reason     /ga unmute Name
+    /ga ban Name 7d reason      /ga ban Name perm reason    /ga unban Name
+
+The same on the admin surface (`x-service-token`, loopback):
+
+    POST /admin/sanction {"action":"ban","name":"Name","minutes":10080,"reason":"...","by":"you"}
+    GET  /admin/sanctions       GET /admin/reports       POST /admin/reports/close {"id":1}
+
+`minutes` 0 is permanent; `account` or `character` may stand in for `name`.
+Every action is a row in `audit` (kind `moderation`, `report`, `item`).
+
+`REALM_CAP` and `REALM_MAP_CAPS` set the limits (`realm.env.example`). A full
+realm answers `/api/play` with a place in a first-come line; game admins and
+players who already have a seat go straight in.
+
+For an external uptime monitor: `GET https://<login host>/api/health/realm` is
+200 while the realm is open, full or in planned maintenance and 503 when it is
+unreachable or degraded. `/api/health` only says the login service is up.
+
+Problems are single log lines from the coordinator (`map_down:<map>`,
+`map_slow:<map>`, `saves_failing:<map>`, `persist`, `realm_full`) and the map
+servers (`net:` refused connections):
+
+    journalctl -u 'realm-*' -g '\[alert\]' --since today
