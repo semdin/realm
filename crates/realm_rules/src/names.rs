@@ -1,36 +1,18 @@
-//! Character names: the old game's rule (services/cpp app.cpp
-//! character_name_problem), so the login service and anything else that
-//! names a character agree. 2-20 characters of letters (any script) and
-//! digits, at least one letter; spaces, hyphens and apostrophes only
-//! between letters; no punctuation, symbols, private-use, invisible or
-//! default-ignorable code points; the combining marks of U+0300-036F are
-//! refused (a decomposed name would spell an existing one past the unique
-//! check) and other combining marks never count as the visible letter.
-//! Uniqueness is case-insensitive (`name_key`).
+//! Character names, so the login service and anything else that names a
+//! character agree. 2-20 characters of Latin letters (Turkish ones included)
+//! and digits, at least one letter; spaces, hyphens and apostrophes only
+//! between letters. Other scripts are refused: their look-alikes would spell
+//! someone else's name. Uniqueness is case-insensitive (`name_key`), and no
+//! two players' names may look alike (`name_skeleton`).
 
 fn separator(c: char) -> bool {
     matches!(c, ' ' | '-' | '\'')
 }
 
-fn combining(cp: u32) -> bool {
-    matches!(cp,
-        0x0300..=0x036F | 0x0483..=0x0489 | 0x0591..=0x05C7 | 0x0610..=0x061A |
-        0x064B..=0x065F | 0x0670 | 0x06D6..=0x06ED | 0x1AB0..=0x1AFF |
-        0x1DC0..=0x1DFF | 0xFE20..=0xFE2F)
-}
-
-fn letter_or_digit(cp: u32) -> bool {
-    if matches!(cp, 0x30..=0x39 | 0x41..=0x5A | 0x61..=0x7A) {
-        return true;
-    }
-    if cp < 0xC0 || cp == 0xD7 || cp == 0xF7 {
-        return false;
-    }
-    !matches!(cp,
-        0x2000..=0x2BFF | 0x3000..=0x303F | 0xD800..=0xF8FF | 0xFE00..=0xFE0F |
-        0xFE30..=0xFE6F | 0xFF00..=0xFF0F | 0xFEFF | 0xFFF0..=0x10FFFF |
-        0x0300..=0x036F | 0x115F | 0x1160 | 0x3164 | 0xFFA0 | 0x061C | 0x1680 |
-        0x17B4 | 0x17B5 | 0x180B..=0x180F)
+fn letter_or_digit(c: char) -> bool {
+    let cp = c as u32;
+    c.is_ascii_alphanumeric()
+        || (matches!(cp, 0xC0..=0x17F) && cp != 0xD7 && cp != 0xF7 && c.is_alphabetic())
 }
 
 /// What is wrong with `name` as a character's name (None: nothing).
@@ -42,14 +24,13 @@ pub fn name_problem(name: &str) -> Option<&'static str> {
     }
     let mut visible = false;
     for (i, &c) in chars.iter().enumerate() {
-        let cp = c as u32;
         if separator(c) {
             if i == 0 || i + 1 == chars.len() || separator(chars[i - 1]) {
                 return Some("Spaces, hyphens and apostrophes may only stand between letters.");
             }
-        } else if !letter_or_digit(cp) {
+        } else if !letter_or_digit(c) {
             return Some("Names may only use letters, digits, spaces, hyphens and apostrophes.");
-        } else if !combining(cp) && !c.is_ascii_digit() {
+        } else if !c.is_ascii_digit() {
             visible = true;
         }
     }
@@ -63,4 +44,42 @@ pub fn name_problem(name: &str) -> Option<&'static str> {
 #[must_use]
 pub fn name_key(name: &str) -> String {
     name.trim().to_lowercase()
+}
+
+/// What a name looks like: case, accents and Turkish letters folded, letters
+/// and digits that pass for each other made one, separators gone. `Ali`,
+/// `ALİ`, `Alı` and `A1i` share a skeleton; two players' names may not.
+#[must_use]
+pub fn name_skeleton(name: &str) -> String {
+    name.trim()
+        .chars()
+        .filter(|c| !separator(*c))
+        .flat_map(char::to_lowercase)
+        .filter_map(|c| {
+            Some(match c {
+                // `İ` lowercases to `i` and a combining dot.
+                '\u{307}' => return None,
+                'l' | '1' | 'ı' | 'î' | 'ï' | 'í' | 'ì' | 'ī' | 'į' | 'ĩ' | 'ĭ' | 'ł' | 'ĺ'
+                | 'ļ' | 'ľ' | 'ŀ' => 'i',
+                '0' | 'ö' | 'ô' | 'ò' | 'ó' | 'õ' | 'ø' | 'ō' | 'ŏ' | 'ő' => 'o',
+                '5' | 'ş' | 'ś' | 'š' | 'ŝ' | 'ß' => 's',
+                '9' | 'ğ' | 'ĝ' | 'ġ' | 'ģ' => 'g',
+                'ç' | 'ć' | 'č' | 'ĉ' | 'ċ' => 'c',
+                'ü' | 'û' | 'ù' | 'ú' | 'ū' | 'ŭ' | 'ů' | 'ű' | 'ũ' | 'ų' => 'u',
+                '4' | 'â' | 'à' | 'á' | 'ä' | 'ã' | 'å' | 'ā' | 'ă' | 'ą' => 'a',
+                '3' | 'ê' | 'è' | 'é' | 'ë' | 'ē' | 'ĕ' | 'ė' | 'ę' | 'ě' => 'e',
+                'ñ' | 'ń' | 'ņ' | 'ň' => 'n',
+                'ý' | 'ÿ' | 'ŷ' => 'y',
+                'ž' | 'ź' | 'ż' => 'z',
+                'ð' | 'đ' | 'ď' => 'd',
+                'ř' | 'ŕ' | 'ŗ' => 'r',
+                'ť' | 'ţ' | 'ŧ' => 't',
+                'ķ' => 'k',
+                'ĥ' | 'ħ' => 'h',
+                'ĵ' => 'j',
+                'ŵ' => 'w',
+                other => other,
+            })
+        })
+        .collect()
 }

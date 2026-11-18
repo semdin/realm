@@ -1,0 +1,165 @@
+# The realm's word list. Server side only: realm_filter is never linked into
+# the client, so none of this ships to players. REALM_FILTER_EXTRA names a file
+# in the same format, kept on the host, for anything that should stay private.
+#
+#   word    the whole word        word*   starts with
+#   *word   ends with             *word*  anywhere in it
+#
+# An all-ASCII entry is compared after folding (case, Turkish letters, accents,
+# look-alike letters, digits and symbols used as letters, repeated letters). An
+# entry with Turkish letters is compared as written, so `piç` leaves `pic` alone
+# and `sıkıcı` never meets anything here. Turkish typed without its letters
+# collides with ordinary words (sikildim, sikinti, amin, got, pic): keep such
+# stems out, list only forms that have no innocent reading.
+
+[profanity]
+# Turkish
+amk
+amq
+aq
+amcik*
+amcuk*
+aminakoy*
+aminakod*
+aminakoc*
+aminagoy*
+amına*
+ananisik*
+ananizisik*
+avradini*
+dalyarak*
+gavat*
+gotlek*
+gotveren*
+gotoglan*
+götlek*
+göt
+götü
+götün*
+gotune*
+ibne
+ibneler*
+ibnelik*
+kahpe*
+orospu*
+orosbu*
+oruspu*
+pezevenk*
+piç
+piçler*
+puşt*
+sikeyim*
+sikerim*
+sikiyim*
+sikecek*
+sikecem*
+sikicem*
+siktigim*
+siktimin*
+siktir*
+sikik
+sikim
+sikimi*
+sikini*
+siçarim*
+sıçarım*
+sıçayım*
+tasak*
+taşak*
+yarak*
+yarrak*
+yarragim*
+yavsak*
+yavşak*
+# English
+*fuck*
+*fvck*
+shit
+shits
+shitty
+shithead*
+bullshit*
+*bitch*
+cunt
+cunts
+dick
+dicks
+dickhead*
+cock
+cocks
+cocksuck*
+pussy
+pussies
+asshole*
+arsehole*
+whore*
+slut
+sluts
+slutty
+wanker*
+fag
+fags
+faggot*
+*nigger*
+*nigga*
+retard
+retards
+retarded
+rape
+rapes
+raping
+rapist*
+kike
+kikes
+spic
+spics
+chink
+chinks
+tranny
+wetback*
+
+[reserved]
+# Staff and the game speaking, in both languages. Only names and account names
+# are held to these; a chat line may say "admin".
+ga
+gm
+gms
+gma
+mod
+mods
+adm
+sys
+dev
+devs
+staff
+root
+owner
+founder
+*admin*
+*moderat*
+*yonetici*
+*yönetici*
+*gamemaster*
+*oyunyonet*
+*oyunyönet*
+*oyunsorumlu*
+*developer*
+*gelistirici*
+*geliştirici*
+system*
+sistem*
+destek
+support
+yetkili*
+gorevli*
+görevli*
+kurucu*
+sunucu*
+server*
+duyuru*
+official*
+resmi
+thousandrealms*
+hitler*
+nazi
+nazis

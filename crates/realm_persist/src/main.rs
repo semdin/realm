@@ -45,12 +45,15 @@ use tokio_postgres::error::SqlState;
 use tokio_postgres::types::Json;
 use tokio_postgres::{Client, NoTls};
 
+mod moderation;
+
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 /// The schema, in order; each runs once, in a transaction.
 const MIGRATIONS: &[(i32, &str)] = &[
     (1, include_str!("../migrations/0001_realm.sql")),
     (2, include_str!("../migrations/0002_logins_boards_gas.sql")),
+    (5, include_str!("../migrations/0005_moderation.sql")),
 ];
 
 async fn connect(url: &str) -> AnyResult<Client> {
@@ -259,6 +262,7 @@ async fn create_character(
     if count >= i64::from(max) {
         return Err("full".to_owned());
     }
+    moderation::hold_name(&tx, &sheet.name).await?;
     let key = name_key(&sheet.name);
     if tx
         .query_opt(
@@ -321,6 +325,7 @@ async fn create_character(
         }
         return Err(text(&e));
     }
+    moderation::keep_skeleton(&tx, id, &sheet.name).await?;
     tx.commit().await.map_err(|e| text(&e))?;
     Ok(sheet.id)
 }
@@ -526,6 +531,15 @@ async fn stats(client: &Client, metrics: &Metrics) -> PersistStats {
 async fn answer(client: &mut Client, msg: PersistMsg, metrics: &Metrics) -> Option<PersistReply> {
     let reply = match msg {
         PersistMsg::Hello { .. } => return None,
+        msg @ (PersistMsg::LoadModeration { .. }
+        | PersistMsg::SetSanction { .. }
+        | PersistMsg::ClearSanction { .. }
+        | PersistMsg::SetBlock { .. }
+        | PersistMsg::AddReport { .. }
+        | PersistMsg::LoadReports { .. }
+        | PersistMsg::CloseReport { .. }
+        | PersistMsg::Audit { .. }
+        | PersistMsg::FindCharacter { .. }) => moderation::answer(client, msg).await?,
         PersistMsg::Stats { req } => PersistReply::Stats {
             req,
             result: Ok(stats(client, metrics).await),
@@ -697,6 +711,10 @@ async fn main() -> AnyResult<()> {
         .map_err(|_| "REALM_DATABASE_URL is not set (postgres://user:password@host:port/db)")?;
     let mut client = connect(&url).await?;
     migrate(&mut client).await?;
+    let named = moderation::backfill_skeletons(&client).await?;
+    if named > 0 {
+        println!("[persist] look-alike keys made for {named} character(s)");
+    }
     drop(client);
     let listener = TcpListener::bind(o.bind).await?;
     println!("[persist] listening on {}", o.bind);

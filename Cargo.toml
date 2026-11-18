@@ -16,6 +16,7 @@ realm_data = { path = "crates/realm_data" }
 realm_netclient = { path = "crates/realm_netclient" }
 realm_rules = { path = "crates/realm_rules" }
 realm_http = { path = "crates/realm_http" }
+realm_filter = { path = "crates/realm_filter" }
 serde = { version = "1.0.229", features = ["derive"] }
 serde_json = { version = "1.0.154", features = ["preserve_order"] }
 toml = "1"

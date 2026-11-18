@@ -67,6 +67,52 @@ pub struct PersistStats {
     pub database_error: String,
 }
 
+/// What stands against an account: `kind` "ban" or "mute", `until` the Unix
+/// second it ends (0: permanent).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SanctionRow {
+    pub account: u64,
+    pub kind: String,
+    pub until: u64,
+    pub reason: String,
+    pub by: String,
+    pub at: u64,
+}
+
+/// `account` does not want to hear from `blocked` (known as `name`).
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BlockRow {
+    pub account: u64,
+    pub blocked: u64,
+    pub name: String,
+}
+
+/// A player's report. `context` is a JSON array of the chat around it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReportRow {
+    pub id: u64,
+    pub at: u64,
+    pub reporter_account: u64,
+    pub reporter_character: u64,
+    pub reporter_name: String,
+    pub target_account: u64,
+    pub target_character: u64,
+    pub target_name: String,
+    pub category: String,
+    pub text: String,
+    pub map: String,
+    pub context: String,
+    pub status: String,
+}
+
+/// A player's character and its account.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CharacterRef {
+    pub character: u64,
+    pub account: u64,
+    pub name: String,
+}
+
 /// Caller -> persistence service.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PersistMsg {
@@ -114,6 +160,41 @@ pub enum PersistMsg {
     SetGa { req: u64, name: String, on: bool },
     /// The service's numbers -> `Stats`.
     Stats { req: u64 },
+    /// Live sanctions and every block -> `Moderation`.
+    LoadModeration { req: u64 },
+    /// Keep a sanction (one per account and kind) -> `Done`.
+    SetSanction { req: u64, row: SanctionRow },
+    /// Lift a sanction -> `Done`.
+    ClearSanction {
+        req: u64,
+        account: u64,
+        kind: String,
+    },
+    /// Keep or drop a block -> `Done`.
+    SetBlock { req: u64, row: BlockRow, on: bool },
+    /// Keep a report -> `Done`.
+    AddReport { req: u64, row: ReportRow },
+    /// The newest reports -> `Reports`.
+    LoadReports {
+        req: u64,
+        limit: u32,
+        open_only: bool,
+    },
+    /// Set a report's status -> `Done`.
+    CloseReport {
+        req: u64,
+        id: u64,
+        status: String,
+    },
+    /// One line of the audit trail (`detail`: a JSON object) -> `Done`.
+    Audit {
+        req: u64,
+        character: Option<u64>,
+        kind: String,
+        detail: String,
+    },
+    /// The player's character called `name`, whatever the case -> `Character`.
+    FindCharacter { req: u64, name: String },
 }
 
 /// Persistence service -> caller.
@@ -170,6 +251,18 @@ pub enum PersistReply {
         req: u64,
         result: Result<PersistStats, String>,
     },
+    Moderation {
+        req: u64,
+        result: Result<(Vec<SanctionRow>, Vec<BlockRow>), String>,
+    },
+    Reports {
+        req: u64,
+        result: Result<Vec<ReportRow>, String>,
+    },
+    Character {
+        req: u64,
+        result: Result<Option<CharacterRef>, String>,
+    },
 }
 
 impl PersistMsg {
@@ -188,6 +281,15 @@ impl PersistMsg {
             | Self::SaveBoard { req, .. }
             | Self::LoadGas { req }
             | Self::SetGa { req, .. }
+            | Self::LoadModeration { req }
+            | Self::SetSanction { req, .. }
+            | Self::ClearSanction { req, .. }
+            | Self::SetBlock { req, .. }
+            | Self::AddReport { req, .. }
+            | Self::LoadReports { req, .. }
+            | Self::CloseReport { req, .. }
+            | Self::Audit { req, .. }
+            | Self::FindCharacter { req, .. }
             | Self::Stats { req } => *req,
         }
     }
@@ -213,6 +315,9 @@ impl PersistReply {
             Self::Boards { result, .. } => of(result),
             Self::Gas { result, .. } => of(result),
             Self::Stats { result, .. } => of(result),
+            Self::Moderation { result, .. } => of(result),
+            Self::Reports { result, .. } => of(result),
+            Self::Character { result, .. } => of(result),
         }
     }
 
@@ -228,6 +333,9 @@ impl PersistReply {
             | Self::Owner { req, .. }
             | Self::Boards { req, .. }
             | Self::Gas { req, .. }
+            | Self::Moderation { req, .. }
+            | Self::Reports { req, .. }
+            | Self::Character { req, .. }
             | Self::Stats { req, .. } => *req,
         }
     }

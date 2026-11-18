@@ -1,0 +1,11 @@
+[package]
+name = "realm_filter"
+description = "The realm's name and chat word rules; server side only, never linked into the client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
