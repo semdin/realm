@@ -34,7 +34,7 @@ const TIPS := [
 # i18n-end
 
 ## No word from the loading for this long: the way back appears.
-const STUCK_SECONDS := 45.0
+const STUCK_SECONDS := 60.0
 
 var _root: Control
 var _stuck_row: Control

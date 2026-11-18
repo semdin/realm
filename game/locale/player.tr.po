@@ -100,8 +100,8 @@ msgstr "Bir eğitim kuklasına ya da yaratığa tıkla veya yakındakiler arası
 msgid "Click your target to cast at it. Hold the button or the key to keep casting."
 msgstr "Büyü yapmak için hedefine tıkla. Sürdürmek için düğmeyi ya da tuşu basılı tut."
 
-msgid "Click a spell on the bar to learn it with a skill point, then press its key to cast. The skill book holds the rest."
-msgstr "Yetenek puanınla öğrenmek için çubuktaki bir büyüye tıkla, sonra yapmak için tuşuna bas. Gerisi yetenek kitabında."
+msgid "Click a spell on the bar to learn it with a skill point, then press its key to cast. The Skills window holds the rest."
+msgstr "Beceri puanınla öğrenmek için çubuktaki bir büyüye tıkla, sonra yapmak için tuşuna bas. Gerisi Beceriler penceresinde."
 
 msgid "Find your way"
 msgstr "Yolunu bul"

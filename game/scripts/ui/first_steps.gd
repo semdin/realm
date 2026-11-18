@@ -182,7 +182,7 @@ func _spec(id: String) -> Dictionary:
 				"keys": ["basic_attack"], "mouse": [tr("Left click")]}
 		"spells":
 			return {"title": tr("Spells"),
-				"body": tr("Click a spell on the bar to learn it with a skill point, then press its key to cast. The skill book holds the rest."),
+				"body": tr("Click a spell on the bar to learn it with a skill point, then press its key to cast. The Skills window holds the rest."),
 				"keys": ["spell_1", "spell_2", "skills"]}
 		"map":
 			return {"title": tr("Find your way"), "body": tr("Open the world map. Click it to set a waypoint."),

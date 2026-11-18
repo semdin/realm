@@ -479,6 +479,9 @@ static func auto_ui_scale(window: Vector2i, system: float) -> float:
 ## What the system scales the window's screen by. macOS, Windows and Wayland
 ## report it; elsewhere the DPI says, when it is clearly a high-density screen.
 static func screen_scale() -> float:
+	for arg: String in OS.get_cmdline_user_args():
+		if arg.begins_with("--assume-screen-scale="):   # checks
+			return float(arg.get_slice("=", 1))
 	var screen := DisplayServer.window_get_current_screen()
 	var reported := DisplayServer.screen_get_scale(screen)
 	if reported > 1.0:
