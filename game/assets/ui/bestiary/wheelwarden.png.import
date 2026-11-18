@@ -3,15 +3,15 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://biurjvebjvkd2"
-path="res://.godot/imported/threehead.png-2453760268c1c2358a641e411e62f80e.ctex"
+path="res://.godot/imported/wheelwarden.png-e1985683c52d2ebd9e0ed01511aa7c4c.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/ui/bestiary/threehead.png"
-dest_files=["res://.godot/imported/threehead.png-2453760268c1c2358a641e411e62f80e.ctex"]
+source_file="res://assets/ui/bestiary/wheelwarden.png"
+dest_files=["res://.godot/imported/wheelwarden.png-e1985683c52d2ebd9e0ed01511aa7c4c.ctex"]
 
 [params]
 

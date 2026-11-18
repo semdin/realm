@@ -21,7 +21,7 @@ pack as superseded. Do not delete those records automatically.
 Tool: fal.ai `fal-ai/nano-banana-2.1` (1K, 1:1), same text-prompt template as the
 spell and potion icons. No third-party image was used as an input.
 
-* `icon_menu_{inventory,kestrin,mount,journal,map,settings}.png` - full-bleed
+* `icon_menu_{inventory,mount,journal,map,settings}.png` - full-bleed
   square paintings for the bottom-right menu cells, resized to 256 px.
 * `icon_minimap_{player,mob,boss,npc,monolith,zoom_in,zoom_out}.png` - single
   objects generated on flat white, cut out by `tools/ui/cutout_icons.py`
@@ -70,15 +70,6 @@ kept in `art/wands/concepts/`); no third-party image was used.
   sources in `art/wands/icons_src/`), 512 px. The in-game wand meshes themselves are
   procedural (`art/wands/scripts/build_wands.py`).
 
-## 2026-10-16 additions (fal.ai)
-
-Tool: fal.ai `fal-ai/nano-banana-2.1` (1K, 1:1), text prompt only (no input image).
-
-* `icon_light_of_ithrel.png` - Light of Ithrel spell icon, same full-bleed spell-icon template
-  (silver spectral stag), resized to 512 px.
-* `icon_status_despair.png` - "Despair" debuff (pallid kiss / aura), generated on flat
-  white and cut out by `tools/ui/cutout_icons.py` (item_ mode, 512 px).
-
 ## 2026-10-18 additions (fal.ai) - accessory tiers T2-T5
 
 Tool: fal.ai `fal-ai/nano-banana-2.1` (1K, 1:1), text prompt only (no input image):
@@ -97,26 +88,70 @@ of Warcraft item icons ...".
 Tool: fal.ai `google/nano-banana-2.1` (1K, 1:1), the same full-bleed menu-icon text
 template as the 2026-10-13 menu set, text prompt only (no input image).
 
-* `icon_menu_{skills,bestiary,character,quests}.png` - full-bleed square paintings for
-  the bottom-right menu cells (wand + spellbook, monster book with claw marks, hooded
-  wizard before a gold crest, sealed quest scroll), resized to 256 px by
+* `icon_menu_{skills,character,quests}.png` - full-bleed square paintings for
+  the bottom-right menu cells (wand + spellbook, hooded wizard before a gold crest,
+  sealed quest scroll), resized to 256 px by
   `tools/ui/cutout_icons.py` (`menu_<id>.png` sources in `art/ui_menu_icons_2026-10-18/src/`).
 
 * `icon_queen_seal.png`, `icon_mat_weaver_venom.png`, `icon_mat_spider_silk.png` (2026-10-19,
   Blackweb Caverns materials) - `openai/gpt-image-2.5/sunburst/text-to-image` 1024 px with the
   standard full-bleed item-icon template (obsidian spider seal in silk; venom vial with a fang;
   spool of pearly silk), resized to 512 px. Sources in `art/spider_caverns/icons/`.
-* `icon_hearth_dust.png` (2026-10-19, Hearth Network) - same sunburst full-bleed template (brass pot of
-  glittering green powder puffing into green flames), 512 px. Source `art/spider_caverns/icons/`.
-* `icon_waylink_boot.png` (2026-10-19, Waylink) - same sunburst full-bleed template (battered leather boot
-  in a swirling blue aura), 512 px. Source `art/spider_caverns/icons/`.
-* `icon_ultimate.png` (2026-10-24, Starfall; replaces the fire-lion House Ultimate art) - `fal-ai/nano-banana-2.1`
+* `icon_ultimate.png` (2026-10-24, Starfall) - `fal-ai/nano-banana-2.1`
   full-bleed icon template (white-gold falling star over a violet spiral ring of starlight), 512 px.
   Source `art/vfx/stella_ruina/icon_b.png`.
 * `icon_frost_grip.png` (2026-10-24, Frost_Grip) - `openai/gpt-image-2.5/sunburst/edit` with `icon_stun_bolt.png` and
   `icon_ultimate.png` as style references (pale-blue ice crystal bursting into a ring of frost shards
   on deep blue), resized from 1024 to 512 px. Source `art/vfx/frost_grip/icon_a.png`.
-* `icon_dungeon_seal.png`, `icon_key_trial.png`, `icon_key_sealed_wing.png` (2026-10-30, dungeon
-  rewards Z3) - `openai/gpt-image-2.5/sunburst/edit` with `icon_queen_seal.png` as the style reference
-  (red wax seal with a portcullis on stone; iron key with an hourglass bow on flagstone; brass key with a
-  three-headed-dog bow on red carpet), resized from 1024 to 512 px. Sources `art/dungeons/icons/`.
+* `icon_dungeon_seal.png` (2026-10-30, dungeon rewards Z3) - `openai/gpt-image-2.5/sunburst/edit` with
+  `icon_queen_seal.png` as the style reference (red wax seal with a portcullis on stone), resized from
+  1024 to 512 px. Source `art/dungeons/icons/`.
+
+## 2026-11-19 additions (fal.ai) - Seedream 5.5
+
+Tool: fal.ai `bytedance/seedream/v5.5/edit` (Seedream 5.5, 1024 px, 1:1), a text prompt plus one of
+the project's own images as the style reference (`icon_dungeon_seal.png`, `icon_flame_wave.png`,
+`icon_boots_runebound.png` or `bestiary/armour_guard.png`). No third-party image was used as an input.
+Cut-out files use the model's transparent-background output, trimmed and centred. Everything was
+resized with Lanczos. For a file listed here, this entry is its current provenance.
+
+Full-bleed icons, 512 px:
+
+* `icon_light_of_ithrel.png` - Dawnbreak: white-gold dawn light fanning through grey mist.
+* `icon_stun_bolt.png` - Starnail: a splinter of star crystal driven down into cracked stone.
+* `icon_disarm.png` - Hushing Gale: a silver-blue gust spiralling out of an open gloved palm.
+* `icon_ward_shield.png` - Shardglass Ward: a faceted wall of pale crystal catching a fiery bolt.
+* `icon_hearth_dust.png` - Waycoal: a lump of coal with glowing amber cracks held in iron tongs.
+* `icon_waylink_boot.png` - Waystake: a forged iron stake with a knotted blue-grey cord, driven into
+  earth with a faint cold glow.
+* `icon_key_sealed_wing.png` - Brine Vault Key: a corroded brass key with a sluice-wheel bow and salt
+  crust on wet dark stone.
+* `icon_key_trial.png` - Trial Hall Key: a heavy black iron key with a riveted square bow on flagstone.
+
+Full-bleed menu icons, 256 px:
+
+* `icon_menu_bestiary.png` - a leather field ledger with iron corners and a beast talon as its clasp.
+* `icon_menu_kestrin.png` - a hammer striking a white-hot bar on an anvil.
+
+Cut-out icons, 512 px:
+
+* `icon_mat_phoenix_ash.png` - Forge Cinder: glowing cinders on a small iron shovel.
+* `icon_mat_dragon_heartstring.png` - Deepvein Ore: a lump of dark ore split by a bright vein.
+* `icon_mat_night_steed_hair.png` - Starfall Filings: silver filings in a leather-lined dish.
+* `icon_mat_elder_core.png` - Keystone Ingot: a wedge-shaped ingot of dark star-metal.
+* `icon_broom_windcutter_2000.png` - Reedrunner: bound lake reed on a bent pale ash haft.
+* `icon_broom_skysplitter.png` - Thunderhaft: dark storm-seasoned oak with an iron keel.
+* `icon_wand_hawthorn.png` - Thornbark Rod: a thorny bark rod wrapped in salt-cured cord.
+* `icon_wand_ithrel_replica.png` - Starcore Rod: a forged iron bar with glowing seams.
+* `icon_status_despair.png` - Numbed: frost creeping over a clenched hand.
+
+Bestiary portraits, `assets/ui/bestiary/`, cut-out, 320 px:
+
+* `pallid.png` - Mistguard: empty salt-bleached plate armour leaking mist.
+* `wheelwarden.png` - Wheelwarden: a brass and iron colossus with a great gear wheel, in flood water.
+* `goblin_teller.png` - Goblin Scavenger: a goblin in patched leathers hauling a sack of scrap.
+* `goblin_guard.png` - Goblin Bruiser: a goblin in scrap-metal armour with an improvised club.
+* `fidgetling.png` - Galeling: a grey-violet wind sprite trailing into a curl of air.
+* `drowned_one.png` - Saltwight: a dried corpse crusted with lake salt on a salt shore.
+* `drowned_warden.png` - Brine Warden: a salt-crusted dried corpse in rusted mail with a spear.
+* `strangling_vine.png` - Brinebriar: a thorny salt-crusted briar growing through a broken floor.
