@@ -216,6 +216,10 @@ static func apply_viewport(viewport: Viewport) -> void:
 ## most RENDER_PIXEL_BUDGET pixels, so a Retina or 4K screen renders about
 ## what a 1080p one does; the rest is upscaled and the UI stays native.
 static func render_scale(pixels: Vector2i) -> float:
+	# the player's own choice (Settings > Graphics) is taken as it is
+	var chosen := GameSettings.instance().chosen_render_scale()
+	if chosen > 0.0:
+		return chosen
 	var scale := float(settings()["render_scale"])
 	var count := float(pixels.x) * float(pixels.y)
 	if count > RENDER_PIXEL_BUDGET:

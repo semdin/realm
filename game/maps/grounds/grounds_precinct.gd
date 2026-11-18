@@ -226,7 +226,7 @@ static func _trial_hall(root: Node3D, mats: Dictionary) -> void:
 	holder.add_child(light)
 	# on the porch's pediment, over the gate (not up in the sky)
 	# the first dungeon's door, a goal of the first chapter: read a little farther
-	Mats.label(holder, I18n.t("Trial Hall"), I18n.t("Press F at the door"), Vector3(0, 7.4, 4.4), 120.0)
+	Mats.label(holder, I18n.t("Trial Hall"), I18n.t("Press {key:interact} at the door"), Vector3(0, 7.4, 4.4), 120.0)
 
 
 ## The veil's noise: soft, seamless, domain-warped value noise.

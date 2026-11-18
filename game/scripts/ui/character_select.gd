@@ -30,6 +30,7 @@ class_name CharacterSelect
 ## fetched when the screen opens; nothing is cached on disk.
 
 signal logged_out
+signal settings_requested
 signal account_deleted
 signal play_granted(map: String, address: String, ticket: String)
 
@@ -353,6 +354,11 @@ func _build_ui() -> void:
 	help_btn.custom_minimum_size = Vector2(170, 40)
 	help_btn.pressed.connect(AccountDialogs.open_support)
 	top.add_child(help_btn)
+	var settings_btn := HudKit.button(tr("Settings"), 15)
+	settings_btn.name = "SettingsButton"
+	settings_btn.custom_minimum_size = Vector2(120, 40)
+	settings_btn.pressed.connect(func(): settings_requested.emit())
+	top.add_child(settings_btn)
 	logout_btn = HudKit.button(tr("Log Out"), 15)
 	logout_btn.name = "LogoutButton"
 	logout_btn.custom_minimum_size = Vector2(130, 40)

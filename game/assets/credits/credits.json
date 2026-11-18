@@ -1,0 +1,154 @@
+{
+  "_about": "The credits: what the game's Credits page shows and tools/release/gen_notices.py writes into THIRD_PARTY_NOTICES.txt. `what` and the titles are English message ids (locale/player.tr.po). Say what was used and under which terms; a right that could not be checked is not claimed here (see ../ASSET_CREDITS.md).",
+  "ai_notice": "Much of this game was made with AI tools: most of its icons, 3D models, visual effects, sound, music and program code began as AI output, and were then chosen, edited and put together by its developer. The tools are listed below.",
+  "sections": [
+    {
+      "title": "Engine and code",
+      "entries": [
+        {
+          "name": "Godot Engine", "by": "© 2014-present Godot Engine contributors, © 2007-2014 Juan Linietsky, Ariel Manzur",
+          "licence": "MIT", "url": "https://godotengine.org",
+          "what": "Game engine. Its licence and third-party notices are in the full licence texts."
+        },
+        {
+          "name": "Terrain3D", "by": "© 2023-2026 Cory Petkovsek, Roope Palmroos, and Contributors",
+          "licence": "MIT", "url": "https://github.com/TokisanGames/Terrain3D",
+          "what": "The terrain of the outdoor maps."
+        },
+        {
+          "name": "godot-cpp", "by": "© 2017-present Godot Engine contributors",
+          "licence": "MIT", "url": "https://github.com/godotengine/godot-cpp",
+          "what": "Built into the Terrain3D library."
+        },
+        {
+          "name": "godot-rust", "by": "godot-rust developers", "licence": "MPL 2.0",
+          "url": "https://github.com/godot-rust/gdext", "licence_url": "https://mozilla.org/MPL/2.0/",
+          "what": "The bridge between the game's Rust code and the engine. The other Rust libraries are listed below."
+        },
+        {
+          "name": "Human Shaders", "by": "© 2025 MatMADNESS",
+          "licence": "CC BY 4.0 · MIT", "url": "https://github.com/matmadness/HumanShaders",
+          "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+          "what": "Skin pore and iris textures (CC BY 4.0, unchanged); the skin lighting follows its skin shader (MIT)."
+        }
+      ]
+    },
+    {
+      "title": "Fonts",
+      "entries": [
+        {
+          "name": "Literata", "by": "© 2017 The Literata Project Authors",
+          "licence": "SIL OFL 1.1", "url": "https://github.com/googlefonts/literata",
+          "what": "Interface lettering. Its licence is in the full licence texts."
+        }
+      ]
+    },
+    {
+      "title": "Assets used with attribution",
+      "entries": [
+        {
+          "name": "NVIDIA SimReady Assets", "by": "© NVIDIA Corporation", "licence": "CC BY 4.0",
+          "url": "https://huggingface.co/datasets/nvidia/simready-assets",
+          "licence_url": "https://creativecommons.org/licenses/by/4.0/",
+          "what": "Food, plates and kitchenware on the castle's tables. Changed: decimated, normal maps re-baked, textures packed into one atlas, arranged into table settings."
+        }
+      ]
+    },
+    {
+      "title": "Free assets (CC0)",
+      "entries": [
+        {
+          "name": "Quaternius", "by": "", "licence": "CC0 1.0", "url": "https://quaternius.com",
+          "what": "Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes, hair and many animations."
+        },
+        {
+          "name": "KayKit", "by": "Kay Lousberg", "licence": "CC0 1.0", "url": "https://kaylousberg.com",
+          "what": "Adventurer characters, dungeon pieces and props."
+        },
+        {
+          "name": "Poly Haven", "by": "", "licence": "CC0 1.0", "url": "https://polyhaven.com",
+          "what": "Stone, wood, roof and plaster textures, trees, plants and rocks."
+        },
+        {
+          "name": "ambientCG (CC0 Textures)", "by": "Lennart Demes", "licence": "CC0 1.0", "url": "https://ambientcg.com",
+          "what": "Ground, rock, sand and gravel textures of the terrain."
+        },
+        {
+          "name": "Particle Pack", "by": "Kenney", "licence": "CC0 1.0", "url": "https://kenney.nl",
+          "what": "Flame and spark sprites."
+        }
+      ]
+    },
+    {
+      "title": "Sound",
+      "entries": [
+        {
+          "name": "Sonniss GDC Game Audio Bundle", "by": "Sonniss", "licence": "", "url": "https://sonniss.com/gameaudiogdc",
+          "what": "Recorded sound effects."
+        },
+        {
+          "name": "Stable Audio", "by": "Powered by Stability AI", "licence": "Stability AI Community License",
+          "url": "https://stability.ai/community-license-agreement",
+          "what": "AI-generated sound effects and music."
+        },
+        {
+          "name": "ElevenLabs", "by": "through fal.ai", "licence": "", "url": "https://elevenlabs.io",
+          "what": "AI-generated sound effects and music."
+        }
+      ]
+    },
+    {
+      "title": "AI tools",
+      "entries": [
+        {
+          "name": "Tencent Hunyuan3D, Meshy", "by": "", "licence": "", "url": "",
+          "what": "AI-generated 3D models of characters, creatures, items and props, and creature rigs."
+        },
+        {
+          "name": "OpenAI image models, Google Nano Banana, ByteDance Seedream", "by": "", "licence": "", "url": "",
+          "what": "AI-generated icons, portraits, crests, concept images and textures."
+        },
+        {
+          "name": "Alibaba Wan", "by": "through fal.ai", "licence": "", "url": "",
+          "what": "AI-generated clips behind the spell effects."
+        },
+        {
+          "name": "Tencent Hunyuan Motion", "by": "", "licence": "", "url": "",
+          "what": "AI-generated spell-casting motion."
+        },
+        {
+          "name": "Anthropic Claude and other coding assistants", "by": "", "licence": "", "url": "",
+          "what": "Much of the game's program code, tools and text."
+        }
+      ]
+    },
+    {
+      "title": "Made with",
+      "entries": [
+        {
+          "name": "Blender", "by": "Blender Foundation", "licence": "", "url": "https://www.blender.org",
+          "what": "Modelling, rigging and baking."
+        },
+        {
+          "name": "Mixamo", "by": "Adobe", "licence": "", "url": "https://www.mixamo.com",
+          "what": "Walking, running and jumping animations."
+        }
+      ]
+    }
+  ],
+  "simready_packages": [
+    "food_dairy_cheese_i01", "food_egg_chicken_a01", "food_egg_chicken_b11", "food_fish_rainbowTrout_a01",
+    "food_fish_steelheadSalmon_a01", "food_prepared_bread_brioche_a01", "food_prepared_bread_darkRye_a01",
+    "food_prepared_bread_farmerSourdough_a01", "food_prepared_bread_raisinRoll_a01", "food_prepared_bread_scoredSpiral_a01",
+    "food_prepared_bread_sesameBreadRoll_a01", "food_prepared_bread_sourdoughBatard_a01", "food_prepared_cake_c01",
+    "food_prepared_steak_c01", "food_prepared_steak_h01", "food_produce_apple_c01", "food_produce_apple_grannySmith_a01",
+    "food_produce_apple_redDelicous_a01", "food_produce_freshCarrot_a04", "food_produce_garlic_bulb_a01",
+    "food_produce_grape_a01", "food_produce_mushroom_d01", "food_produce_mushroom_f01", "food_produce_onion_a01",
+    "food_produce_onion_b01", "food_produce_orange_e01", "food_produce_peach_a01", "food_produce_pear_a01",
+    "food_produce_pear_h01", "food_produce_potato_a01", "food_produce_potato_g01", "food_produce_potato_k01",
+    "food_produce_squash_a01", "food_produce_squash_f01", "kitchenware_bowl_c01", "kitchenware_bowl_i01",
+    "kitchenware_bowl_j01", "kitchenware_bowl_k01", "kitchenware_cuttingBoard_c01", "kitchenware_cuttingBoard_e01",
+    "kitchenware_fork_f01", "kitchenware_jug_c01", "kitchenware_jug_f01", "kitchenware_jug_h01", "kitchenware_knife_b01",
+    "kitchenware_pan_g01", "kitchenware_rollingPin_a01", "kitchenware_spoon_k01", "utensil_spoon_wooden_a01"
+  ]
+}

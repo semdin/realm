@@ -5,7 +5,7 @@ extends Control
 ## head, robe on the torso, boots at the feet, wand / hands / ring I left,
 ## focus / neck / ring II right, broom bottom right; an empty slot shows the
 ## faint outline of its kind and its name), the satchel below in pages of
-## 5 x 8 (I, II, III - pages beyond ItemRules.BAG_SLOTS stay locked), the
+## 5 x 8 (tabs I, II, III only for pages ItemRules.BAG_SLOTS opens), the
 ## purse at the bottom. Dropping an item on a page tab moves it to that page;
 ## holding a dragged item over a tab turns to it. The merchant opens beside it (left) for selling: drag a bag item
 ## onto the merchant, or right-click it while the merchant is open, then
@@ -184,8 +184,11 @@ func _build_inventory() -> void:
 	for page in PAGES:
 		var tab := PageTab.new(self, page)
 		tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		tab.visible = page < pages_open()
 		tabs.add_child(tab)
 		_page_tabs.append(tab)
+	# one page needs no tabs
+	tabs.visible = pages_open() > 1
 	var tray := PanelContainer.new()
 	var tray_box := StyleBoxFlat.new()
 	tray_box.bg_color = Color("05080e")
@@ -1136,30 +1139,51 @@ func _process(_delta: float) -> void:
 func _layout() -> void:
 	if _window == null: return
 	var canvas := get_viewport().get_visible_rect().size
-	# Everything but the cells, then the cells: the doll scales with the tray
-	# width (5 cells + gaps + padding), so it grows with the cell size too.
-	var fixed := RIBBON_TOP + 16.0 + 10.0 * 2 + PageTab.HEIGHT + 12.0 + (ROWS - 1) * CELL_GAP + 30.0
-	var per_px := ROWS + DOLL_H * COLUMNS / DOLL_W
-	var spare := canvas.y - 24.0 - fixed - DOLL_H * ((COLUMNS - 1) * CELL_GAP + 12.0) / DOLL_W
-	_bag_px = clampf(floorf(spare / per_px), 32.0, 50.0)
+	var room := canvas.y - 24.0
+	_fit_cells(room)
+	# On a narrow screen the bag would stand on the taskbar: it stops above it.
+	var tray := Rect2()
+	var hud := get_parent().get_node_or_null("HUD")
+	if hud != null and hud.has_method("tray_rect"):
+		tray = hud.tray_rect()
+		if canvas.x - _bag_width() - 24.0 < tray.end.x:
+			room = tray.position.y - 16.0
+			_fit_cells(room)
+		else:
+			tray = Rect2()
 	for slot in item_container.get_children(): (slot as Control).custom_minimum_size = Vector2(_bag_px, _bag_px)
 	var tray_w := COLUMNS * _bag_px + (COLUMNS - 1) * CELL_GAP + 12.0
 	_layout_doll(tray_w)
-	var width := tray_w + 36.0
-	width = maxf(width, _footer.get_combined_minimum_size().x + 36.0)
-	var height := fixed + _doll.custom_minimum_size.y + ROWS * _bag_px
-	height = minf(height, canvas.y - 24.0)
+	var width := _bag_width()
+	var height := _fixed_height() + _doll.custom_minimum_size.y + ROWS * _bag_px
+	height = minf(height, room)
 	_window.custom_minimum_size = Vector2(width, height)
 	_window.size = Vector2(width, height)
 	_window._ribbon.offset_left = -width * 0.5 + 10
 	_window._ribbon.offset_right = width * 0.5 - 10
 	var x := canvas.x - width - 24.0
-	var y := floorf((canvas.y - height) * 0.5)
+	var y := floorf((canvas.y - height) * 0.5) if tray.size == Vector2.ZERO else floorf((tray.position.y - height) * 0.5)
 	_window.offset_left = x
 	_window.offset_top = y
 	_window.offset_right = x + width
 	_window.offset_bottom = y + height
 	_place_merchant()
+
+## Everything but the cells and the doll.
+func _fixed_height() -> float:
+	var tab_row := PageTab.HEIGHT if pages_open() > 1 else 0.0
+	return RIBBON_TOP + 16.0 + 10.0 * 2 + tab_row + 12.0 + (ROWS - 1) * CELL_GAP + 30.0
+
+## The cell size that fills `room` of height: the doll scales with the tray width
+## (5 cells + gaps + padding), so it grows with the cell size too.
+func _fit_cells(room: float) -> void:
+	var per_px := ROWS + DOLL_H * COLUMNS / DOLL_W
+	var spare := room - _fixed_height() - DOLL_H * ((COLUMNS - 1) * CELL_GAP + 12.0) / DOLL_W
+	_bag_px = clampf(floorf(spare / per_px), 32.0, 50.0)
+
+func _bag_width() -> float:
+	var tray_w := COLUMNS * _bag_px + (COLUMNS - 1) * CELL_GAP + 12.0
+	return maxf(tray_w + 36.0, _footer.get_combined_minimum_size().x + 36.0)
 
 const RIBBON_TOP := UIWindow.RIBBON_H - UIWindow.RIBBON_OVERHANG + 10.0
 
@@ -1253,7 +1277,7 @@ class PageTab extends Control:
 		for cell in range(page * PAGE_CELLS, mini((page + 1) * PAGE_CELLS, cells.size())):
 			if not (cells[cell] as Dictionary).is_empty():
 				_used += 1
-		tooltip_text = (tr("Page %s  ·  %d/%d") % [ROMAN[page], _used, PAGE_CELLS]) if open() else (tr("Page %s  ·  opens soon") % ROMAN[page])
+		tooltip_text = tr("Page %s  ·  %d/%d") % [ROMAN[page], _used, PAGE_CELLS]
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND if open() else Control.CURSOR_ARROW
 		queue_redraw()
 

@@ -19,10 +19,15 @@ class_name LoginScreen
 ## password; the token stays in memory (LoginApi).
 
 signal signed_in
+signal settings_requested
 
 const PREFS_PATH := "user://login_prefs.json"
 const CARD_WIDTH := 430.0
 const STATUS_POLL_SECONDS := 15.0
+const LOGO_HEIGHT := 180.0
+const LOGO_MIN_HEIGHT := 72.0
+## Kept free above and below the column (the footer's line).
+const COLUMN_MARGIN := 40.0
 const COLOR_ERROR := Color(0.96, 0.47, 0.42)
 const COLOR_WARN := Color(1.0, 0.74, 0.36)
 ## The service takes ASCII account names only; said so here, since to a
@@ -61,6 +66,9 @@ var server_pill: PanelContainer
 var server_dot: Panel
 var server_label: Label
 var language_picker: OptionButton
+var login_column: VBoxContainer
+var crest_box: Control
+var crest_logo: TextureRect
 
 var _status_timer: Timer
 var _status_in_flight := false
@@ -103,15 +111,21 @@ func _build() -> void:
 	# The login column sits over the darkened left of the key art; the
 	# wizard and the castle stay visible on the right.
 	var column := VBoxContainer.new()
+	login_column = column
 	column.name = "LoginColumn"
 	column.set_anchors_preset(Control.PRESET_LEFT_WIDE)
 	column.offset_left = 72.0
 	column.offset_right = 72.0 + CARD_WIDTH
+	column.offset_top = COLUMN_MARGIN
+	column.offset_bottom = -COLUMN_MARGIN
 	column.alignment = BoxContainer.ALIGNMENT_CENTER
 	column.add_theme_constant_override("separation", 18)
 	add_child(column)
-	column.add_child(_build_crest())
+	crest_box = _build_crest()
+	column.add_child(crest_box)
 	column.add_child(_build_card())
+	column.minimum_size_changed.connect(_fit_column.call_deferred)
+	resized.connect(_fit_column)
 	_build_server_pill()
 	_build_language_picker()
 	_build_footer()
@@ -140,7 +154,8 @@ func _build_crest() -> Control:
 	box.add_theme_constant_override("separation", 2)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	# no wider than the login card below it
-	box.add_child(UITheme.logo(180.0))
+	crest_logo = UITheme.logo(LOGO_HEIGHT)
+	box.add_child(crest_logo)
 	var subtitle := Label.new()
 	subtitle.name = "SubtitleLabel"
 	subtitle.text = tr("REALM OF KAF")
@@ -153,6 +168,21 @@ func _build_crest() -> Control:
 	box.add_child(subtitle)
 	box.add_child(FrontDoor.ornament())
 	return box
+
+## The card always fits: on a short window the logo gives way first (smaller,
+## then gone), so no field or button falls off the screen.
+func _fit_column() -> void:
+	if crest_logo == null or size.y <= 0.0:
+		return
+	var room := size.y - COLUMN_MARGIN * 2.0
+	var rest := login_column.get_combined_minimum_size().y - (crest_box.get_combined_minimum_size().y if crest_box.visible else 0.0)
+	var crest_extra := crest_box.get_combined_minimum_size().y - crest_logo.custom_minimum_size.y
+	var logo_room := room - rest - crest_extra - 18.0
+	crest_box.visible = logo_room >= LOGO_MIN_HEIGHT
+	var height := clampf(logo_room, LOGO_MIN_HEIGHT, LOGO_HEIGHT)
+	if not is_equal_approx(crest_logo.custom_minimum_size.y, height):
+		var aspect := crest_logo.custom_minimum_size.x / crest_logo.custom_minimum_size.y
+		crest_logo.custom_minimum_size = Vector2(height * aspect, height)
 
 func _build_card() -> Control:
 	var card := PanelContainer.new()
@@ -416,6 +446,26 @@ func _build_language_picker() -> void:
 		# comes back here: nobody is signed in)
 		get_tree().reload_current_scene.call_deferred())
 	add_child(picker)
+	# Settings beside it: the interface scale, window, keys and credits are
+	# needed before the first login too
+	var settings := Button.new()
+	settings.name = "SettingsButton"
+	settings.text = tr("Settings")
+	settings.focus_mode = Control.FOCUS_NONE
+	settings.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	settings.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	settings.offset_left = -310.0
+	settings.offset_right = -192.0
+	settings.offset_top = 70.0
+	settings.offset_bottom = 102.0
+	settings.add_theme_font_size_override("font_size", 14)
+	settings.add_theme_color_override("font_color", UITheme.c("text"))
+	settings.add_theme_color_override("font_hover_color", UITheme.c("gold_hi"))
+	for state in ["normal", "pressed", "focus", "disabled"]:
+		settings.add_theme_stylebox_override(state, sb)
+	settings.add_theme_stylebox_override("hover", hover)
+	settings.pressed.connect(func(): settings_requested.emit())
+	add_child(settings)
 
 func _build_footer() -> void:
 	var version := Label.new()

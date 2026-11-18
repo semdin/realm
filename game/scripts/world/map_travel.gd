@@ -24,7 +24,6 @@ class_name MapTravel
 ##     `arrived` (the arrival flames where the body was set down).
 ##   * Refusals (`travel_result` with ok false) on the notice band.
 
-const PROMPT_KEY := "F"
 ## Same-map trips: fade to black, hold while the teleport lands, fade back.
 const FADE_OUT := 0.2
 const FADE_HOLD := 0.45
@@ -268,16 +267,16 @@ func tick(_delta: float) -> void:
 	var text := ""
 	if not active_portal.is_empty():
 		if _is_gate(active_portal):
-			text = tr("Press %s - %s") % [PROMPT_KEY, tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
+			text = tr("Press %s - %s") % [GameSettings.key_name("interact"), tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
 		elif mounted():
 			text = tr("Mounted - the castle door is closed to broom flight. Dismount to enter.")
 		else:
-			text = tr("Press %s - %s") % [PROMPT_KEY, tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
+			text = tr("Press %s - %s") % [GameSettings.key_name("interact"), tr("Way to %s") % TravelData.display_name(String(active_portal.get("to_map", "")))]
 	elif not active_waylink.is_empty():
-		text = (tr("Press %s - Let go of the Waylink (to %s)") if bool(active_waylink.get("holding", false)) \
-			else tr("Press %s - Grab hold of the Waylink (to %s)")) % [PROMPT_KEY, I18n.t(String(active_waylink.get("label", "")))]
+		text = (tr("Press %s - Let go of the Waystake (to %s)") if bool(active_waylink.get("holding", false)) \
+			else tr("Press %s - Grab hold of the Waystake (to %s)")) % [GameSettings.key_name("interact"), I18n.t(String(active_waylink.get("label", "")))]
 	elif active_node != "":
-		text = tr("Press %s - %s") % [PROMPT_KEY, _node_prompt(active_node)]
+		text = tr("Press %s - %s") % [GameSettings.key_name("interact"), _node_prompt(active_node)]
 	# The Hearth window stands where the prompt is drawn: the prompt waits.
 	if hearthway.visible:
 		if active_node != hearthway.node_id:

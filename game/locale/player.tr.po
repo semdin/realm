@@ -1,0 +1,284 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Thousand Realms player experience\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "A part of the game could not be loaded. Open the launcher and let it check the installation."
+msgstr "Oyunun bir parçası yüklenemedi. Oyun başlatıcısını aç ve kurulumu denetlemesine izin ver."
+
+msgid "The game's data could not be read. Open the launcher and let it check the installation."
+msgstr "Oyun verileri okunamadı. Oyun başlatıcısını aç ve kurulumu denetlemesine izin ver."
+
+msgid "The connection to the realm could not be prepared. Please log in again; if this keeps happening, let the launcher check the installation."
+msgstr "Diyar bağlantısı hazırlanamadı. Lütfen tekrar giriş yap; sorun sürerse oyun başlatıcısının kurulumu denetlemesine izin ver."
+
+msgid "The game could not start"
+msgstr "Oyun başlatılamadı"
+
+msgid "Your graphics driver is out of date"
+msgstr "Grafik sürücün güncel değil"
+
+msgid "The game needs Vulkan (Metal on a Mac) and could not start it, so it may look wrong or fail. Updating your graphics driver usually fixes this."
+msgstr "Oyun Vulkan (Mac'te Metal) ister ve bunu başlatamadı; görüntü bozuk olabilir ya da oyun kapanabilir. Grafik sürücünü güncellemek genellikle sorunu çözer."
+
+msgid "Continue anyway"
+msgstr "Yine de devam et"
+
+msgid "Press {key:interact} at the door"
+msgstr "Kapıda {key:interact} tuşuna bas"
+
+msgid "First steps"
+msgstr "İlk adımlar"
+
+msgid "Skip introduction"
+msgstr "Tanıtımı geç"
+
+msgid "You can replay it from Settings > Controls"
+msgstr "Ayarlar > Kontroller'den yeniden izleyebilirsin"
+
+msgid "Walk"
+msgstr "Yürü"
+
+msgid "Use these keys to walk around the courtyard."
+msgstr "Avluda dolaşmak için bu tuşları kullan."
+
+msgid "Hold the right mouse button and drag to look around. The wheel zooms."
+msgstr "Etrafına bakmak için sağ fare tuşunu basılı tutup sürükle. Tekerlek yakınlaştırır."
+
+msgid "On a trackpad, hold Control and drag."
+msgstr "İzleme dörtgeninde Control'e basılı tutup sürükle."
+
+msgid "Look around"
+msgstr "Etrafına bak"
+
+msgid "Right mouse"
+msgstr "Sağ fare"
+
+msgid "Wheel"
+msgstr "Tekerlek"
+
+msgid "Your first quest"
+msgstr "İlk görevin"
+
+msgid "Follow the gold arrow to %s, then click them or press the key to talk."
+msgstr "Altın oku izleyerek %s yanına git; konuşmak için tıkla ya da tuşa bas."
+
+msgid "Left click"
+msgstr "Sol tık"
+
+msgid "Collect the reward"
+msgstr "Ödülünü al"
+
+msgid "Quest done! Click its glowing card on the left."
+msgstr "Görev tamam! Soldaki parlayan kartına tıkla."
+
+msgid "Your quests"
+msgstr "Görevlerin"
+
+msgid "The cards on the left show what to do next. Open the quest log to see them all."
+msgstr "Soldaki kartlar sıradaki işini gösterir. Hepsini görmek için görev günlüğünü aç."
+
+msgid "Wear your reward"
+msgstr "Ödülünü giy"
+
+msgid "Open your bag and right-click the cloak to put it on."
+msgstr "Çantanı aç ve giymek için pelerine sağ tıkla."
+
+msgid "Right click"
+msgstr "Sağ tık"
+
+msgid "Choose a target"
+msgstr "Hedef seç"
+
+msgid "Click a training dummy or a creature, or cycle through what is near."
+msgstr "Bir eğitim kuklasına ya da yaratığa tıkla veya yakındakiler arasında geçiş yap."
+
+msgid "Click your target to cast at it. Hold the button or the key to keep casting."
+msgstr "Büyü yapmak için hedefine tıkla. Sürdürmek için düğmeyi ya da tuşu basılı tut."
+
+msgid "Click a spell on the bar to learn it with a skill point, then press its key to cast. The skill book holds the rest."
+msgstr "Yetenek puanınla öğrenmek için çubuktaki bir büyüye tıkla, sonra yapmak için tuşuna bas. Gerisi yetenek kitabında."
+
+msgid "Find your way"
+msgstr "Yolunu bul"
+
+msgid "Open the world map. Click it to set a waypoint."
+msgstr "Dünya haritasını aç. Yol noktası koymak için üstüne tıkla."
+
+msgid "Loot"
+msgstr "Ganimet"
+
+msgid "A chest dropped! Walk up to it and take what is inside."
+msgstr "Bir sandık düştü! Yanına git ve içindekileri al."
+
+msgid "You are ready"
+msgstr "Hazırsın"
+
+msgid "Every key can be changed in Settings > Controls. Good luck out there."
+msgstr "Tüm tuşları Ayarlar > Kontroller'den değiştirebilirsin. Yolun açık olsun."
+
+msgid "Log file: %s"
+msgstr "Günlük dosyası: %s"
+
+msgid "This is taking longer than it should."
+msgstr "Bu, olması gerekenden uzun sürüyor."
+
+msgid "Loading took too long and was stopped. Please log in again."
+msgstr "Yükleme çok uzun sürdüğü için durduruldu. Lütfen tekrar giriş yap."
+
+msgid "Drag a potion from your bag onto a quick slot to drink it with one key."
+msgstr "Tek tuşla içmek için çantandan bir iksiri hızlı yuvaya sürükle."
+
+msgid "Window mode"
+msgstr "Pencere modu"
+
+msgid "Fullscreen shortcut: %s"
+msgstr "Tam ekran kısayolu: %s"
+
+msgid "Auto"
+msgstr "Otomatik"
+
+msgid "Follows the window size and the screen's DPI"
+msgstr "Pencere boyutuna ve ekranın DPI değerine uyar"
+
+msgid "Show frame rate"
+msgstr "Kare hızını göster"
+
+msgid "Invert vertical look"
+msgstr "Dikey bakışı ters çevir"
+
+msgid "Render scale"
+msgstr "İşleme ölçeği"
+
+msgid "Auto (from quality)"
+msgstr "Otomatik (kaliteye göre)"
+
+msgid "Lower is faster and softer; the interface stays sharp"
+msgstr "Düşük değer daha hızlı ve daha yumuşaktır; arayüz keskin kalır"
+
+msgid "Frame rate"
+msgstr "Kare hızı"
+
+msgid "VSync"
+msgstr "Dikey eşitleme (VSync)"
+
+msgid "Frame rate limit"
+msgstr "Kare hızı sınırı"
+
+msgid "Stops tearing; turning it off can lower input delay"
+msgstr "Görüntü yırtılmasını önler; kapatmak giriş gecikmesini azaltabilir"
+
+msgid "No limit"
+msgstr "Sınırsız"
+
+msgid "%d FPS"
+msgstr "%d FPS"
+
+msgid "A limit keeps a laptop cooler and quieter"
+msgstr "Sınır koymak dizüstü bilgisayarı daha serin ve sessiz tutar"
+
+msgid "Replay the introduction"
+msgstr "Tanıtımı yeniden oynat"
+
+msgid "Shows the first-steps guide again"
+msgstr "İlk adımlar rehberini yeniden gösterir"
+
+msgid "The first-steps guide starts when you enter the world."
+msgstr "İlk adımlar rehberi dünyaya girdiğinde başlayacak."
+
+msgid "The first-steps guide is back at the top of the screen."
+msgstr "İlk adımlar rehberi ekranın üstünde yeniden başladı."
+
+msgid "Windowed"
+msgstr "Pencere"
+
+msgid "Fullscreen"
+msgstr "Tam ekran"
+
+msgid "Exclusive fullscreen"
+msgstr "Özel tam ekran"
+
+msgid "Much of this game was made with AI tools: most of its icons, 3D models, visual effects, sound, music and program code began as AI output, and were then chosen, edited and put together by its developer. The tools are listed below."
+msgstr "Bu oyunun büyük bölümü yapay zekâ araçlarıyla yapıldı: simgelerin, 3B modellerin, görsel efektlerin, seslerin, müziklerin ve program kodunun çoğu yapay zekâ çıktısı olarak başladı; sonra geliştiricisi tarafından seçildi, düzenlendi ve bir araya getirildi. Kullanılan araçlar aşağıda listelenmiştir."
+
+msgid "Engine and code"
+msgstr "Motor ve kod"
+
+msgid "Game engine. Its licence and third-party notices are in the full licence texts."
+msgstr "Oyun motoru. Lisansı ve üçüncü taraf bildirimleri tam lisans metinlerinde yer alır."
+
+msgid "The terrain of the outdoor maps."
+msgstr "Açık hava haritalarının arazisi."
+
+msgid "Built into the Terrain3D library."
+msgstr "Terrain3D kitaplığının içinde yer alır."
+
+msgid "The bridge between the game's Rust code and the engine. The other Rust libraries are listed below."
+msgstr "Oyunun Rust kodu ile motor arasındaki köprü. Diğer Rust kitaplıkları aşağıda listelenmiştir."
+
+msgid "Interface lettering. Its licence is in the full licence texts."
+msgstr "Arayüz yazıları. Lisansı tam lisans metinlerinde yer alır."
+
+msgid "Assets used with attribution"
+msgstr "Atıfla kullanılan içerikler"
+
+msgid "Food, plates and kitchenware on the castle's tables. Changed: decimated, normal maps re-baked, textures packed into one atlas, arranged into table settings."
+msgstr "Kale masalarındaki yiyecekler, tabaklar ve mutfak eşyaları. Yapılan değişiklikler: poligon sayısı azaltıldı, normal haritaları yeniden işlendi, dokular tek atlasta toplandı, masa düzenleri oluşturuldu."
+
+msgid "Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes, hair and many animations."
+msgstr "Modular Character Outfits, Universal Base Characters ve Universal Animation Library: kahramanın bedeni, kıyafetleri, saçı ve birçok animasyonu."
+
+msgid "Adventurer characters, dungeon pieces and props."
+msgstr "Maceracı karakterleri, zindan parçaları ve nesneler."
+
+msgid "Stone, wood, roof and plaster textures, trees, plants and rocks."
+msgstr "Taş, ahşap, çatı ve sıva dokuları, ağaçlar, bitkiler ve kayalar."
+
+msgid "Ground, rock, sand and gravel textures of the terrain."
+msgstr "Arazinin toprak, kaya, kum ve çakıl dokuları."
+
+msgid "Flame and spark sprites."
+msgstr "Alev ve kıvılcım görselleri."
+
+msgid "Recorded sound effects."
+msgstr "Kaydedilmiş ses efektleri."
+
+msgid "AI-generated sound effects and music."
+msgstr "Yapay zekâyla üretilmiş ses efektleri ve müzik."
+
+msgid "AI tools"
+msgstr "Yapay zekâ araçları"
+
+msgid "AI-generated 3D models of characters, creatures, items and props, and creature rigs."
+msgstr "Yapay zekâyla üretilmiş karakter, yaratık, eşya ve nesne 3B modelleri ile yaratık iskeletleri."
+
+msgid "AI-generated icons, portraits, crests, concept images and textures."
+msgstr "Yapay zekâyla üretilmiş simgeler, portreler, armalar, konsept görselleri ve dokular."
+
+msgid "AI-generated clips behind the spell effects."
+msgstr "Büyü efektlerinin temelindeki, yapay zekâyla üretilmiş video parçaları."
+
+msgid "AI-generated spell-casting motion."
+msgstr "Yapay zekâyla üretilmiş büyü yapma hareketleri."
+
+msgid "Much of the game's program code, tools and text."
+msgstr "Oyunun program kodunun, araçlarının ve metinlerinin büyük bölümü."
+
+msgid "Modelling, rigging and baking."
+msgstr "Modelleme, iskelet kurulumu ve doku işleme."
+
+msgid "Walking, running and jumping animations."
+msgstr "Yürüme, koşma ve zıplama animasyonları."
+
+msgid "Skin pore and iris textures (CC BY 4.0, unchanged); the skin lighting follows its skin shader (MIT)."
+msgstr "Cilt gözeneği ve iris dokuları (CC BY 4.0, değiştirilmeden); cilt aydınlatması onun cilt gölgelendiricisini izler (MIT)."
+
+msgid "Show every licence text"
+msgstr "Tüm lisans metinlerini göster"
+
+msgid "Compiled into the game's extension; their licence texts are with the others below."
+msgstr "Oyunun eklentisine derlenmiştir; lisans metinleri aşağıda diğerleriyle birlikte yer alır."

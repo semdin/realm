@@ -22,10 +22,10 @@ const FADE := 0.25
 const MIN_SHOW := 0.8
 # i18n-begin
 const TIPS := [
-	"Start a chat line with ! to shout to every wizard in the realm.",
-	"Drag a potion from your bag onto F1-F4 to drink it with one key.",
-	"Ward Shield reflects projectiles back at their caster.",
-	"Drowned Ones fear fire: Flame Wave burns them for double damage.",
+	"Start a chat line with ! to shout to everyone in the realm.",
+	"Drag a potion from your bag onto a quick slot to drink it with one key.",
+	"Shardglass Ward reflects projectiles back at their caster.",
+	"Saltwights are dry as tinder: Flame Wave burns them for double damage.",
 	"Hold the right mouse button to turn the camera; the wheel zooms.",
 	"Land on level ground before you dismount your broom.",
 	"Dark Shards summon waves of creatures - bring friends.",
@@ -33,7 +33,12 @@ const TIPS := [
 ]
 # i18n-end
 
+## No word from the loading for this long: the way back appears.
+const STUCK_SECONDS := 45.0
+
 var _root: Control
+var _stuck_row: Control
+var _progress_at := 0
 var _title: Label
 var _bar: ProgressBar
 var _status: Label
@@ -122,6 +127,7 @@ func _ready() -> void:
 	_tip.offset_bottom = -40
 	_tip.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_root.add_child(_tip)
+	_build_stuck_row()
 	var rune := Spinner.new()
 	rune.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
 	rune.offset_left = -92
@@ -129,6 +135,35 @@ func _ready() -> void:
 	rune.offset_right = -36
 	rune.offset_bottom = -36
 	_root.add_child(rune)
+
+## A loading that stopped moving must not be the end of the game: a line and a
+## button back to the login card (hidden until it is needed).
+func _build_stuck_row() -> void:
+	var row := VBoxContainer.new()
+	row.name = "StuckRow"
+	row.add_theme_constant_override("separation", 8)
+	row.set_anchors_preset(Control.PRESET_CENTER_TOP)
+	row.offset_left = -300
+	row.offset_right = 300
+	row.offset_top = 24
+	row.visible = false
+	_stuck_row = row
+	_root.add_child(row)
+	var line := HudKit.label(tr("This is taking longer than it should."), 16, HudKit.GOLD_HI, HudKit.body(), 4)
+	line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	row.add_child(line)
+	var back := HudKit.button(tr("Return to Login"), 15)
+	back.name = "BackToLogin"
+	back.custom_minimum_size = Vector2(190, 36)
+	back.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	back.pressed.connect(_give_up)
+	row.add_child(back)
+
+func _give_up() -> void:
+	var game := get_tree().current_scene
+	dismiss()
+	if game != null and game.has_method("return_to_login"):
+		game.call("return_to_login", "refused", tr("Loading took too long and was stopped. Please log in again."))
 
 func is_open() -> bool:
 	return _root != null and _root.visible
@@ -151,11 +186,16 @@ func open(title: String, status: String) -> void:
 	_bar.value = 0.0
 	_root.visible = true
 	_shown_at = Time.get_ticks_msec()
+	_progress_at = _shown_at
+	_stuck_row.visible = false
 	_fading = 1.0
 	while _root.modulate.a < 1.0 and is_inside_tree():
 		await get_tree().process_frame
 
 func set_progress(percent: float, status: String = "") -> void:
+	if percent > _target or (status != "" and status != _status.text):
+		_progress_at = Time.get_ticks_msec()
+		_stuck_row.visible = false
 	_target = maxf(_target, clampf(percent, 0.0, 100.0))
 	if status != "":
 		_status.text = status
@@ -192,6 +232,8 @@ func _process(delta: float) -> void:
 	if _root == null or not _root.visible:
 		return
 	_bar.value = lerpf(_bar.value, _target, minf(1.0, delta * 8.0))
+	if not _stuck_row.visible and _fading >= 0.0 and Time.get_ticks_msec() - _progress_at > int(STUCK_SECONDS * 1000.0):
+		_stuck_row.visible = true
 	if _fading != 0.0:
 		_root.modulate.a = clampf(_root.modulate.a + _fading * delta / FADE, 0.0, 1.0)
 		if _fading > 0.0 and _root.modulate.a >= 1.0:

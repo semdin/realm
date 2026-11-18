@@ -118,6 +118,8 @@ func set_ping(ms: int) -> void:
 		ping_label.hide()
 		return
 	ping_label.text = tr("%d ms") % ms
+	if GameSettings.instance().show_fps:
+		ping_label.text = "%s  %s" % [tr("%d FPS") % roundi(Engine.get_frames_per_second()), ping_label.text]
 	var colour := Color(0.55, 0.9, 0.5) if ms < 80 else (Color(1.0, 0.78, 0.35) if ms < 150 else Color(1.0, 0.42, 0.36))
 	ping_label.add_theme_color_override("font_color", colour)
 	ping_label.show()

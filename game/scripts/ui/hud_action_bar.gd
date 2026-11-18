@@ -211,6 +211,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	var focus := get_viewport().gui_get_focus_owner()
 	if focus is LineEdit or focus is TextEdit:
 		return
+	if GameSettings.is_system_chord(event):
+		return
 	var key: int = (event as InputEventKey).physical_keycode
 	var action := GameSettings.action_for(key)
 	if action.begins_with("spell_"):

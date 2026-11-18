@@ -30,7 +30,7 @@ const CLOSED_STATES := ["ONLINE", "ABORTED"]
 const BANNER_SIZE := Vector2(660, 74)
 ## Under the target card (top 10 + 74) and the notice band's line (96).
 const BANNER_TOP := 134.0
-const CARD_SIZE := Vector2(640, 236)
+const CARD_SIZE := Vector2(640, 280)
 const AMBER := Color(1.0, 0.74, 0.38)
 
 var hud: Control
@@ -238,6 +238,29 @@ func show_closed(status: String, was_in := true) -> void:
 	_build_screen(was_in)
 	screen_title.text = title
 	screen_detail.text = detail
+
+## Something else stopped the game (a broken install, a graphics driver): the
+## same end screen with what happened, what to try and where the log is. With
+## `go_on` the player may carry on anyway (a button named `go_on_text`).
+func show_problem(title: String, detail: String, go_on := Callable(), go_on_text := "") -> void:
+	if screen_kind != "":
+		return
+	screen_kind = "problem"
+	banner.hide()
+	_build_screen(false)
+	screen_title.text = title
+	screen_detail.text = "%s\n\n%s" % [detail, tr("Log file: %s") % ProjectSettings.globalize_path("user://logs/godot.log")]
+	if not to_login.is_valid():
+		reconnect_button.hide()
+	if go_on.is_valid():
+		retry_button = HudKit.gold_button(go_on_text, 42.0, 17)
+		retry_button.name = "GoOn"
+		retry_button.custom_minimum_size.x = 170
+		retry_button.pressed.connect(func():
+			clear_closed()
+			go_on.call())
+		reconnect_button.get_parent().add_child(retry_button)
+		reconnect_button.get_parent().move_child(retry_button, 0)
 
 ## A kick or a ban arrived: the connection closes next, and the end screen says
 ## why instead of "connection lost".

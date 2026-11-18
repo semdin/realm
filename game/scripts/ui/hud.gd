@@ -562,6 +562,13 @@ func _layout() -> void:
 	var card_w := 300.0 if compact else 360.0
 	_place(target_panel, Vector2(0.5, 0.0), Vector2(-card_w * 0.5, 10), Vector2(card_w, TARGET_CARD_H))
 
+## Where the taskbar stands on the canvas (a tall window beside it keeps clear).
+func tray_rect() -> Rect2:
+	var bar := action_bar.get_global_rect()
+	var end := _menu_grid.get_global_rect().end
+	var top := bar.position.y - HudActionBar.PLATE_TOP
+	return Rect2(bar.position.x - HudActionBar.PLATE_PAD, top, end.x + HudActionBar.PLATE_PAD - bar.position.x, bar.end.y - top)
+
 ## Pin `control` to the anchor point `anchor` (0..1 of the canvas) at `offset`
 ## with `extent`.
 static func _place(control: Control, anchor: Vector2, offset: Vector2, extent: Vector2) -> void:

@@ -14,6 +14,8 @@
 #   <root>/keys/tls.crt.der         <cert.der>: the realm's public QUIC
 #                                   certificate the client pins; nothing else
 #                                   from keys/ ever ships
+#   <root>/THIRD_PARTY_NOTICES.txt  every licence notice the game owes
+#                                   (game/assets/credits, tools/release/gen_notices.py)
 #
 # The export already put the GDExtension libraries beside the executable
 # (macOS: Contents/Frameworks), realm_client's from ../target/release; the
@@ -110,11 +112,15 @@ mkdir -p "$root/content/data" "$root/world/maps" "$root/keys"
 cp "$repo"/content/data/*.json "$root/content/data/"
 cp "$repo"/world/maps/*.realmmap "$root/world/maps/"
 cp "$cert" "$root/keys/tls.crt.der"
+notices="$repo/game/assets/credits/THIRD_PARTY_NOTICES.txt"
+[ -s "$notices" ] || fail "no $notices (python tools/release/gen_notices.py)"
+cp "$notices" "$root/THIRD_PARTY_NOTICES.txt"
 
 size() { du -sk "$1" | awk '{printf "%.1f MB", $1 / 1024}'; }
 echo "stage_client: $platform release root $root"
 echo "  content/data  $(ls "$root/content/data" | wc -l | tr -d ' ') files, $(size "$root/content/data")"
 echo "  world/maps    $(ls "$root/world/maps" | wc -l | tr -d ' ') packs, $(size "$root/world/maps")"
 echo "  keys          tls.crt.der ($cert_size bytes)"
+echo "  notices       THIRD_PARTY_NOTICES.txt"
 echo "  $lib_name  $(size "$lib_dir/$lib_name")"
 echo "  total         $(size "$export_dir")"

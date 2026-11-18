@@ -15,6 +15,8 @@ class_name FrontDoor
 
 signal entering_world(map: String)
 
+const BACKDROP := "res://assets/branding/front_door_bg.jpg"
+
 ## Why the world sent the player back (MaintenanceUI's screen kind and its
 ## text), read once by the next front door.
 static var return_kind := ""
@@ -37,6 +39,8 @@ var select: CharacterSelect
 var _login_layer: CanvasLayer
 ## What the card says when the character screen closes ("": logged out).
 var farewell := ""
+## Settings before the world: the Esc menu's window, on its own layer.
+var settings_window: SettingsWindow
 
 func setup(login_url: String) -> void:
 	name = "FrontDoor"
@@ -58,6 +62,7 @@ func setup(login_url: String) -> void:
 	login.setup(api)
 	_login_layer.add_child(login)
 	login.signed_in.connect(_show_select)
+	login.settings_requested.connect(open_settings)
 	if characters:
 		_show_select()
 		return
@@ -65,6 +70,38 @@ func setup(login_url: String) -> void:
 		login.show_return_notice.call_deferred(return_kind, return_detail)
 		return_kind = ""
 		return_detail = ""
+
+## The settings over the login or the character screen: language, interface
+## scale, window, keys, sound and the credits are all reachable before playing.
+func open_settings() -> void:
+	if settings_window == null:
+		var layer := CanvasLayer.new()
+		layer.name = "SettingsLayer"
+		layer.layer = 30
+		add_child(layer)
+		var host := Control.new()
+		host.theme = UITheme.get_theme()
+		host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+		host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		layer.add_child(host)
+		settings_window = SettingsWindow.new()
+		settings_window.front_door = true
+		host.add_child(settings_window)
+		settings_window.language_apply_requested.connect(_rebuild_for_language)
+	settings_window.open()
+
+## A new language: this screen is built again in it (a signed-in player comes
+## back to the character screen).
+func _rebuild_for_language() -> void:
+	wanted = true
+	to_characters = api.signed_in()
+	get_tree().reload_current_scene.call_deferred()
+
+func _unhandled_input(event: InputEvent) -> void:
+	if settings_window != null and settings_window.visible and event is InputEventKey \
+			and event.pressed and not event.echo and (event as InputEventKey).physical_keycode == KEY_ESCAPE:
+		settings_window.close()
+		get_viewport().set_input_as_handled()
 
 func login_visible() -> bool:
 	return login != null and _login_layer.visible
@@ -75,6 +112,7 @@ func _show_select() -> void:
 	select.setup(api)
 	add_child(select)
 	select.logged_out.connect(_back_to_login)
+	select.settings_requested.connect(open_settings)
 	select.account_deleted.connect(func():
 		farewell = "account_deleted"
 		_back_to_login())
@@ -108,31 +146,17 @@ func _enter_world(map: String, address: String, ticket: String) -> void:
 
 ## ================================================================ shared look
 
-## The night behind the front door, darkened by `light` (1 = full): a deep
-## indigo sky with a warm glow low in the middle, where the embers rise.
-## (The old client's banner showed a castle and riders too close to another
-## world's; new key art comes with the Phase 6 art pass.)
+## The night behind the front door, darkened by `light` (1 = full): the hills
+## under a starry sky the launcher shows too (drawn from noise:
+## launcher/assets/make_background.py), filling any window shape.
 static func backdrop(light: float) -> TextureRect:
-	var gradient := Gradient.new()
-	gradient.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
-	gradient.colors = PackedColorArray([
-		Color(0.20, 0.11, 0.17) * light,
-		Color(0.07, 0.06, 0.13) * light,
-		Color(0.015, 0.02, 0.04),
-	])
-	var tex := GradientTexture2D.new()
-	tex.gradient = gradient
-	tex.width = 512
-	tex.height = 512
-	tex.fill = GradientTexture2D.FILL_RADIAL
-	tex.fill_from = Vector2(0.5, 0.78)
-	tex.fill_to = Vector2(1.15, 0.0)
 	var bg := TextureRect.new()
 	bg.name = "Background"
-	bg.texture = tex
+	bg.texture = load(BACKDROP)
+	bg.modulate = Color(light, light, light)
 	bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	bg.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	bg.stretch_mode = TextureRect.STRETCH_SCALE
+	bg.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return bg
 
@@ -187,7 +211,9 @@ static func embers(host: Control) -> Node:
 	ramp.add_point(0.15, Color(1.0, 0.7, 0.3, 0.85))
 	ramp.add_point(0.7, Color(1.0, 0.5, 0.2, 0.5))
 	e.color_ramp = ramp
-	host.resized.connect(func(): e.position = Vector2(host.size.x * 0.5, host.size.y + 40.0))
+	host.resized.connect(func():
+		e.position = Vector2(host.size.x * 0.5, host.size.y + 40.0)
+		e.emission_rect_extents = Vector2(host.size.x * 0.56, 10.0))
 	return e
 
 ## A gold rule with a diamond at its centre.

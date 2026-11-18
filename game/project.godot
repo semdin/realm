@@ -62,4 +62,4 @@ timers/tooltip_delay_sec=0.08
 
 [internationalization]
 
-locale/translations=PackedStringArray("res://locale/tr.po", "res://locale/account.tr.po")
+locale/translations=PackedStringArray("res://locale/tr.po", "res://locale/account.tr.po", "res://locale/player.tr.po")

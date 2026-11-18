@@ -90,6 +90,10 @@ func is_ready(id: String) -> bool:
 func is_done(id: String) -> bool:
 	return _done_ids.has(id)
 
+## In the log and not finished yet.
+func is_open(id: String) -> bool:
+	return _open_ids.has(id)
+
 func is_new(id: String) -> bool:
 	return _open_ids.has(id) and not _seen.has(id)
 

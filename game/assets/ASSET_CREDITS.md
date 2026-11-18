@@ -1,0 +1,40 @@
+# Asset credits and provenance
+
+Where the shipped art and sound came from, by family. The player-facing list is
+`credits/credits.json` (the Credits page and `credits/THIRD_PARTY_NOTICES.txt`,
+written by `tools/release/gen_notices.py`). "Open" marks a point nobody has been
+able to confirm yet; it is a question for the owner, not a statement of the terms.
+
+## Clear terms
+
+| Family | Where | Source | Terms |
+| --- | --- | --- | --- |
+| Terrain3D addon | `addons/terrain_3d` | Cory Petkovsek, Roope Palmroos and contributors | MIT, notice shipped |
+| Interface font | `fonts/` | Literata | SIL OFL 1.1, licence beside it |
+| Table food and kitchenware | `models/feast/` | NVIDIA SimReady (packages in `credits/credits.json`), decimated, re-baked, packed into one atlas | CC BY 4.0, credited with the changes |
+| Skin pores, iris | `models/characters/skin_micro.png`, `eye_iris.png` | Human Shaders, MatMADNESS | CC BY 4.0, credited |
+| Hero body, outfits, hair, many clips | `models/characters/hero_wizard.glb` | Quaternius Modular Character Outfits, Universal Base Characters, Universal Animation Library | CC0 |
+| Characters, dungeon pieces, props | `models/`, `dungeons/` | KayKit | CC0, `models/KayKit-LICENSE.txt` |
+| Building, ground and prop textures, trees, plants, rocks | `textures/pbr/*/manifest.json`, `models/vegetation`, `models/plants` | Poly Haven | CC0, manifest per texture |
+| Terrain textures | `terrain/textures/` | ambientCG and CC0 Textures (Ground037, Rock023, Rocks07, leaves, sand, grass sets) | CC0 |
+| Flame and spark sprites | `vfx/flame_01.png`, `vfx/spark_01.png` | Kenney Particle Pack | CC0, `vfx/Kenney-License.txt` |
+| Login and launcher background | `branding/front_door_bg.jpg` | Drawn from noise by `launcher/assets/make_background.py` | Project's own |
+
+## Generated with AI tools
+
+| Family | Tool | Open |
+| --- | --- | --- |
+| Borin, Drowned Ones, goblins, trolls, pallids, loot chest and other single props | Tencent Hunyuan3D site (free login) | The site's agreement could not be read and archived here. Check worldwide commercial rights before launch |
+| Creature rigs, items, grounds props | Meshy (API through fal.ai and site) | Which plan each job ran on; the free plan's outputs are CC BY |
+| Spell-cast clips `animations/hero/cast_*.glb` | Hunyuan Motion through fal.ai | Terms of the model for commercial use, including territory limits |
+| Icons, portraits, crests, concept views | OpenAI image models, Google Nano Banana, ByteDance Seedream | `ui/LICENSES/AI_GENERATED_ICONS.md`; keep the invoices |
+| Spell effect clips `vfx/` | Alibaba Wan through fal.ai (`vfx/metadata.json`) | Keep the invoices |
+| Sound effects and music | ElevenLabs through fal.ai (`audio/sound_library.json`) | Keep proof it ran on a paid account; free ElevenLabs output is non-commercial |
+| Sound effects and music | Stable Audio 3, local (`audio/sound_library.json`) | Register with Stability AI for commercial use; under US$1M revenue only |
+
+## Other
+
+| Family | Source | Open |
+| --- | --- | --- |
+| Recorded sound effects | Sonniss GDC Game Audio Bundle (`audio/sound_library.json`) | Confirm none was used as init audio for a generated sound; the licence forbids AI use |
+| Walk, run and jump clips in `hero_wizard.glb` | Mixamo (Adobe) | Adobe's current terms could not be read |

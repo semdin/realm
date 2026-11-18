@@ -363,6 +363,8 @@ const QuestScrollScript := "res://scripts/ui/hud_quest_scroll.gd"
 ## F talks to the nearest NPC this close; a click talks from within the
 ## server's talk radius less this margin (latency).
 const TALK_KEY_REACH := 4.0
+## A trip whose connection closed and whose next ticket has not come this long.
+const TRIP_LOST_SECONDS := 15.0
 const TALK_CLICK_MARGIN := 0.5
 ## `--check-quests`: how long it may take at most, how near it walks to an NPC
 ## and to a dummy, how long each window stays up for a capture, and how long
@@ -453,6 +455,8 @@ var dialogue: NpcDialogue
 var tracker: HudTracker
 var quest_log: HudQuestLog
 var quest_scroll: HudQuestScroll
+## The controls introduction on a first entry (FirstSteps).
+var first_steps: FirstSteps
 ## The map's NPCs (NpcView), drawn once the map is in.
 var npcs: Array = []
 ## Loot chests on the ground by entity id (ChestView).
@@ -555,6 +559,10 @@ var check_attribute_results := {}
 var check_stones := {}
 var check_dummies := {}
 var built := false
+## The missing-Vulkan warning was shown (once per run).
+static var _graphics_warned := false
+## When the connection was found closed in the middle of a trip (0: not).
+var _closed_on_trip_at := 0.0
 ## The joined map is being built (it can take several frames).
 var _map_building := false
 ## The player is a game admin (its own player info's `ga`).
@@ -687,13 +695,13 @@ func _ready() -> void:
 		check_seconds = CHECK_QUESTS_SECONDS
 	if not ClassDB.class_exists("RealmSession"):
 		printerr("realm: the realm_client extension did not load (cargo build --release -p realm_client)")
-		get_tree().quit(2)
+		_start_failed(2, tr("A part of the game could not be loaded. Open the launcher and let it check the installation."))
 		return
 	var trip_map := String(ClassDB.class_call_static("RealmSession", "pending_travel_map"))
 	map_name = trip_map if trip_map != "" else _arg("--map", "grounds")
 	if not ClassDB.class_call_static("RealmContent", "load", _arg("--content", root.path_join("content/data"))):
 		printerr("realm: content/data could not be read")
-		get_tree().quit(1)
+		_start_failed(1, tr("The game's data could not be read. Open the launcher and let it check the installation."))
 		return
 	var houses: Variant = ClassDB.class_call_static("RealmContent", "table", "houses")
 	if houses is Dictionary and (houses as Dictionary).has("velkar"):
@@ -714,13 +722,41 @@ func _ready() -> void:
 			map_name, int(_arg("--character", "0")))
 	if not ok:
 		printerr("realm: ", session.status())
-		get_tree().quit(1)
+		_start_failed(1, tr("The connection to the realm could not be prepared. Please log in again; if this keeps happening, let the launcher check the installation."))
 		return
 	_join_began = Time.get_ticks_msec() / 1000.0
 	print("realm: joining %s%s" % [map_name, " (try %d)" % (FrontDoor.join_retries + 1) if FrontDoor.join_retries > 0 else ""])
 	_build_view()
 	if trip_map != "":
 		travel.begin_arrival()
+
+## The game cannot go on from here: a dev run or check ends with `code`, a
+## player gets the end screen saying why, with the way back to the login card
+## when there is one to go back to.
+func _start_failed(code: int, why: String) -> void:
+	if not _wants_front_door() and _quits_when_closed():
+		get_tree().quit(code)
+		return
+	_problem_screen(tr("The game could not start"), why, ClassDB.class_exists("RealmSession") and code == 1 and session != null)
+
+func _problem_screen(title: String, why: String, can_return: bool, go_on := Callable(), go_on_text := "") -> void:
+	MapLoadingScreen.shared(get_tree()).dismiss()
+	var screen := MaintenanceUI.new()
+	add_child(screen)
+	screen.setup(null)
+	if can_return:
+		screen.to_login = return_to_login
+	screen.show_problem(title, why, go_on, go_on_text)
+
+## No Vulkan or Metal: the engine fell back to its simple renderer, which the
+## game's materials are not made for. Said once at the front door.
+func _warn_old_graphics() -> void:
+	if _graphics_warned or RenderingServer.get_rendering_device() != null or DisplayServer.get_name() == "headless":
+		return
+	_graphics_warned = true
+	_problem_screen(tr("Your graphics driver is out of date"),
+		tr("The game needs Vulkan (Metal on a Mac) and could not start it, so it may look wrong or fail. Updating your graphics driver usually fixes this."),
+		false, func(): pass, tr("Continue anyway"))
 
 ## The pointers go back to the system's while the renderer still holds them
 ## (a scene rebuilt for a trip installs them again).
@@ -743,6 +779,7 @@ func _dev_switch() -> String:
 	return ""
 
 func _show_front_door() -> void:
+	_warn_old_graphics()
 	# the world's sound fades; the front door plays the menu theme
 	AudioManager.world_ended()
 	AudioManager.set_music_state("menu")
@@ -1189,6 +1226,10 @@ func _build_quest_ui(root: Control) -> void:
 	tracker.log_opened.connect(quest_log.toggle)
 	dialogue.quest_chosen.connect(func(id: String): quest_scroll.open(id))
 	dialogue.service_chosen.connect(_open_service)
+	first_steps = FirstSteps.new()
+	first_steps.game = self
+	root.add_child(first_steps)
+	root.move_child(first_steps, tracker.get_index() + 1)
 
 ## A service an NPC offers (npcs.json `services`) opens its window: the
 ## workshop is the "WorkshopUI" window beside the bag.
@@ -1431,19 +1472,23 @@ func talk_to(npc: NpcView) -> void:
 ## Alt+Enter toggles fullscreen as F11 does, before a field or the chat
 ## takes the Enter (on the front door too).
 func _input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.alt_pressed 			and (event.physical_keycode == KEY_ENTER or event.physical_keycode == KEY_KP_ENTER):
+	if event is InputEventKey and event.physical_keycode != KEY_F11 and GameSettings.is_fullscreen_chord(event):
 		GameSettings.instance().toggle_fullscreen()
 		get_viewport().set_input_as_handled()
 
 func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_F11:
+	if event is InputEventKey and event.physical_keycode == KEY_F11 and GameSettings.is_fullscreen_chord(event):
 		GameSettings.instance().toggle_fullscreen()
 		get_viewport().set_input_as_handled()
 		return
 	if hud == null:
 		# the front door has the keys
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == GameSettings.DEBUG_KEY:
+	if event is InputEventKey and GameSettings.is_system_chord(event):
+		return
+	# the developer's readout; players have Settings > Show frame rate
+	if event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == GameSettings.DEBUG_KEY \
+			and not RealmPaths.is_release():
 		toggle_readout()
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -1492,7 +1537,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		var turn := GameSettings.sensitivity()
 		cam_yaw -= event.relative.x * 0.005 * turn
-		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004 * turn, -1.3, 0.4)
+		cam_pitch = clampf(cam_pitch - event.relative.y * 0.004 * turn * GameSettings.pitch_sign(), -1.3, 0.4)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		# the rotate glyph while the right button turns the camera
 		CursorKit.set_rotating(event.pressed)
@@ -2825,7 +2870,14 @@ func _process(delta: float) -> void:
 	if status != "joined":
 		if readout != null:
 			readout.text = "realm: " + status
-		if (status.begins_with("refused") or status.begins_with("closed")) and not travel.leaving:
+		# a trip closes this connection itself and the next map's ticket follows;
+		# when none comes, the player is told instead of waiting on the screen
+		var closed_on_trip := false
+		if travel.leaving and (status.begins_with("refused") or status.begins_with("closed")):
+			if _closed_on_trip_at <= 0.0:
+				_closed_on_trip_at = clock
+			closed_on_trip = clock - _closed_on_trip_at > TRIP_LOST_SECONDS and not travel.reloading
+		if (status.begins_with("refused") or status.begins_with("closed")) and (not travel.leaving or closed_on_trip):
 			if not _join_told:
 				_join_told = true
 				print("realm: %s %s after %.1f s: %s" % [map_name, "left" if built else "not joined", clock - _join_began, status])

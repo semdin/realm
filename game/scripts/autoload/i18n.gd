@@ -5,13 +5,15 @@ extends Node
 ## Source text is English everywhere (scripts, scenes, the data JSON): every
 ## English string is its own message id. A language is one gettext catalogue
 ## in `res://locale/<code>.po` listed under `internationalization/locale/
-## translations` in project.godot; English needs no catalogue. Turkish is the
-## default.
+## translations` in project.godot; English needs no catalogue. Until the player
+## picks one the game follows the system: Turkish on a Turkish system, English
+## everywhere else.
 ##
 ## Translating: nodes use `tr("English text")` (and `tr("Level %d") % level`
 ## for formatted text - translate the pattern, then format); static functions
 ## and data use `I18n.t()`. Content from the data JSON (item, mob, quest, map
-## names) is translated where it is shown: `I18n.t(String(item.name))`.
+## names) is translated where it is shown: `I18n.t(String(item.name))`; a
+## `{key:action}` in such text comes out as the key bound to it now.
 ## `tools/i18n/i18n.py` collects every message into locale/messages.pot and
 ## merges it into each catalogue; see docs/localization.md.
 ##
@@ -22,6 +24,7 @@ extends Node
 
 signal language_changed(code: String)
 
+## Listed first in the pickers; the language of a Turkish system.
 const DEFAULT_LANGUAGE := "tr"
 const SOURCE_LANGUAGE := "en"
 const CONFIG_FILE := "language.cfg"
@@ -81,7 +84,7 @@ func set_language(code: String) -> void:
 func apply(code: String, persist: bool) -> void:
 	var known: Array = languages().map(func(l): return String(l.code))
 	if not known.has(code):
-		code = DEFAULT_LANGUAGE if known.has(DEFAULT_LANGUAGE) else SOURCE_LANGUAGE
+		code = SOURCE_LANGUAGE
 	var changed := code != current
 	current = code
 	TranslationServer.set_locale(code)
@@ -97,7 +100,8 @@ func apply(code: String, persist: bool) -> void:
 static func t(message: String, context: String = "") -> String:
 	if message.is_empty():
 		return message
-	return String(TranslationServer.translate(message, context))
+	var text := String(TranslationServer.translate(message, context))
+	return GameSettings.fill_keys(text) if text.contains("{key:") else text
 
 ## Numbers as the shown language writes them, one rule for every window:
 ## Turkish (and the other languages listed) write 1,8 and 10.000, English 1.8
@@ -299,11 +303,20 @@ func _cmdline_language() -> String:
 			return String(arg).substr(7)
 	return ""
 
+## What the player picked, else the system's language.
 func _load_choice() -> String:
 	var config := ConfigFile.new()
 	if config.load(_config_path()) != OK:
-		return DEFAULT_LANGUAGE
-	return String(config.get_value("general", "language", DEFAULT_LANGUAGE))
+		return system_language()
+	return String(config.get_value("general", "language", system_language()))
+
+## The language for this system: `THOUSANDREALMS_LANG` when set (as the launcher
+## reads it), else the system's own; Turkish for Turkish, otherwise English.
+static func system_language() -> String:
+	var tag := OS.get_environment("THOUSANDREALMS_LANG").strip_edges()
+	if tag == "":
+		tag = OS.get_locale_language()
+	return "tr" if tag.to_lower().begins_with("tr") else SOURCE_LANGUAGE
 
 func _save_choice(code: String) -> void:
 	var config := ConfigFile.new()

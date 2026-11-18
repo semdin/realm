@@ -2,13 +2,17 @@ extends HudWindow
 class_name SettingsWindow
 
 ## Settings, opened from the Esc menu (GameSettings keeps and applies them):
-## six tabs in one window - General (language, fullscreen, interface scale,
-## mouse sensitivity, screen shake and flash), Graphics (the quality preset
-## and the time of day on the grounds), Audio (master and the four buses),
+## six tabs in one window - General (language, window mode, interface scale,
+## the frame counter, mouse sensitivity and inversion, screen shake and flash),
+## Graphics (the quality preset, VSync, the frame cap, the render scale and the
+## time of day on the grounds), Audio (master and the four buses),
 ## Controls (key rebinding), Account (AccountPanel: password, recovery code,
 ## the Terms and Privacy Policy, Help, deleting the account) and Credits
 ## (GameCredits). The key list, the account page and the credits scroll inside
 ## their tabs. Every change applies at once and is saved.
+##
+## The front door opens the same window (`front_door`): there a language change
+## rebuilds the screen at once, and the Account tab waits for a login.
 ##
 ## Key capture is explicit: a row listens only after its button is pressed,
 ## and the very next key (Escape cancels) is consumed and never reaches the
@@ -39,6 +43,10 @@ const ACTION_NAMES := {
 # i18n-begin
 const QUALITY_NAMES := {"low": "Low", "medium": "Medium", "high": "High"}
 # i18n-end
+# i18n-begin
+const WINDOW_MODE_NAMES := {"windowed": "Windowed", "fullscreen": "Fullscreen",
+	"exclusive": "Exclusive fullscreen"}
+# i18n-end
 const BUS_NAMES := {"Master": "Master volume", "Music": "Music", "SFX": "Effects", "UI": "Interface",
 	"Ambience": "Ambience"}
 
@@ -46,7 +54,15 @@ var pages: Dictionary = {}
 var tab_buttons: Dictionary = {}
 var sliders: Dictionary = {}
 var bind_buttons: Dictionary = {}
-var fullscreen_button: Button
+## Opened on the login or character screen, not in the world.
+var front_door := false
+var window_picker: OptionButton
+var scale_auto_button: Button
+var fps_button: Button
+var invert_button: Button
+var vsync_button: Button
+var fps_cap_picker: OptionButton
+var render_picker: OptionButton
 var language_picker: OptionButton
 ## Settings > Graphics: the quality preset ("auto" first) and the time of day.
 var quality_picker: OptionButton
@@ -115,6 +131,11 @@ func _ready() -> void:
 
 func open() -> void:
 	super.open()
+	if tab_buttons.has("account"):
+		var signed_in := LoginApi.token != ""
+		(tab_buttons["account"] as Button).visible = signed_in
+		if not signed_in and page_shown() == "account":
+			show_page("general")
 	refresh()
 
 func show_page(key: String) -> void:
@@ -134,28 +155,71 @@ func page_shown() -> String:
 
 ## ------------------------------------------------------------------ pages
 
-func _build_general(g: VBoxContainer) -> void:
+## Room for a page that outgrows a small window: it scrolls inside its tab.
+func _scrolling(page: VBoxContainer) -> VBoxContainer:
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	page.add_child(scroll)
+	var inner := VBoxContainer.new()
+	inner.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inner.add_theme_constant_override("separation", 12)
+	scroll.add_child(inner)
+	return inner
+
+## An On / Off button in the settings' style.
+func _toggle(button_name: String, apply: Callable) -> Button:
+	var b := HudKit.button("", 14)
+	b.name = button_name
+	b.toggle_mode = true
+	b.custom_minimum_size = Vector2(120, 32)
+	b.toggled.connect(func(on: bool):
+		apply.call(on)
+		refresh())
+	return b
+
+func _build_general(page: VBoxContainer) -> void:
+	var g := _scrolling(page)
 	g.add_child(_section(tr("Language")))
 	g.add_child(_language_row())
 	g.add_child(_section(tr("Display")))
-	var row := _row(tr("Fullscreen  (F11)"))
-	fullscreen_button = HudKit.button("", 14)
-	fullscreen_button.name = "Fullscreen"
-	fullscreen_button.toggle_mode = true
-	fullscreen_button.custom_minimum_size = Vector2(120, 32)
-	fullscreen_button.toggled.connect(func(on: bool):
-		GameSettings.instance().set_fullscreen(on)
+	var row := _row(tr("Window mode"))
+	window_picker = _picker("WindowMode")
+	for mode: String in GameSettings.WINDOW_MODES:
+		window_picker.add_item(tr(String(WINDOW_MODE_NAMES[mode])))
+	window_picker.tooltip_text = tr("Fullscreen shortcut: %s") % GameSettings.fullscreen_shortcut()
+	window_picker.item_selected.connect(func(index: int):
+		GameSettings.instance().set_window_mode(String(GameSettings.WINDOW_MODES[index]))
 		refresh())
-	row.add_child(fullscreen_button)
+	row.add_child(window_picker)
 	g.add_child(row)
-	g.add_child(_slider_row("ui_scale", tr("Interface scale"), GameSettings.UI_SCALE_MIN, GameSettings.UI_SCALE_MAX, 0.05))
+	var scale_row := _slider_row("ui_scale", tr("Interface scale"), GameSettings.UI_SCALE_MIN, GameSettings.UI_SCALE_MAX, 0.05)
+	scale_auto_button = HudKit.button(tr("Auto"), 14)
+	scale_auto_button.name = "ScaleAuto"
+	scale_auto_button.toggle_mode = true
+	scale_auto_button.custom_minimum_size = Vector2(70, 32)
+	scale_auto_button.tooltip_text = tr("Follows the window size and the screen's DPI")
+	scale_auto_button.toggled.connect(func(on: bool):
+		GameSettings.instance().set_ui_scale_auto(on)
+		refresh())
+	scale_row.add_child(scale_auto_button)
+	g.add_child(scale_row)
+	var fps_row := _row(tr("Show frame rate"))
+	fps_button = _toggle("ShowFps", func(on: bool): GameSettings.instance().set_show_fps(on))
+	fps_row.add_child(fps_button)
+	g.add_child(fps_row)
 	g.add_child(_section(tr("Camera & effects")))
 	g.add_child(_slider_row("mouse_sensitivity", tr("Mouse sensitivity"), GameSettings.SENSITIVITY_MIN,
 		GameSettings.SENSITIVITY_MAX, 0.05))
+	var invert_row := _row(tr("Invert vertical look"))
+	invert_button = _toggle("InvertY", func(on: bool): GameSettings.instance().set_invert_mouse_y(on))
+	invert_row.add_child(invert_button)
+	g.add_child(invert_row)
 	g.add_child(_slider_row("shake", tr("Screen shake"), GameSettings.INTENSITY_MIN, GameSettings.INTENSITY_MAX, 0.05))
 	g.add_child(_slider_row("flash", tr("Screen flash"), GameSettings.INTENSITY_MIN, GameSettings.INTENSITY_MAX, 0.05))
 
-func _build_graphics(g: VBoxContainer) -> void:
+func _build_graphics(page: VBoxContainer) -> void:
+	var g := _scrolling(page)
 	g.add_child(_section(tr("Quality")))
 	var row := _row(tr("Graphics quality"))
 	quality_picker = _picker("GraphicsQuality")
@@ -169,6 +233,32 @@ func _build_graphics(g: VBoxContainer) -> void:
 		13, HudKit.TEXT_DIM, HudKit.body(), 0)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	g.add_child(note)
+	var scale_row := _row(tr("Render scale"))
+	render_picker = _picker("RenderScale")
+	for choice: String in GameSettings.RENDER_SCALE_CHOICES:
+		render_picker.add_item(tr("Auto (from quality)") if choice == "auto" else "%s%%" % choice)
+	render_picker.tooltip_text = tr("Lower is faster and softer; the interface stays sharp")
+	render_picker.item_selected.connect(func(index: int):
+		GameSettings.instance().set_render_scale(String(GameSettings.RENDER_SCALE_CHOICES[index]))
+		refresh())
+	scale_row.add_child(render_picker)
+	g.add_child(scale_row)
+	g.add_child(_section(tr("Frame rate")))
+	var vsync_row := _row(tr("VSync"))
+	vsync_button = _toggle("VSync", func(on: bool): GameSettings.instance().set_vsync(on))
+	vsync_button.tooltip_text = tr("Stops tearing; turning it off can lower input delay")
+	vsync_row.add_child(vsync_button)
+	g.add_child(vsync_row)
+	var cap_row := _row(tr("Frame rate limit"))
+	fps_cap_picker = _picker("FpsCap")
+	for cap: int in GameSettings.FPS_CHOICES:
+		fps_cap_picker.add_item(tr("No limit") if cap == 0 else tr("%d FPS") % cap)
+	fps_cap_picker.tooltip_text = tr("A limit keeps a laptop cooler and quieter")
+	fps_cap_picker.item_selected.connect(func(index: int):
+		GameSettings.instance().set_fps_cap(int(GameSettings.FPS_CHOICES[index]))
+		refresh())
+	cap_row.add_child(fps_cap_picker)
+	g.add_child(cap_row)
 	g.add_child(_section(tr("Day and night")))
 	var tod_row := _row(tr("Time of day"))
 	time_picker = _picker("TimeOfDay")
@@ -226,6 +316,15 @@ func _build_controls(c: VBoxContainer) -> void:
 		status.text = tr("Key bindings reset to defaults.")
 		refresh())
 	head.add_child(reset)
+	var replay := HudKit.button(tr("Replay the introduction"), 14)
+	replay.name = "ReplayIntro"
+	replay.custom_minimum_size = Vector2(210, 30)
+	replay.tooltip_text = tr("Shows the first-steps guide again")
+	replay.pressed.connect(func():
+		GameSettings.instance().set_intro_done(false)
+		status.text = tr("The first-steps guide starts when you enter the world.") if front_door \
+			else tr("The first-steps guide is back at the top of the screen."))
+	head.add_child(replay)
 	c.add_child(head)
 	var scroll := ScrollContainer.new()
 	scroll.name = "Keys"
@@ -333,6 +432,10 @@ func _language_row() -> VBoxContainer:
 		if code == I18n.current:
 			return
 		I18n.set_language(code)
+		if front_door:
+			# nothing is at stake here: the screen is built again at once
+			language_apply_requested.emit()
+			return
 		apply_row.visible = true
 		note.text = tr("Open windows switch language when the interface is rebuilt.")
 		apply.text = tr("Change character now")
@@ -422,7 +525,7 @@ func value_of(key: String) -> float:
 	var settings := GameSettings.instance()
 	match key:
 		"ui_scale":
-			return settings.ui_scale
+			return settings.effective_ui_scale()
 		"mouse_sensitivity":
 			return settings.mouse_sensitivity
 		"shake":
@@ -438,12 +541,21 @@ func _format(key: String, value: float) -> String:
 		return I18n.num(value, 2) + "x"
 	return "%d%%" % roundi(value * 100.0)
 
+func _show_toggle(button: Button, on: bool) -> void:
+	button.set_pressed_no_signal(on)
+	button.text = tr("On") if on else tr("Off")
+
 func refresh() -> void:
-	if fullscreen_button == null:
+	if window_picker == null:
 		return
 	var settings := GameSettings.instance()
-	fullscreen_button.set_pressed_no_signal(settings.fullscreen)
-	fullscreen_button.text = tr("On") if settings.fullscreen else tr("Off")
+	window_picker.select(maxi(0, GameSettings.WINDOW_MODES.find(settings.window_mode)))
+	scale_auto_button.set_pressed_no_signal(settings.ui_scale_auto)
+	_show_toggle(fps_button, settings.show_fps)
+	_show_toggle(invert_button, settings.invert_mouse_y)
+	_show_toggle(vsync_button, settings.vsync)
+	fps_cap_picker.select(maxi(0, GameSettings.FPS_CHOICES.find(settings.fps_cap)))
+	render_picker.select(maxi(0, GameSettings.RENDER_SCALE_CHOICES.find(settings.render_scale)))
 	if quality_picker != null:
 		quality_picker.select(maxi(0, GameSettings.GRAPHICS_CHOICES.find(settings.graphics_quality)))
 	if time_picker != null:
@@ -484,7 +596,7 @@ func take_key(keycode: int) -> void:
 	var error := GameSettings.instance().set_binding(action, keycode)
 	if error == "":
 		rebinds += 1
-		status.text = tr("'%s' is now %s.") % [action_name(action), OS.get_keycode_string(keycode)]
+		status.text = tr("'%s' is now %s.") % [action_name(action), GameSettings.keycode_name(keycode)]
 	elif error.begins_with("taken:"):
 		status.text = tr("Refused: that key already drives '%s'.") % action_name(error.trim_prefix("taken:"))
 	else:
