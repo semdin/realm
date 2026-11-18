@@ -159,8 +159,8 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         if !run_until(&mut d, 15.0, idle, |s| (s.pos() - before).length() > 1.5)? {
             return fail(format!("the breath never pushed: {:?}", messages(&d)));
         }
-        if !messages(&d).iter().any(|m| m.contains("breath")) {
-            return fail("the breath came unannounced");
+        if !messages(&d).iter().any(|m| m.contains("surge of brine")) {
+            return fail("the surge came unannounced");
         }
         println!(
             "[boss] the breath pushed it {:.1} m",
@@ -194,9 +194,9 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             slept
         })?;
         if !slept {
-            return fail(format!("Wheelwarden never slept: {:?}", messages(&d)));
+            return fail(format!("the Wheelwarden was never seized: {:?}", messages(&d)));
         }
-        println!("[boss] the chime rang it to sleep");
+        println!("[boss] the sluice wheel seized it");
     }
     // Bring the parts down, then the body.
     let mut next_cast = 0_u32;
@@ -221,7 +221,10 @@ pub fn run(args: &[String]) -> AnyResult<()> {
                 next_cast = tick + 18;
                 d.action = (1, id, pos + Vec3::new(0.0, 1.0, 0.0));
             }
-            MoveInput::from_intent(0.0, 0.0, yaw_toward(me, pos), 0)
+            // Close enough for the basic cast from the wheel's side of the hall.
+            let (dx, dz) = (pos.x - me.x, pos.z - me.z);
+            let walk = if dx * dx + dz * dz > 20.0 * 20.0 { 1.0 } else { 0.0 };
+            MoveInput::from_intent(0.0, walk, yaw_toward(me, pos), 0)
         } else {
             MoveInput::default()
         };
@@ -237,7 +240,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let wanted: &[&str] = if which == "snare" {
         &["heart is exposed"]
     } else {
-        &["head slumps", "howls in fury"]
+        &["plate cracks", "gears scream"]
     };
     for w in wanted {
         if !said.iter().any(|m| m.contains(w)) {

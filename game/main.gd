@@ -74,7 +74,7 @@ extends Node3D
 ##   [--check-boss]                                   the check goes through the Brine Vaults gate
 ##                                                    (castle_interior), walks to the Wheelwarden, works
 ##                                                    the sluice wheel until it is seized and breaks its
-##                                                    heads one by one (BossCheck; the dungeon server
+##                                                    plates one by one (BossCheck; the dungeon server
 ##                                                    runs with --dev-dungeon-start wheelwarden
 ##                                                    --dev-dungeon-scale 0.05: build/logs/dup_boss.sh)
 ##   [--check-boss-step snare]                        the Brinebriar instead (dup_boss.sh snare)
