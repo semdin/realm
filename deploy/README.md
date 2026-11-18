@@ -51,6 +51,37 @@ in a systemd container (`tools/ops/host`, ~3 min): install, the login service
 end to end, a deploy with a player online (its save lands), a broken release
 rolled back, backups.
 
+### Client and server together
+
+A game client and the realm must have the same `PROTOCOL_VERSION`. A current
+client sends its version with login, registration and play, and the login
+service answers `update_required`, so the player is told to open the launcher
+before anything else happens; older clients only find out at the map.
+
+- Protocol unchanged: publish the client first, then deploy the servers. The
+  new client works with the old login service, and nobody is locked out.
+- Protocol changed: deploy the servers, then publish the client straight away,
+  inside the same maintenance window.
+- New terms (`VERSION` in `crates/realm_login/src/legal.rs`): every account is
+  asked to accept them at its next login, and a client too old to show the
+  question cannot reach its characters until it updates.
+
+### Game admins and account limits
+
+GA rights belong to account ids in `/etc/realm/realm.env`, read when the
+coordinator starts: `REALM_GA_ACCOUNTS=12,34`. Find an id with
+`SELECT account_id FROM characters WHERE name_key = lower('Character Name');`.
+`POST /admin/ga` changes the list only until the next restart.
+`REALM_SIGNUPS_PER_HOUR` caps new accounts across the realm (default 120; 0
+closes registration during an attack).
+
+`realm-deploy` does not touch system files. After a release that changes them,
+copy `deploy/systemd/realm-login.service` to `/etc/systemd/system/` and
+`deploy/journald/realm.conf` to `/etc/systemd/journald.conf.d/`, then run
+`systemctl daemon-reload` and `systemctl restart systemd-journald` (or run
+`install.sh` again). The Privacy Policy promises the 30-day log limit that file
+sets.
+
 ## Metrics and the panel
 
 Every map server sends the coordinator its status window every 5 s
