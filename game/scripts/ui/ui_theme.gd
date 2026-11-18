@@ -442,14 +442,15 @@ static func _load_variable(file: String, weight: int) -> Font:
 ## broke into grainy, smeared edges. A multichannel signed distance field
 ## keeps every edge sharp at any size on screen with no mipmaps; the range
 ## is wide enough for the thickest world outline (12: the range must be at
-## least twice the outline).
+## least twice the outline). `tabular` gives every figure one width (damage
+## numbers: a total that grows does not jitter).
 const WORLD_MSDF_RANGE := 32
 const WORLD_MSDF_SIZE := 48
 
 static var _world_base: FontFile = null
 
-static func world_font(weight: int) -> Font:
-	var key := "world:%d" % weight
+static func world_font(weight: int, tabular := false) -> Font:
+	var key := "world:%d:%s" % [weight, tabular]
 	if _fonts.has(key):
 		return _fonts[key]
 	var out := font(weight)
@@ -469,6 +470,8 @@ static func world_font(weight: int) -> Font:
 		v.base_font = _world_base
 		v.variation_opentype = {ts.name_to_tag("wght"): weight}
 		v.opentype_features = {ts.name_to_tag("lnum"): 1}
+		if tabular:
+			v.opentype_features[ts.name_to_tag("tnum")] = 1
 		out = v
 	_fonts[key] = out
 	return out

@@ -88,7 +88,7 @@ func on_hit(event: Dictionary, _own: bool) -> void:
 	_hit_hold_until = Time.get_ticks_msec() / 1000.0 + HIT_HOLD_SECONDS
 	if byte <= 0:
 		hp = max_hp
-		FloatingText.spawn(get_parent(), global_position + Vector3(0, 2.4, 0), I18n.upper(tr("Dummy reset!")), RESET_COLOUR, 1.3)
+		FloatingText.word(global_position + Vector3.UP * (_label_height + 0.5), I18n.upper(tr("Dummy reset!")), RESET_COLOUR, 1.1, 0.0, -0.5)
 	else:
 		hp = _within_byte(hp - int(event.get("amount", 0)), byte)
 	_update_label()

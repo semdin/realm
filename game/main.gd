@@ -877,6 +877,7 @@ func _build_view() -> void:
 	add_child(env)
 	plates = Nameplates.new()
 	add_child(plates)
+	add_child(FloatingText.new())
 	player = _new_hero()
 	player.is_local_player = true
 	crowd = MultiMeshInstance3D.new()
@@ -1970,6 +1971,7 @@ func _show_combat() -> void:
 	var own := int(session.own_entity())
 	combat.own_id = own
 	combat.drawn = drawn
+	combat.note_health(session.vitals())
 	for event: Dictionary in session.take_combat_events():
 		combat.show_event(event)
 		world_audio.on_combat(event)
@@ -2079,7 +2081,8 @@ func _take_creature_info() -> void:
 func _title_earned(id: String) -> void:
 	var text := tr("New title: %s") % I18n.t(DungeonData.title_name(id))
 	titles_toasted.append(id)
-	FloatingText.spawn(self, player.global_position + Vector3(0, 2.6, 0), text, Color(1.0, 0.82, 0.4), 1.6)
+	FloatingText.word(player.global_position + Vector3(0, 2.6, 0), text, Color(1.0, 0.82, 0.4), 1.4, 2.2,
+		Nameplates.HERO_HEIGHT - 2.6)
 	feedback.toast(text, Color(1.0, 0.82, 0.4), "ui_quest")
 	AudioManager.play_levelup()
 
@@ -2251,8 +2254,8 @@ func open_chest_window(id: int) -> void:
 	if chest == null or feedback.is_dead():
 		return
 	if _chest_distance(id) > ChestView.PICK_RANGE:
-		var ft := FloatingText.spawn(self, player.global_position + Vector3(0, 2.4, 0), tr("Too far"), Color(1.0, 0.85, 0.5))
-		ft.duration = 1.0
+		FloatingText.word(player.global_position + Vector3(0, 2.4, 0), tr("Too far"), Color(1.0, 0.85, 0.5), 1.0, 1.0,
+			Nameplates.HERO_HEIGHT - 2.4)
 		return
 	loot_window.open_chest(id, chest.chest_kind == "chest_rare")
 	# the lid swings up and stays up while the window is on this chest

@@ -180,9 +180,8 @@ func on_death(event: Dictionary) -> void:
 	AudioManager.play_stinger("stinger_death")
 	if is_instance_valid(player):
 		player.set_dead(true)
-		var ft := FloatingText.spawn(player.get_parent(), player.global_position + Vector3(0, 2.4, 0),
-			I18n.upper(tr("Defeated!")), Color(1.0, 0.0, 0.0))
-		ft.duration = 2.0
+		FloatingText.word(player.global_position + Vector3(0, 2.4, 0), I18n.upper(tr("Defeated!")),
+			FloatingText.MUTED_RED, 1.25, 2.0, Nameplates.HERO_HEIGHT - 2.4)
 
 ## The body is up again (the snapshot's health came back).
 func _on_risen() -> void:
@@ -254,7 +253,8 @@ func on_reward(event: Dictionary) -> void:
 		var text := tr("+%d %s Reputation") % [rep, HudQuestScroll.house_name(house)]
 		toast(text, REP_COLOUR, "house_" + house)
 		if is_instance_valid(player):
-			FloatingText.spawn(player.get_parent(), player.global_position + Vector3(0, 2.6, 0), text, REP_COLOUR, 1.1)
+			FloatingText.word(player.global_position + Vector3(0, 2.6, 0), text, REP_COLOUR, 1.05, 1.8,
+				Nameplates.HERO_HEIGHT - 2.6)
 	if exp > 0:
 		toast(tr("+%d EXP") % exp, Color(0.5, 1.0, 0.6), "stat_exp")
 	if oril > 0:
@@ -277,9 +277,8 @@ func _follow_level(level: int) -> void:
 		toast(tr("LEVEL %d!") % level, Color(1.0, 0.9, 0.3), "stat_level")
 		AudioManager.play_levelup()
 		if is_instance_valid(player):
-			var ft := FloatingText.spawn(player.get_parent(), player.global_position + Vector3(0, 2.4, 0),
-				tr("LEVEL UP! (Lv.%d)") % level, Color(1.0, 0.85, 0.2))
-			ft.duration = 1.8
+			FloatingText.word(player.global_position + Vector3(0, 2.4, 0), tr("LEVEL UP! (Lv.%d)") % level,
+				FloatingText.GOLD, 1.4, 1.8, Nameplates.HERO_HEIGHT - 2.4)
 		LevelUpFX.play(player, level, self)
 	_shown_level = level
 

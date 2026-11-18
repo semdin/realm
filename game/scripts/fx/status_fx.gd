@@ -75,9 +75,8 @@ const POP_RANGE := 45.0
 ## One pop per status per this many seconds across all bodies: a blast that
 ## stuns six creatures says so once, not six times on top of each other.
 const POP_GAP := 0.35
-## The pop's size next to a damage number (FloatingText scale): the look on
-## the body says it first.
-const POP_SCALE := 0.85
+## The pop's size among the floating words: the look on the body says it first.
+const POP_SCALE := 0.9
 
 const BITS := [STATUS_STUN, STATUS_FREEZE, STATUS_SLOW, STATUS_BLEED, STATUS_BURN,
 	STATUS_POISON, STATUS_KNOCKED, STATUS_WEAK]
@@ -301,8 +300,7 @@ func _pop(bit: int) -> void:
 		return
 	_last_pop[bit] = now
 	var pop: Array = POPS[bit]
-	FloatingText.spawn(body.get_parent(), body.global_position + Vector3.UP * (_head + 1.0),
-		tr(String(pop[0])), pop[1], POP_SCALE)
+	FloatingText.word(body.global_position + Vector3.UP * (_head + 1.0), tr(String(pop[0])), pop[1], POP_SCALE, 0.0, -0.55)
 
 # ------------------------------------------------------------------ the body
 

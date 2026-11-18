@@ -240,8 +240,7 @@ func set_duel_mark(mark: int, who := "") -> void:
 		_duel_label.font_size = 34
 		_duel_label.outline_size = 10
 		_duel_label.outline_modulate = Color(0.04, 0.03, 0.02, 0.88)
-		# Over the body, under the damage numbers (FloatingText, priority 0)
-		# that rise through it.
+		# Over the body.
 		_duel_label.no_depth_test = true
 		_duel_label.render_priority = -1
 		_duel_label.outline_render_priority = -2

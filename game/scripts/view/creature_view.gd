@@ -380,7 +380,7 @@ func _set_asleep(on: bool) -> void:
 		return
 	asleep = on
 	if on and not is_dead and DisplayServer.get_name() != "headless":
-		FloatingText.spawn(get_parent(), global_position + Vector3.UP * (head_height + 1.2), tr("Asleep!"), SLEEP_TINT, 1.1)
+		FloatingText.word(global_position + Vector3.UP * (head_height + 1.2), tr("Asleep!"), SLEEP_TINT, 1.0, 0.0, -0.75)
 	_update_haze()
 
 ## A haze of slow pale motes drifting up off every standing head while it

@@ -20,21 +20,28 @@ class_name CombatView
 
 ## Where a cast aims on a creature, above its feet (the server's chest height).
 const CHEST := 1.15
-## Damage numbers start this far above the body's feet.
-const NUMBER_HEIGHT := 2.0
-## A hit the local player takes: its number starts at the chest, this far to
-## the camera's right (the nameplate holds the space over the head).
+## Damage numbers stand beside the upper body: this share of its height
+## (head_height where the view has one, else DEFAULT_TOP) over the feet.
+const NUMBER_RISE := 0.82
+const DEFAULT_TOP := 2.0
+const PLATE_OVER_HEAD := 0.45
+## The local player's numbers stand at the chest (the nameplate holds the space
+## over the head): blows on the camera's right, healing on its left.
 const OWN_NUMBER_HEIGHT := 1.3
-const OWN_NUMBER_SIDE := 0.75
+const HERO_GIRTH := 0.4
+## Health coming back by this much at once is shown (the share of the maximum,
+## at least HEAL_SHOWN): a potion or life steal, not the steady regeneration.
+const HEAL_SHARE := 0.02
+const HEAL_SHOWN := 8
 ## Where a hero without a wand prop casts from (the server's wand height).
 const WAND_HEIGHT := 1.2
 ## A body's girth where a spell meets it.
 const BODY_RADIUS := 0.45
 ## Hit flags (realm_proto CombatEvent::Hit).
 const FLAG_CRIT := 1
+const FLAG_FINISHER := 2
 ## A creature walking home shrugged the blow off (amount 0).
 const FLAG_EVADE := 64
-const EVADE_COLOUR := Color(0.78, 0.86, 0.95)
 ## What an area ability's release plays when its data names no impact (the
 ## old game's default), and what a cone's plays from the creature's chest.
 const AREA_IMPACT := "shockwave"
@@ -59,6 +66,9 @@ var beasts: Dictionary = {}
 var drawn: Dictionary = {}
 ## The RealmSession: the ground under a burst, the player's house and skills.
 var session: Node
+## The player's health as last seen (note_health).
+var _seen_hp := 0
+var _seen_max := 0
 ## Bolts in flight: {node, effect, caster, spell, target, velocity, left, path,
 ## travelled, length, amp, side}.
 var _bolts: Array = []
@@ -298,37 +308,82 @@ func _incoming(event: Dictionary) -> Vector3:
 	var at: Vector3 = drawn.get(int(event["target"]), Vector3.ZERO)
 	return at - (drawn.get(int(event["attacker"]), at - Vector3.FORWARD) as Vector3)
 
-## A damage number over the body that was hit, one size on screen at any
-## distance (FloatingText.number): white, red and larger when the local
-## player is the one hit, a bigger yellow-orange with "!" for a critical hit
-## (bigger still on the player).
+## What a hit did, beside the body it landed on (FloatingText): the player's
+## own blows in full, blows on the player in red at its side, everyone else's
+## small; a tick of a burn or a bleed (a hero's hit naming no spell) stays low.
 func _number(event: Dictionary) -> void:
 	var target := int(event["target"])
 	if not drawn.has(target):
 		return
+	var flags := int(event.get("flags", 0))
 	var amount := int(event.get("amount", 0))
-	if int(event.get("flags", 0)) & FLAG_EVADE:
+	var attacker := int(event.get("attacker", own_id))
+	var crit := (flags & FLAG_CRIT) != 0
+	var feet: Vector3 = drawn[target]
+	var body := _body(target)
+	var own := target == own_id
+	var height := OWN_NUMBER_HEIGHT if own else _top_of(body) * NUMBER_RISE
+	var at := feet + Vector3.UP * height
+	var girth := HERO_GIRTH if own else _girth_of(body)
+	var plate := _plate_of(body) - height
+	if (flags & FLAG_EVADE) != 0:
 		evades_shown += 1
-		FloatingText.number(self, (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0), tr("Evaded"), EVADE_COLOUR, 0.85)
+		FloatingText.note(tr("Evaded"), target, at, body, girth, plate)
 		return
-	var crit := (int(event.get("flags", 0)) & FLAG_CRIT) != 0
-	var text := ("%s!" % I18n.whole(amount)) if crit else I18n.whole(amount)
-	var colour := Color.WHITE
-	var size := 1.0
-	var at := (drawn[target] as Vector3) + Vector3(0, NUMBER_HEIGHT, 0)
-	if target == own_id:
-		colour = Color(1.0, 0.24, 0.2)
-		size = 1.15
-		# beside the hero at the chest, clear of its own nameplate over the head
-		var cam := get_viewport().get_camera_3d()
-		at = (drawn[target] as Vector3) + Vector3(0, OWN_NUMBER_HEIGHT, 0)
-		if cam != null:
-			at += cam.global_basis.x * OWN_NUMBER_SIDE
+	if amount <= 0:
+		FloatingText.note(tr("Blocked"), target, at, body, girth, plate)
+		return
+	var style: int
+	if own:
+		style = FloatingText.Style.TAKEN_CRIT if crit else FloatingText.Style.TAKEN
+	elif attacker != own_id:
+		if _hero(target) != null:
+			style = FloatingText.Style.ALLY_TAKEN
+		else:
+			style = FloatingText.Style.ALLY_CRIT if crit else FloatingText.Style.ALLY
+	elif String(event.get("spell", "basic_cast")) == "":
+		style = FloatingText.Style.TICK
 	elif crit:
-		colour = Color(1.0, 0.7, 0.2)
-	if crit:
-		size *= 1.55
-	FloatingText.number(self, at, text, colour, size)
+		style = FloatingText.Style.CRIT
+	elif (flags & FLAG_FINISHER) != 0:
+		style = FloatingText.Style.FINISHER
+	else:
+		style = FloatingText.Style.HIT
+	FloatingText.figure(style, amount, target, at, body, girth, 1 if own else 0, plate)
+
+## Healing the player received, on the side away from the blows.
+func show_heal(amount: int) -> void:
+	if not drawn.has(own_id):
+		return
+	var at := (drawn[own_id] as Vector3) + Vector3.UP * OWN_NUMBER_HEIGHT
+	FloatingText.figure(FloatingText.Style.HEAL, amount, own_id, at, player, HERO_GIRTH, -1,
+		Nameplates.HERO_HEIGHT - OWN_NUMBER_HEIGHT)
+
+## The server sends no heal event: a jump in the player's health is one (the
+## same maximum and alive on both sides, so no level-up or rising).
+func note_health(vitals: PackedInt32Array) -> void:
+	if vitals.size() < 2:
+		return
+	var gained := vitals[0] - _seen_hp
+	var steady := _seen_hp > 0 and vitals[0] > 0 and vitals[1] == _seen_max
+	_seen_hp = vitals[0]
+	_seen_max = vitals[1]
+	if steady and gained >= maxi(HEAL_SHOWN, ceili(vitals[1] * HEAL_SHARE)):
+		show_heal(gained)
+
+## How tall a body stands for its numbers.
+static func _top_of(body: Node3D) -> float:
+	var top: Variant = body.get("head_height") if body != null else null
+	return float(top) if top != null and float(top) > 0.5 else DEFAULT_TOP
+
+## Where a body's nameplate stands over its feet (main.gd's and Nameplates').
+static func _plate_of(body: Node3D) -> float:
+	var top: Variant = body.get("head_height") if body != null else null
+	return float(top) + PLATE_OVER_HEAD if top != null and float(top) > 0.5 else Nameplates.HERO_HEIGHT
+
+static func _girth_of(body: Node3D) -> float:
+	var radius: Variant = body.get("body_radius") if body != null else null
+	return float(radius) if radius != null else BODY_RADIUS
 
 ## A ward round `hero` for as long as the server holds it: the spell's
 ## duration, scaled by the caster's skill level when it is the player's own.

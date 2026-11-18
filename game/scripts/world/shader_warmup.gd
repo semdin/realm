@@ -275,12 +275,22 @@ func _add_combat_extras() -> void:
 	_slot += 1
 	GroundWarning.spawn(self, global_position + global_basis * _grid(_slot), 2.0, 0.0, 0.0)
 	_slot += 1
-	FloatingText.spawn(self, global_position + global_basis * (_grid(_slot) + Vector3.UP), "1234!",
-		Color(1.0, 0.8, 0.3), 1.3)
-	_slot += 1
-	# a damage number (fixed size on screen: its own material)
-	FloatingText.number(self, global_position + global_basis * (_grid(_slot) + Vector3.UP), "1234!",
-		Color(1.0, 0.7, 0.2), 1.55)
+	# the floating combat text (every style, every glyph: canvas, one pass)
+	FloatingText.warm()
+	# a duelist's mark: the one label that keeps one size on screen and is
+	# drawn over bodies (its own material)
+	var mark := Label3D.new()
+	mark.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	mark.double_sided = false
+	mark.fixed_size = true
+	mark.no_depth_test = true
+	mark.pixel_size = 0.001
+	mark.font = UITheme.world_font(UITheme.W_BOLD)
+	mark.font_size = 34
+	mark.outline_size = 10
+	mark.text = "1234"
+	add_child(mark)
+	mark.position = _grid(_slot) + Vector3.UP
 	_slot += 1
 	_add_model(BOULDER_MODEL)
 
