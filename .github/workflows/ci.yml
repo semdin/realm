@@ -85,10 +85,18 @@ jobs:
 
       - name: Reserved words
         if: matrix.os == 'ubuntu-26.04'
+        # The excluded launcher files hold the old install's name: they must find
+        # it to move a player's install, mutex, window class and bundle id.
         run: >-
           cargo run --release -p realm_content -- scan
           --list tools/content_guard/reserved.sha256
           --exclude launcher/src/legacy_names.cpp
+          --exclude launcher/src/common.h
+          --exclude launcher/src/main.cpp
+          --exclude launcher/src/main_sdl.cpp
+          --exclude launcher/src/updater.cpp
+          --exclude launcher/packaging/windows/ThousandRealms.iss
+          --exclude tools/release/test_updater.py
           game crates content/data tools launcher deploy README.md
 
       - name: Map packs check

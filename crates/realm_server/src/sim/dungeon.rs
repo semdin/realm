@@ -1617,10 +1617,7 @@ impl Sim {
         } else if standing == 0 {
             self.say(i, "The stems are gone - the Brinebriar's heart is exposed!");
         } else {
-            self.say(
-                i,
-                &format!("A stem cracks apart! {standing} left."),
-            );
+            self.say(i, &format!("A stem cracks apart! {standing} left."));
         }
     }
 

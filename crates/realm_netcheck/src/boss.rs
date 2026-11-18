@@ -194,7 +194,10 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             slept
         })?;
         if !slept {
-            return fail(format!("the Wheelwarden was never seized: {:?}", messages(&d)));
+            return fail(format!(
+                "the Wheelwarden was never seized: {:?}",
+                messages(&d)
+            ));
         }
         println!("[boss] the sluice wheel seized it");
     }
@@ -223,7 +226,11 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             }
             // Close enough for the basic cast from the wheel's side of the hall.
             let (dx, dz) = (pos.x - me.x, pos.z - me.z);
-            let walk = if dx * dx + dz * dz > 20.0 * 20.0 { 1.0 } else { 0.0 };
+            let walk = if dx * dx + dz * dz > 20.0 * 20.0 {
+                1.0
+            } else {
+                0.0
+            };
             MoveInput::from_intent(0.0, walk, yaw_toward(me, pos), 0)
         } else {
             MoveInput::default()
