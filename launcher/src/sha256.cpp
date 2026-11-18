@@ -9,7 +9,7 @@
 
 #include <mutex>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -129,13 +129,13 @@ std::string Sha256Stream::FinishHex() {
     return ok ? HexLower(digest, 32) : "";
 }
 
-}  // namespace hpmmo
+}  // namespace realm
 
 #else  // !_WIN32: portable SHA-256 (FIPS 180-4), no system crypto needed.
 
 #include <cstring>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -290,6 +290,6 @@ std::string Sha256Stream::FinishHex() {
     return HexLower(digest, 32);
 }
 
-}  // namespace hpmmo
+}  // namespace realm
 
 #endif  // _WIN32

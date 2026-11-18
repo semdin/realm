@@ -14,7 +14,7 @@
 #include <unistd.h>
 #endif
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -540,4 +540,4 @@ bool ZipReader::ExtractAll(const std::wstring& destDir, std::vector<ExtractedFil
     return true;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

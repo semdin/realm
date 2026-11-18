@@ -6,7 +6,7 @@
 #include <cstdlib>
 #include <cstring>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -493,4 +493,4 @@ std::string JsonValue::Dump() const {
     return out;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

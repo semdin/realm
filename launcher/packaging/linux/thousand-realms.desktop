@@ -1,8 +1,9 @@
 [Desktop Entry]
 Type=Application
 Name=Thousand Realms
-Comment=Thousand Realms - Büyücülük Diyarı
+Comment=Online fantasy role-playing game
+Comment[tr]=Çevrim içi fantastik rol yapma oyunu
 Exec=ThousandRealms_Launcher
-Icon=hpmmo-launcher
+Icon=thousand-realms
 Categories=Game;
 Terminal=false

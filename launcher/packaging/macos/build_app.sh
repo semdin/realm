@@ -16,8 +16,8 @@ build="$(mktemp -d)/build"
 
 cmake -S "$src" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" -DCMAKE_OSX_DEPLOYMENT_TARGET=11.0 \
-    -DHPMMO_LAUNCHER_VERSION="$version" >/dev/null
-ninja -C "$build" ThousandRealms_Launcher HPMMO_UpdaterCLI >/dev/null
+    -DREALM_LAUNCHER_VERSION="$version" >/dev/null
+ninja -C "$build" ThousandRealms_Launcher ThousandRealms_UpdaterCLI >/dev/null
 lipo -info "$build/ThousandRealms_Launcher"
 otool -L "$build/ThousandRealms_Launcher"
 
@@ -26,14 +26,14 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$build/ThousandRealms_Launcher" "$app/Contents/MacOS/ThousandRealms_Launcher"
 sed "s/@VERSION@/$version/g" "$src/packaging/macos/Info.plist.in" > "$app/Contents/Info.plist"
 
-iconset="$build/hpmmo.iconset"
+iconset="$build/ThousandRealms.iconset"
 mkdir -p "$iconset"
 for size in 16 32 128 256 512; do
-    sips -z "$size" "$size" "$src/assets/hpmmo_1024.png" --out "$iconset/icon_${size}x${size}.png" >/dev/null
+    sips -z "$size" "$size" "$src/assets/thousand_realms_1024.png" --out "$iconset/icon_${size}x${size}.png" >/dev/null
     double=$((size * 2))
-    sips -z "$double" "$double" "$src/assets/hpmmo_1024.png" --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
+    sips -z "$double" "$double" "$src/assets/thousand_realms_1024.png" --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
 done
-iconutil -c icns "$iconset" -o "$app/Contents/Resources/hpmmo.icns"
+iconutil -c icns "$iconset" -o "$app/Contents/Resources/ThousandRealms.icns"
 
 codesign --force --deep --sign - "$app"
 codesign --verify --deep --strict "$app"
@@ -42,5 +42,5 @@ mkdir -p "$out"
 rm -f "$out/ThousandRealms_Launcher-macos.zip"
 ditto -c -k --keepParent "$app" "$out/ThousandRealms_Launcher-macos.zip"
 cp "$app/Contents/MacOS/ThousandRealms_Launcher" "$out/ThousandRealms_Launcher-macos"
-cp "$build/HPMMO_UpdaterCLI" "$out/HPMMO_UpdaterCLI-macos"
+cp "$build/ThousandRealms_UpdaterCLI" "$out/ThousandRealms_UpdaterCLI-macos"
 ls -la "$out"

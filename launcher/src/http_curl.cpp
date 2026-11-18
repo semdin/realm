@@ -20,7 +20,7 @@
 #include <type_traits>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -223,7 +223,7 @@ HttpOutcome RunRequest(const HttpRequestOptions& opts, const std::wstring* destF
     char errbuf[CURL_ERROR_SIZE] = {0};
     api.easy_setopt(curl, CURLOPT_URL, url.c_str());
     api.easy_setopt(curl, CURLOPT_ERRORBUFFER, errbuf);
-    api.easy_setopt(curl, CURLOPT_USERAGENT, "HPMMO-Launcher/3");
+    api.easy_setopt(curl, CURLOPT_USERAGENT, "ThousandRealms-Launcher/3");
     api.easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     api.easy_setopt(curl, CURLOPT_MAXREDIRS, 10L);
     // Redirects may not downgrade an HTTPS request to HTTP.
@@ -374,4 +374,4 @@ HttpOutcome HttpProbeCertPin(const std::wstring&, std::string& pinHexOut) {
     return out;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

@@ -9,9 +9,9 @@
     <key>CFBundleExecutable</key>
     <string>ThousandRealms_Launcher</string>
     <key>CFBundleIconFile</key>
-    <string>hpmmo</string>
+    <string>ThousandRealms</string>
     <key>CFBundleIdentifier</key>
-    <string>com.hpmmo.launcher</string>
+    <string>com.agsilvery.thousandrealms.launcher</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>

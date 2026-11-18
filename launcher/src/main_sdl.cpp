@@ -31,7 +31,7 @@
 #include "painter.h"
 #include "updater.h"
 
-namespace hpmmo {
+namespace realm {
 namespace assets {
 extern const unsigned char kBackground[];
 extern const size_t kBackgroundSize;
@@ -44,23 +44,23 @@ extern const size_t kIconPngSize;
 extern const unsigned char kLogoPng[];
 extern const size_t kLogoPngSize;
 }  // namespace assets
-}  // namespace hpmmo
+}  // namespace realm
 
 namespace {
 
-using hpmmo::app::Phase;
-using hpmmo::app::kGameTitle;
-using hpmmo::paint::Align;
-using hpmmo::paint::Canvas;
-using hpmmo::paint::Color;
-using hpmmo::paint::Fill;
-using hpmmo::paint::Linear;
-using hpmmo::paint::RectF;
-using hpmmo::paint::Solid;
-using hpmmo::paint::TextStyle;
+using realm::app::Phase;
+using realm::app::kGameTitle;
+using realm::paint::Align;
+using realm::paint::Canvas;
+using realm::paint::Color;
+using realm::paint::Fill;
+using realm::paint::Linear;
+using realm::paint::RectF;
+using realm::paint::Solid;
+using realm::paint::TextStyle;
 
 // ------------------------------------------------------------------ palette
-// Same values as main.cpp (client/assets/ui/hpmmo.tres).
+// Same values as main.cpp.
 namespace Pal {
 const Color Ink(255, 11, 13, 18);
 const Color Steel(255, 58, 65, 82);
@@ -92,9 +92,9 @@ struct View {
     float anim = 0.0f;
 };
 
-hpmmo::paint::Font g_TitleFont, g_BodyFont;
-hpmmo::paint::Image g_Background;
-hpmmo::paint::Image g_Logo;   // the crest: horizontal game logo
+realm::paint::Font g_TitleFont, g_BodyFont;
+realm::paint::Image g_Background;
+realm::paint::Image g_Logo;   // the crest: horizontal game logo
 Canvas g_Base;          // background + static decoration, rebuilt on resize
 Canvas g_Frame;
 
@@ -128,7 +128,7 @@ Hit HitTest(const View& v, int cw, int ch, float x, float y) {
     return Hit::None;
 }
 
-TextStyle Style(const hpmmo::paint::Font& f, float px, Align h = Align::Near, Align va = Align::Near,
+TextStyle Style(const realm::paint::Font& f, float px, Align h = Align::Near, Align va = Align::Near,
                 bool ellipsis = false) {
     TextStyle st;
     st.font = &f;
@@ -207,7 +207,7 @@ void Paint(const View& v, int cw, int ch) {
     Canvas& g = g_Frame;
     g.CopyFrom(g_Base);
     Layout L = ComputeLayout(v, cw, ch);
-    hpmmo::app::Snapshot s = hpmmo::app::TakeSnapshot();
+    realm::app::Snapshot s = realm::app::TakeSnapshot();
 
     // --- window buttons
     for (Hit which : {Hit::Minimize, Hit::Close}) {
@@ -253,7 +253,7 @@ void Paint(const View& v, int cw, int ch) {
         g.StrokeRound(L.notes, SF(v, 8), Pal::Steel.WithAlpha(200), SF(v, 1));
         g.FillRect(RectF(L.notes.x, L.notes.y + SF(v, 12), SF(v, 3), L.notes.h - SF(v, 24)), Solid(Pal::Gold));
         std::wstring caption = L"YENİLİKLER";
-        if (!s.release.empty()) caption += L"  ·  v" + hpmmo::Utf8ToWide(s.release);
+        if (!s.release.empty()) caption += L"  ·  v" + realm::Utf8ToWide(s.release);
         g.DrawText(caption, RectF(L.notes.x + SF(v, 18), L.notes.y + SF(v, 12), L.notes.w - SF(v, 30), SF(v, 20)),
                    Style(g_TitleFont, SF(v, 13)), Solid(Pal::GoldLt));
         std::wstring notes = s.notes.empty() ? L"Bu sürüm için not eklenmemiş." : s.notes;
@@ -281,7 +281,7 @@ void Paint(const View& v, int cw, int ch) {
         bool show = true;
         switch (s.phase) {
             case Phase::Downloading: {
-                uint64_t t = hpmmo::app::ProgressTotal(), d = hpmmo::app::ProgressDone();
+                uint64_t t = realm::app::ProgressTotal(), d = realm::app::ProgressDone();
                 frac = t ? std::min(1.0f, (float)d / (float)t) : -1.0f;
                 break;
             }
@@ -328,15 +328,15 @@ void Paint(const View& v, int cw, int ch) {
         bool busy = !(s.phase == Phase::Ready || s.phase == Phase::ReadyStale || s.phase == Phase::Failed);
         Color c = busy ? Pal::Dim.WithAlpha(110) : (v.hover == Hit::Repair ? Pal::GoldHi : Pal::Dim);
         g.DrawText(L"Dosyaları onar", L.repair, Style(g_BodyFont, SF(v, 12), Align::Near, Align::Center), Solid(c));
-        std::wstring ver = L"Launcher v" + hpmmo::Utf8ToWide(hpmmo::kLauncherVersion);
-        if (!s.installed.empty()) ver = L"Oyun v" + hpmmo::Utf8ToWide(s.installed) + L"   ·   " + ver;
+        std::wstring ver = L"Launcher v" + realm::Utf8ToWide(realm::kLauncherVersion);
+        if (!s.installed.empty()) ver = L"Oyun v" + realm::Utf8ToWide(s.installed) + L"   ·   " + ver;
         g.DrawText(ver, RectF(L.play.x - SF(v, 400), L.h - SF(v, 34), SF(v, 400) - SF(v, 28), SF(v, 22)),
                    Style(g_BodyFont, SF(v, 12), Align::Far, Align::Center), Solid(Pal::Dim.WithAlpha(200)));
     }
 
     // --- play button
     {
-        bool enabled = hpmmo::app::PlayEnabled(s.phase);
+        bool enabled = realm::app::PlayEnabled(s.phase);
         bool hover = enabled && v.hover == Hit::Play;
         bool pressed = hover && v.pressed == Hit::Play;
         RectF r = L.play;
@@ -358,7 +358,7 @@ void Paint(const View& v, int cw, int ch) {
         g.StrokeRound(r, SF(v, 9), enabled ? (hover ? Pal::GoldHi : Pal::GoldLt) : Pal::Steel, SF(v, 1.5f));
         g.StrokeRound(RectF(r.x + SF(v, 4), r.y + SF(v, 4), r.w - SF(v, 8), r.h - SF(v, 8)), SF(v, 6),
                       (enabled ? Pal::Gold : Pal::Steel).WithAlpha(110), SF(v, 1));
-        std::wstring label = hpmmo::app::PlayLabel(s.phase);
+        std::wstring label = realm::app::PlayLabel(s.phase);
         TextStyle pf = Style(g_TitleFont, SF(v, label.size() > 6 ? 19.0f : 28.0f), Align::Center, Align::Center);
         g.DrawText(label, RectF(r.x, r.y + SF(v, 1), r.w, r.h), pf, Solid(Color(160, 20, 4, 4)));
         g.DrawText(label, r, pf, Solid(enabled ? Pal::GoldHi : Pal::Dim));
@@ -369,12 +369,12 @@ void Paint(const View& v, int cw, int ch) {
 }
 
 bool LoadAssets() {
-    bool ok = g_TitleFont.Load(hpmmo::assets::kFontTitle, hpmmo::assets::kFontTitleSize);
-    ok = g_BodyFont.Load(hpmmo::assets::kFontBody, hpmmo::assets::kFontBodySize) && ok;
-    if (!g_Background.Decode(hpmmo::assets::kBackground, hpmmo::assets::kBackgroundSize))
-        hpmmo::LogMsg("[Launcher] background art could not be decoded");
-    if (!g_Logo.Decode(hpmmo::assets::kLogoPng, hpmmo::assets::kLogoPngSize))
-        hpmmo::LogMsg("[Launcher] logo could not be decoded");
+    bool ok = g_TitleFont.Load(realm::assets::kFontTitle, realm::assets::kFontTitleSize);
+    ok = g_BodyFont.Load(realm::assets::kFontBody, realm::assets::kFontBodySize) && ok;
+    if (!g_Background.Decode(realm::assets::kBackground, realm::assets::kBackgroundSize))
+        realm::LogMsg("[Launcher] background art could not be decoded");
+    if (!g_Logo.Decode(realm::assets::kLogoPng, realm::assets::kLogoPngSize))
+        realm::LogMsg("[Launcher] logo could not be decoded");
     return ok;
 }
 
@@ -383,20 +383,20 @@ bool LoadAssets() {
 // headless updater (and the self-update helper) instead of opening a window.
 int RunHeadless(int argc, char** argv) {
     if (argc < 2) return -1;
-    hpmmo::CliOptions opts;
+    realm::CliOptions opts;
     std::string err;
-    if (!hpmmo::ParseCliArgs(argc, argv, opts, err)) return -1;
+    if (!realm::ParseCliArgs(argc, argv, opts, err)) return -1;
     if (opts.command == "help") {
-        hpmmo::PrintUsage(stdout);
+        realm::PrintUsage(stdout);
         fflush(stdout);
         return 0;
     }
     if (opts.helper.empty() && opts.command.empty()) return -1;
     if (opts.helper == "self-update-swap")
-        return hpmmo::RunSelfUpdateSwap(hpmmo::WideToUtf8(opts.helperPid), opts.helperTarget, hpmmo::GetExePath(),
+        return realm::RunSelfUpdateSwap(realm::WideToUtf8(opts.helperPid), opts.helperTarget, realm::GetExePath(),
                                         opts.relaunch);
-    if (opts.helper == "print-cert-pin") return hpmmo::RunPrintCertPin(opts.helperUrl);
-    hpmmo::CommandResult r = hpmmo::RunCliCommand(opts);
+    if (opts.helper == "print-cert-pin") return realm::RunPrintCertPin(opts.helperUrl);
+    realm::CommandResult r = realm::RunCliCommand(opts);
     printf("%s\n", r.json.c_str());
     fflush(stdout);
     return r.code;
@@ -419,10 +419,10 @@ int AcquireSingleInstance(bool waitForOld) {
     // Beside the install folder, not in it: the first start of a renamed
     // launcher moves <data>/HPMMO to <data>/ThousandRealms, which must not
     // exist yet (MigrateLegacyInstallRoot).
-    std::wstring dir = hpmmo::UserDataRoot();
+    std::wstring dir = realm::UserDataRoot();
     if (dir.empty()) return -2;
-    hpmmo::CreateDirs(dir);
-    std::string path = hpmmo::WideToUtf8(hpmmo::JoinPath(dir, L".thousandrealms-launcher.lock"));
+    realm::CreateDirs(dir);
+    std::string path = realm::WideToUtf8(realm::JoinPath(dir, L".thousandrealms-launcher.lock"));
     int fd = open(path.c_str(), O_RDWR | O_CREAT | O_CLOEXEC, 0644);
     if (fd < 0) return -2;   // no lock possible: run anyway
     for (int attempt = 0; attempt < 20; attempt++) {
@@ -437,15 +437,15 @@ int AcquireSingleInstance(bool waitForOld) {
 // --screenshot: run the real workers, paint their state into a PNG, exit.
 int RunScreenshot(const char* out, int afterMs) {
     View v;
-    hpmmo::app::Hooks hooks;
-    hpmmo::app::Init(hpmmo::Config(), hooks);
-    hpmmo::app::StartWorker();
-    hpmmo::app::StartStatusPoll();
+    realm::app::Hooks hooks;
+    realm::app::Init(realm::Config(), hooks);
+    realm::app::StartWorker();
+    realm::app::StartStatusPoll();
     std::this_thread::sleep_for(std::chrono::milliseconds(afterMs));
     v.anim = afterMs / 1000.0f;
     Paint(v, kBaseW, kBaseH);
     bool ok = g_Frame.WritePng(out);
-    hpmmo::app::Cancel();
+    realm::app::Cancel();
     printf("%s %s\n", ok ? "wrote" : "FAILED", out);
     fflush(stdout);
     _exit(ok ? 0 : 1);   // detached workers may still be blocked in network calls
@@ -491,19 +491,19 @@ int main(int argc, char** argv) {
     }
     bool postSelfUpdate = HasArg(argc, argv, "--post-self-update");
     if (postSelfUpdate) {
-        hpmmo::SetLogPath(hpmmo::JoinPath(hpmmo::GetExeDir(), L"launcher.log"));
-        hpmmo::LogMsg("[Launcher] restarted after self-update");
-        if (!hpmmo::GetEnvW(L"HPMMO_TEST_NO_GUI").empty()) return 0;
+        realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+        realm::LogMsg("[Launcher] restarted after self-update");
+        if (!realm::GetEnvW(L"REALM_TEST_NO_GUI").empty()) return 0;
     }
 
     // Before LoadConfig: on macOS the config sits inside the bundle, which
     // this renames ("HPMMO Launcher.app" -> "Thousand Realms Launcher.app").
     if (!HasArg(argc, argv, "--screenshot")) {
-        hpmmo::SetLogPath(hpmmo::JoinPath(hpmmo::GetExeDir(), L"launcher.log"));
-        hpmmo::MigrateLegacyLauncherFile();
+        realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+        realm::MigrateLegacyLauncherFile();
     }
-    hpmmo::LoadConfig();
-    if (!LoadAssets()) hpmmo::LogMsg("[Launcher] embedded fonts could not be loaded");
+    realm::LoadConfig();
+    if (!LoadAssets()) realm::LogMsg("[Launcher] embedded fonts could not be loaded");
 
     if (const char* shot = ArgValue(argc, argv, "--screenshot")) {
         const char* after = ArgValue(argc, argv, "--screenshot-after");
@@ -512,7 +512,7 @@ int main(int argc, char** argv) {
 
     int lock = AcquireSingleInstance(postSelfUpdate);
     if (lock == -1) {
-        hpmmo::LogMsg("[Launcher] another launcher is already running");
+        realm::LogMsg("[Launcher] another launcher is already running");
         return 0;
     }
 
@@ -531,8 +531,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     {
-        hpmmo::paint::Image icon;
-        if (icon.Decode(hpmmo::assets::kIconPng, hpmmo::assets::kIconPngSize)) {
+        realm::paint::Image icon;
+        if (icon.Decode(realm::assets::kIconPng, realm::assets::kIconPngSize)) {
             SDL_Surface* surf = SDL_CreateSurfaceFrom(icon.w, icon.h, SDL_PIXELFORMAT_RGBA32, icon.rgba.data(), icon.w * 4);
             if (surf) {
                 SDL_SetWindowIcon(g_Window, surf);
@@ -553,7 +553,7 @@ int main(int argc, char** argv) {
     SDL_Cursor* arrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_DEFAULT);
     SDL_ShowWindow(g_Window);
 
-    hpmmo::app::Hooks hooks;
+    realm::app::Hooks hooks;
     hooks.refresh = [] {
         SDL_Event e = {};
         e.type = g_EvRefresh;
@@ -564,14 +564,14 @@ int main(int argc, char** argv) {
         e.type = g_EvExit;
         SDL_PushEvent(&e);
     };
-    hpmmo::app::Init(hpmmo::Config(), hooks);
-    hpmmo::app::StartWorker();
-    hpmmo::app::StartStatusPoll();
+    realm::app::Init(realm::Config(), hooks);
+    realm::app::StartWorker();
+    realm::app::StartStatusPoll();
 
     const char* exitAfterArg = ArgValue(argc, argv, "--exit-after");
     Uint64 exitAt = exitAfterArg ? SDL_GetTicks() + (Uint64)atoi(exitAfterArg) : 0;
-    Uint64 nextStatus = SDL_GetTicks() + hpmmo::app::kStatusPollMs;
-    Uint64 nextRecheck = SDL_GetTicks() + hpmmo::app::kRecheckMs;
+    Uint64 nextStatus = SDL_GetTicks() + realm::app::kStatusPollMs;
+    Uint64 nextRecheck = SDL_GetTicks() + realm::app::kRecheckMs;
     Uint64 nextGamePoll = 0;   // 0: the game is not running
     SDL_Texture* tex = nullptr;
     int texW = 0, texH = 0;
@@ -602,20 +602,20 @@ int main(int argc, char** argv) {
             }
             case Hit::Minimize: SDL_MinimizeWindow(g_Window); break;
             case Hit::Play:
-                if (hpmmo::app::PlayEnabled(hpmmo::app::CurrentPhase()) && hpmmo::app::OnPlay()) {
-                    nextGamePoll = SDL_GetTicks() + hpmmo::app::kGamePollMs;
+                if (realm::app::PlayEnabled(realm::app::CurrentPhase()) && realm::app::OnPlay()) {
+                    nextGamePoll = SDL_GetTicks() + realm::app::kGamePollMs;
                     SDL_MinimizeWindow(g_Window);
                 }
                 break;
-            case Hit::Repair: hpmmo::app::RequestRepair(); break;
+            case Hit::Repair: realm::app::RequestRepair(); break;
             default: break;
         }
     };
     auto quitRequested = [&]() {
-        Phase p = hpmmo::app::CurrentPhase();
+        Phase p = realm::app::CurrentPhase();
         if (p == Phase::Downloading || p == Phase::Installing) {
             if (!ConfirmCloseDuringUpdate()) return false;
-            hpmmo::app::Cancel();
+            realm::app::Cancel();
         }
         return true;
     };
@@ -630,7 +630,7 @@ int main(int argc, char** argv) {
                 running = false;
             } else if (e.type == SDL_EVENT_MOUSE_MOTION) {
                 g_View.hover = hitAt(e.motion.x, e.motion.y);
-                bool handCursor = g_View.hover == Hit::Play ? hpmmo::app::PlayEnabled(hpmmo::app::CurrentPhase())
+                bool handCursor = g_View.hover == Hit::Play ? realm::app::PlayEnabled(realm::app::CurrentPhase())
                                                            : g_View.hover != Hit::None;
                 SDL_SetCursor(handCursor ? hand : arrow);
             } else if (e.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) {
@@ -654,15 +654,15 @@ int main(int argc, char** argv) {
         Uint64 now = SDL_GetTicks();
         if (exitAt && now >= exitAt) break;
         if (now >= nextStatus) {
-            hpmmo::app::StartStatusPoll();
-            nextStatus = now + hpmmo::app::kStatusPollMs;
+            realm::app::StartStatusPoll();
+            nextStatus = now + realm::app::kStatusPollMs;
         }
         if (now >= nextRecheck) {
-            hpmmo::app::OnRecheckTimer();
-            nextRecheck = now + hpmmo::app::kRecheckMs;
+            realm::app::OnRecheckTimer();
+            nextRecheck = now + realm::app::kRecheckMs;
         }
         if (nextGamePoll && now >= nextGamePoll) {
-            nextGamePoll = hpmmo::app::PollGame() ? now + hpmmo::app::kGamePollMs : 0;
+            nextGamePoll = realm::app::PollGame() ? now + realm::app::kGamePollMs : 0;
         }
 
         if (SDL_GetWindowFlags(g_Window) & SDL_WINDOW_MINIMIZED) continue;
@@ -691,7 +691,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    hpmmo::app::Cancel();
+    realm::app::Cancel();
     if (tex) SDL_DestroyTexture(tex);
     SDL_DestroyCursor(hand);
     SDL_DestroyCursor(arrow);

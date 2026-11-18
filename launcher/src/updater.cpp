@@ -24,7 +24,7 @@ extern "C" {
 #include "ed25519.h"
 }
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -1350,13 +1350,13 @@ CommandResult CheckImpl(UpdaterContext& ctx, CheckSummary* summary) {
     return r;
 }
 
-// HPMMO_FULL_PACKAGE=1 skips the delta path (diagnostics, tests).
+// REALM_FULL_PACKAGE=1 skips the delta path (diagnostics, tests).
 bool FullPackageForced() {
-    std::wstring v = GetEnvW(L"HPMMO_FULL_PACKAGE");
+    std::wstring v = GetEnvW(L"REALM_FULL_PACKAGE");
     return !v.empty() && v[0] == L'1';
 }
 
-// HPMMO_FULL_PACKAGE=1 against a release without a package for this install
+// REALM_FULL_PACKAGE=1 against a release without a package for this install
 // (every release since 1.0.64 ships chunks only): there is nothing it could
 // download, so say that up front instead of failing later as an integrity
 // error. True when the forced full-package path has a package to use.
@@ -1365,8 +1365,8 @@ bool ForcedFullPackageUsable(const ReleaseManifest& m, const std::string& instal
     Artifact art;
     std::string why;
     if (SelectInstallArtifact(m, installedVersion, art, why)) return true;
-    message = "HPMMO_FULL_PACKAGE=1 forces the full package, but release " + m.clientVersion +
-              " has none (" + why + "); it ships chunks only - unset HPMMO_FULL_PACKAGE";
+    message = "REALM_FULL_PACKAGE=1 forces the full package, but release " + m.clientVersion +
+              " has none (" + why + "); it ships chunks only - unset REALM_FULL_PACKAGE";
     return false;
 }
 
@@ -2019,7 +2019,7 @@ std::wstring StatusUrl(const CliOptions& cli, const AppConfig& cfg) {
     if (base.empty()) return L"";
     // GitHub hosts the releases; the live server state comes from the account
     // service. Any other release host serves its own status.json.
-    if (base == HPMMO_DEFAULT_RELEASE_BASE) return HPMMO_DEFAULT_STATUS_URL;
+    if (base == REALM_DEFAULT_RELEASE_BASE) return REALM_DEFAULT_STATUS_URL;
     return Utf8ToWide(JoinUrlBase(base, "status.json"));
 }
 
@@ -2101,16 +2101,16 @@ bool LaunchInstalledGame(const UpdaterPaths& paths, const AppConfig& cfg, bool s
         LPWCH current = GetEnvironmentStringsW();
         if (current) {
             for (LPWCH p = current; *p; p += wcslen(p) + 1) {
-                if (_wcsnicmp(p, L"HPMMO_TICKET=", 13) == 0) continue;
-                if (_wcsnicmp(p, L"HPMMO_API_URL=", 14) == 0) continue;
-                if (_wcsnicmp(p, L"HPMMO_USER_DIR=", 15) == 0) continue;
+                if (_wcsnicmp(p, L"REALM_TICKET=", 13) == 0) continue;
+                if (_wcsnicmp(p, L"REALM_API_URL=", 14) == 0) continue;
+                if (_wcsnicmp(p, L"REALM_USER_DIR=", 15) == 0) continue;
                 entries.emplace_back(p);
             }
             FreeEnvironmentStringsW(current);
         }
-        entries.push_back(L"HPMMO_API_URL=" + ApiBaseUrl(cfg));
-        entries.push_back(L"HPMMO_USER_DIR=" + paths.userDir);
-        entries.push_back(L"HPMMO_TICKET=" + ticket);
+        entries.push_back(L"REALM_API_URL=" + ApiBaseUrl(cfg));
+        entries.push_back(L"REALM_USER_DIR=" + paths.userDir);
+        entries.push_back(L"REALM_TICKET=" + ticket);
         std::sort(entries.begin(), entries.end());
         for (const auto& entry : entries) {
             envBlock.insert(envBlock.end(), entry.begin(), entry.end());
@@ -2145,9 +2145,9 @@ bool LaunchInstalledGame(const UpdaterPaths& paths, const AppConfig& cfg, bool s
     } else {
         args = {L"--user", username, L"--ip", cfg.serverIp, L"--port", std::to_wstring(cfg.serverPort),
                 L"--autologin"};
-        drop = {"HPMMO_TICKET", "HPMMO_API_URL", "HPMMO_USER_DIR"};
-        add = {L"HPMMO_API_URL=" + ApiBaseUrl(cfg),
-               L"HPMMO_USER_DIR=" + paths.userDir, L"HPMMO_TICKET=" + ticket};
+        drop = {"REALM_TICKET", "REALM_API_URL", "REALM_USER_DIR"};
+        add = {L"REALM_API_URL=" + ApiBaseUrl(cfg),
+               L"REALM_USER_DIR=" + paths.userDir, L"REALM_TICKET=" + ticket};
     }
     std::string err;
     if (SpawnDetached(paths.gameExe, args, drop, add, L"", err)) return true;
@@ -2172,17 +2172,17 @@ bool LaunchGameClient(const UpdaterPaths& paths, const AppConfig& cfg, const std
     LPWCH current = GetEnvironmentStringsW();
     if (current) {
         for (LPWCH p = current; *p; p += wcslen(p) + 1) {
-            if (_wcsnicmp(p, L"HPMMO_TICKET=", 13) == 0) continue;
-            if (_wcsnicmp(p, L"HPMMO_API_URL=", 14) == 0) continue;
-            if (_wcsnicmp(p, L"HPMMO_USER_DIR=", 15) == 0) continue;
-            if (_wcsnicmp(p, L"HPMMO_CLIENT_VERSION=", 21) == 0) continue;
+            if (_wcsnicmp(p, L"REALM_TICKET=", 13) == 0) continue;
+            if (_wcsnicmp(p, L"REALM_API_URL=", 14) == 0) continue;
+            if (_wcsnicmp(p, L"REALM_USER_DIR=", 15) == 0) continue;
+            if (_wcsnicmp(p, L"REALM_CLIENT_VERSION=", 21) == 0) continue;
             entries.emplace_back(p);
         }
         FreeEnvironmentStringsW(current);
     }
-    entries.push_back(L"HPMMO_API_URL=" + ApiBaseUrl(cfg));
-    entries.push_back(L"HPMMO_USER_DIR=" + paths.userDir);
-    if (!clientVersion.empty()) entries.push_back(L"HPMMO_CLIENT_VERSION=" + Utf8ToWide(clientVersion));
+    entries.push_back(L"REALM_API_URL=" + ApiBaseUrl(cfg));
+    entries.push_back(L"REALM_USER_DIR=" + paths.userDir);
+    if (!clientVersion.empty()) entries.push_back(L"REALM_CLIENT_VERSION=" + Utf8ToWide(clientVersion));
     std::sort(entries.begin(), entries.end(), [](const std::wstring& a, const std::wstring& b) {
         return _wcsicmp(a.c_str(), b.c_str()) < 0;
     });
@@ -2258,11 +2258,11 @@ bool LaunchGameClient(const UpdaterPaths& paths, const AppConfig& cfg, const std
     if (paths.gameExe.empty() || !FileExists(paths.gameExe)) return false;
     // Zip/delta installs do not carry the exec bit reliably.
     MakeExecutable(paths.gameExe);
-    std::vector<std::string> drop = {"HPMMO_TICKET", "HPMMO_API_URL", "HPMMO_USER_DIR", "HPMMO_CLIENT_VERSION"};
+    std::vector<std::string> drop = {"REALM_TICKET", "REALM_API_URL", "REALM_USER_DIR", "REALM_CLIENT_VERSION"};
     std::vector<std::wstring> add = {
-        L"HPMMO_API_URL=" + ApiBaseUrl(cfg),
-        L"HPMMO_USER_DIR=" + paths.userDir};
-    if (!clientVersion.empty()) add.push_back(L"HPMMO_CLIENT_VERSION=" + Utf8ToWide(clientVersion));
+        L"REALM_API_URL=" + ApiBaseUrl(cfg),
+        L"REALM_USER_DIR=" + paths.userDir};
+    if (!clientVersion.empty()) add.push_back(L"REALM_CLIENT_VERSION=" + Utf8ToWide(clientVersion));
     std::wstring workDir = paths.gameExe.substr(0, paths.gameExe.find_last_of(L'/'));
     std::string err;
     if (!SpawnDetached(paths.gameExe, {}, drop, add, workDir, err)) {
@@ -2345,4 +2345,4 @@ int RunPrintCertPin(const std::wstring& url) {
     return out.ok ? kExitOk : kExitNetwork;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

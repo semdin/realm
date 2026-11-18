@@ -19,7 +19,7 @@
 #define WINHTTP_QUERY_FLAG_NUMBER64 0x08000000
 #endif
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -131,7 +131,7 @@ static HttpOutcome RunRequest(const HttpRequestOptions& opts, std::wstring* dest
     }
 
     RequestHandles h;
-    h.session = WinHttpOpen(L"HPMMO-Launcher/3", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+    h.session = WinHttpOpen(L"ThousandRealms-Launcher/3", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
                             WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!h.session) {
         out.errorKind = "network";
@@ -354,4 +354,4 @@ HttpOutcome HttpProbeCertPin(const std::wstring& url, std::string& pinHexOut) {
     return out;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

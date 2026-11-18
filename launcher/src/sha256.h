@@ -6,7 +6,7 @@
 #include <string>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 bool Sha256Buffer(const void* data, size_t len, unsigned char out[32]);
 std::string Sha256Hex(const void* data, size_t len);
@@ -31,4 +31,4 @@ private:
     void* state_;
 };
 
-}  // namespace hpmmo
+}  // namespace realm

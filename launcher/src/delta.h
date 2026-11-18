@@ -13,7 +13,7 @@
 
 #include "zip.h"   // ExtractedFile
 
-namespace hpmmo {
+namespace realm {
 
 struct ContentChunk {
     std::string sha256;
@@ -77,4 +77,4 @@ bool BuildFromChunks(const ContentIndex& index, const LocalInstall& local, const
                      const std::wstring& storeDir, const DeltaCallbacks& cb, std::vector<ExtractedFile>& files,
                      DeltaStats& stats, bool& cancelled, std::string& err);
 
-}  // namespace hpmmo
+}  // namespace realm

@@ -22,7 +22,7 @@
 #include <sys/stat.h>
 #endif
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -271,4 +271,4 @@ void MigrateLegacyLauncherFile() {
 #endif
 }
 
-}  // namespace hpmmo
+}  // namespace realm

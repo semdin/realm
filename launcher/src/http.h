@@ -7,7 +7,7 @@
 #include <functional>
 #include <string>
 
-namespace hpmmo {
+namespace realm {
 
 struct HttpOutcome {
     bool ok = false;
@@ -51,4 +51,4 @@ HttpOutcome HttpGetToFile(const HttpRequestOptions& opts, const std::wstring& de
 // sha256. Used to bootstrap the pinned value; never used for verification.
 HttpOutcome HttpProbeCertPin(const std::wstring& url, std::string& pinHexOut);
 
-}  // namespace hpmmo
+}  // namespace realm

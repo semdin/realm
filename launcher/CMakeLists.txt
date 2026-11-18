@@ -9,10 +9,10 @@ set(VENDOR_ED25519 ${CMAKE_CURRENT_SOURCE_DIR}/vendor/ed25519)
 set(VENDOR_LIBDEFLATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor/libdeflate)
 
 # The launcher's own version (self-update compares it with the manifest's
-# launcher_version). CI passes -DHPMMO_LAUNCHER_VERSION=3.0.<unix time of the
-# last commit touching launcher_cpp/>, so only launcher changes trigger it.
-set(HPMMO_LAUNCHER_VERSION "3.0.0" CACHE STRING "Launcher version stamped into the build")
-add_compile_definitions(HPMMO_LAUNCHER_VERSION="${HPMMO_LAUNCHER_VERSION}")
+# launcher_version). CI passes -DREALM_LAUNCHER_VERSION=3.0.<unix time of the
+# last commit touching launcher/>, so only launcher changes trigger it.
+set(REALM_LAUNCHER_VERSION "3.0.0" CACHE STRING "Launcher version stamped into the build")
+add_compile_definitions(REALM_LAUNCHER_VERSION="${REALM_LAUNCHER_VERSION}")
 if(WIN32)
     # Vista+/Win10 APIs (QueryFullProcessImageNameW, SHCreateMemStream, DWM, DPI):
     # GCC mingw-w64 defaults to an older _WIN32_WINNT and hides them.
@@ -23,12 +23,12 @@ endif()
 # decompressor (MIT) are vendored - see vendor/PROVENANCE.md; libcurl is the
 # HTTP transport on Linux/macOS (WinHTTP on Windows).
 if(WIN32)
-    set(HPMMO_PLATFORM_SOURCES src/common_win.cpp src/http_winhttp.cpp)
+    set(REALM_PLATFORM_SOURCES src/common_win.cpp src/http_winhttp.cpp)
 else()
-    set(HPMMO_PLATFORM_SOURCES src/common_posix.cpp src/http_curl.cpp)
+    set(REALM_PLATFORM_SOURCES src/common_posix.cpp src/http_curl.cpp)
 endif()
-add_library(hpmmo_core STATIC
-    ${HPMMO_PLATFORM_SOURCES}
+add_library(realm_launcher_core STATIC
+    ${REALM_PLATFORM_SOURCES}
     src/common.cpp
     src/json.cpp
     src/sha256.cpp
@@ -39,6 +39,7 @@ add_library(hpmmo_core STATIC
     src/launcher_app.cpp
     src/delta.cpp
     src/legacy_names.cpp
+    src/i18n.cpp
     ${VENDOR_ED25519}/fe.c
     ${VENDOR_ED25519}/ge.c
     ${VENDOR_ED25519}/sc.c
@@ -50,10 +51,10 @@ add_library(hpmmo_core STATIC
     ${VENDOR_LIBDEFLATE}/lib/x86/cpu_features.c
     ${VENDOR_LIBDEFLATE}/lib/arm/cpu_features.c
 )
-target_include_directories(hpmmo_core PUBLIC src ${VENDOR_ED25519})
-target_include_directories(hpmmo_core PRIVATE ${VENDOR_LIBDEFLATE})
+target_include_directories(realm_launcher_core PUBLIC src ${VENDOR_ED25519})
+target_include_directories(realm_launcher_core PRIVATE ${VENDOR_LIBDEFLATE})
 if(WIN32)
-    target_link_libraries(hpmmo_core PUBLIC
+    target_link_libraries(realm_launcher_core PUBLIC
         bcrypt
         crypt32
         winhttp
@@ -66,14 +67,14 @@ else()
     find_package(CURL REQUIRED)
     find_package(Threads REQUIRED)
     if(APPLE)
-        target_link_libraries(hpmmo_core PUBLIC CURL::libcurl Threads::Threads)
+        target_link_libraries(realm_launcher_core PUBLIC CURL::libcurl Threads::Threads)
     else()
         # Linux loads libcurl at run time (http_curl.cpp): headers only here.
-        target_include_directories(hpmmo_core PRIVATE ${CURL_INCLUDE_DIRS})
-        target_link_libraries(hpmmo_core PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
+        target_include_directories(realm_launcher_core PRIVATE ${CURL_INCLUDE_DIRS})
+        target_link_libraries(realm_launcher_core PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
     endif()
 endif()
-target_compile_options(hpmmo_core PRIVATE -O2)
+target_compile_options(realm_launcher_core PRIVATE -O2)
 
 if(WIN32)
     # GUI launcher: update/install/play only (signing in happens in the game).
@@ -85,7 +86,7 @@ if(WIN32)
     # windres finds the embedded art/fonts (app.rc) through the include path.
     target_include_directories(ThousandRealms_Launcher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
     target_link_libraries(ThousandRealms_Launcher PRIVATE
-        hpmmo_core
+        realm_launcher_core
         ws2_32
         winhttp
         gdiplus
@@ -120,35 +121,31 @@ if(NOT WIN32)
     FetchContent_MakeAvailable(SDL3)
 
     include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/EmbedAssets.cmake)
-    set(HPMMO_EMBEDDED ${CMAKE_CURRENT_BINARY_DIR}/embedded_assets.cpp)
-    hpmmo_embed_assets(${HPMMO_EMBEDDED}
+    set(REALM_EMBEDDED ${CMAKE_CURRENT_BINARY_DIR}/embedded_assets.cpp)
+    realm_embed_assets(${REALM_EMBEDDED}
         Background ${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher_bg.jpg
         FontTitle ${CMAKE_CURRENT_SOURCE_DIR}/assets/Literata-Bold.ttf
         FontBody ${CMAKE_CURRENT_SOURCE_DIR}/assets/Literata-Medium.ttf
-        IconPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/hpmmo_256.png
+        IconPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_256.png
         LogoPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_logo.png)
 
     add_executable(ThousandRealms_Launcher
         src/main_sdl.cpp
         src/painter.cpp
-        ${HPMMO_EMBEDDED}
+        ${REALM_EMBEDDED}
     )
     target_include_directories(ThousandRealms_Launcher PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/vendor/stb)
-    target_link_libraries(ThousandRealms_Launcher PRIVATE hpmmo_core SDL3::SDL3-static)
+    target_link_libraries(ThousandRealms_Launcher PRIVATE realm_launcher_core SDL3::SDL3-static)
 endif()
 
 # Headless CLI used by the release tests and by operators.
-add_executable(HPMMO_UpdaterCLI
+add_executable(ThousandRealms_UpdaterCLI
     src/updater_main.cpp
 )
-target_link_libraries(HPMMO_UpdaterCLI PRIVATE hpmmo_core)
+target_link_libraries(ThousandRealms_UpdaterCLI PRIVATE realm_launcher_core)
 
-if(WIN32)
-    set(HPMMO_EXE_TARGETS ThousandRealms_Launcher HPMMO_UpdaterCLI)
-else()
-    set(HPMMO_EXE_TARGETS ThousandRealms_Launcher HPMMO_UpdaterCLI)
-endif()
-foreach(tgt ${HPMMO_EXE_TARGETS})
+set(REALM_EXE_TARGETS ThousandRealms_Launcher ThousandRealms_UpdaterCLI)
+foreach(tgt ${REALM_EXE_TARGETS})
     target_compile_options(${tgt} PRIVATE -O2)
     if(WIN32)
         target_link_options(${tgt} PRIVATE -static -static-libgcc -static-libstdc++)
@@ -157,16 +154,3 @@ foreach(tgt ${HPMMO_EXE_TARGETS})
         target_link_options(${tgt} PRIVATE -static-libgcc -static-libstdc++)
     endif()
 endforeach()
-
-if(WIN32)
-add_custom_command(TARGET ThousandRealms_Launcher POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:ThousandRealms_Launcher>
-    ${CMAKE_SOURCE_DIR}/../ThousandRealms_Launcher.exe
-)
-add_custom_command(TARGET HPMMO_UpdaterCLI POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    $<TARGET_FILE:HPMMO_UpdaterCLI>
-    ${CMAKE_SOURCE_DIR}/../HPMMO_UpdaterCLI.exe
-)
-endif()

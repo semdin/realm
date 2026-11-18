@@ -9,7 +9,7 @@
 #include <string>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -25,8 +25,8 @@ bool NeedsValue(const char* flag, int i, int argc) {
 
 void PrintUsage(void* file) {
     FILE* f = (FILE*)file;
-    fprintf(f, "HPMMO launcher updater (Release pipeline)\n\n");
-    fprintf(f, "Usage: HPMMO_UpdaterCLI <command> [options]\n\n");
+    fprintf(f, "Thousand Realms launcher updater\n\n");
+    fprintf(f, "Usage: ThousandRealms_UpdaterCLI <command> [options]\n\n");
     fprintf(f, "Commands:\n");
     fprintf(f, "  --check         Fetch status+manifest, compare versions, print one JSON line\n");
     fprintf(f, "  --update        Download, verify, stage, activate the newest release\n");
@@ -149,4 +149,4 @@ bool ParseCliArgs(int argc, char** argv, CliOptions& opts, std::string& err) {
     return true;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

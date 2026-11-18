@@ -10,7 +10,7 @@
 
 #include "common.h"
 
-namespace hpmmo {
+namespace realm {
 namespace app {
 
 enum class Phase {
@@ -67,4 +67,4 @@ bool OnPlay();
 bool PollGame();
 
 }  // namespace app
-}  // namespace hpmmo
+}  // namespace realm

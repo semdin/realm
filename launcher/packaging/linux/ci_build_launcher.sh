@@ -14,10 +14,10 @@ case "$src" in /opt/actions-runner-client/_work/*|/tmp/*) ;; *) echo "refusing s
 case "$out" in /opt/actions-runner-client/_work/*|/tmp/*) ;; *) echo "refusing output outside the runner workspace: $out" >&2; exit 2 ;; esac
 test -f "$src/packaging/linux/Dockerfile"
 
-docker build -q -t hpmmo-launcher-build:22.04 "$src/packaging/linux" >/dev/null
+docker build -q -t thousand-realms-launcher-build:22.04 "$src/packaging/linux" >/dev/null
 mkdir -p "$out"
 # The output belongs to the user who called sudo (the runner), not root.
 chown "${SUDO_UID:-0}:${SUDO_GID:-0}" "$out"
 docker run --rm --user "${SUDO_UID:-0}:${SUDO_GID:-0}" \
     -v "$src:/src:ro" -v "$out:/out" \
-    hpmmo-launcher-build:22.04 bash /src/packaging/linux/build_appimage.sh /src "$version" /out
+    thousand-realms-launcher-build:22.04 bash /src/packaging/linux/build_appimage.sh /src "$version" /out

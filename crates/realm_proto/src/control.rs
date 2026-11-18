@@ -78,6 +78,8 @@ use serde::{Deserialize, Serialize};
 
 /// Largest frame either side accepts; a peer sending more is closed.
 pub const MAX_FRAME: usize = 256 * 1024;
+/// Largest frame a client may send: nothing it says needs more.
+pub const MAX_CLIENT_FRAME: usize = 16 * 1024;
 
 /// Server -> client.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -576,9 +578,20 @@ pub fn decode_client(payload: &[u8]) -> Result<ClientMsg, FrameError> {
 #[derive(Default)]
 pub struct FrameReader {
     buffer: Vec<u8>,
+    /// Largest frame taken (None: [`MAX_FRAME`]).
+    limit: Option<usize>,
 }
 
 impl FrameReader {
+    /// A reader that refuses frames over `limit` bytes.
+    #[must_use]
+    pub fn with_limit(limit: usize) -> Self {
+        Self {
+            buffer: Vec::new(),
+            limit: Some(limit),
+        }
+    }
+
     pub fn push(&mut self, bytes: &[u8]) {
         self.buffer.extend_from_slice(bytes);
     }
@@ -589,7 +602,7 @@ impl FrameReader {
             return Ok(None);
         };
         let len = u32::from_le_bytes([head[0], head[1], head[2], head[3]]) as usize;
-        if len > MAX_FRAME {
+        if len > self.limit.unwrap_or(MAX_FRAME) {
             return Err(FrameError::TooLarge(len));
         }
         if self.buffer.len() < 4 + len {

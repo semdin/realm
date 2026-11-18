@@ -15,7 +15,7 @@
 #include <string>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 namespace paint {
 
 struct Color {
@@ -119,4 +119,4 @@ private:
 };
 
 }  // namespace paint
-}  // namespace hpmmo
+}  // namespace realm

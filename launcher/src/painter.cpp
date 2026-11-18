@@ -14,7 +14,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 
-namespace hpmmo {
+namespace realm {
 namespace paint {
 
 namespace {
@@ -426,4 +426,4 @@ bool Canvas::WritePng(const std::string& path) const {
 }
 
 }  // namespace paint
-}  // namespace hpmmo
+}  // namespace realm

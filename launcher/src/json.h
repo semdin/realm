@@ -7,7 +7,7 @@
 #include <string>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 class JsonValue {
 public:
@@ -62,4 +62,4 @@ private:
     std::map<std::string, JsonValue> object_;
 };
 
-}  // namespace hpmmo
+}  // namespace realm

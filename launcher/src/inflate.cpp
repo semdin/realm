@@ -5,7 +5,7 @@
 #include <cstring>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -375,4 +375,4 @@ bool InflateDecompress(const unsigned char* in, size_t inLen, uint64_t maxOut,
     return true;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

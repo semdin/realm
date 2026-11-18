@@ -15,7 +15,7 @@
 #include <thread>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 namespace {
 
@@ -517,4 +517,4 @@ bool BuildFromChunks(const ContentIndex& index, const LocalInstall& local, const
     return true;
 }
 
-}  // namespace hpmmo
+}  // namespace realm

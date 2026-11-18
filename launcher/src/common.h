@@ -1,4 +1,4 @@
-// HPMMO launcher - shared utilities (Release pipeline updater support).
+// Thousand Realms launcher - shared utilities (release pipeline updater support).
 #pragma once
 
 #ifdef _WIN32
@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 // The core keeps std::wstring paths on every platform. On POSIX they are
 // converted to UTF-8 at the system-call edge (common_posix.cpp); Windows code
@@ -42,6 +42,10 @@ std::wstring FormatBytesW(uint64_t v);
 std::wstring JoinPath(const std::wstring& a, const std::wstring& b);
 std::wstring GetExePath();
 std::wstring GetExeDir();
+// Where the launcher logs before the install root is known: beside the
+// executable, except inside a macOS app bundle (a file added there would break
+// the bundle's signature), where it is the per-user data folder.
+std::wstring EarlyLogPath();
 // After the launcher renamed its own running file (legacy_names.cpp) the OS
 // still reports the old path; GetExePath returns this instead when set.
 void SetExePathOverride(const std::wstring& path);
@@ -93,6 +97,12 @@ std::wstring GetEnvW(const wchar_t* name);
 // Per-user application data root: %LOCALAPPDATA%, ~/.local/share
 // ($XDG_DATA_HOME) or ~/Library/Application Support. Empty when unknown.
 std::wstring UserDataRoot();
+// The game's own user folder (Godot's user://, custom_user_dir_name
+// "ThousandRealms"): settings and logs/godot.log. %APPDATA% on Windows, not
+// the %LOCALAPPDATA% the install lives in.
+std::wstring GameUserDataDir();
+// The system's language as a tag ("tr-TR", "en_US.UTF-8"); empty when unknown.
+std::string SystemLocaleTag();
 uint32_t CurrentProcessId();
 
 // ------------------------------------------------------------------ version --
@@ -130,24 +140,24 @@ bool IsGameRunning(const std::wstring& installRoot,
 // Built-in release source: a lone launcher with no client_config.json
 // next to it still knows where updates live and which key signs them.
 // GitHub's "latest" alias always resolves to the newest published release.
-#ifndef HPMMO_DEFAULT_RELEASE_BASE
-#define HPMMO_DEFAULT_RELEASE_BASE L"https://github.com/semdin/realm/releases/latest/download"
+#ifndef REALM_DEFAULT_RELEASE_BASE
+#define REALM_DEFAULT_RELEASE_BASE L"https://github.com/semdin/realm/releases/latest/download"
 #endif
 // The account service, behind TLS (Caddy + Let's Encrypt on the game host).
 // Logins and session tokens never travel in clear text.
-#ifndef HPMMO_DEFAULT_API_URL
-#define HPMMO_DEFAULT_API_URL L"https://api.agsilvery.com"
+#ifndef REALM_DEFAULT_API_URL
+#define REALM_DEFAULT_API_URL L"https://api.agsilvery.com"
 #endif
-#ifndef HPMMO_DEFAULT_STATUS_URL
-#define HPMMO_DEFAULT_STATUS_URL L"https://api.agsilvery.com/api/status"
+#ifndef REALM_DEFAULT_STATUS_URL
+#define REALM_DEFAULT_STATUS_URL L"https://api.agsilvery.com/api/status"
 #endif
 // Raw 32-byte Ed25519 public key (base64) of the release signing key; its
-// private half is the HPMMO_CLIENT_SIGNING_KEY GitHub secret.
-#ifndef HPMMO_DEFAULT_RELEASE_KEY
-#define HPMMO_DEFAULT_RELEASE_KEY L"1fnIuBa9qYMhOphM0O94gAeYXy8o50pfHhBSsu+7zdI="
+// private half is the release signing secret in GitHub Actions.
+#ifndef REALM_DEFAULT_RELEASE_KEY
+#define REALM_DEFAULT_RELEASE_KEY L"1fnIuBa9qYMhOphM0O94gAeYXy8o50pfHhBSsu+7zdI="
 #endif
-#ifndef HPMMO_DEFAULT_RELEASE_KEY_ID
-#define HPMMO_DEFAULT_RELEASE_KEY_ID L"d540e9f5467ba5a12aa290900249fa6ceb0824dd29f9a60ad57c6d463230842f"
+#ifndef REALM_DEFAULT_RELEASE_KEY_ID
+#define REALM_DEFAULT_RELEASE_KEY_ID L"d540e9f5467ba5a12aa290900249fa6ceb0824dd29f9a60ad57c6d463230842f"
 #endif
 
 struct AppConfig {
@@ -155,20 +165,20 @@ struct AppConfig {
     std::wstring serverIp = L"185.118.141.74";
     int serverPort = 7777;
     int apiPort = 8081;               // only used when apiUrl is empty (a LAN/dev server)
-    std::wstring apiUrl = HPMMO_DEFAULT_API_URL;
+    std::wstring apiUrl = REALM_DEFAULT_API_URL;
     std::wstring lastUsername;
     bool rememberMe = true;
 
     // the release pipeline updater fields (all optional; empty/0 disables the updater).
-    std::wstring releaseBaseUrl = HPMMO_DEFAULT_RELEASE_BASE;
-    std::wstring statusUrl;           // empty: HPMMO_DEFAULT_STATUS_URL for the built-in
+    std::wstring releaseBaseUrl = REALM_DEFAULT_RELEASE_BASE;
+    std::wstring statusUrl;           // empty: REALM_DEFAULT_STATUS_URL for the built-in
                                       // release base, else <release_base>/status.json
-    std::wstring releasePublicKey = HPMMO_DEFAULT_RELEASE_KEY;    // base64, 32-byte Ed25519 key
-    std::wstring releasePublicKeyId = HPMMO_DEFAULT_RELEASE_KEY_ID;  // informational
+    std::wstring releasePublicKey = REALM_DEFAULT_RELEASE_KEY;    // base64, 32-byte Ed25519 key
+    std::wstring releasePublicKeyId = REALM_DEFAULT_RELEASE_KEY_ID;  // informational
     std::wstring releaseChannel;      // optional expected channel
     std::wstring pinnedSpkiSha256;    // hex sha256 of a pinned certificate SPKI; empty = Windows trust store
     std::wstring installRoot;         // empty = exe directory when it already holds an
-                                      // install (current.json / portable.txt), else %LOCALAPPDATA%\HPMMO
+                                      // install (current.json / portable.txt), else %LOCALAPPDATA%\ThousandRealms
     std::wstring userDataDir;         // empty = <installRoot>/user
     std::wstring gameExeName;         // empty = auto-detect
     std::vector<std::wstring> gameProcessNames;  // extra process names to detect
@@ -176,7 +186,7 @@ struct AppConfig {
 };
 
 AppConfig& Config();
-// Base URL of the account service the game logs in through (HPMMO_API_URL):
+// Base URL of the account service the game logs in through (REALM_API_URL):
 // `api_url`, else http://<server_ip>:<api_port> for a server without TLS.
 std::wstring ApiBaseUrl(const AppConfig& cfg);
 std::wstring DefaultConfigPath();
@@ -187,4 +197,4 @@ std::wstring LastLoadedConfigPath();
 // ------------------------------------------------------------ base64 decoding --
 bool Base64Decode(const std::string& in, std::vector<unsigned char>& out);
 
-}  // namespace hpmmo
+}  // namespace realm

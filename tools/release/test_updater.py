@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Release pipeline native launcher updater tests.
 
-Runs the headless launcher CLI (HPMMO_UpdaterCLI.exe) against a local HTTPS
+Runs the headless launcher CLI (ThousandRealms_UpdaterCLI.exe) against a local HTTPS
 release server with a self-signed, pinned certificate and fake signed releases.
 
 Covers the plan's exit checks: install from an older version; interrupt/resume;
@@ -47,7 +47,7 @@ HERE = Path(__file__).resolve().parent
 CLIENT = HERE.parent.parent
 IS_WINDOWS = os.name == "nt"
 EXE = ".exe" if IS_WINDOWS else ""
-DEFAULT_LAUNCHER = CLIENT / "launcher_cpp" / "build" / ("HPMMO_UpdaterCLI" + EXE)
+DEFAULT_LAUNCHER = CLIENT / "launcher_cpp" / "build" / ("ThousandRealms_UpdaterCLI" + EXE)
 DEFAULT_GUI_LAUNCHER = CLIENT / "launcher_cpp" / "build" / ("ThousandRealms_Launcher" + EXE)
 # The fake releases target the platform the launcher under test runs on (the
 # launcher refuses a release built for another platform).

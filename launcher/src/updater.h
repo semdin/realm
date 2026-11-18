@@ -10,16 +10,16 @@
 #include "common.h"
 #include "json.h"
 
-namespace hpmmo {
+namespace realm {
 
 // The running launcher's version, stamped by the build (CMake
-// HPMMO_LAUNCHER_VERSION; CI derives it from the last commit that touched
+// REALM_LAUNCHER_VERSION; CI derives it from the last commit that touched
 // launcher_cpp/). A manifest whose launcher_version (or min_launcher_version)
 // is newer makes the launcher replace itself before anything else.
-#ifndef HPMMO_LAUNCHER_VERSION
-#define HPMMO_LAUNCHER_VERSION "3.0.0"
+#ifndef REALM_LAUNCHER_VERSION
+#define REALM_LAUNCHER_VERSION "3.0.0"
 #endif
-constexpr const char* kLauncherVersion = HPMMO_LAUNCHER_VERSION;
+constexpr const char* kLauncherVersion = REALM_LAUNCHER_VERSION;
 // Default documented key id; the real id comes from client_config.json.
 constexpr const char* kDefaultPinnedKeyId = "hpmmo-release-key-unprovisioned";
 
@@ -185,4 +185,4 @@ int RunSelfUpdateSwap(const std::string& pidStr, const std::wstring& target,
                       const std::wstring& newExe, bool relaunch);
 int RunPrintCertPin(const std::wstring& url);
 
-}  // namespace hpmmo
+}  // namespace realm

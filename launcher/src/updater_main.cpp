@@ -5,7 +5,7 @@
 #include <string>
 
 int main(int argc, char** argv) {
-    using namespace hpmmo;
+    using namespace realm;
     CliOptions opts;
     std::string err;
     if (!ParseCliArgs(argc, argv, opts, err)) {

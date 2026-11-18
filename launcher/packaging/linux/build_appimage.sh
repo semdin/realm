@@ -11,7 +11,7 @@ appdir=/tmp/AppDir
 
 rm -rf "$build" "$appdir"
 cmake -S "$src" -B "$build" -G Ninja -DCMAKE_BUILD_TYPE=Release \
-    -DHPMMO_LAUNCHER_VERSION="$version" -DFETCHCONTENT_SOURCE_DIR_SDL3=/opt/sdl3 >/dev/null
+    -DREALM_LAUNCHER_VERSION="$version" -DFETCHCONTENT_SOURCE_DIR_SDL3=/opt/sdl3 >/dev/null
 ninja -C "$build" ThousandRealms_Launcher >/dev/null
 
 bin="$build/ThousandRealms_Launcher"
@@ -30,8 +30,8 @@ echo "requires $max_glibc"
 
 mkdir -p "$appdir/usr/bin"
 cp "$bin" "$appdir/usr/bin/ThousandRealms_Launcher"
-cp "$src/assets/hpmmo_256.png" "$appdir/hpmmo-launcher.png"
-cp "$src/packaging/linux/hpmmo-launcher.desktop" "$appdir/hpmmo-launcher.desktop"
+cp "$src/assets/thousand_realms_256.png" "$appdir/thousand-realms.png"
+cp "$src/packaging/linux/thousand-realms.desktop" "$appdir/thousand-realms.desktop"
 ln -s usr/bin/ThousandRealms_Launcher "$appdir/AppRun"
 
 mkdir -p "$out"

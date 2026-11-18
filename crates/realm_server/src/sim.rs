@@ -59,6 +59,7 @@ pub enum NetEvent {
     Control {
         conn: ConnId,
         msg: ClientMsg,
+        _held: Held,
     },
     /// The store thread answered a load.
     Loaded {
@@ -74,6 +75,7 @@ pub enum NetEvent {
     Input {
         conn: ConnId,
         batch: InputBatch,
+        _held: Held,
     },
     Leave {
         conn: ConnId,
@@ -83,6 +85,16 @@ pub enum NetEvent {
     /// The link to the coordinator came up, or went down.
     CoordUp,
     CoordDown,
+}
+
+/// One message a connection has waiting for the simulation; dropping it (once
+/// handled) frees its place in the connection's queue.
+pub struct Held(pub std::sync::Arc<std::sync::atomic::AtomicU32>);
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
+    }
 }
 
 /// A fingerprint of a sheet's bag and gear.
@@ -931,8 +943,8 @@ impl Sim {
                 revision,
                 ok,
             } => self.save_answered(character, revision, ok),
-            NetEvent::Control { conn, msg } => self.control(conn, msg),
-            NetEvent::Input { conn, batch } => {
+            NetEvent::Control { conn, msg, .. } => self.control(conn, msg),
+            NetEvent::Input { conn, batch, .. } => {
                 let Some(client) = self.clients.get_mut(&conn) else {
                     return;
                 };

@@ -7,7 +7,7 @@
 #define IDR_LOGO 204
 
 // Application + window icon (multi-size ICO generated from assets/branding).
-IDI_MAIN ICON "assets/hpmmo.ico"
+IDI_MAIN ICON "assets/thousand_realms.ico"
 
 // Embedded art and fonts: a lone ThousandRealms_Launcher.exe renders the full design.
 // Fonts are SIL OFL 1.1 (assets/OFL-*.txt).

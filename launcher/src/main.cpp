@@ -2,7 +2,7 @@
 //
 // The launcher only installs, updates and starts the game: signing in happens
 // on the game's own login screen. On start it checks the signed release
-// manifest (GitHub Releases, see common.h HPMMO_DEFAULT_RELEASE_BASE),
+// manifest (GitHub Releases, see common.h REALM_DEFAULT_RELEASE_BASE),
 // replaces itself first when the release ships a newer launcher, downloads and
 // activates a newer client when there is one, and then offers PLAY.
 //
@@ -47,18 +47,18 @@ using namespace Gdiplus;
 
 namespace {
 
-using hpmmo::app::Phase;
-using hpmmo::app::kGameTitle;
-using hpmmo::app::Snapshot;
-using hpmmo::app::TakeSnapshot;
-using hpmmo::app::PlayLabel;
-using hpmmo::app::PlayEnabled;
-using hpmmo::app::CurrentPhase;
-using hpmmo::app::StartWorker;
-using hpmmo::app::StartStatusPoll;
+using realm::app::Phase;
+using realm::app::kGameTitle;
+using realm::app::Snapshot;
+using realm::app::TakeSnapshot;
+using realm::app::PlayLabel;
+using realm::app::PlayEnabled;
+using realm::app::CurrentPhase;
+using realm::app::StartWorker;
+using realm::app::StartStatusPoll;
 
 // ------------------------------------------------------------------ palette
-// The GDI+ mirror of the game theme (client/assets/ui/hpmmo.tres).
+// The GDI+ mirror of the game theme.
 namespace Pal {
 const Color Ink(255, 11, 13, 18);
 const Color Night(255, 18, 20, 27);
@@ -77,6 +77,14 @@ const Color Good(255, 92, 201, 74);
 const Color Warn(255, 255, 189, 92);
 const Color Bad(255, 236, 104, 92);
 }  // namespace Pal
+
+// One launcher at a time. Launchers from before the rename know only the old
+// names, so this one holds and looks for both: old and new can never run side
+// by side, whichever started first.
+const wchar_t* const kInstanceMutexes[] = {L"Local\\ThousandRealms_Launcher_Singleton",
+                                           L"Local\\HPMMO_Launcher_Singleton"};
+const wchar_t kWindowClass[] = L"ThousandRealms_Launcher_Class";
+const wchar_t kLegacyWindowClass[] = L"HPMMO_Launcher_Class";
 
 constexpr int kBaseW = 980;
 constexpr int kBaseH = 580;
@@ -422,7 +430,7 @@ void Paint(HDC hdc, int cw, int ch) {
         g.FillRectangle(&accent, RectF(L.notes.X, L.notes.Y + SF(12), SF(3), L.notes.Height - SF(24)));
         Font* head = MakeFont(g_TitleFamily, 13, FontStyleBold);
         std::wstring caption = L"YENİLİKLER";
-        if (!s.release.empty()) caption += L"  ·  v" + hpmmo::Utf8ToWide(s.release);
+        if (!s.release.empty()) caption += L"  ·  v" + realm::Utf8ToWide(s.release);
         DrawStr(g, caption, head, RectF(L.notes.X + SF(18), L.notes.Y + SF(12), L.notes.Width - SF(30), SF(20)),
                  Pal::GoldLt);
         Font* body = MakeFont(g_BodyFamily, 13);
@@ -459,7 +467,7 @@ void Paint(HDC hdc, int cw, int ch) {
         bool show = true;
         switch (s.phase) {
             case Phase::Downloading: {
-                uint64_t t = hpmmo::app::ProgressTotal(), d = hpmmo::app::ProgressDone();
+                uint64_t t = realm::app::ProgressTotal(), d = realm::app::ProgressDone();
                 frac = t ? std::min(1.0f, (float)d / (float)t) : -1.0f;
                 break;
             }
@@ -509,8 +517,8 @@ void Paint(HDC hdc, int cw, int ch) {
         bool busy = !(s.phase == Phase::Ready || s.phase == Phase::ReadyStale || s.phase == Phase::Failed);
         Color c = busy ? WithAlpha(Pal::Dim, 110) : (g_Hover == Hit::Repair ? Pal::GoldHi : Pal::Dim);
         DrawStr(g, L"Dosyaları onar", tiny, L.repair, c, StringAlignmentNear, StringAlignmentCenter);
-        std::wstring ver = L"Launcher v" + hpmmo::Utf8ToWide(hpmmo::kLauncherVersion);
-        if (!s.installed.empty()) ver = L"Oyun v" + hpmmo::Utf8ToWide(s.installed) + L"   ·   " + ver;
+        std::wstring ver = L"Launcher v" + realm::Utf8ToWide(realm::kLauncherVersion);
+        if (!s.installed.empty()) ver = L"Oyun v" + realm::Utf8ToWide(s.installed) + L"   ·   " + ver;
         DrawStr(g, ver, tiny, RectF(L.play.X - SF(400), L.h - SF(34), SF(400) - SF(28), SF(22)),
                  WithAlpha(Pal::Dim, 200), StringAlignmentFar, StringAlignmentCenter);
     }
@@ -586,13 +594,13 @@ void Activate(Hit h) {
         case Hit::Close: PostMessageW(g_Wnd, WM_CLOSE, 0, 0); break;
         case Hit::Minimize: ShowWindow(g_Wnd, SW_MINIMIZE); break;
         case Hit::Play:
-            if (PlayEnabled(CurrentPhase()) && hpmmo::app::OnPlay()) {
+            if (PlayEnabled(CurrentPhase()) && realm::app::OnPlay()) {
                 SetTimer(g_Wnd, kTimerGame, 2500, NULL);
                 ShowWindow(g_Wnd, SW_MINIMIZE);
             }
             break;
         case Hit::Repair:
-            hpmmo::app::RequestRepair();
+            realm::app::RequestRepair();
             break;
         default: break;
     }
@@ -615,9 +623,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             } else if (wParam == kTimerStatus) {
                 StartStatusPoll();
             } else if (wParam == kTimerGame) {
-                if (!hpmmo::app::PollGame()) KillTimer(hWnd, kTimerGame);
+                if (!realm::app::PollGame()) KillTimer(hWnd, kTimerGame);
             } else if (wParam == kTimerRecheck) {
-                hpmmo::app::OnRecheckTimer();
+                realm::app::OnRecheckTimer();
             }
             return 0;
         case WM_APP_REFRESH:
@@ -696,7 +704,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
                 int answer = MessageBoxW(hWnd, L"Güncelleme sürüyor. Şimdi kapatırsan indirme bir sonraki açılışta kaldığı yerden devam eder.\n\nKapatılsın mı?",
                                          L"Thousand Realms", MB_YESNO | MB_ICONQUESTION);
                 if (answer != IDYES) return 0;
-                hpmmo::app::Cancel();
+                realm::app::Cancel();
             }
             DestroyWindow(hWnd);
             return 0;
@@ -724,15 +732,15 @@ int RunHeadlessFromGuiArgs() {
     }
     std::vector<std::string> narrow;
     narrow.reserve(argcW);
-    for (int i = 0; i < argcW; i++) narrow.push_back(hpmmo::WideToUtf8(argvW[i]));
+    for (int i = 0; i < argcW; i++) narrow.push_back(realm::WideToUtf8(argvW[i]));
     std::vector<char*> argv;
     argv.reserve(argcW);
     for (auto& s : narrow) argv.push_back(&s[0]);
     LocalFree(argvW);
 
-    hpmmo::CliOptions opts;
+    realm::CliOptions opts;
     std::string err;
-    if (!hpmmo::ParseCliArgs(argcW, argv.data(), opts, err)) return -1;
+    if (!realm::ParseCliArgs(argcW, argv.data(), opts, err)) return -1;
 
     // A GUI-subsystem process only has console handles when the parent
     // redirected them; otherwise reattach to the parent console so operator
@@ -745,24 +753,43 @@ int RunHeadlessFromGuiArgs() {
     }
 
     if (opts.command == "help") {
-        hpmmo::PrintUsage(stdout);
+        realm::PrintUsage(stdout);
         fflush(stdout);
         return 0;
     }
     if (opts.helper.empty() && opts.command.empty()) return -1;
     int code = 0;
     if (opts.helper == "self-update-swap") {
-        code = hpmmo::RunSelfUpdateSwap(hpmmo::WideToUtf8(opts.helperPid), opts.helperTarget, hpmmo::GetExePath(),
+        code = realm::RunSelfUpdateSwap(realm::WideToUtf8(opts.helperPid), opts.helperTarget, realm::GetExePath(),
                                         opts.relaunch);
     } else if (opts.helper == "print-cert-pin") {
-        code = hpmmo::RunPrintCertPin(opts.helperUrl);
+        code = realm::RunPrintCertPin(opts.helperUrl);
     } else {
-        hpmmo::CommandResult r = hpmmo::RunCliCommand(opts);
+        realm::CommandResult r = realm::RunCliCommand(opts);
         printf("%s\n", r.json.c_str());
         fflush(stdout);
         code = r.code;
     }
     return code;
+}
+
+// Takes every instance mutex, or none when another launcher holds one of them.
+bool TakeInstanceMutexes(std::vector<HANDLE>& held) {
+    for (const wchar_t* name : kInstanceMutexes) {
+        HANDLE h = CreateMutexW(NULL, TRUE, name);
+        bool taken = GetLastError() != ERROR_ALREADY_EXISTS;
+        if (h && !taken) CloseHandle(h);
+        if (!taken) {
+            for (HANDLE other : held) {
+                ReleaseMutex(other);
+                CloseHandle(other);
+            }
+            held.clear();
+            return false;
+        }
+        if (h) held.push_back(h);
+    }
+    return true;
 }
 
 bool HasArg(const wchar_t* flag) {
@@ -785,22 +812,20 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         if (headless >= 0) return headless;
     }
     if (HasArg(L"--post-self-update")) {
-        hpmmo::SetLogPath(hpmmo::JoinPath(hpmmo::GetExeDir(), L"launcher.log"));
-        hpmmo::LogMsg("[Launcher] restarted after self-update");
+        realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+        realm::LogMsg("[Launcher] restarted after self-update");
         wchar_t flag[8] = {0};
-        if (GetEnvironmentVariableW(L"HPMMO_TEST_NO_GUI", flag, 8) > 0) return 0;
+        if (GetEnvironmentVariableW(L"REALM_TEST_NO_GUI", flag, 8) > 0) return 0;
     }
 
     // One launcher at a time: a second start brings the first to the front.
     // (A relaunch after self-update waits briefly for the old process to exit.)
-    HANDLE single = NULL;
+    std::vector<HANDLE> single;
     for (int attempt = 0; attempt < 20; attempt++) {
-        single = CreateMutexW(NULL, TRUE, L"Local\\HPMMO_Launcher_Singleton");
-        if (GetLastError() != ERROR_ALREADY_EXISTS) break;
-        CloseHandle(single);
-        single = NULL;
+        if (TakeInstanceMutexes(single)) break;
         if (!HasArg(L"--post-self-update")) {
-            HWND other = FindWindowW(L"HPMMO_Launcher_Class", NULL);
+            HWND other = FindWindowW(kWindowClass, NULL);
+            if (!other) other = FindWindowW(kLegacyWindowClass, NULL);
             if (other) {
                 ShowWindow(other, SW_RESTORE);
                 SetForegroundWindow(other);
@@ -812,8 +837,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
 
     // Before LoadConfig: an exe still called HPMMO_Launcher*.exe takes the
     // game's name (and the player's shortcuts follow it).
-    hpmmo::SetLogPath(hpmmo::JoinPath(hpmmo::GetExeDir(), L"launcher.log"));
-    hpmmo::MigrateLegacyLauncherFile();
+    realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+    realm::MigrateLegacyLauncherFile();
 
     SetProcessDPIAware();
     {
@@ -829,13 +854,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     GdiplusStartup(&g_GdiToken, &gdiplusStartupInput, NULL);
     LoadAssets();
 
-    hpmmo::LoadConfig();
-    hpmmo::app::Hooks hooks;
+    realm::LoadConfig();
+    realm::app::Hooks hooks;
     hooks.refresh = [] {
         if (g_Wnd) PostMessageW(g_Wnd, WM_APP_REFRESH, 0, 0);
     };
     hooks.exitForSelfUpdate = [] { PostMessageW(g_Wnd, WM_APP_EXIT, 0, 0); };
-    hpmmo::app::Init(hpmmo::Config(), hooks);
+    realm::app::Init(realm::Config(), hooks);
 
     WNDCLASSEXW wcex = {sizeof(wcex)};
     wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DROPSHADOW;
@@ -843,7 +868,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     wcex.hInstance = hInstance;
     wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
     wcex.hbrBackground = NULL;
-    wcex.lpszClassName = L"HPMMO_Launcher_Class";
+    wcex.lpszClassName = kWindowClass;
     wcex.hIcon = LoadIconW(hInstance, MAKEINTRESOURCEW(IDI_MAIN));
     if (!wcex.hIcon) wcex.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     wcex.hIconSm = wcex.hIcon;
@@ -855,7 +880,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     int posX = work.left + ((work.right - work.left) - winW) / 2;
     int posY = work.top + ((work.bottom - work.top) - winH) / 2;
 
-    HWND hWnd = CreateWindowExW(WS_EX_APPWINDOW, L"HPMMO_Launcher_Class", L"Thousand Realms",
+    HWND hWnd = CreateWindowExW(WS_EX_APPWINDOW, kWindowClass, L"Thousand Realms",
                                 WS_POPUP | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN, posX, posY, winW, winH,
                                 NULL, NULL, hInstance, NULL);
     if (!hWnd) return 1;
@@ -872,13 +897,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         DispatchMessageW(&msg);
     }
 
-    hpmmo::app::Cancel();
+    realm::app::Cancel();
     FreeAssets();
     GdiplusShutdown(g_GdiToken);
     WSACleanup();
-    if (single) {
-        ReleaseMutex(single);
-        CloseHandle(single);
+    for (HANDLE h : single) {
+        ReleaseMutex(h);
+        CloseHandle(h);
     }
     return (int)msg.wParam;
 }

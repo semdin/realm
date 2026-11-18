@@ -9,7 +9,7 @@
 #include <cstring>
 #include <mutex>
 
-namespace hpmmo {
+namespace realm {
 
 const char* HostPlatform() { return "windows-x86_64"; }
 
@@ -454,6 +454,15 @@ std::wstring UserDataRoot() {
     return L"";
 }
 
+std::string SystemLocaleTag() {
+    // The display language, not the region: an English Windows set to the
+    // Turkish region keeps English menus, and so does the launcher.
+    wchar_t name[LOCALE_NAME_MAX_LENGTH] = {0};
+    if (LCIDToLocaleName(MAKELCID(GetUserDefaultUILanguage(), SORT_DEFAULT), name, LOCALE_NAME_MAX_LENGTH, 0) > 0)
+        return WideToUtf8(name);
+    return "";
+}
+
 uint32_t CurrentProcessId() { return (uint32_t)GetCurrentProcessId(); }
 
-}  // namespace hpmmo
+}  // namespace realm

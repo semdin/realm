@@ -13,7 +13,7 @@
 #include <string>
 #include <vector>
 
-namespace hpmmo {
+namespace realm {
 
 struct ZipEntry {
     std::string name;
@@ -57,4 +57,4 @@ private:
     std::vector<ZipEntry> entries_;
 };
 
-}  // namespace hpmmo
+}  // namespace realm

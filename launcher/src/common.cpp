@@ -9,7 +9,7 @@
 #include <cwctype>
 #include <mutex>
 
-namespace hpmmo {
+namespace realm {
 
 // ---------------------------------------------------------------- strings --
 
@@ -245,6 +245,26 @@ bool g_configExtraValid = false;
 
 AppConfig& Config() { return g_config; }
 
+std::wstring EarlyLogPath() {
+#ifdef __APPLE__
+    if (GetExePath().find(L".app/Contents/MacOS/") != std::wstring::npos) {
+        std::wstring root = UserDataRoot();
+        // Beside the install folder, not in it: see AcquireSingleInstance.
+        if (!root.empty() && CreateDirs(root)) return JoinPath(root, L".thousandrealms-launcher.log");
+    }
+#endif
+    return JoinPath(GetExeDir(), L"launcher.log");
+}
+
+std::wstring GameUserDataDir() {
+#ifdef _WIN32
+    std::wstring root = GetEnvW(L"APPDATA");
+#else
+    std::wstring root = UserDataRoot();
+#endif
+    return root.empty() ? L"" : JoinPath(root, L"ThousandRealms");
+}
+
 std::wstring DefaultConfigPath() {
     std::wstring exeDir = GetExeDir();
     std::wstring candidates[] = {
@@ -268,7 +288,7 @@ bool LoadConfig(const std::wstring& explicitPath) {
         return false;
     }
     g_configPath = NormalizePath(path);
-    SetLogPath(JoinPath(GetExeDir(), L"launcher.log"));
+    SetLogPath(EarlyLogPath());
     if (!ReadFileBytes(path, bytes, 4u * 1024 * 1024)) return false;
 
     JsonValue root;
@@ -325,7 +345,7 @@ std::wstring ApiBaseUrl(const AppConfig& cfg) {
     while (!url.empty() && (url.back() == L'/' || url.back() == L' ')) url.pop_back();
     // The built-in URL belongs to the built-in host: a config that names
     // another server (local or LAN play) talks to that server directly.
-    const bool builtIn = url == HPMMO_DEFAULT_API_URL;
+    const bool builtIn = url == REALM_DEFAULT_API_URL;
     if (!url.empty() && (!builtIn || cfg.serverIp == AppConfig().serverIp)) return url;
     return L"http://" + cfg.serverIp + L":" + std::to_wstring(cfg.apiPort);
 }
@@ -401,4 +421,4 @@ bool Base64Decode(const std::string& in, std::vector<unsigned char>& out) {
     return !out.empty();
 }
 
-}  // namespace hpmmo
+}  // namespace realm

@@ -14,7 +14,7 @@
 #include "json.h"
 #include "updater.h"
 
-namespace hpmmo {
+namespace realm {
 namespace app {
 
 namespace {
@@ -43,7 +43,7 @@ std::atomic<bool> g_WorkerBusy{false};
 std::atomic<bool> g_StatusBusy{false};
 std::atomic<bool> g_Cancel{false};
 
-hpmmo::AppConfig g_Cfg;
+realm::AppConfig g_Cfg;
 }  // namespace
 
 Snapshot TakeSnapshot() {
@@ -105,32 +105,32 @@ std::wstring FriendlyError(const std::string& raw, int code) {
     if (raw.find("libcurl is not installed") != std::string::npos)
         return L"Sistemde libcurl bulunamadı. \"curl\" paketini kurup launcher'ı yeniden aç.";
     switch (code) {
-        case hpmmo::kExitNetwork: return L"Güncelleme sunucusuna ulaşılamadı. İnternet bağlantını kontrol et.";
-        case hpmmo::kExitSignature: return L"Güncelleme doğrulanamadı (imza/sertifika hatası).";
-        case hpmmo::kExitDiskSpace: return L"Diskte yeterli boş alan yok.";
-        case hpmmo::kExitGameRunning: return L"Oyun açıkken güncelleme yapılamaz. Önce oyunu kapat.";
-        case hpmmo::kExitIntegrity: return L"İndirilen dosya bozuk görünüyor; tekrar denenecek.";
-        case hpmmo::kExitDownload: return L"İndirme tamamlanamadı. Bağlantını kontrol edip tekrar dene.";
-        case hpmmo::kExitProtocol: return L"Bu sürüm sunucuyla uyumsuz; yeni bir güncelleme bekleniyor.";
-        case hpmmo::kExitSelfUpdateFailed: return L"Launcher kendini güncelleyemedi.";
-        case hpmmo::kExitConfig: return L"Launcher yapılandırması hatalı.";
+        case realm::kExitNetwork: return L"Güncelleme sunucusuna ulaşılamadı. İnternet bağlantını kontrol et.";
+        case realm::kExitSignature: return L"Güncelleme doğrulanamadı (imza/sertifika hatası).";
+        case realm::kExitDiskSpace: return L"Diskte yeterli boş alan yok.";
+        case realm::kExitGameRunning: return L"Oyun açıkken güncelleme yapılamaz. Önce oyunu kapat.";
+        case realm::kExitIntegrity: return L"İndirilen dosya bozuk görünüyor; tekrar denenecek.";
+        case realm::kExitDownload: return L"İndirme tamamlanamadı. Bağlantını kontrol edip tekrar dene.";
+        case realm::kExitProtocol: return L"Bu sürüm sunucuyla uyumsuz; yeni bir güncelleme bekleniyor.";
+        case realm::kExitSelfUpdateFailed: return L"Launcher kendini güncelleyemedi.";
+        case realm::kExitConfig: return L"Launcher yapılandırması hatalı.";
         default: break;
     }
     if (raw.empty()) return L"Bilinmeyen bir hata oluştu.";
-    return hpmmo::Utf8ToWide(raw);
+    return realm::Utf8ToWide(raw);
 }
 
 // The user-facing reason a repair failed. RepairImpl answers kExitLocalVerify
 // two ways: before it starts (no installation, or one older than the release
 // when the release has no package for it - an update fixes both) and after it
 // ran but files are still missing/corrupt (the answer then lists them).
-std::wstring RepairError(const hpmmo::CommandResult& r) {
+std::wstring RepairError(const realm::CommandResult& r) {
     std::string message;
-    hpmmo::JsonValue root;
+    realm::JsonValue root;
     std::string perr;
-    bool parsed = hpmmo::JsonValue::Parse(r.json, root, perr) && root.isObject();
+    bool parsed = realm::JsonValue::Parse(r.json, root, perr) && root.isObject();
     if (parsed) message = root.str("message");
-    if (r.code == hpmmo::kExitLocalVerify) {
+    if (r.code == realm::kExitLocalVerify) {
         const auto* missing = parsed ? root.arr("missing") : nullptr;
         const auto* corrupt = parsed ? root.arr("corrupt") : nullptr;
         if (missing || corrupt) {
@@ -141,20 +141,20 @@ std::wstring RepairError(const hpmmo::CommandResult& r) {
         }
         return L"Kurulum onarılamadı: oyun eksik ya da güncel değil. \"Tekrar dene\" ile oyunu güncelle.";
     }
-    if (r.code == hpmmo::kExitGameRunning) return L"Oyun açıkken onarım yapılamaz. Önce oyunu kapat.";
+    if (r.code == realm::kExitGameRunning) return L"Oyun açıkken onarım yapılamaz. Önce oyunu kapat.";
     return FriendlyError(message, r.code);
 }
 
 bool InstalledGamePresent() {
-    hpmmo::UpdaterPaths paths = hpmmo::ResolvePathsForGui(g_Cfg);
-    return !paths.gameExe.empty() && hpmmo::FileExists(paths.gameExe);
+    realm::UpdaterPaths paths = realm::ResolvePathsForGui(g_Cfg);
+    return !paths.gameExe.empty() && realm::FileExists(paths.gameExe);
 }
 
-void ApplySummary(const hpmmo::CheckSummary& s) {
+void ApplySummary(const realm::CheckSummary& s) {
     std::lock_guard<std::mutex> lock(g_Mutex);
     g_InstalledVersion = s.installedVersion;
     g_ReleaseVersion = s.releaseVersion;
-    g_Notes = hpmmo::Utf8ToWide(s.releaseNotes);
+    g_Notes = realm::Utf8ToWide(s.releaseNotes);
     // The server pill belongs to StatusWorker (it understands services that
     // predate /api/status); the check may only add "under maintenance".
     if (s.maintenance) g_ServerState = L"MAINTENANCE";
@@ -162,7 +162,7 @@ void ApplySummary(const hpmmo::CheckSummary& s) {
 
 std::wstring ReadyDetail() {
     std::lock_guard<std::mutex> lock(g_Mutex);
-    std::wstring d = L"Sürüm " + hpmmo::Utf8ToWide(g_InstalledVersion);
+    std::wstring d = L"Sürüm " + realm::Utf8ToWide(g_InstalledVersion);
     if (g_ServerState == L"MAINTENANCE") d += L"  ·  Sunucu şu an bakımda; bakım bitince giriş yapabilirsin.";
     else if (g_ServerState == L"OFFLINE") d += L"  ·  Oyun sunucusuna şu an ulaşılamıyor.";
     else d += L"  ·  Her şey hazır.";
@@ -172,7 +172,7 @@ std::wstring ReadyDetail() {
 // Check -> (self-update | download + install) -> ready. Runs on its own thread.
 void UpdateWorker(bool repair) {
     g_Cancel = false;
-    hpmmo::CliOptions cli;
+    realm::CliOptions cli;
     auto status = [](const std::wstring&) {};
     auto progress = [](uint64_t done, uint64_t total) {
         g_Done = done;
@@ -191,11 +191,11 @@ void UpdateWorker(bool repair) {
         g_Done = 0;
         g_Total = 0;
         SetState(Phase::Installing, L"Oyun dosyaları onarılıyor", L"Dosyalar doğrulanıyor ve eksikler indiriliyor…");
-        hpmmo::CommandResult r = hpmmo::DoRepair(cli, g_Cfg, &g_Cancel, status);
-        if (r.code != hpmmo::kExitOk) {
+        realm::CommandResult r = realm::DoRepair(cli, g_Cfg, &g_Cancel, status);
+        if (r.code != realm::kExitOk) {
             // A failed repair must never read as "ready": the check below only
             // compares versions, so it would report a broken install as fine.
-            hpmmo::LogMsg("[Launcher] repair failed: " + r.json);
+            realm::LogMsg("[Launcher] repair failed: " + r.json);
             SetState(Phase::Failed, L"Onarım başarısız", RepairError(r));
             g_WorkerBusy = false;
             PostRefresh();
@@ -204,9 +204,9 @@ void UpdateWorker(bool repair) {
     }
 
     SetState(Phase::Checking, L"Güncellemeler kontrol ediliyor", L"Yeni sürüm olup olmadığına bakılıyor…");
-    hpmmo::CheckSummary s = hpmmo::DoCheck(cli, g_Cfg, &g_Cancel, status);
+    realm::CheckSummary s = realm::DoCheck(cli, g_Cfg, &g_Cancel, status);
     if (!s.ok) {
-        hpmmo::LogMsg("[Launcher] update check failed: " + s.error);
+        realm::LogMsg("[Launcher] update check failed: " + s.error);
         if (InstalledGamePresent()) {
             SetState(Phase::ReadyStale, L"Güncelleme kontrol edilemedi",
                      FriendlyError(s.error, s.errorCode) + L" Mevcut sürümle oynayabilirsin.");
@@ -233,7 +233,7 @@ void UpdateWorker(bool repair) {
             SetState(Phase::SelfUpdating, L"Launcher güncelleniyor", L"Yeni launcher indiriliyor…");
         } else {
             std::wstring what = s.installedVersion.empty() ? L"Oyun indiriliyor" : L"Güncelleme indiriliyor";
-            SetState(Phase::Downloading, what + L"  ·  v" + hpmmo::Utf8ToWide(s.releaseVersion), L"Başlıyor…");
+            SetState(Phase::Downloading, what + L"  ·  v" + realm::Utf8ToWide(s.releaseVersion), L"Başlıyor…");
         }
         std::atomic<bool> installingShown{false};
         auto status2 = [&](const std::wstring& text) {
@@ -242,19 +242,19 @@ void UpdateWorker(bool repair) {
                 SetState(Phase::Installing, L"Güncelleme kuruluyor", L"Dosyalar doğrulanıyor ve yerleştiriliyor…");
             }
         };
-        hpmmo::CommandResult r = hpmmo::DoUpdate(cli, g_Cfg, &g_Cancel, status2, progress);
-        if (r.code == hpmmo::kExitSelfUpdateDone) {
+        realm::CommandResult r = realm::DoUpdate(cli, g_Cfg, &g_Cancel, status2, progress);
+        if (r.code == realm::kExitSelfUpdateDone) {
             SetState(Phase::SelfUpdating, L"Launcher güncellendi", L"Yeniden başlatılıyor…");
             if (g_Hooks.exitForSelfUpdate) g_Hooks.exitForSelfUpdate();
             return;
         }
-        if (r.code != hpmmo::kExitOk) {
-            hpmmo::LogMsg("[Launcher] update failed: " + r.json);
+        if (r.code != realm::kExitOk) {
+            realm::LogMsg("[Launcher] update failed: " + r.json);
             std::string message;
-            hpmmo::JsonValue root;
+            realm::JsonValue root;
             std::string perr;
-            if (hpmmo::JsonValue::Parse(r.json, root, perr) && root.isObject()) message = root.str("message");
-            if (InstalledGamePresent() && r.code != hpmmo::kExitProtocol) {
+            if (realm::JsonValue::Parse(r.json, root, perr) && root.isObject()) message = root.str("message");
+            if (InstalledGamePresent() && r.code != realm::kExitProtocol) {
                 SetState(Phase::ReadyStale, L"Güncelleme tamamlanamadı",
                          FriendlyError(message, r.code) + L" Mevcut sürümle oynayabilirsin.");
             } else {
@@ -267,9 +267,9 @@ void UpdateWorker(bool repair) {
         // What is installed now comes from the update's own answer: a third
         // full check (manifest, signature and status over fresh connections)
         // only to learn the version just installed cost about a second.
-        hpmmo::JsonValue done;
+        realm::JsonValue done;
         std::string derr;
-        if (hpmmo::JsonValue::Parse(r.json, done, derr) && done.isObject()) {
+        if (realm::JsonValue::Parse(r.json, done, derr) && done.isObject()) {
             std::string v = done.str("installed_version");
             if (v.empty()) v = done.str("to_version");
             if (!v.empty()) {
@@ -292,19 +292,19 @@ void StartWorker(bool repair) {
 
 // Server status only (cheap, plain HTTP): keeps the pill honest while idle.
 void StatusWorker() {
-    hpmmo::HttpRequestOptions opts;
-    opts.url = hpmmo::StatusUrl(hpmmo::CliOptions{}, g_Cfg);
+    realm::HttpRequestOptions opts;
+    opts.url = realm::StatusUrl(realm::CliOptions{}, g_Cfg);
     opts.allowPlainHttp = true;
     opts.systemTrust = true;
     opts.maxBodyBytes = 64 * 1024;
     opts.receiveTimeoutMs = 8000;
     std::string body;
-    hpmmo::HttpOutcome out = hpmmo::HttpGetToString(opts, body);
+    realm::HttpOutcome out = realm::HttpGetToString(opts, body);
     std::wstring state = L"OFFLINE";
     if (out.ok) {
-        hpmmo::JsonValue root;
+        realm::JsonValue root;
         std::string err;
-        if (hpmmo::JsonValue::Parse(body, root, err) && root.isObject()) {
+        if (realm::JsonValue::Parse(body, root, err) && root.isObject()) {
             state = root.boolean("maintenance", false) ? L"MAINTENANCE" : L"ONLINE";
         }
     } else if (out.status == 404) {
@@ -327,7 +327,7 @@ void StatusWorker() {
 }
 
 void StartStatusPoll() {
-    if (hpmmo::StatusUrl(hpmmo::CliOptions{}, g_Cfg).empty()) return;
+    if (realm::StatusUrl(realm::CliOptions{}, g_Cfg).empty()) return;
     bool expected = false;
     if (!g_StatusBusy.compare_exchange_strong(expected, true)) return;
     std::thread(StatusWorker).detach();
@@ -340,13 +340,13 @@ bool OnPlay() {
         return false;
     }
     if (p != Phase::Ready && p != Phase::ReadyStale) return false;
-    hpmmo::UpdaterPaths paths = hpmmo::ResolvePathsForGui(g_Cfg);
+    realm::UpdaterPaths paths = realm::ResolvePathsForGui(g_Cfg);
     std::string version;
     {
         std::lock_guard<std::mutex> lock(g_Mutex);
         version = g_InstalledVersion;
     }
-    if (!hpmmo::LaunchGameClient(paths, g_Cfg, version)) {
+    if (!realm::LaunchGameClient(paths, g_Cfg, version)) {
         SetState(Phase::Failed, L"Oyun başlatılamadı", L"Oyun dosyaları eksik olabilir. \"Dosyaları onar\" ile düzeltebilirsin.");
         return false;
     }
@@ -356,8 +356,8 @@ bool OnPlay() {
 
 bool PollGame() {
     if (CurrentPhase() != Phase::GameRunning) return false;
-    hpmmo::UpdaterPaths paths = hpmmo::ResolvePathsForGui(g_Cfg);
-    if (!hpmmo::IsGameRunningNow(paths, g_Cfg, nullptr)) {
+    realm::UpdaterPaths paths = realm::ResolvePathsForGui(g_Cfg);
+    if (!realm::IsGameRunningNow(paths, g_Cfg, nullptr)) {
         // The game closed: look for an update that may have landed meanwhile.
         StartWorker();
         return false;
@@ -385,4 +385,4 @@ void OnRecheckTimer() {
 }
 
 }  // namespace app
-}  // namespace hpmmo
+}  // namespace realm

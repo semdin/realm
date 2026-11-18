@@ -99,7 +99,7 @@ jobs:
           python3 -m venv "$RUNNER_TEMP/venv"
           "$RUNNER_TEMP/venv/bin/pip" install --quiet cryptography numpy
           "$RUNNER_TEMP/venv/bin/python" tools/release/test_updater.py \
-            --launcher "$RUNNER_TEMP/mac/HPMMO_UpdaterCLI-macos" \
+            --launcher "$RUNNER_TEMP/mac/ThousandRealms_UpdaterCLI-macos" \
             --gui-launcher "$RUNNER_TEMP/mac/ThousandRealms_Launcher-macos" | tee "$RUNNER_TEMP/updater-tests.log"
           grep -q "UPDATER RESULT: .*, 0 failures" "$RUNNER_TEMP/updater-tests.log"
 
@@ -169,10 +169,10 @@ jobs:
     steps:
       - name: Require the signing key (fail closed)
         env:
-          SIGNING_KEY: ${{ secrets.HPMMO_CLIENT_SIGNING_KEY }}
+          SIGNING_KEY: ${{ secrets.REALM_CLIENT_SIGNING_KEY || secrets.HPMMO_CLIENT_SIGNING_KEY }}
         run: |
           if [ -z "$SIGNING_KEY" ]; then
-            echo "::error::HPMMO_CLIENT_SIGNING_KEY is not set (Settings -> Secrets and variables -> Actions)."
+            echo "::error::REALM_CLIENT_SIGNING_KEY (or the older HPMMO_CLIENT_SIGNING_KEY) is not set (Settings -> Secrets and variables -> Actions)."
             echo "Without it no manifest can be signed, and the launcher refuses unsigned releases."
             exit 1
           fi
@@ -261,7 +261,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
             -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
             -DCMAKE_BUILD_TYPE=Release \
-            -DHPMMO_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
+            -DREALM_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
           # Compiler errors become annotations, readable without the job log.
           if ! ninja -k 0 -C launcher/build-mingw ThousandRealms_Launcher > "$RUNNER_TEMP/launcher-build.log" 2>&1; then
             grep -E "error|Error" "$RUNNER_TEMP/launcher-build.log" | head -25 | while IFS= read -r line; do
@@ -445,10 +445,10 @@ jobs:
 
       - name: Sign the manifest
         env:
-          SIGNING_KEY: ${{ secrets.HPMMO_CLIENT_SIGNING_KEY }}
+          SIGNING_KEY: ${{ secrets.REALM_CLIENT_SIGNING_KEY || secrets.HPMMO_CLIENT_SIGNING_KEY }}
         run: |
           set -eu
-          key="$RUNNER_TEMP/hpmmo-client-release.key.pem"
+          key="$RUNNER_TEMP/release-signing.key.pem"
           umask 077
           # The secret is either a PEM private key or the raw 32-byte Ed25519
           # seed as 64 hex characters (wrapped into PKCS#8 here).
@@ -510,10 +510,10 @@ jobs:
           python3 tools/release/gen_manifest.py --verify \
             --manifest dist/manifest-macos.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
           # The key the launcher has built in must be the key that signed this.
-          built_in="$(grep -o 'HPMMO_DEFAULT_RELEASE_KEY L"[^"]*"' launcher/src/common.h | sed 's/.*L"\(.*\)"/\1/')"
+          built_in="$(grep -o 'REALM_DEFAULT_RELEASE_KEY L"[^"]*"' launcher/src/common.h | sed 's/.*L"\(.*\)"/\1/')"
           signing="$(openssl pkey -pubin -in "$RUNNER_TEMP/release.pub.pem" -outform DER | tail -c 32 | base64)"
           if [ "$built_in" != "$signing" ]; then
-            echo "::error::the signing key does not match HPMMO_DEFAULT_RELEASE_KEY in launcher/src/common.h"
+            echo "::error::the signing key does not match REALM_DEFAULT_RELEASE_KEY in launcher/src/common.h"
             exit 1
           fi
           ls -la dist
@@ -582,7 +582,7 @@ jobs:
         run: |
           set -eu
           base="https://github.com/${{ github.repository }}/releases/latest/download"
-          work="$RUNNER_TEMP/hpmmo"
+          work="$RUNNER_TEMP/verify-install"
           mkdir -p "$work" && cd "$work"
           curl -fsSL -o launcher.zip "$base/ThousandRealms_Launcher-macos.zip"
           ditto -x -k launcher.zip .

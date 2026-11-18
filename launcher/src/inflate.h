@@ -6,7 +6,7 @@
 #include <functional>
 #include <string>
 
-namespace hpmmo {
+namespace realm {
 
 using InflateSink = std::function<bool(const unsigned char* data, size_t len)>;
 
@@ -16,4 +16,4 @@ using InflateSink = std::function<bool(const unsigned char* data, size_t len)>;
 bool InflateDecompress(const unsigned char* in, size_t inLen, uint64_t maxOut,
                        const InflateSink& sink, uint64_t* outSize, std::string& err);
 
-}  // namespace hpmmo
+}  // namespace realm

@@ -23,7 +23,7 @@
 #include <mach-o/dyld.h>
 #endif
 
-namespace hpmmo {
+namespace realm {
 
 const char* HostPlatform() {
 #if defined(__APPLE__)
@@ -120,10 +120,6 @@ std::string WideToUtf8(const std::wstring& wstr) {
 // ------------------------------------------------------------------ paths --
 std::wstring GetExePath() {
     if (!ExePathOverride().empty()) return ExePathOverride();
-    // Inside an AppImage the binary runs from a temporary mount; the file the
-    // user owns (and that self-update must replace) is $APPIMAGE.
-    const char* appimage = getenv("APPIMAGE");
-    if (appimage && *appimage && access(appimage, F_OK) == 0) return Utf8ToWide(appimage);
 #ifdef __APPLE__
     uint32_t size = 0;
     _NSGetExecutablePath(nullptr, &size);
@@ -473,6 +469,14 @@ std::wstring UserDataRoot() {
 #endif
 }
 
+std::string SystemLocaleTag() {
+    for (const char* name : {"LC_ALL", "LC_MESSAGES", "LANG"}) {
+        const char* v = getenv(name);
+        if (v && *v) return v;
+    }
+    return "";
+}
+
 uint32_t CurrentProcessId() { return (uint32_t)getpid(); }
 
 // -------------------------------------------------------------------- time --
@@ -597,4 +601,4 @@ std::vector<RunningProcess> SnapshotProcesses() {
     return result;
 }
 
-}  // namespace hpmmo
+}  // namespace realm
