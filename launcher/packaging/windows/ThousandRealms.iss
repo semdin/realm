@@ -1,4 +1,4 @@
-; Thousand Realms per-user installer. Built in CI by launcher-packages.yml:
+﻿; Thousand Realms per-user installer. Built in CI by launcher-packages.yml:
 ;   ISCC /DLauncherExe=<ThousandRealms_Launcher.exe> /DOutputDir=<dir> ThousandRealms.iss
 ; No administrator prompt: everything goes under the player's own profile, so
 ; the launcher can keep replacing itself. The game itself is not in here; the

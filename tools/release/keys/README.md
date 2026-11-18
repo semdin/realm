@@ -44,15 +44,20 @@ shipped - and only through a reviewed change that updates the launcher's pin.
 
 `.github/workflows/client-release.yml`:
 
-* fails closed at the first step when the signing secret is absent, so
-  a manifest can never be published unsigned or signed by an ad-hoc key;
+* signs only in the `publish` job, on a fresh GitHub-hosted machine in the
+  `release-signing` environment. The game host's runner exports the game and
+  uploads chunks to a draft release; it never receives the key;
+* fails closed when the signing secret is absent, so a manifest can never be
+  published unsigned or signed by an ad-hoc key;
 * writes the secret to `$RUNNER_TEMP` with mode 600 (never to the workspace,
-  never into the artifact, never into a log);
-* signs, then immediately verifies its own output (`gen_manifest.py --verify`)
-  before anything is uploaded;
-* publishes only through a job behind the `client-release` environment
-  approval, and records the derived **public** key next to the published
-  manifest so the pin change is visible and auditable.
+  never into the artifact, never into a log) and deletes it after signing;
+* signs, then immediately verifies its own output (`gen_manifest.py --verify`),
+  checks the key against the launcher's pin, and publishes the draft only after
+  the manifests read back from it verify.
+
+The game content still comes from the host, so a compromised host could put bad
+content into a release that someone starts. A required reviewer on the
+`release-signing` environment is the gate for that.
 
 ## Rotation
 

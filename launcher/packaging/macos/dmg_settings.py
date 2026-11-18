@@ -28,7 +28,8 @@ label_pos = "bottom"
 text_size = 13
 icon_size = 112
 icon_locations = {app_name: (170, 190), "Applications": (490, 190)}
-hide_extensions = [app_name]
+# No hide_extensions: it writes Finder info onto the app, and codesign then
+# rejects the bundle. Finder hides .app by itself.
 if readme:
     files.append(readme)
     icon_locations[os.path.basename(readme)] = (330, 335)
