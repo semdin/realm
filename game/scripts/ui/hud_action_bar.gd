@@ -414,7 +414,7 @@ func _spell_tooltip(key: String, spell: Dictionary, trained: int, cooldown: floa
 
 func _item_tooltip(key: String, id: String) -> String:
 	if id == "":
-		return tr("[%s] Quick slot\nDrag a potion here from your bag (I).\nDrag a slot onto another to swap, or off the bar to clear it.") % key
+		return tr("[%s] Quick slot\nDrag a potion here from your bag.\nDrag a slot onto another to swap, or off the bar to clear it.") % key
 	var data := ItemRules.item(id)
 	return tr("[%s] %s\n%s\nDrag to move or swap; drag off the bar or right-click to clear.") % [key, I18n.t(String(data.get("name", id))), I18n.t(String(data.get("desc", "")))]
 

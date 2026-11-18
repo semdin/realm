@@ -61,8 +61,8 @@ func on_event(event: Dictionary) -> void:
 					owner_body.waylink_place(at)
 				if owner != _me():
 					var who := String(event.get("owner_name", ""))
-					_notice(tr("%s set down a Waystake to %s - hold on to it! (F)") % [who if who != "" else tr("A party member"),
-						I18n.t(String(event.get("label", "")))])
+					_notice(tr("%s set down a Waystake to %s - hold on to it! (%s)") % [who if who != "" else tr("A party member"),
+						I18n.t(String(event.get("label", ""))), GameSettings.key_name("interact")])
 			var view: Dictionary = views[id]
 			view["state"] = event
 			_sync_holders(view, holders, at)

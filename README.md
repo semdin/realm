@@ -175,6 +175,10 @@ bash tools/release/stage_client.sh build/client_export/mac macos game/release/tl
 build/client_export/win/ThousandRealms.exe --headless -- --login-url http://127.0.0.1:<port> --check-play USER PASSWORD   # smoke (build/logs/e8_check.sh)
 ```
 
+- **Notices.** `stage_client.sh` puts `game/assets/credits/THIRD_PARTY_NOTICES.txt`
+  beside the game; Settings > Credits shows the same file. After a change to a
+  dependency, the engine, Terrain3D or `game/assets/credits/credits.json`, run
+  `python tools/release/gen_notices.py --godot <godot>` and commit the result.
 - **The extension library.** `game/realm.gdextension` points at
   `../target/release`; Godot exports a library outside `res://` as it
   does any other: it copies it beside the executable (macOS: the bundle's

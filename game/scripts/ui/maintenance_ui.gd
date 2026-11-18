@@ -31,6 +31,7 @@ const BANNER_SIZE := Vector2(660, 74)
 ## Under the target card (top 10 + 74) and the notice band's line (96).
 const BANNER_TOP := 134.0
 const CARD_SIZE := Vector2(640, 280)
+const PROBLEM_CARD_H := 400.0
 const AMBER := Color(1.0, 0.74, 0.38)
 
 var hud: Control
@@ -63,6 +64,7 @@ var quit_button: Button
 var _deadline_ms := 0
 var _warned := false
 var _screen_root: Control
+var _closed_card: Panel
 
 ## Evidence for the checks: announcements seen, the states in order, the
 ## countdown texts shown.
@@ -248,10 +250,19 @@ func show_problem(title: String, detail: String, go_on := Callable(), go_on_text
 	screen_kind = "problem"
 	banner.hide()
 	_build_screen(false)
+	# room for the log's path under the explanation
+	_closed_card.offset_top = -PROBLEM_CARD_H * 0.5
+	_closed_card.offset_bottom = PROBLEM_CARD_H * 0.5
 	screen_title.text = title
 	screen_detail.text = "%s\n\n%s" % [detail, tr("Log file: %s") % ProjectSettings.globalize_path("user://logs/godot.log")]
 	if not to_login.is_valid():
 		reconnect_button.hide()
+	var help := HudKit.button(tr("Help & Support"), 16)
+	help.name = "Help"
+	help.custom_minimum_size = Vector2(170, 42)
+	help.pressed.connect(AccountDialogs.open_support)
+	reconnect_button.get_parent().add_child(help)
+	reconnect_button.get_parent().move_child(help, quit_button.get_index())
 	if go_on.is_valid():
 		retry_button = HudKit.gold_button(go_on_text, 42.0, 17)
 		retry_button.name = "GoOn"
@@ -319,6 +330,7 @@ func _build_screen(was_in: bool) -> void:
 	logo.modulate = Color(0.86, 0.84, 0.9)
 	_screen_root.add_child(logo)
 	var card := Panel.new()
+	_closed_card = card
 	card.name = "ClosedCard"
 	card.set_anchors_preset(Control.PRESET_CENTER)
 	card.offset_left = -CARD_SIZE.x * 0.5

@@ -35,6 +35,7 @@ signal account_deleted
 signal play_granted(map: String, address: String, ticket: String)
 
 const MAX_CHARACTERS := 2
+const ROSTER_RETRY_SECONDS := 5.0
 const DEFAULT_CLOAK := "cloak_wool"
 const DEFAULT_WAND := "wand_ashwood"
 ## The camera's swing over (+) or under (-) the character, radians.
@@ -675,6 +676,12 @@ func _load_characters() -> void:
 		if not api.signed_in():
 			# the session ran out: back to the card
 			logged_out.emit()
+			return
+		# the service did not answer: the message stays, Log Out stays usable,
+		# and the roster is asked for again
+		await get_tree().create_timer(ROSTER_RETRY_SECONDS).timeout
+		if is_inside_tree() and not roster_loaded:
+			_load_characters()
 		return
 	characters = res.body.get("characters", [])
 	roster_loaded = true
