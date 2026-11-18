@@ -1611,7 +1611,7 @@ impl Sim {
     /// Moves every player by its next input and starts its actions.
     fn players(&mut self) {
         let tick = self.tick;
-        // Moving staircases take their pose for this tick before anyone moves.
+        // Turning stairs take their pose for this tick before anyone moves.
         self.stairs.apply(&mut self.terrain, tick);
         let has_stairs = !self.stairs.flights.is_empty();
         let mut stairs_at = tick;

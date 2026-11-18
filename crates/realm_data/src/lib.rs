@@ -87,7 +87,7 @@ impl Content {
     }
 }
 
-/// The moving staircases a map's pack anchors, built from the content's
+/// The turning stairs a map's pack anchors, built from the content's
 /// `staircases` specs.
 pub fn staircases(
     content: &Content,

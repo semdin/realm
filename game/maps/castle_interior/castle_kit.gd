@@ -78,7 +78,7 @@ static func instantiate() -> Node3D:
 	return castle
 
 ## A world-space triplanar PBR surface on the lite path. `object_space`
-## samples in the mesh's own space instead (a moving staircase flight: the
+## samples in the mesh's own space instead (a turning stair flight: the
 ## stone stays on the stone as it swings).
 static func surface(set_id: String, tint: Color = Color.WHITE, metres: float = 0.0,
 		object_space := false) -> ShaderMaterial:
@@ -306,7 +306,7 @@ static func drop_bodies(structure: Node3D) -> int:
 	return bodies.size()
 
 ## One warm light per 24 m bay of every room (at 70 % of the room height,
-## never above 12 m), plus one per Grand Staircase gallery.
+## never above 12 m), plus one per Tidewheel Stair gallery.
 static func add_room_lights(parent: Node3D, layout: Dictionary, map_y: float, energy: float) -> void:
 	for r in layout.get("rooms", []):
 		var rect: Array = r["rect"]

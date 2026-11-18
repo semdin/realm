@@ -1,7 +1,7 @@
 extends Node3D
 class_name StairView
 
-## The castle's moving staircases, drawn with the old game's flight art. The
+## The castle's turning stairs, drawn with the old game's flight art. The
 ## flights are simulated by the server and by the client core for prediction
 ## (realm_sim staircase.rs: a pure function of the tick); RealmSession.
 ## stair_parts gives every solid box of them as the player's own body sees it

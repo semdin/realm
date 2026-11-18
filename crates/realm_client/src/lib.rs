@@ -334,7 +334,7 @@ struct RealmSession {
     next_op: u32,
     /// Way-finding's view of the loaded map (way.rs), built on first use.
     way: way::WayCache,
-    /// The map's moving staircases for drawing: the same pure function of
+    /// The map's turning stairs for drawing: the same pure function of
     /// the tick the core collides with (a second copy, so drawing never
     /// touches the prediction's).
     stair_view: realm_sim::staircase::Staircases,
@@ -2246,7 +2246,7 @@ impl RealmSession {
         Some(mesh(vertices, indices))
     }
 
-    /// The moving staircases' solid boxes as they stand now, drawn where the
+    /// The turning stairs' solid boxes as they stand now, drawn where the
     /// player's own body is (the core's predicted tick less the part of a
     /// tick not yet run): [{`kind` ("deck", "rail", "gate"), `flight` (its
     /// index), `transform` (centre and rotation), `size` (full extents)};

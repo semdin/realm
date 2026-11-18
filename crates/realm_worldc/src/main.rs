@@ -766,7 +766,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         let path: PathBuf = maps_dir.join(format!("{map}.realmmap"));
         let pack = read_pack(&path)?;
         let mut world = pack.world().map_err(|e| format!("{map}: {e}"))?;
-        // Moving staircases run as in the game: placed every tick, carrying
+        // Turning stairs run as in the game: placed every tick, carrying
         // bodies on their decks.
         let mut stairs = realm_data::staircases(&content, &pack)?;
         let mut tick = 0_u32;

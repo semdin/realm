@@ -16,7 +16,7 @@ extends Node3D
 ##                       "locked_door"): the Brine Vaults' door in its wall bay,
 ##                       its warning sign and two torches
 ##
-## The moving staircases are not here: StairView draws them from the client
+## The turning stairs are not here: StairView draws them from the client
 ## core's own staircase poses (the ones the player's body stands on).
 ##
 ## Indoors the old game's atmosphere holds: a dim warm ambient (the candles

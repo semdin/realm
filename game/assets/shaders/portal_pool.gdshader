@@ -3,7 +3,7 @@ render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabl
 
 // The floor of a way out: a pool of light turning on itself. The cloud map
 // the spell effects use, wound into a spiral that tightens toward the middle
-// and drains inward; a bright uneven rim; a core of light; and the Waylink's
+// and drains inward; a bright uneven rim; a core of light; and the Waystake's
 // ripple clip beating out over it. Nothing ruled or drawn: it replaces a
 // glowing tube (and then a clock-face of fine lines) lying on the floor.
 // Additive: it glows on a dark floor and never hides it.

@@ -139,7 +139,7 @@ extends Node3D
 ##                                                    news line, the protected-ground cue in and out, then the
 ##                                                    Trial Hall run with the target ring, the "New title" toast
 ##                                                    and "Run it again" into a new copy
-##   [--check-stairs]                                 the castle's moving staircases drawn, swinging and climbed
+##   [--check-stairs]                                 the castle's turning stairs drawn, swinging and climbed
 ##                                                    (StairsCheck; build/logs/aup_stairs.sh, --map
 ##                                                    castle_interior --character 901201)
 ##   [--check-castle]                                 the castle interior drawn where the server's floors and
@@ -632,7 +632,7 @@ var basic_hold := ""
 var _basic_next_at := 0.0
 ## Basic casts the hold repeated (the polish check reads it).
 var basic_repeats := 0
-## The mark under the current target (TargetRing), the moving staircases
+## The mark under the current target (TargetRing), the turning stairs
 ## (StairView), the screen's edge at low health (LowHpVignette), the
 ## protected-ground cue (SafeZoneCue) and the bestiary (B).
 var target_ring: TargetRing

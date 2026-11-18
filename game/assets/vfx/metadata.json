@@ -824,7 +824,7 @@
       "colour": true,
       "blend": "add",
       "blend_default": "add",
-      "purpose": "Spinning blue-white vortex that snaps the Waylink's holders away",
+      "purpose": "Spinning blue-white vortex that snaps the Waystake's holders away",
       "sheet_px": [
         2048,
         2048
@@ -852,7 +852,7 @@
       "colour": true,
       "blend": "add",
       "blend_default": "add",
-      "purpose": "Pulsing blue aura with orbiting sparkles over a waiting Waylink (loop)",
+      "purpose": "Pulsing blue aura with orbiting sparkles over a waiting Waystake (loop)",
       "sheet_px": [
         1024,
         1024

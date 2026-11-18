@@ -880,7 +880,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 2.4,
-      "purpose": "A Twinned Cabinet: doors thud shut, a hollow magical whoomp",
+      "purpose": "An Old Shaft: a hatch thuds shut, a hollow magical whoomp",
       "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2 (Blackweb Caverns S7, art/spider_caverns/audio)"
     },
     "pallid_alert": {
@@ -1010,7 +1010,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 2.56,
-      "purpose": "Hearth Network travel: powder ignites into roaring emerald flames sucked up the chimney",
+      "purpose": "Emberway travel: powder ignites into roaring emerald flames sucked up the chimney",
       "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2 (Blackweb Caverns S4, art/spider_caverns/audio)"
     },
     "goblin_alert": {
@@ -1673,7 +1673,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 2.56,
-      "purpose": "The Stone Raven passage: stone grinding aside, trickling dust",
+      "purpose": "The Dry Cistern passage: stone grinding aside, trickling dust",
       "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2 (Blackweb Caverns S7, art/spider_caverns/audio)"
     },
     "pixie_alert": {
@@ -1764,7 +1764,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 4.583,
-      "purpose": "A Waylink activating: rising blue chime, a yank into a spinning whirlwind",
+      "purpose": "A Waystake activating: rising blue chime, a yank into a spinning whirlwind",
       "source": "Stable Audio 3 small-sfx (local, CPU); waylink_whoosh__s105.wav"
     },
     "robe_1": {
