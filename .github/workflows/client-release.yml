@@ -1,17 +1,26 @@
 # Thousand Realms client release -> GitHub Releases of this repository (what
 # the launcher updates from: https://github.com/semdin/realm/releases/latest/
-# download/manifest.json + .sig). Ported from the old client repository's
-# pipeline (chunked delta updates, signed manifests, launchers for Windows,
-# Linux and macOS); the game is game/ and the launcher launcher/ here.
+# download/manifest.json + .sig).
 #
 #   manual dispatch only (gh workflow run client-release): a release goes out
 #   when the realm's server is ready for it, never on every push.
 #
-# The export runs on the realm host's self-hosted runner (label
-# realm-release): its workspace keeps game/.godot, so unchanged assets
-# re-import byte-identically and players download only what changed. The
-# realm_client extension is built per platform on GitHub-hosted runners
-# (realm-libs) and put in target/release before the exports pick it up.
+# Who does what:
+#   launcher-packages.yml  GitHub-hosted: every launcher package
+#   realm-libs             GitHub-hosted: the realm_client extension per platform
+#   build                  the realm host's self-hosted runner (label
+#                          realm-release): exports the game and cuts the chunks.
+#                          Its workspace keeps game/.godot, so unchanged assets
+#                          re-import byte-identically and players download only
+#                          what changed. It uploads the chunks to a draft release
+#                          and never sees the signing key.
+#   publish                GitHub-hosted, environment release-signing: writes and
+#                          signs the manifests over the hosted launcher builds
+#                          and the content indexes, adds them to the draft and
+#                          only then publishes it.
+#
+# dry_run does all of this against a draft that is deleted at the end: the
+# latest release does not change.
 #
 # Versions: client 2.0.<run number> (above every old 1.0.x client, so
 # installed launchers move to it), launcher 3.0.<git ct of launcher/>.
@@ -31,6 +40,10 @@ on:
         description: 'Build and test the launchers even when launcher/ did not change'
         type: boolean
         default: false
+      dry_run:
+        description: 'Do everything on a draft, delete it, publish nothing'
+        type: boolean
+        default: false
 
 permissions:
   contents: write   # create the GitHub Release and upload its assets
@@ -45,72 +58,70 @@ env:
   PLATFORM: 'windows-x86_64'
   MIN_LAUNCHER_VERSION: '3.0.0'
   SERVER_VERSION: '2.0.0'
-  # PROTOCOL_VERSION/MIN/MAX and SCHEMA_VERSION come from the tree (Resolve versions).
 
 jobs:
-  # macOS launcher: needs a Mac to compile, link and sign, so it runs on a
-  # GitHub-hosted macOS runner (free for this public repository). The release
-  # job below picks the result up as an artifact. Its sources need no LFS: the
-  # launcher's assets are plain git (.gitattributes). When launcher/ did
-  # not change (same launcher version as the live release) the published
-  # launcher is reused and the ~9 min build + updater tests are skipped.
-  launcher-macos:
-    name: macOS launcher (universal, ad-hoc signed) + updater tests
-    # macos-14 images retire on 2026-11-02 (brownouts cancel runs before that);
-    # the bundle still targets macOS 11 (CMAKE_OSX_DEPLOYMENT_TARGET in build_app.sh).
-    runs-on: macos-15
+  versions:
+    name: Resolve versions
+    runs-on: ubuntu-24.04
     env:
       GIT_LFS_SKIP_SMUDGE: '1'
+    outputs:
+      client: ${{ steps.v.outputs.client }}
+      content: ${{ steps.v.outputs.content }}
+      launcher: ${{ steps.v.outputs.launcher }}
+      tag: ${{ steps.v.outputs.tag }}
+      protocol: ${{ steps.v.outputs.protocol }}
+      schema: ${{ steps.v.outputs.schema }}
     steps:
-      # A fresh hosted runner has no init.defaultBranch: checkout's `git init`
-      # printed git's "Using 'master' as the name for the initial branch" hint.
-      - name: Git default branch
-        run: git config --global init.defaultBranch main
-
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0          # the launcher version is the last launcher commit time
+          fetch-depth: 0   # the launcher version is the last launcher commit time
           lfs: false
-
-      - name: Resolve the launcher version
+      - name: Resolve versions
         id: v
+        env:
+          NOTES_INPUT: ${{ inputs.release_notes }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
+          set -eu
+          client="2.0.${GITHUB_RUN_NUMBER}"
+          tag="v$client"
+          if [ "$DRY_RUN" = true ]; then tag="dryrun-$client"; fi
           launcher_ts="$(git log -1 --format=%ct -- launcher)"
-          echo "launcher=3.0.${launcher_ts:-0}" >> "$GITHUB_OUTPUT"
-
-      - name: Reuse the live launcher when launcher/ is unchanged
-        id: reuse
-        if: ${{ !inputs.rebuild_launchers }}
-        run: |
-          python3 tools/release/reuse_launcher.py \
-            --base "https://github.com/${{ github.repository }}/releases/latest/download" \
-            --manifest manifest-macos.json --version "${{ steps.v.outputs.launcher }}" \
-            --out "$RUNNER_TEMP/mac" ThousandRealms_Launcher-macos ThousandRealms_Launcher-macos.zip
-
-      - name: Build the app bundle
-        if: steps.reuse.outputs.hit != 'true'
-        run: |
-          brew list ninja >/dev/null 2>&1 || brew install ninja
-          bash launcher/packaging/macos/build_app.sh launcher "${{ steps.v.outputs.launcher }}" "$RUNNER_TEMP/mac"
-
-      - name: Updater tests against the macOS build (113 checks)
-        if: steps.reuse.outputs.hit != 'true'
-        run: |
-          python3 -m venv "$RUNNER_TEMP/venv"
-          "$RUNNER_TEMP/venv/bin/pip" install --quiet cryptography numpy
-          "$RUNNER_TEMP/venv/bin/python" tools/release/test_updater.py \
-            --launcher "$RUNNER_TEMP/mac/ThousandRealms_UpdaterCLI-macos" \
-            --gui-launcher "$RUNNER_TEMP/mac/ThousandRealms_Launcher-macos" | tee "$RUNNER_TEMP/updater-tests.log"
-          grep -q "UPDATER RESULT: .*, 0 failures" "$RUNNER_TEMP/updater-tests.log"
-
+          # The realm's protocol (the launcher holds a release whose range
+          # misses what /api/status reports) and its schema migrations.
+          proto="$(sed -n 's/^pub const PROTOCOL_VERSION: u16 = \([0-9]*\);/\1/p' crates/realm_proto/src/lib.rs)"
+          [ -n "$proto" ] || { echo "::error::no PROTOCOL_VERSION in realm_proto"; exit 1; }
+          schema="$(ls crates/realm_persist/migrations/*.sql | wc -l | tr -d ' ')"
+          {
+            echo "client=$client"
+            echo "content=$(date -u +%Y.%m.%d)-${GITHUB_RUN_NUMBER}"
+            echo "launcher=3.0.${launcher_ts:-0}"
+            echo "tag=$tag"
+            echo "protocol=$proto"
+            echo "schema=$schema"
+          } >> "$GITHUB_OUTPUT"
+          notes="${NOTES_INPUT:-}"
+          if [ -z "$notes" ]; then notes="$(git log -1 --format=%s)"; fi
+          printf '%s' "$notes" > release_notes.txt
       - uses: actions/upload-artifact@v7
         with:
-          name: launcher-macos
-          path: |
-            ${{ runner.temp }}/mac/ThousandRealms_Launcher-macos.zip
-            ${{ runner.temp }}/mac/ThousandRealms_Launcher-macos
+          name: release-notes
+          path: release_notes.txt
           if-no-files-found: error
           retention-days: 7
+
+  launchers:
+    name: Launchers
+    uses: ./.github/workflows/launcher-packages.yml
+    with:
+      rebuild: ${{ inputs.rebuild_launchers }}
+    secrets:
+      APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+      APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+      APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_BASE64 }}
+      APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+      APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
 
   # The realm_client GDExtension for each platform, on GitHub-hosted runners
   # with the pinned toolchain (rust-toolchain.toml): Windows (MSVC), macOS
@@ -158,26 +169,19 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  release:
-    name: build + sign + publish (windows, linux, macos)
-    needs: [launcher-macos, realm-libs]
+  build:
+    name: export + chunk (windows, linux, macos)
+    needs: [versions, realm-libs]
     # Self-hosted on the game host (2026-10-19): the workspace persists, so Git
     # LFS only fetches changed objects and the .godot import cache survives
     # between releases without a GitHub cache round trip. Never add a
-    # pull_request trigger to this workflow.
+    # pull_request trigger to this workflow. No secret is used in this job.
     runs-on: [self-hosted, realm-release]
+    env:
+      CLIENT: ${{ needs.versions.outputs.client }}
+      CONTENT: ${{ needs.versions.outputs.content }}
+      TAG: ${{ needs.versions.outputs.tag }}
     steps:
-      - name: Require the signing key (fail closed)
-        env:
-          SIGNING_KEY: ${{ secrets.REALM_CLIENT_SIGNING_KEY || secrets.HPMMO_CLIENT_SIGNING_KEY }}
-        run: |
-          if [ -z "$SIGNING_KEY" ]; then
-            echo "::error::REALM_CLIENT_SIGNING_KEY (or the older HPMMO_CLIENT_SIGNING_KEY) is not set (Settings -> Secrets and variables -> Actions)."
-            echo "Without it no manifest can be signed, and the launcher refuses unsigned releases."
-            exit 1
-          fi
-          echo "signing key present (value never printed)"
-
       # Full history for the launcher version. clean: false keeps the ignored
       # .godot import cache: Godot re-imports only changed sources, so unchanged
       # models/textures keep byte-identical output and players do not
@@ -202,100 +206,19 @@ jobs:
           if git lfs ls-files | grep -q ' - '; then
             echo "::error::some LFS objects were not downloaded"; git lfs ls-files | grep ' - ' | head; exit 1
           fi
-
-      - name: Resolve versions
-        id: v
-        env:
-          NOTES_INPUT: ${{ inputs.release_notes }}
-        run: |
-          set -eu
-          client="2.0.${GITHUB_RUN_NUMBER}"
-          content="$(date -u +%Y.%m.%d)-${GITHUB_RUN_NUMBER}"
-          launcher_ts="$(git log -1 --format=%ct -- launcher)"
-          launcher="3.0.${launcher_ts:-0}"
-          notes="${NOTES_INPUT:-}"
-          if [ -z "$notes" ]; then notes="$(git log -1 --format=%s)"; fi
-          # The realm's protocol (the launcher holds a release whose range
-          # misses what /api/status reports) and its schema migrations.
-          proto="$(sed -n 's/^pub const PROTOCOL_VERSION: u16 = \([0-9]*\);/\1/p' crates/realm_proto/src/lib.rs)"
-          [ -n "$proto" ] || { echo "::error::no PROTOCOL_VERSION in realm_proto"; exit 1; }
-          schema="$(ls crates/realm_persist/migrations/*.sql | wc -l | tr -d ' ')"
-          {
-            echo "PROTOCOL_VERSION=$proto"
-            echo "PROTOCOL_MIN=$proto"
-            echo "PROTOCOL_MAX=$proto"
-            echo "SCHEMA_VERSION=$schema"
-          } >> "$GITHUB_ENV"
-          {
-            echo "client=$client"
-            echo "content=$content"
-            echo "launcher=$launcher"
-            echo "tag=v$client"
-          } >> "$GITHUB_OUTPUT"
-          # Multi-line safe notes for later steps.
-          printf '%s' "$notes" > "$RUNNER_TEMP/release_notes.txt"
-          echo "client $client / content $content / launcher $launcher"
-
-      # Windows + Linux launchers: reused from the live release while
-      # launcher/ is unchanged (the same version, the same sources).
-      - name: Reuse the live launchers when launcher/ is unchanged
-        id: reuse
-        if: ${{ !inputs.rebuild_launchers }}
-        run: |
-          set -eu
-          base="https://github.com/${{ github.repository }}/releases/latest/download"
           mkdir -p dist
-          python3 tools/release/reuse_launcher.py --base "$base" --manifest manifest.json --key windows \
-            --version "${{ steps.v.outputs.launcher }}" --out dist ThousandRealms_Launcher.exe
-          python3 tools/release/reuse_launcher.py --base "$base" --manifest manifest-linux-x86_64.json --key linux \
-            --version "${{ steps.v.outputs.launcher }}" --out dist ThousandRealms_Launcher-x86_64.AppImage
-
-      - name: Build the launcher
-        if: steps.reuse.outputs.windows != 'true'
-        run: |
-          set -eu
-          # The -posix toolchain: the default win32-thread variant has no std::thread/std::mutex.
-          cmake -S launcher -B launcher/build-mingw -G Ninja \
-            -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix \
-            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
-            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DREALM_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
-          # Compiler errors become annotations, readable without the job log.
-          if ! ninja -k 0 -C launcher/build-mingw ThousandRealms_Launcher > "$RUNNER_TEMP/launcher-build.log" 2>&1; then
-            grep -E "error|Error" "$RUNNER_TEMP/launcher-build.log" | head -25 | while IFS= read -r line; do
-              echo "::error::$line"
-            done
-            tail -60 "$RUNNER_TEMP/launcher-build.log"
-            exit 1
-          fi
-          mkdir -p dist
-          cp launcher/build-mingw/ThousandRealms_Launcher.exe dist/ThousandRealms_Launcher.exe
-
-      - name: Fetch the macOS launcher built by launcher-macos
-        uses: actions/download-artifact@v8
-        with:
-          name: launcher-macos
-          path: dist
-
-      - name: Build the Linux launcher (AppImage)
-        # Built in the pinned Ubuntu 22.04 image (launcher/packaging/linux)
-        # through the host's root wrapper, so it runs on glibc >= 2.34 distros.
-        if: steps.reuse.outputs.linux != 'true'
-        run: |
-          set -eu
-          out="$RUNNER_TEMP/linux-launcher"
-          rm -rf "$out"
-          sudo /opt/hpmmo-ci/build_linux_launcher.sh "$PWD/launcher" "${{ steps.v.outputs.launcher }}" "$out"
-          cp "$out/ThousandRealms_Launcher-x86_64.AppImage" dist/ThousandRealms_Launcher-x86_64.AppImage
-          ls -la dist/ThousandRealms_Launcher-x86_64.AppImage
 
       - name: Fetch the realm_client libraries built by realm-libs
         uses: actions/download-artifact@v8
         with:
           pattern: realm-lib-*
           path: ${{ runner.temp }}/libs
+
+      - name: Fetch the release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes
 
       - name: Check the pinned Godot engine and export templates
         id: godot
@@ -321,7 +244,7 @@ jobs:
           cp "$RUNNER_TEMP/libs/realm-lib-ubuntu-22.04/librealm_client.so" target/release/
           cp "$RUNNER_TEMP/libs/realm-lib-macos-15/librealm_client.dylib" target/release/
           # The game shows this version.
-          sed -i "s/^config\/name=\"Thousand Realms\"/config\/name=\"Thousand Realms\"\nconfig\/version=\"${{ steps.v.outputs.client }}\"/" game/project.godot
+          sed -i "s/^config\/name=\"Thousand Realms\"/config\/name=\"Thousand Realms\"\nconfig\/version=\"$CLIENT\"/" game/project.godot
           grep -q '^config/version=' game/project.godot
           # The kept .godot cache remembered old script UIDs (mob_base.gd's
           # changed long ago): exported scenes carried them and every load
@@ -383,24 +306,12 @@ jobs:
       # (no user data, caches or secrets) on what the chunks are cut from.
       - name: Validate the client builds (refuses user data, caches and secrets)
         run: |
-          python3 tools/release/package_client.py \
-            --build-dir build \
-            --client-version "${{ steps.v.outputs.client }}" \
-            --content-version "${{ steps.v.outputs.content }}" \
-            --platform "$PLATFORM" \
-            --check
-          python3 tools/release/package_client.py \
-            --build-dir build-linux \
-            --client-version "${{ steps.v.outputs.client }}" \
-            --content-version "${{ steps.v.outputs.content }}" \
-            --platform linux-x86_64 \
-            --check
-          python3 tools/release/package_client.py \
-            --build-dir build-mac \
-            --client-version "${{ steps.v.outputs.client }}" \
-            --content-version "${{ steps.v.outputs.content }}" \
-            --platform macos \
-            --check
+          python3 tools/release/package_client.py --build-dir build \
+            --client-version "$CLIENT" --content-version "$CONTENT" --platform "$PLATFORM" --check
+          python3 tools/release/package_client.py --build-dir build-linux \
+            --client-version "$CLIENT" --content-version "$CONTENT" --platform linux-x86_64 --check
+          python3 tools/release/package_client.py --build-dir build-mac \
+            --client-version "$CLIENT" --content-version "$CONTENT" --platform macos --check
 
       # Delta delivery: chunks the previous release already published are
       # referenced, only new ones go into chunks-<ver>.bin - and so are chunks
@@ -425,8 +336,8 @@ jobs:
             python3 tools/release/chunk_release.py \
               --build-dir "$dir" \
               ${platform:+--platform "$platform"} \
-              --version "${{ steps.v.outputs.client }}" \
-              --download-base "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
+              --version "$CLIENT" \
+              --download-base "https://github.com/${{ github.repository }}/releases/download/$TAG" \
               --previous "$prev" \
               --out dist > "$RUNNER_TEMP/chunk-$index.log" 2>&1 &
             pids+=("$!:$index")
@@ -443,72 +354,126 @@ jobs:
           done
           exit "$failed"
 
-      - name: Sign the manifest
+      - name: Check every new chunk against its content index
+        run: |
+          set -eu
+          for index in content.json content-linux-x86_64.json content-macos.json; do
+            python3 tools/release/gen_manifest.py --check-chunks --content-index "dist/$index" \
+              --client-version "$CLIENT" \
+              --base-url "https://github.com/${{ github.repository }}/releases/download/$TAG"
+          done
+
+      - name: Hand the content indexes to the signing job
+        uses: actions/upload-artifact@v7
+        with:
+          name: content-indexes
+          path: dist/content*.json
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Upload the chunks to a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          shopt -s nullglob
+          # A re-run starts from a clean draft; a published tag is never touched.
+          if state="$(gh release view "$TAG" --repo "${{ github.repository }}" --json isDraft --jq .isDraft 2>/dev/null)"; then
+            [ "$state" = true ] || { echo "::error::$TAG is already published"; exit 1; }
+            gh release delete "$TAG" --repo "${{ github.repository }}" --yes
+          fi
+          # chunks[-<platform>]-<ver>.bin is absent when no chunk changed.
+          chunks=(dist/chunks-*.bin)
+          gh release create "$TAG" "${chunks[@]}" --draft \
+            --repo "${{ github.repository }}" --target "${{ github.sha }}" \
+            --title "Thousand Realms $TAG" --notes-file "$RUNNER_TEMP/notes/release_notes.txt"
+
+  publish:
+    name: sign + publish
+    needs: [versions, launchers, build]
+    # The signing key exists only here, on a fresh GitHub-hosted machine: a
+    # compromised game host cannot read it. Require a reviewer on this
+    # environment (repository settings) to approve every signature.
+    runs-on: ubuntu-24.04
+    environment: release-signing
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      CLIENT: ${{ needs.versions.outputs.client }}
+      CONTENT: ${{ needs.versions.outputs.content }}
+      LAUNCHER: ${{ needs.versions.outputs.launcher }}
+      TAG: ${{ needs.versions.outputs.tag }}
+      PROTOCOL: ${{ needs.versions.outputs.protocol }}
+      SCHEMA: ${{ needs.versions.outputs.schema }}
+      DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: false
+      - name: Fetch the launcher packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: launcher-*
+          path: dist
+          merge-multiple: true
+      - name: Fetch the content indexes
+        uses: actions/download-artifact@v8
+        with:
+          name: content-indexes
+          path: dist
+      - name: Fetch the release notes
+        uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+          path: ${{ runner.temp }}/notes
+
+      - name: Write and sign the manifests
         env:
           SIGNING_KEY: ${{ secrets.REALM_CLIENT_SIGNING_KEY || secrets.HPMMO_CLIENT_SIGNING_KEY }}
         run: |
           set -eu
+          if [ -z "$SIGNING_KEY" ]; then
+            echo "::error::REALM_CLIENT_SIGNING_KEY (or the older HPMMO_CLIENT_SIGNING_KEY) is not set."
+            echo "Without it no manifest can be signed, and the launcher refuses unsigned releases."
+            exit 1
+          fi
           key="$RUNNER_TEMP/release-signing.key.pem"
           umask 077
           # The secret is either a PEM private key or the raw 32-byte Ed25519
           # seed as 64 hex characters (wrapped into PKCS#8 here).
-          seed="$(printf '%s' "$SIGNING_KEY" | tr -d '[:space:]')"
-          if printf '%s' "$seed" | grep -Eq '^[0-9a-fA-F]{64}$'; then
-            { printf '302e020100300506032b657004220420'; printf '%s' "$seed"; } | xxd -r -p > "$RUNNER_TEMP/seed.der"
-            openssl pkey -inform DER -in "$RUNNER_TEMP/seed.der" -out "$key"
-            rm -f "$RUNNER_TEMP/seed.der"
-          else
-            printf '%s\n' "$SIGNING_KEY" > "$key"
-          fi
-          python3 tools/release/gen_manifest.py \
-            --launcher-artifact dist/ThousandRealms_Launcher.exe \
-            --launcher-version "${{ steps.v.outputs.launcher }}" \
-            --channel release \
-            --client-version "${{ steps.v.outputs.client }}" \
-            --min-launcher-version "$MIN_LAUNCHER_VERSION" \
-            --protocol-version "$PROTOCOL_VERSION" --protocol-min "$PROTOCOL_MIN" --protocol-max "$PROTOCOL_MAX" \
-            --content-version "${{ steps.v.outputs.content }}" --server-version "$SERVER_VERSION" \
-            --schema-version "$SCHEMA_VERSION" --platform "$PLATFORM" \
-            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
-            --release-notes-file "$RUNNER_TEMP/release_notes.txt" \
-            --content-index dist/content.json \
-            --out dist --key "$key"
-          # Linux manifest (with the AppImage as the launcher self-update payload).
-          python3 tools/release/gen_manifest.py \
+          python3 - "$key" <<'PY'
+          import base64, os, re, sys
+          secret = os.environ["SIGNING_KEY"]
+          seed = re.sub(r"\s", "", secret)
+          if re.fullmatch(r"[0-9a-fA-F]{64}", seed):
+              der = bytes.fromhex("302e020100300506032b657004220420" + seed)
+              body = base64.encodebytes(der).decode()
+              secret = "-----BEGIN PRIVATE KEY-----\n" + body + "-----END PRIVATE KEY-----"
+          with open(sys.argv[1], "w", encoding="ascii") as handle:
+              handle.write(secret.strip() + "\n")
+          PY
+          umask 022
+          common=(--launcher-version "$LAUNCHER" --channel release --client-version "$CLIENT"
+                  --min-launcher-version "$MIN_LAUNCHER_VERSION"
+                  --protocol-version "$PROTOCOL" --protocol-min "$PROTOCOL" --protocol-max "$PROTOCOL"
+                  --content-version "$CONTENT" --server-version "$SERVER_VERSION" --schema-version "$SCHEMA"
+                  --base-url "https://github.com/$REPO/releases/download/$TAG"
+                  --release-notes-file "$RUNNER_TEMP/notes/release_notes.txt"
+                  --out dist --key "$key" --skip-chunks)
+          python3 tools/release/gen_manifest.py "${common[@]}" --platform "$PLATFORM" \
+            --launcher-artifact dist/ThousandRealms_Launcher.exe --content-index dist/content.json
+          # The AppImage is the Linux self-update payload for every install type.
+          python3 tools/release/gen_manifest.py "${common[@]}" --platform linux-x86_64 \
             --launcher-artifact dist/ThousandRealms_Launcher-x86_64.AppImage \
-            --launcher-version "${{ steps.v.outputs.launcher }}" \
-            --channel release \
-            --client-version "${{ steps.v.outputs.client }}" \
-            --min-launcher-version "$MIN_LAUNCHER_VERSION" \
-            --protocol-version "$PROTOCOL_VERSION" --protocol-min "$PROTOCOL_MIN" --protocol-max "$PROTOCOL_MAX" \
-            --content-version "${{ steps.v.outputs.content }}" --server-version "$SERVER_VERSION" \
-            --schema-version "$SCHEMA_VERSION" --platform linux-x86_64 \
-            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
-            --release-notes-file "$RUNNER_TEMP/release_notes.txt" \
-            --content-index dist/content-linux-x86_64.json \
-            --out dist --key "$key"
-          # macOS manifest (the bare launcher Mach-O is the self-update payload).
-          python3 tools/release/gen_manifest.py \
+            --content-index dist/content-linux-x86_64.json
+          # macOS: the complete app, and the bare Mach-O older launchers expect.
+          python3 tools/release/gen_manifest.py "${common[@]}" --platform macos \
             --launcher-artifact dist/ThousandRealms_Launcher-macos \
-            --launcher-version "${{ steps.v.outputs.launcher }}" \
-            --channel release \
-            --client-version "${{ steps.v.outputs.client }}" \
-            --min-launcher-version "$MIN_LAUNCHER_VERSION" \
-            --protocol-version "$PROTOCOL_VERSION" --protocol-min "$PROTOCOL_MIN" --protocol-max "$PROTOCOL_MAX" \
-            --content-version "${{ steps.v.outputs.content }}" --server-version "$SERVER_VERSION" \
-            --schema-version "$SCHEMA_VERSION" --platform macos \
-            --base-url "https://github.com/${{ github.repository }}/releases/download/${{ steps.v.outputs.tag }}" \
-            --release-notes-file "$RUNNER_TEMP/release_notes.txt" \
-            --content-index dist/content-macos.json \
-            --out dist --key "$key"
+            --launcher-bundle dist/ThousandRealms_Launcher-macos.zip \
+            --content-index dist/content-macos.json
           openssl pkey -in "$key" -pubout -out "$RUNNER_TEMP/release.pub.pem"
           rm -f "$key"
-          python3 tools/release/gen_manifest.py --verify \
-            --manifest dist/manifest.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
-          python3 tools/release/gen_manifest.py --verify \
-            --manifest dist/manifest-linux-x86_64.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
-          python3 tools/release/gen_manifest.py --verify \
-            --manifest dist/manifest-macos.json --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
           # The key the launcher has built in must be the key that signed this.
           built_in="$(grep -o 'REALM_DEFAULT_RELEASE_KEY L"[^"]*"' launcher/src/common.h | sed 's/.*L"\(.*\)"/\1/')"
           signing="$(openssl pkey -pubin -in "$RUNNER_TEMP/release.pub.pem" -outform DER | tail -c 32 | base64)"
@@ -518,64 +483,82 @@ jobs:
           fi
           ls -la dist
 
-      - name: Publish the GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Add everything to the draft
         run: |
           set -eu
-          tag="${{ steps.v.outputs.tag }}"
-          # chunks[-<platform>]-<ver>.bin is absent when no chunk changed.
-          shopt -s nullglob
-          chunks=(dist/chunks-*.bin)
-          gh release create "$tag" \
-            dist/ThousandRealms_Launcher.exe dist/content.json "${chunks[@]}" \
-            dist/manifest.json dist/manifest.json.sig dist/manifest.json.keyid dist/SHA256SUMS \
-            dist/content-linux-x86_64.json \
-            dist/ThousandRealms_Launcher-x86_64.AppImage \
-            dist/manifest-linux-x86_64.json dist/manifest-linux-x86_64.json.sig \
-            dist/manifest-linux-x86_64.json.keyid dist/SHA256SUMS-linux-x86_64 \
-            dist/content-macos.json dist/ThousandRealms_Launcher-macos dist/ThousandRealms_Launcher-macos.zip \
-            dist/manifest-macos.json dist/manifest-macos.json.sig \
-            dist/manifest-macos.json.keyid dist/SHA256SUMS-macos \
-            --repo "${{ github.repository }}" \
-            --target "${{ github.sha }}" \
-            --title "Thousand Realms $tag" \
-            --notes-file "$RUNNER_TEMP/release_notes.txt" \
-            --latest
+          cp launcher/THIRD_PARTY_NOTICES.txt launcher/packaging/INSTALL.md dist/
+          downloads=(ThousandRealms-Setup.exe ThousandRealms_Launcher.exe
+                     ThousandRealms-linux-x86_64.tar.gz ThousandRealms_Launcher-x86_64.AppImage
+                     ThousandRealms.dmg ThousandRealms_Launcher-macos.zip)
+          (cd dist && sha256sum "${downloads[@]}" > SHA256SUMS-downloads.txt)
+          assets=()
+          for name in "${downloads[@]}" ThousandRealms_Launcher-macos SHA256SUMS-downloads.txt \
+                      THIRD_PARTY_NOTICES.txt INSTALL.md \
+                      content.json content-linux-x86_64.json content-macos.json \
+                      manifest.json manifest.json.sig manifest.json.keyid SHA256SUMS \
+                      manifest-linux-x86_64.json manifest-linux-x86_64.json.sig \
+                      manifest-linux-x86_64.json.keyid SHA256SUMS-linux-x86_64 \
+                      manifest-macos.json manifest-macos.json.sig \
+                      manifest-macos.json.keyid SHA256SUMS-macos; do
+            assets+=("dist/$name")
+          done
+          gh release upload "$TAG" "${assets[@]}" --repo "$REPO"
+
+      - name: Prove the draft, then publish it (a dry run deletes it)
+        run: |
+          set -eu
+          check="$RUNNER_TEMP/draft"; mkdir -p "$check"
+          gh release download "$TAG" --repo "$REPO" --dir "$check" --pattern 'manifest*'
+          for name in manifest.json manifest-linux-x86_64.json manifest-macos.json; do
+            cmp "$check/$name" "dist/$name"
+            python3 tools/release/gen_manifest.py --verify --manifest "$check/$name" \
+              --pubkey "$RUNNER_TEMP/release.pub.pem" --no-artifacts
+          done
+          if [ "$DRY_RUN" = true ]; then
+            gh release delete "$TAG" --repo "$REPO" --yes
+            echo "### Dry run $TAG: signed and verified, draft deleted, nothing published" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          gh release edit "$TAG" --repo "$REPO" --draft=false --latest
 
       - name: Verify what launchers will download
+        if: ${{ !inputs.dry_run }}
         run: |
           set -eu
-          base="https://github.com/${{ github.repository }}/releases/latest/download"
-          for i in 1 2 3 4 5 6; do
-            if curl -fsSL "$base/manifest.json" -o "$RUNNER_TEMP/live.json"; then break; fi
-            sleep 10
+          base="https://github.com/$REPO/releases/latest/download"
+          live="$RUNNER_TEMP/live"; mkdir -p "$live"
+          for name in manifest.json manifest-linux-x86_64.json manifest-macos.json; do
+            for i in 1 2 3 4 5 6; do
+              if curl -fsSL "$base/$name" -o "$live/$name" && cmp -s "$live/$name" "dist/$name"; then break; fi
+              sleep 10
+            done
+            cmp "$live/$name" "dist/$name"
+            curl -fsSL "$base/$name.sig" -o "$live/$name.sig"
+            python3 tools/release/gen_manifest.py --verify --manifest "$live/$name" \
+              --pubkey "$RUNNER_TEMP/release.pub.pem" --no-artifacts
           done
-          curl -fsSL "$base/manifest.json.sig" -o "$RUNNER_TEMP/live.json.sig"
-          python3 tools/release/gen_manifest.py --verify \
-            --manifest "$RUNNER_TEMP/live.json" --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
-          curl -fsSL "$base/manifest-linux-x86_64.json" -o "$RUNNER_TEMP/live-linux.json"
-          curl -fsSL "$base/manifest-linux-x86_64.json.sig" -o "$RUNNER_TEMP/live-linux.json.sig"
-          python3 tools/release/gen_manifest.py --verify \
-            --manifest "$RUNNER_TEMP/live-linux.json" --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
-          curl -fsSL "$base/manifest-macos.json" -o "$RUNNER_TEMP/live-macos.json"
-          curl -fsSL "$base/manifest-macos.json.sig" -o "$RUNNER_TEMP/live-macos.json.sig"
-          python3 tools/release/gen_manifest.py --verify \
-            --manifest "$RUNNER_TEMP/live-macos.json" --pubkey "$RUNNER_TEMP/release.pub.pem" --artifacts dist
           {
-            echo "### Thousand Realms ${{ steps.v.outputs.tag }}"
-            echo "- client \`${{ steps.v.outputs.client }}\`, launcher \`${{ steps.v.outputs.launcher }}\`"
-            echo "- installer link: $base/ThousandRealms_Launcher.exe"
-            echo "- Linux launcher: $base/ThousandRealms_Launcher-x86_64.AppImage"
-            echo "- macOS launcher: $base/ThousandRealms_Launcher-macos.zip"
+            echo "### Thousand Realms $TAG"
+            echo "- client \`$CLIENT\`, launcher \`$LAUNCHER\`"
+            echo "- Windows: $base/ThousandRealms-Setup.exe (portable: $base/ThousandRealms_Launcher.exe)"
+            echo "- Linux: $base/ThousandRealms-linux-x86_64.tar.gz (AppImage: $base/ThousandRealms_Launcher-x86_64.AppImage)"
+            echo "- macOS: $base/ThousandRealms.dmg"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove the draft of a failed run
+        if: failure()
+        run: |
+          if [ "$(gh release view "$TAG" --repo "$REPO" --json isDraft --jq .isDraft 2>/dev/null)" = true ]; then
+            gh release delete "$TAG" --repo "$REPO" --yes
+          fi
 
   # The published release, on a Mac: the downloaded launcher installs the game
   # from the macOS chunks and the installed game boots natively on this Apple
   # Silicon runner (headless, arm64 slice), and its x86_64 slice under Rosetta 2.
   verify-macos:
     name: macOS install + boot check
-    needs: [release]
+    needs: [publish]
+    if: ${{ !inputs.dry_run }}
     runs-on: macos-15
     steps:
       - name: Install the release with the published launcher and boot the game
@@ -591,7 +574,7 @@ jobs:
           "$bin" --install-root "$work/install" --user-dir "$work/install/user" --update | tee update.json
           grep -q '"ok":true' update.json
           game="$(ls -d "$work"/install/versions/*/"Thousand Realms.app/Contents/MacOS/Thousand Realms")"
-          chmod +x "$game"
+          test -x "$game"   # the launcher sets the bit itself
           codesign --verify --deep --strict "$(dirname "$(dirname "$(dirname "$game")")")"
           lipo -archs "$game" | tee archs.txt
           grep -qw arm64 archs.txt && grep -qw x86_64 archs.txt
@@ -611,3 +594,45 @@ jobs:
           script -q "$work/boot-metal.log" perl -e 'alarm 120; exec @ARGV' \
             arch -arm64 "$game" --quit-after 300 || true
           tr -d '\r' < "$work/boot-metal.log" | grep -iE "metal|vulkan|opengl|error" | head -10 || true
+
+  # itch.io: runs only when BUTLER_API_KEY and the ITCH_PROJECT variable
+  # ("user/game") exist. butler updates the launcher there; the launcher still
+  # updates the game.
+  itch:
+    name: itch.io push (when configured)
+    needs: [versions, publish]
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    env:
+      GIT_LFS_SKIP_SMUDGE: '1'
+      BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+      ITCH_PROJECT: ${{ vars.ITCH_PROJECT }}
+      BUTLER_VERSION: '15.32.0'
+      BUTLER_SHA256: 2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5
+    steps:
+      - name: Is itch.io configured?
+        id: on
+        run: |
+          if [ -n "$BUTLER_API_KEY" ] && [ -n "$ITCH_PROJECT" ]; then echo "push=true" >> "$GITHUB_OUTPUT"
+          else echo "BUTLER_API_KEY or ITCH_PROJECT is not set: nothing to push"; fi
+      - uses: actions/checkout@v7
+        if: steps.on.outputs.push == 'true'
+        with:
+          lfs: false
+      - uses: actions/download-artifact@v8
+        if: steps.on.outputs.push == 'true'
+        with:
+          pattern: launcher-*
+          path: dist
+          merge-multiple: true
+      - name: Push the three channels with butler
+        if: steps.on.outputs.push == 'true'
+        run: |
+          set -eu
+          curl -fsSL -o "$RUNNER_TEMP/butler.zip" "https://broth.itch.zone/butler/linux-amd64/$BUTLER_VERSION/archive/default"
+          echo "$BUTLER_SHA256  $RUNNER_TEMP/butler.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/butler"
+          unzip -q "$RUNNER_TEMP/butler.zip" -d "$RUNNER_TEMP/butler"
+          chmod +x "$RUNNER_TEMP/butler/butler"
+          python3 tools/release/itch_package.py --dist dist --out itch --butler "$RUNNER_TEMP/butler/butler" \
+            --push "$ITCH_PROJECT" --userversion "${{ needs.versions.outputs.launcher }}"

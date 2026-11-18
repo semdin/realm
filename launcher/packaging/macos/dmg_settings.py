@@ -32,4 +32,4 @@ icon_locations = {app_name: (170, 190), "Applications": (490, 190)}
 # rejects the bundle. Finder hides .app by itself.
 if readme:
     files.append(readme)
-    icon_locations[os.path.basename(readme)] = (330, 335)
+    icon_locations[os.path.basename(readme)] = (330, 325)
