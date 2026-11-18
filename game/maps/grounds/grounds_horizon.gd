@@ -24,6 +24,9 @@ extends MeshInstance3D
 ## into the material (DayNight and QualityPreset own those).
 
 const SHADER := preload("res://assets/shaders/horizon_mountains.gdshader")
+## The low preset's light path as its own shader: half the texture reads to
+## compile (Metal's compile time grows with them), the same picture.
+const SHADER_LITE := preload("res://assets/shaders/horizon_mountains_lite.gdshader")
 const ROCK := preload("res://assets/terrain/textures/cliff_rock_alb_ht.png")
 const MEADOW := preload("res://assets/terrain/textures/grass_meadow_alb_ht.png")
 const NOISE := preload("res://assets/vfx/tex/noise_erosion_512.png")
@@ -48,6 +51,16 @@ var _material: ShaderMaterial
 static var _cached: ArrayMesh = null
 
 
+static func _preset_shader() -> Shader:
+	return SHADER_LITE if bool(QualityPreset.value("lite_surfaces", false)) else SHADER
+
+
+static func _bind_textures(m: ShaderMaterial) -> void:
+	m.set_shader_parameter("rock_tex", ROCK)
+	m.set_shader_parameter("meadow_tex", MEADOW)
+	m.set_shader_parameter("noise_tex", NOISE)
+
+
 static func build(parent: Node3D) -> MeshInstance3D:
 	var mi: MeshInstance3D = load("res://maps/grounds/grounds_horizon.gd").new()
 	mi.name = "Horizon"
@@ -57,10 +70,8 @@ static func build(parent: Node3D) -> MeshInstance3D:
 	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	mi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	var m := ShaderMaterial.new()
-	m.shader = SHADER
-	m.set_shader_parameter("rock_tex", ROCK)
-	m.set_shader_parameter("meadow_tex", MEADOW)
-	m.set_shader_parameter("noise_tex", NOISE)
+	m.shader = _preset_shader()
+	_bind_textures(m)
 	mi.material_override = m
 	mi._material = m
 	parent.add_child(mi)
@@ -182,4 +193,7 @@ func _refresh() -> void:
 	var camera := get_viewport().get_camera_3d() if is_inside_tree() else null
 	if camera != null:
 		_material.set_shader_parameter("max_dist", camera.far)
-	_material.set_shader_parameter("lite", bool(QualityPreset.value("lite_surfaces", false)))
+	var shader := _preset_shader()
+	if _material.shader != shader:
+		_material.shader = shader
+		_bind_textures(_material)

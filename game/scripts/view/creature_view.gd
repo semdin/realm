@@ -731,12 +731,12 @@ static func dissolve_material(source: Material) -> ShaderMaterial:
 			burning.set_shader_parameter("normal_tex", base.normal_texture)
 			burning.set_shader_parameter("normal_scale", base.normal_scale)
 		burning.set_shader_parameter("roughness", base.roughness)
+		# the import gives both the same packed map (or neither)
 		if base.roughness_texture != null:
-			burning.set_shader_parameter("roughness_tex", base.roughness_texture)
+			burning.set_shader_parameter("orm_tex", base.roughness_texture)
 			burning.set_shader_parameter("roughness_channel", _channel(base.roughness_texture_channel))
 		burning.set_shader_parameter("metallic", base.metallic)
 		if base.metallic_texture != null:
-			burning.set_shader_parameter("metallic_tex", base.metallic_texture)
 			burning.set_shader_parameter("metallic_channel", _channel(base.metallic_texture_channel))
 		else:
 			burning.set_shader_parameter("metallic_channel", Vector4(1, 0, 0, 0))

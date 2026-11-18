@@ -15,10 +15,11 @@ uniform sampler2D albedo_tex : source_color, hint_default_white, filter_linear_m
 uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform float normal_scale = 1.0;
 uniform float roughness = 1.0;
-uniform sampler2D roughness_tex : hint_default_white, filter_linear_mipmap, repeat_enable;
+// Roughness and metalness share one packed map in every creature material, so
+// it is read once (each texture read makes Metal's shader compile slower).
+uniform sampler2D orm_tex : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform vec4 roughness_channel = vec4(1.0, 0.0, 0.0, 0.0);
 uniform float metallic = 0.0;
-uniform sampler2D metallic_tex : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform vec4 metallic_channel = vec4(0.0, 0.0, 1.0, 0.0);
 uniform float specular = 0.5;
 uniform vec3 emission : source_color = vec3(0.0);
@@ -86,8 +87,9 @@ void fragment() {
 	ALBEDO = base.rgb * mix(1.0, 0.06, charred * charred);
 	NORMAL_MAP = texture(normal_tex, UV).rgb;
 	NORMAL_MAP_DEPTH = normal_scale;
-	ROUGHNESS = mix(roughness * dot(texture(roughness_tex, UV), roughness_channel), 1.0, charred);
-	METALLIC = metallic * dot(texture(metallic_tex, UV), metallic_channel) * (1.0 - charred);
+	vec4 orm = texture(orm_tex, UV);
+	ROUGHNESS = mix(roughness * dot(orm, roughness_channel), 1.0, charred);
+	METALLIC = metallic * dot(orm, metallic_channel) * (1.0 - charred);
 	SPECULAR = specular;
 	float flicker = 0.75 + 0.25 * sin(TIME * 17.0 + n * 40.0);
 	vec3 ember = mix(ember_deep, ember_hot, glow * glow);
