@@ -173,8 +173,8 @@ pub enum ServerMsg {
     },
     /// The player was set down here by a trip of `kind`.
     Arrived { kind: String },
-    /// A Waylink of the player's party.
-    Waylink(WaylinkView),
+    /// A Waystake of the player's party.
+    Waystake(WaylinkView),
     /// The dungeon gate, a ready check, a run.
     Dungeon(Box<DungeonMsg>),
     /// Gate `id` of the player's dungeon copy opens (or closes) from server
@@ -349,9 +349,9 @@ pub enum ClientMsg {
     Travel { from: String, to: String },
     /// Mount the broom (true) or get off it (false).
     Ride(bool),
-    /// Set a Waylink boot down for `dest` (a travel node).
+    /// Set a Waystake boot down for `dest` (a travel node).
     WaylinkPlace(String),
-    /// Hold on to (or let go of) the Waylink `id`.
+    /// Hold on to (or let go of) the Waystake `id`.
     WaylinkHold { id: u32, hold: bool },
     /// What the dungeon behind the gate `portal` asks of the party.
     DungeonInfo(String),
@@ -432,11 +432,11 @@ pub struct HazardView {
     pub until_tick: u32,
     pub hp_share: f32,
     /// A band instead of a ring (half extents x, z around `center`; 0: a
-    /// ring). The Sealed Wing's breath.
+    /// ring). The Brine Vaults' breath.
     pub half: [f32; 2],
 }
 
-/// The sleep chime by a sleeping guardian: where it stands and who rings
+/// The sluice wheel by a sleeping guardian: where it stands and who rings
 /// it (server ticks; 0 when nobody does). `ready_tick`: it can ring again.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct ChimeView {
@@ -481,7 +481,7 @@ pub struct RunView {
     pub affixes: Vec<String>,
     /// Curse marks on the floor now (a player arriving late sees them).
     pub hazards: Vec<HazardView>,
-    /// The sleep chime, in a run that has one.
+    /// The sluice wheel, in a run that has one.
     pub chime: Option<ChimeView>,
 }
 
@@ -542,7 +542,7 @@ pub enum DungeonMsg {
     },
 }
 
-/// A Waylink boot as its party sees it. `phase` 0 set down (counting down
+/// A Waystake boot as its party sees it. `phase` 0 set down (counting down
 /// to `fires_tick`, a server tick), 1 fired, 2 gone (fizzled, or it left
 /// the viewer's party). `holders` are entities.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

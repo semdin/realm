@@ -4,7 +4,7 @@
 //! realm_netcheck --social [--server A --map A --server-b B --map-b B]   (see social.rs)
 //! realm_netcheck --travel --characters <dir>                           (see travel.rs)
 //! realm_netcheck --dungeon --characters <dir>                          (see dungeon.rs)
-//! realm_netcheck --boss threehead|snare --characters <dir>             (see boss.rs)
+//! realm_netcheck --boss wheelwarden|snare --characters <dir>             (see boss.rs)
 //! realm_netcheck --lair eggs|queen --characters <dir>                  (see lair.rs)
 //! realm_netcheck --maintenance --admin <addr> --token <t> ...          (see maintenance.rs)
 //! realm_netcheck --ga --admin <addr> --token <t> [--config-ga <id>] ...  (see ga.rs)
@@ -544,7 +544,7 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Departing { .. }
                     | realm_proto::control::ServerMsg::Travel { .. }
                     | realm_proto::control::ServerMsg::Arrived { .. }
-                    | realm_proto::control::ServerMsg::Waylink(_)
+                    | realm_proto::control::ServerMsg::Waystake(_)
                     | realm_proto::control::ServerMsg::Dungeon(_)
                     | realm_proto::control::ServerMsg::Gate { .. },
                 ) => {}

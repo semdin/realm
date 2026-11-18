@@ -482,7 +482,7 @@ pub struct Sim {
     departing: HashMap<u64, travel::Departing>,
     /// Maps the coordinator says are open.
     open_maps: Vec<String>,
-    waylinks: Vec<travel::Waylink>,
+    waylinks: Vec<travel::Waystake>,
     next_waylink: u32,
     /// A dungeon map: its copies' gates and runs.
     instanced: bool,

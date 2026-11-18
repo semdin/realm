@@ -8,8 +8,8 @@ class_name MapPlaces
 ##   * The quest places (quests.json `places`, scoped to their map) come
 ##     first: the banner names the same area the server counts for a visit.
 ##   * On the grounds, the old layout's landmarks: the castle courtyard, the
-##     boathouse and the station by their spots, the lake by its water, the
-##     castle promontory, the greenhouses and Borin's hut by their features,
+##     boathouse and the landing by their spots, the lake by its water, the
+##     castle promontory, the greenhouses and Ombrek's hut by their features,
 ##     the woods, the moors and Orvell by their regions, the mountain pass at
 ##     the rim; anywhere else is the valley.
 ##   * In the castle, the room the player stands in (the old castle layout's
@@ -39,24 +39,24 @@ const GROUNDS_LABELS := [
 	["Raven Woods", Vector2(-650, 160), 1.2],
 	["Orvell", Vector2(680, -140), 1.0],
 	["Northern Moors", Vector2(420, -720), 1.0],
-	["Borin's Hut", Vector2(-330, -10), 0.8],
+	["Ombrek's Lookout", Vector2(-330, -10), 0.8],
 	["Greenhouses", Vector2(-190, -185), 0.8],
 	["Courtyard", Vector2(0, 92), 0.75],
-	["Skyring Pitch", Vector2(330, -330), 0.8],
-	["Orvell Station", Vector2(610, 270), 0.75],
+	["Patrol Field", Vector2(330, -330), 0.8],
+	["Orvell Landing", Vector2(610, 270), 0.75],
 	["Blackweb Caverns", Vector2(-805, 392), 0.7],
 ]
-## Spots by the water and the rail line: [name, centre, radius].
+## Spots by the water: [name, centre, radius].
 const GROUNDS_SPOTS := [
 	["Castle Courtyard", Vector2(0, 65), 34.0],
 	["Boathouse", Vector2(-190, 64), 24.0],
-	["Orvell Station", Vector2(610, 260), 45.0],
+	["Orvell Landing", Vector2(610, 260), 45.0],
 ]
 ## The layout's features: [name, centre, radius].
 const GROUNDS_FEATURES := [
 	["Kaf Castle", Vector2(0, 20), 150.0],
 	["Greenhouses", Vector2(-175, -120), 55.0],
-	["Borin's Hut", Vector2(-280, -20), 55.0],
+	["Ombrek's Lookout", Vector2(-280, -20), 55.0],
 ]
 ## The layout's regions: [name, polygon (x, z)].
 const GROUNDS_REGIONS := [
@@ -68,34 +68,34 @@ const GROUNDS_REGIONS := [
 ## The castle's rooms: [name, storey level, x min, x max, z min, z max].
 const CASTLE_ROOMS := [
 	["Entrance Hall", 0, -18, 18, 20, 64],
-	["Feast Hall", 0, -105, -21, 42, 70],
+	["Long Table", 0, -105, -21, 42, 70],
 	["Duel Hall", 0, 21, 57, 40, 72],
-	["Grand Staircase", 0, -23, 23, -29, 17],
+	["Tidewheel Stair", 0, -23, 23, -29, 17],
 	["Service Stair", 0, 89, 99, -28, -4],
 	["East Corridor", 0, 26, 86, -12, -4],
 	["East Corridor", 1, 26, 86, -12, -4],
-	["Transmutation Hall", 1, 28, 54, -42, -15],
+	["Assay Hall", 1, 28, 54, -42, -15],
 	["East Corridor", 2, 26, 86, -12, -4],
-	["Warding Hall", 2, 28, 54, -42, -15],
-	["Enchanting Hall", 2, 57, 83, -42, -15],
+	["Muster Hall", 2, 28, 54, -42, -15],
+	["Weaving Loft", 2, 57, 83, -42, -15],
 	["East Corridor", 3, 26, 86, -12, -4],
-	["Library", 3, -80, -26, -45, -5],
+	["Hall of Rolls", 3, -80, -26, -45, -5],
 	["East Corridor", 4, 26, 86, -12, -4],
 	["East Corridor", 5, 26, 86, -12, -4],
-	["Ilvane House", 5, -56, -26, -35, -9],
+	["Torvan Quarters", 5, -56, -26, -35, -9],
 	["East Corridor", 6, 26, 86, -12, -4],
-	["Rookery", 6, -10, 10, -84, -64],
+	["Signal Loft", 6, -10, 10, -84, -64],
 	["Upper Corridor", 7, 26, 86, -12, -4],
-	["Velkar House", 7, 28, 54, -42, -15],
-	["Wishing Room", 7, 57, 83, -42, -15],
+	["Nisera Quarters", 7, 28, 54, -42, -15],
+	["Quartermaster's Loft", 7, 57, 83, -42, -15],
 	["Dungeon Stair", -1, -4, 4, 20, 40],
 	["Dungeon Crossing", -1, -15, 15, -21, 17],
 	["Dungeon West", -1, -90, -18, -10, -4],
 	["Dungeon East", -1, 18, 70, -10, -4],
-	["Alchemy Cellar", -1, -50, -26, -40, -13],
-	["Nisera House", -1, -84, -56, -38, -13],
+	["Still Room", -1, -50, -26, -40, -13],
+	["Ilvane Quarters", -1, -84, -56, -38, -13],
 	["Kitchens", -1, 20, 40, -40, -13],
-	["Torvan House", -1, 43, 70, -38, -13],
+	["Velkar Quarters", -1, 43, 70, -38, -13],
 ]
 # i18n-end
 

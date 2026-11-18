@@ -246,7 +246,7 @@ func _press_spell(index: int, clicked: bool) -> void:
 
 ## A skill level read off the session: a rise over the last one read (the
 ## bar's click, the skill window's "+") is said on the notice band, as the old
-## game's floating "Stun Bolt Lv.3" / "mastered!" said it.
+## game's floating "Starnail Lv.3" / "mastered!" said it.
 func _note_level(spell_id: String, level: int) -> void:
 	var was := int(_known_levels.get(spell_id, -1))
 	_known_levels[spell_id] = level

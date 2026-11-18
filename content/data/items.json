@@ -1,9 +1,9 @@
 {
   "wand_hawthorn": {
     "id": "wand_hawthorn",
-    "name": "Hawthorn Wand",
+    "name": "Thornbark Rod",
     "type": "weapon",
-    "desc": "10-inch Hawthorn wood with unicorn hair core. Highly suited for healing and curses.",
+    "desc": "Rough thornbark bound with salt-cured cord. It favours patient, steady casting.",
     "rarity": "uncommon",
     "stat_tier": 2,
     "attack_value": [
@@ -23,9 +23,9 @@
   },
   "wand_ithrel_replica": {
     "id": "wand_ithrel_replica",
-    "name": "Ithrel Wand Replica",
+    "name": "Starcore Rod",
     "type": "weapon",
-    "desc": "15-inch starwood with night steed hair core. Unlocks immense raw destructive power.",
+    "desc": "A bar of shard-iron quenched in Lake Lunra. Loud, unstable and ruinously strong.",
     "rarity": "legendary",
     "stat_tier": 5,
     "attack_value": [
@@ -47,7 +47,7 @@
     "id": "wand_ashwood",
     "name": "Ashwood Twig",
     "type": "weapon",
-    "desc": "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first wand.",
+    "desc": "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first rod.",
     "rarity": "common",
     "attack_value": [
       14,
@@ -69,7 +69,7 @@
   },
   "wand_runebound": {
     "id": "wand_runebound",
-    "name": "Runebound Walnut Wand",
+    "name": "Runebound Walnut Rod",
     "type": "weapon",
     "desc": "Polished walnut banded in brass; its pale runes steady the aim.",
     "rarity": "uncommon",
@@ -93,7 +93,7 @@
   },
   "wand_silverthorn": {
     "id": "wand_silverthorn",
-    "name": "Silverthorn Wand",
+    "name": "Silverthorn Rod",
     "type": "weapon",
     "desc": "Black ebony gripped by a silver thorn vine, an emerald set in its pommel.",
     "rarity": "rare",
@@ -117,7 +117,7 @@
   },
   "wand_emberwing": {
     "id": "wand_emberwing",
-    "name": "Emberwing Wand",
+    "name": "Emberwing Rod",
     "type": "weapon",
     "desc": "Crimson lacquer and gold feathers around a glowing amber heart; its tip holds a live ember.",
     "rarity": "epic",
@@ -165,9 +165,9 @@
   },
   "robe_apprentice": {
     "id": "robe_apprentice",
-    "name": "Apprentice Robe",
+    "name": "Recruit Robe",
     "type": "armor",
-    "desc": "Sturdy woolen apprentice robes tailored with silk house linings.",
+    "desc": "Sturdy woollen robes issued to every new recruit of the Vigil.",
     "rarity": "common",
     "stat_tier": 1,
     "armor": 18,
@@ -181,7 +181,7 @@
     "id": "robe_wardens_battle_cloak",
     "name": "Warden's Battle Cloak",
     "type": "armor",
-    "desc": "Enchanted heavy dragonhide battle cloak.",
+    "desc": "Heavy storm-cured hide, stitched for long watches on the wall.",
     "rarity": "epic",
     "stat_tier": 4,
     "armor": 78,
@@ -195,7 +195,7 @@
     "id": "cloak_wool",
     "name": "Woolen Traveller's Cloak",
     "type": "armor",
-    "desc": "Undyed homespun wool with a stitched hem and a crude wand patch. Warm, plain and honest.",
+    "desc": "Undyed homespun wool with a stitched hem and a crude rod patch. Warm, plain and honest.",
     "rarity": "common",
     "armor": 18,
     "move_speed": -5,
@@ -273,9 +273,9 @@
   },
   "broom_windcutter_2000": {
     "id": "broom_windcutter_2000",
-    "name": "Windcutter 2000",
+    "name": "Reedrunner",
     "type": "mount",
-    "desc": "Sleek mahogany handle with tail twigs of select birch. Fly across Kaf Valley with speed.",
+    "desc": "Lake reed lashed to a bent ashwood haft. The patrol's favourite over open water.",
     "rarity": "rare",
     "mount_speed": 13.0,
     "icon": "broom",
@@ -285,9 +285,9 @@
   },
   "broom_skysplitter": {
     "id": "broom_skysplitter",
-    "name": "Skysplitter",
+    "name": "Thunderhaft",
     "type": "mount",
-    "desc": "Ash handle with aerodynamic ash finish and goblin-forged ironwork. Supreme speed.",
+    "desc": "Storm-seasoned oak with a keel of shard-iron. It hums in a crosswind and never slows for it.",
     "rarity": "legendary",
     "mount_speed": 18.0,
     "icon": "broom",
@@ -299,7 +299,7 @@
     "id": "broom_ashwood",
     "name": "Ashwood Sweeper",
     "type": "mount",
-    "desc": "A humble apprentice broom of unvarnished ash, its birch twigs tied with hemp cord. Every flyer starts somewhere.",
+    "desc": "A patrol-issue broom of unvarnished ash, its reeds tied with hemp cord. Every rider starts somewhere.",
     "rarity": "common",
     "item_tier": 1,
     "required_level": 1,
@@ -392,34 +392,34 @@
   },
   "mat_phoenix_ash": {
     "id": "mat_phoenix_ash",
-    "name": "Velkar Ash",
+    "name": "Forge Cinder",
     "type": "material",
-    "desc": "Smoldering fiery ash gathered from a burning day. Used to refine wands from +0 to +4 at Kestrin.",
+    "desc": "Cinders raked from a forge that has never gone cold. Used to refine rods from +0 to +4 at Kestrin.",
     "rarity": "uncommon",
     "icon": "ash",
     "slots": []
   },
   "mat_dragon_heartstring": {
     "id": "mat_dragon_heartstring",
-    "name": "Dragon Sinew",
+    "name": "Deepvein Ore",
     "type": "material",
-    "desc": "Vibrant magical core tissue from a mountain drake. Needed to refine wands to +5 - +7.",
+    "desc": "Dark ore cut from the veins under the Stone Circle. Needed to refine rods to +5 - +7.",
     "rarity": "rare",
     "icon": "heartstring",
     "slots": []
   },
   "mat_night_steed_hair": {
     "id": "mat_night_steed_hair",
-    "name": "Night Steed Hair",
+    "name": "Starfall Filings",
     "type": "material",
-    "desc": "Spectral, near-invisible hair of the rare night steeds. Required for legendary +8 and +9 wand transmutations.",
+    "desc": "Bright filings from a fallen shard, too sharp to hold bare-handed. Required for legendary +8 and +9 rod work.",
     "rarity": "epic",
     "icon": "hair",
     "slots": []
   },
   "mat_elder_core": {
     "id": "mat_elder_core",
-    "name": "Starwood Core",
+    "name": "Keystone Ingot",
     "type": "material",
     "rarity": "legendary",
     "slots": [],
@@ -429,7 +429,7 @@
     "id": "scroll_imbue",
     "name": "Rune of Imbuing",
     "type": "material",
-    "desc": "A scroll that weaves one new enchantment into a wand, robe or broom at Kestrin's. The more an item already holds, the likelier the weave slips.",
+    "desc": "A scroll that weaves one new enchantment into a rod, robe or broom at Kestrin's. The more an item already holds, the likelier the weave slips.",
     "rarity": "rare",
     "icon": "scroll",
     "slots": []
@@ -438,14 +438,14 @@
     "id": "scroll_reweave",
     "name": "Rune of Reweaving",
     "type": "material",
-    "desc": "Unravels every enchantment on a wand, robe or broom and weaves the same number anew at Kestrin's.",
+    "desc": "Unravels every enchantment on a rod, robe or broom and weaves the same number anew at Kestrin's.",
     "rarity": "rare",
     "icon": "scroll",
     "slots": []
   },
   "hat_apprentice": {
     "id": "hat_apprentice",
-    "name": "Apprentice Hat",
+    "name": "Recruit Hat",
     "type": "accessory",
     "slots": [
       "head"
@@ -455,11 +455,11 @@
     "required_level": 1,
     "bonus_mana": 20,
     "armor": 6,
-    "desc": "Enchanted apprentice gear."
+    "desc": "Enchanted recruit gear."
   },
   "gloves_apprentice": {
     "id": "gloves_apprentice",
-    "name": "Apprentice Gloves",
+    "name": "Recruit Gloves",
     "type": "accessory",
     "slots": [
       "hands"
@@ -469,11 +469,11 @@
     "required_level": 1,
     "armor": 5,
     "attack_speed": 3,
-    "desc": "Enchanted apprentice gear."
+    "desc": "Enchanted recruit gear."
   },
   "boots_apprentice": {
     "id": "boots_apprentice",
-    "name": "Apprentice Boots",
+    "name": "Recruit Boots",
     "type": "accessory",
     "slots": [
       "feet"
@@ -483,11 +483,11 @@
     "required_level": 1,
     "armor": 5,
     "move_speed": 4,
-    "desc": "Enchanted apprentice gear."
+    "desc": "Enchanted recruit gear."
   },
   "focus_apprentice": {
     "id": "focus_apprentice",
-    "name": "Apprentice Focus",
+    "name": "Recruit Focus",
     "type": "accessory",
     "slots": [
       "off_hand"
@@ -497,11 +497,11 @@
     "required_level": 1,
     "bonus_mana": 25,
     "spell_power": 3,
-    "desc": "Enchanted apprentice gear."
+    "desc": "Enchanted recruit gear."
   },
   "pendant_apprentice": {
     "id": "pendant_apprentice",
-    "name": "Apprentice Pendant",
+    "name": "Recruit Pendant",
     "type": "accessory",
     "slots": [
       "neck"
@@ -511,11 +511,11 @@
     "required_level": 1,
     "bonus_hp": 25,
     "hp_regen": 1,
-    "desc": "Enchanted apprentice gear."
+    "desc": "Enchanted recruit gear."
   },
   "ring_apprentice": {
     "id": "ring_apprentice",
-    "name": "Apprentice Ring",
+    "name": "Recruit Ring",
     "type": "accessory",
     "slots": [
       "ring_left",
@@ -526,7 +526,7 @@
     "required_level": 1,
     "bonus_mana": 10,
     "mana_regen": 1,
-    "desc": "Enchanted apprentice gear."
+    "desc": "Enchanted recruit gear."
   },
   "ring_adept": {
     "id": "ring_adept",
@@ -919,14 +919,14 @@
     "id": "mat_weaver_venom",
     "name": "Weaver Venom",
     "type": "material",
-    "desc": "Emerald venom milked from a Venomfang's glands - worth a fortune to potioneers.",
+    "desc": "Green venom drawn from a Venomfang's glands - worth a fortune to the Still Room.",
     "rarity": "rare",
     "icon": "mat_weaver_venom",
     "slots": []
   },
   "queen_seal": {
     "id": "queen_seal",
-    "name": "Web Mother's Seal",
+    "name": "Silk Queen's Seal",
     "type": "material",
     "desc": "An obsidian seal wrapped in old silk. It answers the sealed web gate deep in the Egg Caverns, where the brood's queen waits.",
     "rarity": "epic",
@@ -935,9 +935,9 @@
   },
   "hearth_dust": {
     "id": "hearth_dust",
-    "name": "Hearth Dust",
+    "name": "Waycoal",
     "type": "material",
-    "desc": "A pinch thrown into a Hearthway fireplace carries you to any hearth you have visited. Sold at every Hearthway fireplace.",
+    "desc": "A lump burned in an Emberway hearth carries you to any hearth you have lit. Sold at every Emberway hearth.",
     "rarity": "uncommon",
     "icon": "hearth_dust",
     "slots": [],
@@ -945,9 +945,9 @@
   },
   "waylink_boot": {
     "id": "waylink_boot",
-    "name": "Old Boot (Waylink)",
+    "name": "Waystake",
     "type": "material",
-    "desc": "A battered boot enchanted as a Waylink. Right-click to set it down and choose where it goes: for ten seconds your party may grab hold, then everyone holding on is carried there together.",
+    "desc": "An iron stake forged with a travel-knot. Right-click to drive it into the ground and choose where it leads: for ten seconds your party may take hold, then everyone holding on is carried there together.",
     "rarity": "rare",
     "icon": "waylink_boot",
     "slots": [],
@@ -973,9 +973,9 @@
   },
   "key_sealed_wing": {
     "id": "key_sealed_wing",
-    "name": "Sealed Wing Key",
+    "name": "Brine Vault Key",
     "type": "material",
-    "desc": "A brass key that fits the door of the sealed wing. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals.",
+    "desc": "A brass key cut for the flood door of the Brine Vaults. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals.",
     "rarity": "epic",
     "icon": "key_sealed_wing",
     "slots": []

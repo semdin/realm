@@ -58,7 +58,7 @@ static func _bone_index(skeleton: Skeleton3D, bone: String) -> int:
 
 ## The tip of the equipped wand, as a live node that rides the animation, or null
 ## when no wand is equipped. Every emitter (spell flash, projectile, trail) reads
-## this one definition, so "out of the wand's head" means the same thing
+## this one definition, so "out of the rod's head" means the same thing
 ## everywhere.
 static func wand_tip(root: Node) -> Node3D:
 	if root == null:
@@ -115,7 +115,7 @@ static func show_equipped_wand(root: Node, entry: Dictionary) -> void:
 	var wand := scene.instantiate() as Node3D
 	wand.transform = Transform3D(Basis().scaled(Vector3.ONE * WAND_SCALE), Vector3.ZERO)
 	attachment.add_child(wand)
-	# One definition of "the wand's tip", authored in the prop's own space so it
+	# One definition of "the rod's tip", authored in the prop's own space so it
 	# follows every pose and is inherited by the mesh's own scaling.
 	var tip := Marker3D.new()
 	tip.name = "WandTip"

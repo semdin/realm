@@ -1,5 +1,5 @@
 {
-  "_comment": "Travel objects (docs/spider-caverns-plan.md section 4). `nodes`: fixed places a player can travel from/to. kind hearth = a fireplace of the Hearth Network: the player stands within `hearth.radius`, opens the Hearth window (interact), picks a known fireplace and pays `hearth.cost` x `hearth.item`; the authority checks distance, item, combat and level (every hearth of the network is open; a destination's `level_min` is the only gate), then moves the body through the ordinary transfer (same map or not) to the arrival point `arrive` metres in front of the destination hearth. pos y = 0 on the grounds means 'on the terrain'. yaw (degrees) is the direction the hearth faces (the room side). Hearths a character has stood at are still remembered (hearth_known) but no longer gate travel. kind cabinet / passage (S7): free twin links - interact at one to be set down in front of its `pair` (no item, nothing to learn).",
+  "_comment": "Travel objects (docs/spider-caverns-plan.md section 4). `nodes`: fixed places a player can travel from/to. kind hearth = a fireplace of the Emberway: the player stands within `hearth.radius`, opens the Hearth window (interact), picks a known fireplace and pays `hearth.cost` x `hearth.item`; the authority checks distance, item, combat and level (every hearth of the network is open; a destination's `level_min` is the only gate), then moves the body through the ordinary transfer (same map or not) to the arrival point `arrive` metres in front of the destination hearth. pos y = 0 on the grounds means 'on the terrain'. yaw (degrees) is the direction the hearth faces (the room side). Hearths a character has stood at are still remembered (hearth_known) but no longer gate travel. kind cabinet / passage (S7): free twin links - interact at one to be set down in front of its `pair` (no item, nothing to learn).",
   "hearthway": {
     "item": "hearth_dust",
     "cost": 1,
@@ -15,7 +15,7 @@
     "hearth_pavilion": {
       "kind": "hearthway",
       "map": "grounds",
-      "label": "Hearth Pavilion",
+      "label": "Ember Pavilion",
       "pos": [
         -23.0,
         0.0,
@@ -37,7 +37,7 @@
     "hearth_borins_hut": {
       "kind": "hearthway",
       "map": "grounds",
-      "label": "Borin's Hut",
+      "label": "Ombrek's Lookout",
       "pos": [
         -266.0,
         0.0,
@@ -48,7 +48,7 @@
     "hearth_feast_hall": {
       "kind": "hearthway",
       "map": "castle_interior",
-      "label": "The Feast Hall",
+      "label": "The Long Table",
       "pos": [
         -40.0,
         200.0,
@@ -71,7 +71,7 @@
     "cabinet_wishing_room": {
       "kind": "cabinet",
       "map": "castle_interior",
-      "label": "the Wishing Room",
+      "label": "the Quartermaster's Loft",
       "pos": [
         78.0,
         270.0,
@@ -79,7 +79,8 @@
       ],
       "yaw": 0.0,
       "pair": "cabinet_caverns",
-      "prompt": "Step into the Twinned Cabinet"
+      "prompt": "Climb down the Old Shaft",
+      "model": "hatch"
     },
     "cabinet_caverns": {
       "kind": "cabinet",
@@ -93,12 +94,13 @@
       "yaw": 69.0,
       "pair": "cabinet_wishing_room",
       "level_min": 28,
-      "prompt": "Step into the Twinned Cabinet"
+      "prompt": "Climb down the Old Shaft",
+      "model": "hatch"
     },
     "stone_raven": {
       "kind": "passage",
       "map": "castle_interior",
-      "label": "the Stone Raven",
+      "label": "the Dry Cistern",
       "pos": [
         41.0,
         230.0,
@@ -106,13 +108,13 @@
       ],
       "yaw": 0.0,
       "pair": "passage_orvell",
-      "model": "witch",
-      "prompt": "Press the Stone Raven's eye - the wall slides open!"
+      "model": "cistern",
+      "prompt": "Lift the cistern grate and climb down"
     },
     "passage_orvell": {
       "kind": "passage",
       "map": "grounds",
-      "label": "the sweetshop cellar, Orvell",
+      "label": "the chandler's cellar, Orvell",
       "pos": [
         668.0,
         0.0,
@@ -125,7 +127,7 @@
     }
   },
   "waylink": {
-    "_comment": "An old boot that is a Waylink (protocol v21). The owner places it (consumed) and picks a destination; for countdown_s the owner's party members within grab_radius may hold on (interact). When it fires, everyone still holding and still within reach is carried together to the destination (a travel node), set down together at a random open spot `scatter` metres [min, max] from it (ground found by a ray, no water, no roof, no steep slope), in a small ring; `arrive` metres in front of it when no spot is found. Refunded if it cannot fire (nobody left holding, owner gone). Not inside dungeon copies, not mounted, not within combat_lock_s of combat. Alone (no party), the countdown is solo_countdown_s (also 10 s: the boot always counts down from ten); the boot is set place_ahead metres in front of the owner.",
+    "_comment": "A Waystake (protocol v21). The owner places it (consumed) and picks a destination; for countdown_s the owner's party members within grab_radius may hold on (interact). When it fires, everyone still holding and still within reach is carried together to the destination (a travel node), set down together at a random open spot `scatter` metres [min, max] from it (ground found by a ray, no water, no roof, no steep slope), in a small ring; `arrive` metres in front of it when no spot is found. Refunded if it cannot fire (nobody left holding, owner gone). Not inside dungeon copies, not mounted, not within combat_lock_s of combat. Alone (no party), the countdown is solo_countdown_s (also 10 s: the boot always counts down from ten); the boot is set place_ahead metres in front of the owner.",
     "item": "waylink_boot",
     "countdown_s": 10.0,
     "grab_radius": 3.0,
@@ -145,13 +147,13 @@
     ]
   },
   "cabinet": {
-    "_comment": "Twinned Cabinets: twin cabinets, free, one person; stepping into one sets you down in front of its `pair`.",
+    "_comment": "Old Shafts: a pair of hatches, free, one person; climbing into one sets you down in front of its `pair`.",
     "radius": 2.9,
     "arrive": 2.4,
     "combat_lock_s": 5.0
   },
   "passage": {
-    "_comment": "Secret passages (the Stone Raven): free, one person, to the node named `pair`.",
+    "_comment": "Secret passages (the Dry Cistern): free, one person, to the node named `pair`.",
     "radius": 2.2,
     "arrive": 1.7,
     "combat_lock_s": 5.0

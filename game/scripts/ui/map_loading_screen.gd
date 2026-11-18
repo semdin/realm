@@ -2,7 +2,7 @@ extends CanvasLayer
 class_name MapLoadingScreen
 
 ## The loading screen of a map transfer (the castle door, a hearth to another
-## map, a Waylink): the dark frame, the realm's emblem, the gold bar, a tip and
+## map, a Waystake): the dark frame, the realm's emblem, the gold bar, a tip and
 ## the turning rune, so stepping through a door looks like part of the game
 ## rather than a black flash, and the bar says what is happening: leaving the
 ## old map, joining the new one, building it.
@@ -29,7 +29,7 @@ const TIPS := [
 	"Hold the right mouse button to turn the camera; the wheel zooms.",
 	"Land on level ground before you dismount your broom.",
 	"Dark Shards summon waves of creatures - bring friends.",
-	"Kestrin can refine your wand. Higher tiers glow brighter.",
+	"Kestrin can refine your rod. Higher tiers glow brighter.",
 ]
 # i18n-end
 

@@ -1,5 +1,5 @@
-//! Travel on the map server: doors, the Hearthway, the Twinned Cabinets
-//! and secret passages, the Waylink, the broom, and handing a character to
+//! Travel on the map server: doors, the Emberway, the Old Shafts
+//! and secret passages, the Waystake, the broom, and handing a character to
 //! another map server.
 //!
 //! A trip that stays on this map moves the body at once (a new `life`, so
@@ -19,7 +19,7 @@
 //! The old game's `request_transfer`, `request_travel`, its boot travel and
 //! `submit_mount`, with what the old code left to the client moved here:
 //! the broom's 2 s lock after being hurt, its landing check, the level of
-//! every Waylink rider.
+//! every Waystake rider.
 
 use bytes::Bytes;
 use realm_proto::control::{self, ServerMsg, WaylinkView};
@@ -75,8 +75,8 @@ pub(super) struct Departing {
     pub since: u32,
 }
 
-/// A Waylink boot set down on this map.
-pub(super) struct Waylink {
+/// A Waystake boot set down on this map.
+pub(super) struct Waystake {
     pub id: u32,
     pub owner: Entity,
     pub owner_name: String,
@@ -150,7 +150,7 @@ impl Sim {
             .nodes
             .get(from)
             .map_or("hearthway", |n| match n.kind {
-                realm_rules::travel::NodeKind::Hearthway => "hearthway",
+                realm_rules::travel::NodeKind::Emberway => "hearthway",
                 realm_rules::travel::NodeKind::Cabinet => "cabinet",
                 realm_rules::travel::NodeKind::Passage => "passage",
             });
@@ -162,7 +162,7 @@ impl Sim {
 
     /// Starts `trip` for a player: here at once, or a seat reserved on the
     /// destination first. `checked`: the player's own checks still apply
-    /// (a Waylink checked its riders when it fired).
+    /// (a Waystake checked its riders when it fired).
     pub(super) fn start_trip(&mut self, conn: ConnId, entity: Entity, trip: Trip, checked: bool) {
         let tick = self.tick;
         let what = trip.arrival.kind.name();
@@ -720,7 +720,7 @@ impl Sim {
         at
     }
 
-    /// A Waylink's landing: an open spot `scatter` metres from the node,
+    /// A Waystake's landing: an open spot `scatter` metres from the node,
     /// found with `seed` (every rider finds the same one). Ground under all
     /// of it near the node's height, no water, nothing standing over it,
     /// gentle enough for a ring of riders; in front of the node otherwise.
@@ -913,7 +913,7 @@ impl Sim {
         }
         self.send_sheet(conn);
         self.next_waylink += 1;
-        self.waylinks.push(Waylink {
+        self.waylinks.push(Waystake {
             id: self.next_waylink,
             owner: entity,
             owner_name,
@@ -927,7 +927,7 @@ impl Sim {
         self.show_waylink(i, 0);
     }
 
-    /// Whether `player` may ride Waylink `i` right now (`slack` metres
+    /// Whether `player` may ride Waystake `i` right now (`slack` metres
     /// beyond its reach).
     fn may_ride(&self, i: usize, player: Entity, slack: f32) -> Result<(), &'static str> {
         let wl = &self.waylinks[i];
@@ -972,7 +972,7 @@ impl Sim {
         self.show_waylink(i, 0);
     }
 
-    /// Tells Waylink `i`'s party (and its holders) how it stands.
+    /// Tells Waystake `i`'s party (and its holders) how it stands.
     fn show_waylink(&mut self, i: usize, phase: u8) {
         let rules = self.rules();
         let wl = &self.waylinks[i];
@@ -1010,11 +1010,11 @@ impl Sim {
             .collect();
         to.sort_unstable();
         for conn in to {
-            self.send_control(conn, &ServerMsg::Waylink(view.clone()));
+            self.send_control(conn, &ServerMsg::Waystake(view.clone()));
         }
     }
 
-    /// Waylinks whose countdown ran out fire; an owner who left takes its
+    /// Waystakes whose countdown ran out fire; an owner who left takes its
     /// boot's chance with it.
     pub(super) fn advance_waylinks(&mut self) {
         let tick = self.tick;
@@ -1088,7 +1088,7 @@ impl Sim {
                         slot: slot as u8,
                         riders: n,
                     },
-                    kind: TripKind::Waylink,
+                    kind: TripKind::Waystake,
                     copy: 0,
                 },
                 label: dest.label.clone(),

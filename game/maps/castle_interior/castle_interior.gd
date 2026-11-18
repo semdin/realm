@@ -13,7 +13,7 @@ extends Node3D
 ##     CastleDecor       candles, chandeliers, torches, braziers, hearths,
 ##                       moonlight, props and the laid tables (castle_decor.gd)
 ##   PortalDoor_<id>     a portal that is a place (maps.json `dressing`
-##                       "locked_door"): the Sealed Wing's door in its wall bay,
+##                       "locked_door"): the Brine Vaults' door in its wall bay,
 ##                       its warning sign and two torches
 ##
 ## The moving staircases are not here: StairView draws them from the client
@@ -91,7 +91,7 @@ func setup(_session: Node, main: Node) -> void:
 		_env.environment = _indoor_environment()
 
 ## Portals that are a place in the map, not just a trigger (maps.json
-## `dressing`): the locked door of the Sealed Wing gets its door, its warning
+## `dressing`): the locked door of the Brine Vaults gets its door, its warning
 ## sign and its torches. Presentation only (the trigger is the server's).
 func _dress_portals() -> int:
 	var maps: Variant = RealmContent.table("maps")

@@ -35,7 +35,7 @@ const MICRO_COLUMNS := 4
 ## it names (Escape for the menu), tooltip].
 # i18n-begin
 const MENU_BUTTONS := [
-	["workshop", "menu_kestrin", "workshop", "Kestrin - forge the wand higher"],
+	["workshop", "menu_kestrin", "workshop", "Kestrin - forge the rod higher"],
 	["quests", "menu_quests", "quest_log", "Quests - every open quest and reward"],
 	["character", "menu_character", "character", "Character - stats and status points"],
 	["skills", "menu_skills", "skills", "Skills - spend skill points on your spells"],
@@ -96,7 +96,7 @@ var invites: HudInvites
 var player_menu: HudPlayerMenu
 var duel_view: HudDuel
 ## The travel windows (MapTravel builds them beside the HUD): the Hearth
-## window, and the Waylink picker the bag opens on an Old Boot.
+## window, and the Waystake picker the bag opens on an Waystake.
 var hearthway: Control
 var waylink: Control
 ## The target card's "Invite to Party" (another player not in the party), and

@@ -1,29 +1,27 @@
 extends Node3D
-class_name SleepChime
+class_name SluiceWheel
 
-## The sleep chime by Threehead (the run view's `chime`: {at, radius, ringer,
-## start_tick, end_tick, ready_tick}, server ticks; the old game's prop in the
-## Sealed Wing's hall). Drawn from what the server says, on its clock
-## (RealmSession.server_tick):
+## The sluice wheel by the Wheelwarden (the run view's `chime`: {at, radius, ringer,
+## start_tick, end_tick, ready_tick}, server ticks). Drawn from what the server
+## says, on its clock (RealmSession.server_tick):
 ##
-##   the prop     the old chime model on the floor at `at`, in its own warm
-##                light, a few gold motes drifting up off the ground it rings
-##                from (`radius`, where standing rings it) while it is ready;
-##                dim and still while it cools down (before `ready_tick`)
-##   ringing      from `start_tick` to `end_tick` a `ringer` stands there: the
-##                light swells, motes stream up off the ground round it, the
-##                bell sounds now and then, and a channel bar over the ringer's
-##                head fills to `end_tick` (pinned on screen like a speech
-##                bubble, on its own layer so nothing in the world tints it)
+##   the prop     an iron hand-wheel on the stone post at `at`, in a cold light,
+##                a few motes drifting up off the ground it is worked from
+##                (`radius`, where standing turns it) while it is ready; dim
+##                and still while it cools down (before `ready_tick`)
+##   turning      from `start_tick` to `end_tick` a `ringer` stands there: the
+##                wheel spins, the light swells, motes stream up round it, the
+##                sluice grinds now and then, and a channel bar over the
+##                worker's head fills to `end_tick` (pinned on screen like a
+##                speech bubble, on its own layer so nothing in the world tints it)
 ##
-## The server rings it and breaks it off (a hit or a blow given); the chime
-## only shows it. Threehead's sleep is the boss's own look (CreatureView).
+## The server runs it and breaks it off (a hit or a blow given); this only shows
+## it. The Wheelwarden seized by the flood is the boss's own look (CreatureView).
 
-const MODEL := "res://assets/models/props/sleep_chime.glb"
-const GLOW := Color(1.0, 0.85, 0.5)
-const MOTE := Color(1.0, 0.82, 0.42)
-const BAR := Color(0.93, 0.74, 0.32)
-const RING_SOUND := "amb_magic_chime"
+const GLOW := Color(0.62, 0.92, 0.86)
+const MOTE := Color(0.66, 0.9, 0.86)
+const BAR := Color(0.45, 0.8, 0.76)
+const RING_SOUND := "passage_stone"
 const RING_EVERY := 1.3
 ## Over the ringer's feet.
 const BAR_HEIGHT := 2.55
@@ -40,6 +38,7 @@ var ringing := false
 var progress := 0.0
 var rings_seen: Dictionary = {}
 var _prop: Node3D = null
+var _wheel: Node3D = null
 var _light: OmniLight3D = null
 var _motes: GPUParticles3D = null
 var _layer: CanvasLayer = null
@@ -48,7 +47,7 @@ var _bar: ProgressBar = null
 var _bell_wait := 0.0
 
 func _init() -> void:
-	name = "SleepChime"
+	name = "SluiceWheel"
 
 func _now() -> float:
 	return float(game.session.server_tick()) if game != null and game.session != null else 0.0
@@ -81,10 +80,7 @@ func _build() -> void:
 	_prop.global_position = at
 	if DisplayServer.get_name() == "headless":
 		return
-	if ResourceLoader.exists(MODEL):
-		var model := (load(MODEL) as PackedScene).instantiate() as Node3D
-		model.rotation.y = deg_to_rad(-90.0)
-		_prop.add_child(model)
+	_build_wheel()
 	_light = OmniLight3D.new()
 	_light.light_color = GLOW
 	_light.light_energy = 1.0
@@ -98,6 +94,42 @@ func _build() -> void:
 	_prop.add_child(_motes)
 	_motes.emitting = true
 	_build_bar()
+
+## The iron hand-wheel, its axle level, turned while someone works it.
+func _build_wheel() -> void:
+	_wheel = Node3D.new()
+	_wheel.name = "Wheel"
+	_wheel.position = Vector3(0, 1.55, 0)
+	_prop.add_child(_wheel)
+	var iron := StandardMaterial3D.new()
+	iron.albedo_color = Color(0.17, 0.16, 0.15)
+	iron.metallic = 0.75
+	iron.roughness = 0.5
+	var rim := MeshInstance3D.new()
+	var torus := TorusMesh.new()
+	torus.inner_radius = 0.52
+	torus.outer_radius = 0.62
+	rim.mesh = torus
+	rim.material_override = iron
+	rim.rotation.z = PI * 0.5
+	_wheel.add_child(rim)
+	var hub := MeshInstance3D.new()
+	var drum := CylinderMesh.new()
+	drum.top_radius = 0.1
+	drum.bottom_radius = 0.1
+	drum.height = 0.2
+	hub.mesh = drum
+	hub.material_override = iron
+	hub.rotation.z = PI * 0.5
+	_wheel.add_child(hub)
+	for k in 4:
+		var spoke := MeshInstance3D.new()
+		var bar := BoxMesh.new()
+		bar.size = Vector3(0.05, 1.08, 0.06)
+		spoke.mesh = bar
+		spoke.material_override = iron
+		spoke.rotation.x = PI * 0.25 * k
+		_wheel.add_child(spoke)
 
 ## The channel bar: a small midnight card with the gauge, over the ringer.
 func _build_bar() -> void:
@@ -113,7 +145,7 @@ func _build_bar() -> void:
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	column.add_theme_constant_override("separation", 3)
 	_card.add_child(column)
-	var label := HudKit.label(tr("Ringing the sleep chime"), 13, HudKit.GOLD_LT)
+	var label := HudKit.label(tr("Turning the sluice wheel"), 13, HudKit.GOLD_LT)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(label)
 	_bar = ProgressBar.new()
@@ -145,6 +177,8 @@ func _process(delta: float) -> void:
 	if ringing:
 		rings_seen["%d@%d" % [ringer, int(start)]] = true
 	var can_ring := now >= float(data.get("ready_tick", 0))
+	if _wheel != null and ringing:
+		_wheel.rotate_x(delta * 2.4)
 	var t := Time.get_ticks_msec() * 0.001
 	if _light != null:
 		var want := (1.6 + 1.6 * progress) * (0.85 + 0.15 * sin(t * 9.0)) if ringing else (1.0 if can_ring else 0.35)

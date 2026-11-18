@@ -1328,7 +1328,7 @@
         0.185,
         0.38
       ],
-      "note": "the harp's drum: drawn, inside its round foot",
+      "note": "the sluice wheel's foot: drawn, inside its round base",
       "yaw_deg": 0
     },
     {
@@ -1342,7 +1342,7 @@
         0.9,
         0.6
       ],
-      "note": "the harp's strung frame: drawn",
+      "note": "the sluice wheel's post: drawn",
       "yaw_deg": 0
     }
   ],
@@ -1358,7 +1358,7 @@
         1199.9,
         -172.9
       ],
-      "note": "the old harp pedestal (1 m box, 1.6 m square): the harp's drum is drawn"
+      "note": "the old pedestal (1 m box, 1.6 m square): the sluice wheel's foot is drawn"
     }
   ]
 }

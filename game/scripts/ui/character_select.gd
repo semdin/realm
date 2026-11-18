@@ -492,7 +492,7 @@ func _build_create_modal() -> void:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 14)
 	create_modal.add_child(v)
-	var title := HudKit.label(tr("New Wizard"), 26, HudKit.GOLD_HI, HudKit.deco(), 5)
+	var title := HudKit.label(tr("New Character"), 26, HudKit.GOLD_HI, HudKit.deco(), 5)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	v.add_child(title)
 	var name_row := HBoxContainer.new()
@@ -734,7 +734,7 @@ func _update_slot_display() -> void:
 		_spawn_podium_character(house, look_for(c))
 	else:
 		name_label.text = tr("Empty Slot")
-		house_label.text = tr("Create a new wizard")
+		house_label.text = tr("Create a new character")
 		house_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7))
 		crest.visible = false
 		level_label.text = "—"
@@ -792,7 +792,7 @@ func _refresh_roster() -> void:
 			card.pressed.connect(func(): _switch_slot(index))
 		else:
 			card.icon = UITheme.chrome_at("minimap_zoom_in", 30.0)
-			card.text = tr("Create New Wizard")
+			card.text = tr("Create New Character")
 			card.add_theme_color_override("font_color", HudKit.GOLD_LT)
 			card.disabled = not roster_loaded
 			card.pressed.connect(func():
@@ -914,7 +914,7 @@ func _on_confirm_create_pressed() -> void:
 		return
 	confirm_btn.disabled = true
 	modal_status.add_theme_color_override("font_color", HudKit.GOLD_LT)
-	modal_status.text = tr("Creating wizard...")
+	modal_status.text = tr("Creating character...")
 	var res: Dictionary = await api.create(character_name, selected_house, look_editor.look)
 	if not is_inside_tree():
 		return

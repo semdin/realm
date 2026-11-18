@@ -37,8 +37,8 @@ const PBR_SETS := {
 }
 
 ## Parts of the glb this build leaves out (freed as the castle is loaded,
-## before anything is styled): the Entrance Hall's four house-points hourglasses on
-## their plinth (brass frames, glass, gems, the plinth's wood; their only
+## before anything is styled): the Entrance Hall's plinth dressing (brass
+## frames, glass, gems, the plinth's wood; its only
 ## collider, the plinth's box, is taken out of the map pack by
 ## world/patches/castle_interior.json `remove`). Iron braziers stand there now
 ## (castle_decor.gd ENTRANCE_BRAZIERS).
@@ -46,7 +46,7 @@ const LEFT_OUT := ["D_entrance_hall_brass", "D_entrance_hall_glass_clear", "D_en
 	"D_entrance_hall_gem_green", "D_entrance_hall_gem_blue", "D_entrance_hall_gem_yellow", "V_hourglass_wood"]
 
 ## Portraits whose frame shows another painting ([painting, mirrored]); none
-## since the four house founders were painted for portrait_8/9/10/12
+## since the four Watch founders were painted for portrait_8/9/10/12
 ## (Velkar, Nisera, Ilvane, Torvan; fal seedream 5.5, prompts in the local
 ## art/portraits_seedream).
 const PORTRAIT_STAND_IN := {}
@@ -236,7 +236,7 @@ static func kit_material(slot: String) -> Material:
 			lake.shader = LAKE_SHADER
 			return lake
 		"sky_vault":
-			# the Feast Hall's and Ilvane's barrel vaults: dark oak boarding
+			# the Long Table's and Ilvane's barrel vaults: dark oak boarding
 			# between the trusses
 			return surface("medieval_wood", Color(0.42, 0.33, 0.27), 1.6)
 		"seal":

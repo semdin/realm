@@ -2,7 +2,7 @@ extends RefCounted
 
 ## The purpose-built places of the valley (world overhaul step 2,
 ## plans/layout-plan.html): the Trial Hall on the castle's east terrace, the
-## Hearth Pavilion beside the castle approach, the fenced training yard by the
+## Ember Pavilion beside the castle approach, the fenced training yard by the
 ## broom landing pad, Kestrin's forge's glow and sign (his smithy is a VillageKit
 ## building on the west side of Orvell square) and the
 ## cave mouth down to the Blackweb Caverns in Spider Hollow's west slope.
@@ -266,7 +266,7 @@ static func _nearest_road_point(from: Vector2, dir: Vector2) -> Vector2:
 	return best
 
 
-# --------------------------------------------------------- Hearth Pavilion
+# --------------------------------------------------------- Ember Pavilion
 
 ## An open stone pavilion round the hearth by the castle approach: four
 ## columns, a pyramid roof and a back wall behind the hearth.
@@ -304,7 +304,7 @@ static func _hearth_pavilion(root: Node3D, mats: Dictionary) -> void:
 	var wg := Layout.ground_span(Vector2(wall.x, wall.z), Vector2(7.0, 0.6), rot)
 	kit.box(Vector3(wall.x, (wg.x - 0.5 + c.y + 5.0) * 0.5, wall.z), Vector3(half * 2.0, c.y + 5.0 - wg.x + 0.5, 0.6), rot, "stone")
 	var pav := kit.finish(root, mats, "HearthPavilion")
-	Mats.label(pav, I18n.t("Hearth Pavilion"), "", c + Vector3(0, 9.6, 0))
+	Mats.label(pav, I18n.t("Ember Pavilion"), "", c + Vector3(0, 9.6, 0))
 
 
 # ------------------------------------------------------------ training yard

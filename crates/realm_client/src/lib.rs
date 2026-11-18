@@ -528,7 +528,7 @@ impl RealmSession {
                     event @ (ServerMsg::TravelResult { .. }
                     | ServerMsg::Departing { .. }
                     | ServerMsg::Arrived { .. }
-                    | ServerMsg::Waylink(_)
+                    | ServerMsg::Waystake(_)
                     | ServerMsg::Dungeon(_)),
                 ) => self.game_events.push(event),
                 NetEvent::Control(ServerMsg::Gate { id, tick, open }) => {
@@ -828,7 +828,7 @@ impl RealmSession {
         }
     }
 
-    /// Set a Waylink boot down for destination node `dest`.
+    /// Set a Waystake boot down for destination node `dest`.
     #[func]
     fn waylink_place(&mut self, dest: GString) {
         if let Some(net) = self.net.as_ref() {
@@ -836,7 +836,7 @@ impl RealmSession {
         }
     }
 
-    /// Hold on to (or let go of) Waylink `id`.
+    /// Hold on to (or let go of) Waystake `id`.
     #[func]
     fn waylink_hold(&mut self, id: i64, hold: bool) {
         if let Some(net) = self.net.as_ref() {
@@ -1289,7 +1289,7 @@ impl RealmSession {
                         }
                     }
                 }
-                ServerMsg::Waylink(w) => {
+                ServerMsg::Waystake(w) => {
                     d.set("kind", "waylink");
                     d.set("id", &i64::from(w.id).to_variant());
                     d.set("phase", &i64::from(w.phase).to_variant());

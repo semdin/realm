@@ -15,7 +15,7 @@ class_name ItemTooltip
 
 # i18n-begin
 const KIND_LABEL := {
-	"weapon": "One-Handed Wand",
+	"weapon": "One-Handed Rod",
 	"armor": "Body Armour",
 	"mount": "Broom mount",
 	"consumable": "Consumable",

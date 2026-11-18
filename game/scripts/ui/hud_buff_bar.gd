@@ -22,12 +22,12 @@ const ICON := 34.0
 ## spell's own (spells.json).
 # i18n-begin
 const KINDS := {
-	"ward": ["ward_shield", "Ward Shield", "Reflects projectiles; other damage reduced by 60%.", false],
+	"ward": ["ward_shield", "Shardglass Ward", "Reflects projectiles; other damage reduced by 60%.", false],
 	"stun": ["status_stun", "Stunned", "You cannot cast or move.", true],
 	"knock": ["status_stun", "Knocked back", "Thrown off your feet: no casting until you land.", true],
 	"freeze": ["status_stun", "Frozen", "Encased in ice: you cannot cast or move.", true],
 	"web": ["status_stun", "Webbed", "Sticky silk: you move at half speed.", true],
-	"despair": ["status_despair", "Despair", "A Pallid's cold: no natural health recovery.", true],
+	"despair": ["status_despair", "Numbed", "The mist's cold: no natural health recovery.", true],
 	"venom": ["status_burn", "Poisoned", "Spider venom: damage over time.", true],
 	"burn": ["status_burn", "Burning", "Taking fire damage over time.", true],
 	"bleed": ["status_burn", "Bleeding", "Losing health over time.", true],

@@ -3,7 +3,7 @@ class_name NpcView
 
 ## A quest NPC (content/data/npcs.json), drawn here: NPCs are not server
 ## entities, they stand on the ground under their `pos`. A robed wizard tinted
-## by the robe colour, or the body of its own (`body.model`, Borin's on the
+## by the robe colour, or the body of its own (`body.model`, Ombrek's on the
 ## hero rig); the nameplate "<name> / < click to talk >"; a little idle bob;
 ## a gold arrow bobbing and turning over the head while an open talk quest
 ## names this NPC; the Talk clip while the player talks to it.

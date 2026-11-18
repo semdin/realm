@@ -175,7 +175,7 @@ pub struct SpawnEntry {
     pub min_difficulty: usize,
     pub hatch: Option<Hatch>,
     pub chime: Option<[f32; 3]>,
-    /// Difficulty -> the sleep chime's scale.
+    /// Difficulty -> the sluice wheel's scale.
     pub chime_scale: BTreeMap<usize, f32>,
     /// Difficulty -> marks set on the creature.
     pub marks: BTreeMap<usize, Vec<String>>,

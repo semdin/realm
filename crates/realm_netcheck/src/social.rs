@@ -319,7 +319,7 @@ pub fn partner(args: &[String]) -> AnyResult<()> {
 }
 
 /// `realm_netcheck --duel [--server S --map M]`: two players on one map.
-/// A challenges B, B accepts and learns the Ward Shield; when the fight
+/// A challenges B, B accepts and learns the Shardglass Ward; when the fight
 /// opens B raises the ward and A casts its basic spell at B until B is
 /// beaten. A bolt that meets the ward must come back at A; B must end on 1
 /// health (not dead); both must hear the result (A won by defeat, B lost

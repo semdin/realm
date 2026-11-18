@@ -48,7 +48,7 @@ pub enum ItemOp {
     Sell { cell: u8 },
     /// Throw a whole bag cell away.
     Destroy { cell: u8 },
-    /// Buy an item that has a price (Hearth Dust at a hearth).
+    /// Buy an item that has a price (Waycoal at a hearth).
     Buy { item: String, amount: u16 },
     /// Buy row `index` of the seal shop (dungeons.json rewards.shop) with
     /// Dungeon Seals, at a dungeon gate.

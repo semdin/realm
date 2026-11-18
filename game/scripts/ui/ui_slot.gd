@@ -32,7 +32,7 @@ var item_id := ""
 var _selection_pressed := false
 ## The player's inventory record for that item (id/amount/tier), backing the tooltip.
 var entry: Dictionary = {}
-## Small caption under the icon, used by the equipment doll ("Wand", "Robes").
+## Small caption under the icon, used by the equipment doll ("Rod", "Robes").
 var caption := "":
 	set(value):
 		caption = value

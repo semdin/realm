@@ -177,7 +177,7 @@
     "wraith": [
       {
         "kind": "directional",
-        "clip": "Reach",
+        "clip": "Swing",
         "anticipation": 1.0,
         "recovery": 1.0,
         "range": 8.0,
@@ -186,7 +186,7 @@
       },
       {
         "kind": "area",
-        "clip": "Cast_Area",
+        "clip": "Slam",
         "anticipation": 1.5,
         "recovery": 1.4,
         "radius": 8.5,
@@ -194,7 +194,7 @@
       },
       {
         "kind": "area",
-        "clip": "Reach",
+        "clip": "Swing",
         "at_target": true,
         "anticipation": 1.4,
         "recovery": 1.3,
@@ -273,56 +273,56 @@
     "hound": [
       {
         "kind": "directional",
-        "clip": "Bite",
+        "clip": "Swing",
         "anticipation": 1.1,
         "recovery": 1.0,
         "range": 10.0,
         "half_angle": 0.55,
         "damage_multiplier": 0.9,
         "per_part": true,
-        "spell_id": "threehead_bite"
+        "spell_id": "wheelwarden_bite"
       },
       {
         "kind": "area",
-        "clip": "Paw",
+        "clip": "Slam",
         "offset": 6.5,
         "anticipation": 1.4,
         "recovery": 1.3,
         "radius": 5.5,
         "damage_multiplier": 1.7,
-        "spell_id": "threehead_paw"
+        "spell_id": "wheelwarden_paw"
       },
       {
         "kind": "area",
-        "clip": "Tail",
+        "clip": "Stomp",
         "offset": -9.0,
         "anticipation": 1.2,
         "recovery": 1.0,
         "radius": 6.0,
         "damage_multiplier": 1.3,
-        "spell_id": "threehead_tail"
+        "spell_id": "wheelwarden_tail"
       },
       {
         "kind": "area",
-        "clip": "Roar",
+        "clip": "Stomp",
         "min_phase": 2,
         "anticipation": 2.0,
         "recovery": 1.6,
         "radius": 22.0,
         "damage_multiplier": 0.8,
         "despair_s": 4.0,
-        "spell_id": "threehead_roar"
+        "spell_id": "wheelwarden_roar"
       },
       {
         "kind": "area",
-        "clip": "Paw",
+        "clip": "Slam",
         "at_target": true,
         "min_phase": 2,
         "anticipation": 1.5,
         "recovery": 1.2,
         "radius": 4.5,
         "damage_multiplier": 1.6,
-        "spell_id": "threehead_pounce"
+        "spell_id": "wheelwarden_pounce"
       }
     ]
   },
@@ -571,7 +571,7 @@
     },
     {
       "id": "pitch_outskirts",
-      "display": "Pitch Outskirts",
+      "display": "Field Outskirts",
       "level_min": 2,
       "level_max": 6,
       "center": [
@@ -628,7 +628,7 @@
     },
     {
       "id": "pitch_woods",
-      "display": "Pitch Woods",
+      "display": "Field Woods",
       "level_min": 10,
       "level_max": 14,
       "center": [
@@ -818,7 +818,7 @@
     },
     {
       "id": "station_mist",
-      "display": "Station Mist",
+      "display": "Landing Mist",
       "level_min": 40,
       "level_max": 46,
       "center": [
@@ -894,7 +894,7 @@
     },
     {
       "id": "warden_barrow",
-      "display": "Warden's Barrow",
+      "display": "Marshal's Barrow",
       "center": [
         880.0,
         860.0
@@ -24079,7 +24079,7 @@
       "attack_range": 4.5,
       "exp_reward": 600,
       "scale": 1.0,
-      "name": "Black Widow",
+      "name": "Hollow Spinner",
       "move_speed": 3.0,
       "walk_speed": 0.82
     },
@@ -24110,10 +24110,10 @@
       "attack_range": 4.5,
       "exp_reward": 4000,
       "scale": 1.0,
-      "name": "The Morhal Warden",
+      "name": "The Morhal Marshal",
       "move_speed": 4.5,
-      "walk_speed": 0.0,
-      "label_y": 4.0
+      "walk_speed": 0.88,
+      "label_y": 4.6
     },
     "trial_warden": {
       "hp": 4200,
@@ -24151,7 +24151,7 @@
       "attack_range": 4.0,
       "exp_reward": 3000,
       "scale": 1.0,
-      "name": "The Cursed Armour Commander",
+      "name": "The Hollow Castellan",
       "move_speed": 2.8,
       "walk_speed": 0.706,
       "label_y": 3.7
@@ -24163,23 +24163,23 @@
       "attack_range": 9.0,
       "exp_reward": 3500,
       "scale": 1.0,
-      "name": "Strangling Vine",
+      "name": "Brinebriar",
       "move_speed": 0.0,
       "walk_speed": 0.0,
       "label_y": 5.2,
       "part_hp": 1800
     },
-    "threehead": {
+    "wheelwarden": {
       "hp": 20000,
       "stat_level": 34,
       "attack_power": 140,
       "attack_range": 7.5,
       "exp_reward": 9000,
       "scale": 1.0,
-      "name": "Threehead",
+      "name": "The Wheelwarden",
       "move_speed": 2.6,
-      "walk_speed": 0.0,
-      "label_y": 8.4,
+      "walk_speed": 1.553,
+      "label_y": 6.9,
       "part_hp": 6500,
       "enrage_s": 480.0
     },
@@ -24202,7 +24202,7 @@
       "attack_range": 5.0,
       "exp_reward": 6000,
       "scale": 1.6,
-      "name": "Web Mother",
+      "name": "Silk Queen",
       "move_speed": 3.2,
       "walk_speed": 0.82,
       "label_y": 5.2

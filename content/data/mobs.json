@@ -3,7 +3,7 @@
   "_resist_note": "resist[element] is a damage reduction fraction: 0.5 takes half, -1.0 takes double. Elements come from spells.json `element`. Absent = 0 (normal damage).",
   "mobs": {
     "drowned_one": {
-      "display": "Drowned One",
+      "display": "Saltwight",
       "family": "undead",
       "role": "brute",
       "scene": "res://scenes/entities/mobs/mob_drowned_one.tscn",
@@ -157,7 +157,7 @@
       "displace_resist": 0.4
     },
     "dark_bandit": {
-      "display": "Dark Bandit",
+      "display": "Oathless Bandit",
       "family": "ashbound",
       "role": "caster",
       "scene": "res://scenes/entities/mobs/mob_dark_bandit.tscn",
@@ -271,7 +271,7 @@
       "displace_resist": 0.6
     },
     "pallid": {
-      "display": "Pallid",
+      "display": "Mistguard",
       "family": "pallid",
       "role": "caster",
       "scene": "res://scenes/entities/mobs/mob_pallid.tscn",
@@ -298,7 +298,7 @@
           "id": "kiss",
           "kind": "area",
           "at_target": true,
-          "clip": "Reach",
+          "clip": "Swing",
           "anticipation": 1.3,
           "recovery": 1.2,
           "radius": 2.6,
@@ -318,7 +318,7 @@
       "displace_resist": 0.3
     },
     "fidgetling": {
-      "display": "Fidgetling",
+      "display": "Galeling",
       "family": "pixie",
       "role": "swarm",
       "scene": "res://scenes/entities/mobs/mob_fidgetling.tscn",
@@ -355,7 +355,7 @@
       ]
     },
     "armour_guard": {
-      "display": "Enchanted Armour",
+      "display": "Hollow Sentry",
       "family": "armour",
       "role": "brute",
       "scene": "res://scenes/entities/mobs/mob_armour_guard.tscn",
@@ -394,7 +394,7 @@
       "displace_resist": 0.5
     },
     "armour_commander": {
-      "display": "Cursed Armour Commander",
+      "display": "Hollow Castellan",
       "family": "armour",
       "role": "boss",
       "scene": "res://scenes/entities/mobs/mob_armour_commander.tscn",
@@ -419,7 +419,7 @@
       "displace_resist": 0.7
     },
     "strangling_vine": {
-      "display": "Strangling Vine",
+      "display": "Brinebriar",
       "family": "snare",
       "role": "boss",
       "scene": "res://scenes/entities/mobs/mob_strangling_vine.tscn",
@@ -435,8 +435,9 @@
       "exp_mult": 2.0,
       "resist": {
         "stun": 1.0,
-        "fire": -0.5,
-        "force": 0.3
+        "fire": 0.3,
+        "frost": -0.5,
+        "force": -0.2
       },
       "loot_table": "snare",
       "parts": {
@@ -456,7 +457,7 @@
       "displace_resist": 1.0
     },
     "snare_vine": {
-      "display": "Snare Vine",
+      "display": "Briar Stem",
       "family": "snare",
       "role": "part",
       "scene": "res://scenes/entities/mobs/mob_snare_vine.tscn",
@@ -472,19 +473,20 @@
       "exp_mult": 0.0,
       "resist": {
         "stun": 1.0,
-        "fire": -1.0,
+        "fire": 0.3,
+        "frost": -1.0,
         "arcane": 0.5,
-        "force": 0.4,
+        "force": -0.5,
         "ithrel_light": 0.5
       },
       "loot_table": "",
       "displace_resist": 1.0
     },
-    "threehead": {
-      "display": "Threehead",
+    "wheelwarden": {
+      "display": "Wheelwarden",
       "family": "hound",
       "role": "boss",
-      "scene": "res://scenes/entities/mobs/mob_threehead.tscn",
+      "scene": "res://scenes/entities/mobs/mob_wheelwarden.tscn",
       "base": {
         "max_hp": 12000,
         "attack_power": 140,
@@ -498,29 +500,29 @@
       "resist": {
         "stun": 1.0
       },
-      "loot_table": "threehead",
+      "loot_table": "wheelwarden",
       "parts": {
-        "species": "threehead_head",
+        "species": "wheelwarden_plate",
         "bones": {
-          "L": "Head.L",
-          "M": "Head.M",
-          "R": "Head.R"
+          "L": "LeftArm",
+          "M": "Spine",
+          "R": "RightArm"
         },
-        "_offsets": "Each bone's rest position in the model (metres, the model facing +z), read from threehead.glb. hp_is_sum: the body's health is its heads' together, and it falls with its last head.",
+        "_offsets": "Each bone's rest position on the body as drawn (armour_commander.glb at scale 2.2; metres, the model facing +z). hp_is_sum: the body's health is its plates' together, and it falls with its last plate.",
         "offsets": {
-          "L": [1.191, 5.314, 3.818],
-          "M": [0.044, 5.804, 4.13],
-          "R": [-1.2, 5.29, 3.842]
+          "L": [0.869, 5.293, 0.453],
+          "M": [-0.051, 5.067, 0.579],
+          "R": [-0.911, 5.236, 0.312]
         },
         "hp_is_sum": true
       },
       "displace_resist": 1.0
     },
-    "threehead_head": {
-      "display": "Threehead's Head",
+    "wheelwarden_plate": {
+      "display": "Wheelwarden's Plate",
       "family": "hound",
       "role": "part",
-      "scene": "res://scenes/entities/mobs/mob_threehead_head.tscn",
+      "scene": "res://scenes/entities/mobs/mob_wheelwarden_plate.tscn",
       "base": {
         "max_hp": 4000,
         "attack_power": 0,
@@ -538,7 +540,7 @@
       "displace_resist": 1.0
     },
     "drowned_warden": {
-      "display": "Drowned Warden of Lunra",
+      "display": "Brine Warden of Lunra",
       "family": "undead",
       "role": "brute",
       "scene": "res://scenes/entities/mobs/mob_drowned_warden.tscn",
@@ -574,7 +576,7 @@
       ]
     },
     "goblin_teller": {
-      "display": "Goblin Teller",
+      "display": "Goblin Scavenger",
       "family": "goblin",
       "role": "skirmisher",
       "scene": "res://scenes/entities/mobs/mob_goblin_teller.tscn",
@@ -594,7 +596,7 @@
       "loot_table": "goblin_teller"
     },
     "goblin_guard": {
-      "display": "Goblin Vault Guard",
+      "display": "Goblin Bruiser",
       "family": "goblin",
       "role": "brute",
       "scene": "res://scenes/entities/mobs/mob_goblin_guard.tscn",
@@ -739,6 +741,6 @@
   "_exp_note": "exp_mult scales the level-based pack experience for creatures that are slower to kill than their level suggests (trolls, pallids).",
   "_abilities_note": "abilities: telegraphed patterns an ordinary creature mixes in (`every` N attacks) or throws at a target out of reach (`min_range`/`max_range` + `cooldown`). at_target centres the area on the target; despair_s stops the victim's regeneration; drain heals the attacker by that share of the damage. aura: while fighting, players within `radius` take attack_power x damage_ratio per regeneration beat and despair. push/lift: shove each victim (m/s away from the attacker, and up) - the pixie's lift. poison {ratio, ticks, interval_ms}: venom on every victim, attack_power x ratio per beat on the burn clock (authority apply_poison). web_s: the victim moves at half speed on foot for that long (apply_web, player.gd WEBBED_FACTOR).",
   "_parts_note": "D1 multi-part creatures: `parts` names the bones a body grows targetable parts on (their species and hit points come from the part's own entry and boss_overrides part_hp). The body is immune while any part stands. `front_guard`: share of a blow from in front (~60 degrees) that a shield-bearer ignores.",
-  "_displace_note": "displace_resist: how much of a throw (Shockwave, Disarm) a creature shrugs off, 1.0 = never moves. Bosses are never thrown. Ability riders on players: stun_s (no casts, no steering), push/lift (thrown: no casts until it lands), web_s (slowed), poison, despair_s.",
+  "_displace_note": "displace_resist: how much of a throw (Shockwave, Hushing Gale) a creature shrugs off, 1.0 = never moves. Bosses are never thrown. Ability riders on players: stun_s (no casts, no steering), push/lift (thrown: no casts until it lands), web_s (slowed), poison, despair_s.",
   "_attack_note": "base.windup/recovery: seconds a plain attack winds up and recovers (absent: melee 0.42/0.35, a bolt caster 0.55/0.5); 0 = never attacks on its own. bolt: the creature is a caster that throws this spell (spells.json) from up to 15 m with a clear line, flat damage, no homing."
 }

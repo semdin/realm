@@ -30,7 +30,7 @@ class_name StairView
 ##
 ## Near a flight that is swinging, or whose gates are shut for its warning
 ## before it swings, a line over the prompt says so (the old game's
-## staircase warning): "Magical staircase: moving" / "...: gates closed".
+## staircase warning): "Tidewheel stair: turning" / "...: gates closed".
 
 const Kit = preload("res://maps/castle_interior/castle_kit.gd")
 const WARD_SHADER := preload("res://assets/shaders/stair_ward.gdshader")
@@ -378,7 +378,7 @@ func _warn(me: Vector3) -> void:
 		var d := p.distance_to(a + ab * f)
 		if d < WARN_REACH and d < best:
 			best = d
-			text = tr("Magical staircase: gates closed") if phase == "warning" else tr("Magical staircase: moving")
+			text = tr("Tidewheel stair: gates closed") if phase == "warning" else tr("Tidewheel stair: turning")
 	line_text = text
 	if _line.text != text:
 		_line.text = text

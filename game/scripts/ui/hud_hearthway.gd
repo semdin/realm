@@ -3,9 +3,9 @@ class_name HudHearthway
 
 ## The Hearth window (F at a hearth, travel.json `nodes` of kind hearthway).
 ## Lists every other hearth of the network grouped by map: each can be
-## travelled to for one pinch of Hearth Dust; a hearth above the character's
-## level carries a lock and says the level it needs. Hearth Dust and the
-## keeper's Waylink boots are sold right here. The server decides everything
+## travelled to for one pinch of Waycoal; a hearth above the character's
+## level carries a lock and says the level it needs. Waycoal and the
+## keeper's Waystake boots are sold right here. The server decides everything
 ## (RealmSession.travel, buy_item); this window only asks and shows.
 
 const DUST := "hearth_dust"
@@ -33,7 +33,7 @@ var _list: VBoxContainer
 var _buy_id := -1
 
 func _init() -> void:
-	super._init("Hearthway", Vector2(520, 620))
+	super._init("Emberway", Vector2(520, 620))
 	name = "HearthwayWindow"
 
 func _ready() -> void:
@@ -108,7 +108,7 @@ func _boot_row() -> PanelContainer:
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_theme_constant_override("separation", 0)
 	row.add_child(text)
-	text.add_child(HudKit.label(tr("Old Boot (Waylink)"), 14, HudKit.PARCHMENT, HudKit.bold(), 3))
+	text.add_child(HudKit.label(tr("Waystake"), 14, HudKit.PARCHMENT, HudKit.bold(), 3))
 	var boot_note := HudKit.label(tr("%s Oril - carries your party anywhere") % _oril(int(ItemRules.item(BOOT).get("buy_price", 0))),
 		12, HudKit.TEXT_DIM, HudKit.body(), 2)
 	boot_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -136,7 +136,7 @@ static func _card_box(bg: Color, rim: Color, alpha: float) -> StyleBoxFlat:
 ## Open at the hearth `at_node`.
 func open_at(at_node: String) -> void:
 	node_id = at_node
-	set_title("Hearthway")  # i18n
+	set_title("Emberway")  # i18n
 	if _here_label != null:
 		_here_label.text = tr("You stand at the hearth of %s") % I18n.t(String(TravelData.node(at_node).get("label", "")))
 	if sheet != null and not sheet.equipment_answer.is_connected(_answer):
@@ -161,8 +161,8 @@ func _refresh_dust() -> void:
 		return
 	var price := int(ItemRules.item(DUST).get("buy_price", 0))
 	var count := dust_count()
-	_dust_label.text = (tr("Hearth Dust: %d pinch") if count == 1 else tr("Hearth Dust: %d pinches")) % count
-	_price_label.text = tr("%s Oril a pinch, one per journey") % _oril(price)
+	_dust_label.text = (tr("Waycoal: %d lump") if count == 1 else tr("Waycoal: %d lumps")) % count
+	_price_label.text = tr("%s Oril a lump, one per journey") % _oril(price)
 	var cost := int(TravelData.hearth_price()[1])
 	for id: String in travel_buttons:
 		var button: Button = travel_buttons[id]
@@ -231,7 +231,7 @@ func _destination(id: String, level: int) -> PanelContainer:
 	name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	name_label.clip_text = true
 	text.add_child(name_label)
-	var note := tr("1 pinch of Hearth Dust")
+	var note := tr("1 lump of Waycoal")
 	if level < need:
 		note = tr("Requires level %d (you are %d)") % [need, level]
 	var note_label := HudKit.label(note, 12, EMERALD.darkened(0.1) if open_to_travel else HudKit.TEXT_DIM.darkened(0.15), HudKit.body(), 2)
@@ -274,7 +274,7 @@ func _answer(answer: Dictionary) -> void:
 	var ok := bool(answer.get("ok", false))
 	var text := tr("%s bought.") % I18n.t(String(ItemRules.item(_bought).get("name", _bought)))
 	if not ok:
-		text = String(fails.get(reason, tr("The fireplace keeper shakes his head.")))
+		text = String(fails.get(reason, tr("The hearth keeper shakes his head.")))
 	if hud != null and hud.has_method("show_notice"):
 		hud.show_notice(text, "good" if ok else "warn")
 	if ok:

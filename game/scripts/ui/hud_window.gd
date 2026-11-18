@@ -2,7 +2,7 @@ extends Control
 class_name HudWindow
 
 ## The one window standard the travel windows share (the Hearth window, the
-## Waylink picker): the same card as the inventory and Kestrin's workshop, an
+## Waystake picker): the same card as the inventory and Kestrin's workshop, an
 ## opaque midnight panel in the arcane frame, the gold title ribbon with ONE
 ## close button, draggable by the ribbon, sized to the screen.
 ##

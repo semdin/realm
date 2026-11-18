@@ -14,7 +14,7 @@ extends Node
 ##   fight    fights every creature that comes at it: their alerts, grunts
 ##            when hit and death cries, the tension rising
 ##   calm     the fight over: the tension falls back
-##   hearth   walks to the Hearth Pavilion, travels to Orvell Square: the
+##   hearth   walks to the Ember Pavilion, travels to Orvell Square: the
 ##            hearth's sound; in Orvell the village's music cross-fades in
 ##            over the track that was playing and its bed comes up
 ##   broom    mounts, rises and flies: the broom's wind follows the speed

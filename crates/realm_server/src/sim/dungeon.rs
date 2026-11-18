@@ -102,7 +102,7 @@ pub(super) struct Hazard {
     pub push: Option<(Vec3, f32)>,
 }
 
-/// The sleep chime is rung from this close.
+/// The sluice wheel is rung from this close.
 const CHIME_RADIUS: f32 = 2.6;
 
 pub(super) struct RunMember {
@@ -153,7 +153,7 @@ pub(super) struct Run {
     pub said_at: u32,
 }
 
-/// The sleep chime by a sleeping guardian (Threehead).
+/// The sluice wheel by a sleeping guardian (Wheelwarden).
 pub(super) struct Chime {
     pub at: Vec3,
     pub scale: f32,
@@ -1541,7 +1541,7 @@ impl Sim {
                         if !said {
                             self.say(
                                 i,
-                                "Threehead is frenzied - the chime holds it only briefly!",
+                                "The Wheelwarden is frenzied - the sluice holds it only briefly!",
                             );
                         }
                     }
@@ -1606,25 +1606,25 @@ impl Sim {
             if first {
                 self.say(
                     i,
-                    &format!("Threehead's {side} head slumps! Threehead howls in fury!"),
+                    &format!("The Wheelwarden's {side} plate cracks! Its gears scream!"),
                 );
             } else {
-                self.say(i, &format!("Threehead's {side} head slumps!"));
+                self.say(i, &format!("The Wheelwarden's {side} plate cracks!"));
             }
             if standing == 0 {
                 self.mob_died(body, killer);
             }
         } else if standing == 0 {
-            self.say(i, "The vines are gone - the Snare's heart is exposed!");
+            self.say(i, "The stems are gone - the Brinebriar's heart is exposed!");
         } else {
             self.say(
                 i,
-                &format!("A vine shrivels in the flames! {standing} left."),
+                &format!("A stem cracks apart! {standing} left."),
             );
         }
     }
 
-    /// The sleep chime: a living player standing by it rings it; a fight
+    /// The sluice wheel: a living player standing by it rings it; a fight
     /// breaks the ringing off; rung through, the guardian sleeps.
     fn chime_tick(&mut self, i: usize) {
         let tick = self.tick;
@@ -1703,7 +1703,7 @@ impl Sim {
                         c.start = tick;
                         c.end = tick + length;
                     }
-                    self.say(i, &format!("{name} begins to ring the sleep chime..."));
+                    self.say(i, &format!("{name} begins to turn the sluice wheel..."));
                 }
             }
             Some(e) => {
@@ -1715,7 +1715,7 @@ impl Sim {
                     if let Some(c) = self.runs[i].as_mut().and_then(|r| r.chime.as_mut()) {
                         c.ringer = None;
                     }
-                    self.say(i, "The music breaks off!");
+                    self.say(i, "The sluice wheel slips back!");
                     return;
                 }
                 if tick < end {
@@ -1732,13 +1732,13 @@ impl Sim {
                 }
                 self.say(
                     i,
-                    "The chime lulls Threehead to sleep! Its heads take more damage.",
+                    "Brine floods the Wheelwarden's joints! Its plates take more damage.",
                 );
             }
         }
     }
 
-    /// The dungeon's own hazards (the Sealed Wing's breath down the stair):
+    /// The dungeon's own hazards (the Brine Vaults' breath down the stair):
     /// while their stretch of the run is on and someone stands in the band,
     /// a warned push every so often.
     fn breath_tick(&mut self, i: usize, def: &realm_rules::dungeons::DungeonDef) {
@@ -2153,7 +2153,7 @@ impl Sim {
                 }
                 self.say(
                     i,
-                    "A Pallid's chill sweeps the halls - nobody recovers for a while.",
+                    "A mist chill sweeps the halls - nobody recovers for a while.",
                 );
             }
         }

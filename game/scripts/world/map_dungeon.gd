@@ -13,8 +13,8 @@ class_name MapDungeon
 ##     the run tracker (HudDungeonRun) follows the run's "state" views, a new
 ##     step message shows on the notice band, the curses' marks burn on the
 ##     floor (DungeonHazards, from the "hazard" events and the run views).
-##     A run with a sleep chime (the Sealed Wing's, by Threehead) shows it
-##     from the run view's `chime` (SleepChime).
+##     A run with a sluice wheel (the Brine Vaults', by Wheelwarden) shows it
+##     from the run view's `chime` (SluiceWheel).
 ##   * The end of a run takes no window: one line on the notice band (the
 ##     medal and the time, once the run's last step message has had its
 ##     moment) and the facts and the "rewards" that follow as chat lines
@@ -34,7 +34,7 @@ var guide_window: HudDungeonGuide
 var run_view: HudDungeonRun
 var gates: DungeonGates
 var hazards: DungeonHazards
-var chime: SleepChime
+var chime: SluiceWheel
 ## Step messages shown (the check reads them).
 var messages: Array = []
 ## Every dungeon event by its `event` (the check reads them).
@@ -76,7 +76,7 @@ func setup(main: Node, map_id: String, ui_root: Control) -> void:
 	hazards = DungeonHazards.new()
 	hazards.session = game.session
 	game.add_child(hazards)
-	chime = SleepChime.new()
+	chime = SluiceWheel.new()
 	chime.game = game
 	game.add_child(chime)
 

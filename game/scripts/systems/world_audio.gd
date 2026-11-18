@@ -69,7 +69,7 @@ const REGION_ZONES := {
 ## Grounds place names (MapPlaces) that set the zone where no region does.
 const PLACE_ZONES := {
 	"Castle Courtyard": "courtyard", "Lake Lunra": "lake", "Boathouse": "lake", "Orvell": "village",
-	"Orvell Station": "shore", "Raven Woods": "forest", "Northern Moors": "moor",
+	"Orvell Landing": "shore", "Raven Woods": "forest", "Northern Moors": "moor",
 }
 ## The ground a step lands on, by zone.
 const ZONE_SURFACES := {
@@ -81,7 +81,7 @@ const ZONE_SURFACES := {
 const VOICES := {
 	"black_weaver": "spider", "broodguard": "spider", "venomfang_weaver": "spider",
 	"armour_commander": "armour", "armour_guard": "armour", "fidgetling": "pixie", "dark_bandit": "bandit",
-	"pallid": "pallid", "strangling_vine": "snare", "threehead": "hound",
+	"pallid": "armour", "strangling_vine": "snare", "wheelwarden": "armour",
 	"goblin_guard": "goblin", "goblin_hexer": "goblin", "goblin_teller": "goblin",
 	"drowned_one": "drowned_one", "drowned_warden": "drowned_one", "troll_forest": "troll", "troll_mountain": "troll",
 }
@@ -219,9 +219,9 @@ func zone_at(map_id: String, pos: Vector3) -> String:
 		if MapPlaces.castle_level(pos.y) < 0:
 			return "dungeon"
 		match MapPlaces.place_at(map_id, pos):
-			"Feast Hall":
+			"Long Table":
 				return "feast_hall"
-			"Library":
+			"Hall of Rolls":
 				return "library"
 		return "interior"
 	if map_id == "dng_sealed_wing":

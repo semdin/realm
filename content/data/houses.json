@@ -4,27 +4,27 @@
     "primary_color": "#d4561c",
     "secondary_color": "#9c9a98",
     "trait": "Ember Heart: +15% Flame Wave damage",
-    "motto": "From my ashes I rise again."
+    "motto": "We keep the fire through the dark."
   },
   "nisera": {
     "name": "Nisera",
     "primary_color": "#8a4cc0",
     "secondary_color": "#c9a24e",
-    "trait": "Venom: +20% Starfall and Disarm damage",
-    "motto": "Knowledge runs deeper than venom."
+    "trait": "Venom: +20% Starfall and Hushing Gale damage",
+    "motto": "Patience is the sharpest sting."
   },
   "ilvane": {
     "name": "Ilvane",
     "primary_color": "#3e8ed8",
     "secondary_color": "#e6edf5",
     "trait": "Swiftness: -20% Spell Cooldowns & +25% Max Mana Pool",
-    "motto": "We arrive before the wind."
+    "motto": "First to see, first to warn."
   },
   "torvan": {
     "name": "Torvan",
     "primary_color": "#6b8c35",
     "secondary_color": "#b07a3c",
     "trait": "Tenacity: +25% Max Health",
-    "motto": "Together we hold."
+    "motto": "No step back from the wall."
   }
 }

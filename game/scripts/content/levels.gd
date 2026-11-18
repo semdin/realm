@@ -8,7 +8,7 @@ class_name Levels
 static func skill_rules() -> Dictionary:
 	return ItemRules.combat().get("skills", {})
 
-## Spells that take skill points; the rest (the basic attack, Light of Ithrel)
+## Spells that take skill points; the rest (the basic attack, Dawnbreak)
 ## are always level 1.
 static func skill_upgradeable(spell_id: String) -> bool:
 	return spell_id in (skill_rules().get("upgradeable", []) as Array)

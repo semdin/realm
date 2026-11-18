@@ -2,8 +2,8 @@ extends Node3D
 
 ## The grounds drawn with the old game's approved art (Phase 6.1): the
 ## Terrain3D ground and its forest, the lake, the castle shell, the courtyard,
-## the precinct (Trial Hall, Hearth Pavilion, training yard, cave mouth), the
-## sites (Orvell and its roads, Borin's hut, greenhouses, boathouse, station,
+## the precinct (Trial Hall, Ember Pavilion, training yard, cave mouth), the
+## sites (Orvell and its roads, Ombrek's hut, greenhouses, boathouse, station,
 ## the skyring pitch, the stone circle, the camp, the crypt, the hollow), road
 ## lamps, the broom landing and the far horizon. The sky, the sun, the fog's
 ## colour and the ambient follow the hour and the rain (DayNight); the quality

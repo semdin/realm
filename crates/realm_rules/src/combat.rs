@@ -407,7 +407,7 @@ impl CombatRules {
     }
 
     /// A character's level of `spell`: 0 = not learned; spells that are not
-    /// skills (the basic attack, the Light of Ithrel) are always 1.
+    /// skills (the basic attack, the Dawnbreak) are always 1.
     #[must_use]
     pub fn skill_level(&self, sheet: &CharacterSheet, spell: &str) -> u8 {
         if !self.skill_upgradeable(spell) {

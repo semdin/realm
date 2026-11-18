@@ -108,7 +108,7 @@ pub struct Rules {
     pub loot: loot::LootRules,
     /// The quest chain, its places and the NPCs who give it.
     pub quests: quests::QuestRules,
-    /// Doors, the Hearthway, cabinets, passages, the Waylink, flight.
+    /// Doors, the Emberway, cabinets, passages, the Waystake, flight.
     pub travel: travel::TravelRules,
     /// Dungeons: difficulties, party rules, rewards, director steps.
     pub dungeons: dungeons::DungeonRules,

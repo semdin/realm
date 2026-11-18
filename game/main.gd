@@ -20,7 +20,7 @@ extends Node3D
 ##                                                    own return to town
 ##   [--open-character 1]                             start with the character window open
 ##   [--check-quests]                                 the check walks the first chapter instead
-##                                                    of fighting: talks to Master Teral Venn and
+##                                                    of fighting: talks to Commander Teral Venn and
 ##                                                    hands in q001, wears the cloak (q002), hits
 ##                                                    a training dummy 5 times (q003), claiming
 ##                                                    each; fails unless all three are claimed
@@ -47,7 +47,7 @@ extends Node3D
 ##   [--duel-guest NAME]                              this client challenges NAME to a duel and
 ##                                                    stands (the second client for --check-duel)
 ##   [--check-travel]                                 the check walks through the castle door and
-##                                                    back, takes the Hearth Pavilion's hearth to
+##                                                    back, takes the Ember Pavilion's hearth to
 ##                                                    Orvell Square and mounts and dismounts the
 ##                                                    broom there (TravelCheck; it carries on across
 ##                                                    the scene reload a map change makes)
@@ -71,13 +71,13 @@ extends Node3D
 ##                                                    and opens the dungeon guide with K (GuideCheck;
 ##                                                    the character from --dungeon-kit
 ##                                                    --dungeon-cleared normal --seals 20)
-##   [--check-boss]                                   the check goes through the Sealed Wing gate
-##                                                    (castle_interior), walks to Threehead, rings
-##                                                    the sleep chime until it sleeps and kills its
+##   [--check-boss]                                   the check goes through the Brine Vaults gate
+##                                                    (castle_interior), walks to Wheelwarden, rings
+##                                                    the sluice wheel until it sleeps and kills its
 ##                                                    heads one by one (BossCheck; the dungeon server
-##                                                    runs with --dev-dungeon-start threehead
+##                                                    runs with --dev-dungeon-start wheelwarden
 ##                                                    --dev-dungeon-scale 0.05: build/logs/dup_boss.sh)
-##   [--check-boss-step snare]                        the Strangling Vine instead (dup_boss.sh snare)
+##   [--check-boss-step snare]                        the Brinebriar instead (dup_boss.sh snare)
 ##   [--check-lair]                                   the check goes through the Web Mother's Lair gate
 ##                                                    (spider_caverns), lets the egg sacs split open
 ##                                                    and clears the egg cavern (LairCheck; the
@@ -135,7 +135,7 @@ extends Node3D
 ##                                                    --character 901101 --capture-dir build/captures/hud2): the
 ##                                                    low-health edge and the pointers, every taskbar window
 ##                                                    button, the character window's Status and Properties, the
-##                                                    bestiary (B), Ward Shield on the effects bar, a "[World]"
+##                                                    bestiary (B), Shardglass Ward on the effects bar, a "[World]"
 ##                                                    news line, the protected-ground cue in and out, then the
 ##                                                    Trial Hall run with the target ring, the "New title" toast
 ##                                                    and "Run it again" into a new copy
@@ -176,8 +176,8 @@ extends Node3D
 ##                                                    game defaults to LoginApi.RELEASE_URL)
 ##   [--capture-dir build/captures/travel]            where TravelCheck / DungeonCheck / BossCheck / LairCheck / OpsCheck / LoginCheck / MenuCheck save PNG frames
 ##
-## Travel (MapTravel): F at a door, a hearth, a Twinned Cabinet, a passage or
-## a Waylink; Shift mounts or dismounts the broom. A trip to another map
+## Travel (MapTravel): F at a door, a hearth, a Old Shaft, a passage or
+## a Waystake; Shift mounts or dismounts the broom. A trip to another map
 ## rebuilds this scene for it: `map_name` is then the trip's map and the
 ## session joins with RealmSession.start_travel (the loading screen stays up
 ## across the reload until the new map is drawn).
@@ -400,7 +400,7 @@ var player: Node3D
 var map_name := "grounds"
 ## The map's own scene (Phase 6), when it has one.
 var map_view: Node3D = null
-## Doors, hearths, Waylinks, the broom key and the loading flow (MapTravel).
+## Doors, hearths, Waystakes, the broom key and the loading flow (MapTravel).
 var travel: MapTravel
 ## `--check-travel`: the travel check.
 var travel_check: Node = null
@@ -1594,7 +1594,7 @@ func _on_escape() -> void:
 	else:
 		game_menu.open()
 
-## Any other window of the UI that is open (the Hearth and Waylink windows,
+## Any other window of the UI that is open (the Hearth and Waystake windows,
 ## the dungeon run's cards): the topmost one closes. False when none was.
 func _close_top_window() -> bool:
 	var ui := hud.get_parent()
@@ -1770,7 +1770,7 @@ func _part_body(id: int) -> int:
 	return 0
 
 ## A part's name: the server's own, else the species' with the part's side
-## put in ("Threehead's Head" -> "Threehead's Left Head", the old game's
+## put in ("Wheelwarden's Plate" -> "Wheelwarden's Left Plate", the old game's
 ## rule), translated through I18n's composed patterns.
 func _part_title(id: int, species: String, own_name: String) -> String:
 	if own_name != "":
@@ -2402,7 +2402,7 @@ func notice_text(notice: Dictionary) -> Array:
 			return [tr("%s: a wave of creatures answers its call! (Wave %d/%d)") % [name, int(notice.get("value", 0)),
 				int(notice.get("of", 0))], "stone"]
 		"stone_shattered":
-			var by := actor if actor != "" else tr("A brave Wizard")
+			var by := actor if actor != "" else tr("A brave Sworn")
 			return [tr("The %s has been shattered by %s! Riches shower the realm!") % [name, by], "stone"]
 	return ["", ""]
 
@@ -2483,7 +2483,7 @@ func _say_refusal(spell: String, reason: String) -> void:
 		"mounted":
 			text = tr("Not while mounted!")
 		"no_wand":
-			text = tr("Equip a wand first")
+			text = tr("Equip a rod first")
 		"level":
 			text = tr("Your level is too low for that spell")
 		"skill_locked":
@@ -2653,7 +2653,7 @@ static func _status_names(bits: int) -> String:
 
 ## `--check-quests`: the first chapter the way a player walks it, one step at a
 ## time, each window left up for CHECK_SHOW so a capture sees it:
-##   to_npc   walk to Master Teral Venn (his gold arrow) and press F: the
+##   to_npc   walk to Commander Teral Venn (his gold arrow) and press F: the
 ##            dialogue card opens and the server hears the talk (q001)
 ##   talk     turn the pages until q001 is ready, then its "Hand in" row
 ##   scroll1  the quest scroll; its gold seal claims q001 (the cloak)
@@ -2673,7 +2673,7 @@ func _check_quest_walk(_delta: float) -> bool:
 			if sheet_view.data.has("quests") and not npcs.is_empty():
 				_check_step("to_npc")
 		"to_npc":
-			var npc := _npc_named("Master Teral Venn")
+			var npc := _npc_named("Commander Teral Venn")
 			if npc == null:
 				return false
 			var flat := Vector2(npc.position.x - me.x, npc.position.z - me.z)

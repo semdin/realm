@@ -10,12 +10,12 @@ class_name MapTravel
 ##     refuses it too). A door into an instanced map is a dungeon's gate: F
 ##     opens its gate window (MapDungeon). Inside a dungeon copy the doors'
 ##     triggers stand at the copy's offset (RealmSession.copy_offset).
-##   * Hearths, Twinned Cabinets and passages (travel.json `nodes` of this
+##   * Hearths, Old Shafts and passages (travel.json `nodes` of this
 ##     map, drawn by TravelNodes): within a node's radius its prompt shows. F
 ##     at a hearth opens the Hearth window (HudHearthway), whose Travel plays
 ##     the green flames and asks RealmSession.travel(here, there); F at a
 ##     cabinet or passage plays its smoke and asks travel(node, "").
-##   * Waylinks (WaylinkViews): F within a boot's radius grabs hold or lets go.
+##   * Waystakes (WaylinkViews): F within a stake's radius grabs hold or lets go.
 ##   * The broom: Shift asks RealmSession.ride(!mounted); the body mounts when
 ##     the server's ride window reaches it.
 ##   * A trip: `departing` (same map: a short fade, the teleport follows;
@@ -53,7 +53,7 @@ var hearthway: HudHearthway
 var waylink_window: HudWaylink
 
 ## What the body stands in this frame: a door (its maps.json entry), a travel
-## node id, a Waylink ({id, holding, label}).
+## node id, a Waystake ({id, holding, label}).
 var active_portal: Dictionary = {}
 var active_node := ""
 var active_waylink: Dictionary = {}
@@ -176,13 +176,13 @@ func _warm_then_settle() -> void:
 	_settle_frames = SETTLE_FRAMES
 
 ## The lowest surface under (x, z): the terrain, not a roof over it (a
-## hearth stands under the Hearth Pavilion's roof). A ray from the sky steps
+## hearth stands under the Ember Pavilion's roof). A ray from the sky steps
 ## down past every surface it meets.
 ## The ground a travel object authored at y 0 stands on (TravelNodes.point):
 ## the map view's drawn ground (`height_at`: the grounds' Terrain3D, the very
 ## heights of the pack's terrain grid) under (x, z). Not RealmSession.pick:
 ## from a point under the terrain it answers that point, so stepping down
-## from hit to hit (as this did, to look under the Hearth Pavilion's roof)
+## from hit to hit (as this did, to look under the Ember Pavilion's roof)
 ## sank the hearths and the Orvell hatch 1.1-2.1 m into the ground. Without a drawn ground (headless, the
 ## placeholder world): the lowest surface picks from the sky meet, stepping
 ## down from hit to hit; a pick that answers its own start is inside a solid
@@ -311,16 +311,16 @@ func _portal_contains(portal: Dictionary, point: Vector3) -> bool:
 	var radius := float(trigger.get("radius", 0.0))
 	return dx * dx + dz * dz <= radius * radius
 
-## The prompt over a travel object: the Hearthway, or a twin link's own words
+## The prompt over a travel object: the Emberway, or a twin link's own words
 ## and where it leads.
 func _node_prompt(node_id: String) -> String:
 	var node := TravelData.node(node_id)
 	if String(node.get("kind", "")) == "hearthway":
-		return tr("Hearthway (%s)") % I18n.t(String(node.get("label", "")))
+		return tr("Emberway (%s)") % I18n.t(String(node.get("label", "")))
 	var pair := TravelData.node(String(node.get("pair", "")))
 	return tr("%s (to %s)") % [I18n.t(String(node.get("prompt", "Use"))), I18n.t(String(pair.get("label", "")))]
 
-## F: a door, a Waylink, a travel object. True when F was this one's.
+## F: a door, a Waystake, a travel object. True when F was this one's.
 func interact() -> bool:
 	if leaving or nodes == null:
 		return false
@@ -361,7 +361,7 @@ func _hearth_depart(from_node: String, dest_node: String) -> void:
 	if is_instance_valid(game) and game.session != null:
 		game.session.travel(from_node, dest_node)
 
-## A Twinned Cabinet or the Stone Raven's passage: no window, the link has
+## A Old Shaft or the Dry Cistern's passage: no window, the link has
 ## one end.
 func _passage_depart(node_id: String) -> void:
 	TravelNodes.burst(game, nodes.mouth(node_id), String(TravelData.node(node_id).get("kind", "")))
@@ -522,7 +522,7 @@ func refusal_text(what: String, reason: String) -> String:
 				return tr("Dismount before stepping into the fireplace.")
 			return tr("Not while mounted!")
 		"no_item":
-			return tr("You have no Waylink boot.") if what == "waylink" else tr("You have no Hearth Dust - buy a pinch at the fireplace.")
+			return tr("You have no Waystake.") if what == "waylink" else tr("You have no Waycoal - buy a lump at the hearth.")
 		"in_combat":
 			if what == "hearthway":
 				return tr("The flames will not take you while you are fighting.")
@@ -552,11 +552,11 @@ func refusal_text(what: String, reason: String) -> String:
 		"casting":
 			return tr("Finish casting first.")
 		"in_dungeon":
-			return tr("A Waylink will not work in here.")
+			return tr("A Waystake will not work in here.")
 		"waylink_active":
-			return tr("Your Waylink is already waiting - grab hold of it.")
+			return tr("Your Waystake is already waiting - grab hold of it.")
 		"waylink_gone":
-			return tr("That Waylink has already gone.")
+			return tr("That Waystake has already gone.")
 		"not_in_party":
-			return tr("That Waylink is not yours - only its owner's party may hold on.")
+			return tr("That Waystake is not yours - only its owner's party may hold on.")
 	return tr("Transfer refused (%s).") % reason if reason != "" else ""

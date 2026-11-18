@@ -178,7 +178,7 @@ pub struct BossDef {
     pub enrage_s: f32,
 }
 
-/// A boss made of parts (Threehead's heads, the Strangling Vine's vines):
+/// A boss made of parts (Wheelwarden's heads, the Brinebriar's vines):
 /// each part a creature of `species` held at its bone on the body.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PartsDef {

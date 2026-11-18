@@ -3,7 +3,7 @@ class_name TravelData
 
 ## The travel tables as the interface reads them: maps.json (each map's
 ## display name and flight rule, the doors between maps) and travel.json (the
-## hearths, the Twinned Cabinets, the passages and the Waylink rules). Loaded
+## hearths, the Old Shafts, the passages and the Waystake rules). Loaded
 ## once from RealmContent; the server decides every trip, this only says what
 ## stands where.
 
@@ -49,7 +49,7 @@ static func node(id: String) -> Dictionary:
 	return nodes().get(id, {})
 
 ## A node kind's rules (travel.json `hearthway`, `cabinet`, `passage`), or the
-## Waylink's (`waylink`).
+## Waystake's (`waylink`).
 static func rules(kind: String) -> Dictionary:
 	_load()
 	return _travel.get(kind, {})

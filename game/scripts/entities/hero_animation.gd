@@ -420,7 +420,7 @@ func cancel_oneshot() -> void:
 		tree.set("parameters/oneshot_speed/scale", 1.0)
 
 ## Freeze the playing one-shot on its current frame until `cancel_oneshot`
-## (a held pose: the Waylink kneel is the Place clip stopped with the hand on
+## (a held pose: the Waystake kneel is the Place clip stopped with the hand on
 ## the boot).
 func hold_oneshot() -> void:
 	if not enabled or oneshot_left <= 0.0:

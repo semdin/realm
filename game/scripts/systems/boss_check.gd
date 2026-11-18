@@ -1,32 +1,32 @@
 extends "res://scripts/systems/dungeon_check.gd"
 
-## `--check-boss`: a Sealed Wing boss the way a player fights it, against the
+## `--check-boss`: a Brine Vaults boss the way a player fights it, against the
 ## coordinator and two linked map servers (castle_interior and
 ## dng_sealed_wing, the dungeon server started with `--dev-dungeon-start
 ## <step>` so the run begins at that boss with every gate before it open, and
 ## `--dev-dungeon-scale 0.05`; build/logs/dup_boss.sh). The character comes
 ## from `tools/fixtures/make_prepared_character.py --dungeon-kit --sealed-wing
-## --level 34` (in the castle on the Sealed Wing gate). `--check-boss-step`
-## names the boss: threehead (the default) or snare (the Strangling Vine).
+## --level 34` (in the castle on the Brine Vaults gate). `--check-boss-step`
+## names the boss: wheelwarden (the default) or snare (the Brinebriar).
 ##
 ##   land .. start  as DungeonCheck: the gate fc_entry, its window, Normal, the
 ##                  launch, the copy, the countdown
 ##   to_boss        down the corridor along its middle line (local x 0); the
-##                  Sealed Wing's breath (a band down the stair) is looked at
+##                  Brine Vaults' breath (a band down the stair) is looked at
 ##                  and captured once on the way
-##   chime          (threehead) stands in the sleep chime's reach without a
+##   chime          (wheelwarden) stands in the sluice wheel's reach without a
 ##                  cast until it rings (the channel bar over the player) and
-##                  Threehead sleeps (its stun); captures both
+##                  Wheelwarden sleeps (its stun); captures both
 ##   parts          the boss's parts one by one: Tab-style targeting of the
 ##                  nearest standing head or vine, the basic cast at it; the
 ##                  first part down is captured slumped (or withered) on the
-##                  model; back to the chime when Threehead wakes and the chime
+##                  model; back to the chime when Wheelwarden wakes and the chime
 ##                  is ready again
 ##   body           (snare) the heart once its vines are gone
 ##   down           the boss dies (with its last head, or its heart)
 ##
 ## The verdict prints what it saw and quits 0 when the boss died, a part was
-## seen down on the model and (threehead) the chime rang and the boss slept.
+## seen down on the model and (wheelwarden) the chime rang and the boss slept.
 
 const BOSS_HOLD := 1.2
 const BOSS_TIMEOUT := 600.0
@@ -35,16 +35,16 @@ const GATE_ID := "fc_entry"
 const GATE_POINT := Vector2(65.1, -10.4)
 ## The corridor's middle line, then the boss's room (local x, z).
 const ROUTES := {
-	"threehead": [Vector2(0, -20), Vector2(0, -56), Vector2(0, -100), Vector2(0, -140), Vector2(0, -150), Vector2(0, -158), Vector2(8, -164)],
-	"snare": [Vector2(0, -20), Vector2(0, -56), Vector2(0, -100), Vector2(0, -112)],
+	"wheelwarden": [Vector2(0, -20), Vector2(0, -56), Vector2(0, -100), Vector2(0, -140), Vector2(0, -150), Vector2(0, -158), Vector2(8, -164)],
+	"snare": [Vector2(0, -20), Vector2(0, -56), Vector2(0, -68)],
 }
 ## Where the vine fight is watched from (local), out of its lash.
-const SNARE_STAND := Vector2(0, -114)
+const SNARE_STAND := Vector2(0, -70)
 ## The stair stop (local) where the check waits for a breath (it blows
 ## every 7 s or so while someone stands in the band), at most BREATH_WAIT s.
 const BREATH_STOP := Vector2(0, -150)
 const BREATH_WAIT := 20.0
-## The chime appears with Threehead, who wakes once the hall is entered
+## The chime appears with Wheelwarden, who wakes once the hall is entered
 ## (local z below -168): walk this way until the run view carries it.
 const CHIME_FALLBACK := Vector2(15, -171)
 ## A breath band is captured with its fire this far filled.
@@ -56,7 +56,7 @@ const PART_CAPTURE_SAG := 0.9
 const APPROACH := 11.0
 const APPROACH_STALL := 1.5
 
-var _boss_step := "threehead"
+var _boss_step := "wheelwarden"
 var _boss_id := 0
 var _route_at := 0
 var _part_capture_id := 0
@@ -66,9 +66,9 @@ var _approach_at := 0.0
 
 func _ready() -> void:
 	super()
-	_boss_step = String(game._arg("--check-boss-step", "threehead"))
+	_boss_step = String(game._arg("--check-boss-step", "wheelwarden"))
 	if not ROUTES.has(_boss_step):
-		_boss_step = "threehead"
+		_boss_step = "wheelwarden"
 
 func _go(step: String) -> void:
 	print("realm check boss: frame %d step %s at %s on %s" % [Engine.get_frames_drawn(), step,
@@ -122,7 +122,7 @@ func _process(delta: float) -> void:
 		"copy":
 			_held += delta
 			if game.map_name != "dng_sealed_wing" or int(game.session.copy()) == 0:
-				_verdict("the launch did not lead into a Sealed Wing copy (%s, copy %d)" % [game.map_name, int(game.session.copy())])
+				_verdict("the launch did not lead into a Brine Vaults copy (%s, copy %d)" % [game.map_name, int(game.session.copy())])
 				return
 			if _held > HOLD:
 				_seen("copy", "copy %d at %s" % [int(game.session.copy()), str(_offset())])
@@ -168,7 +168,7 @@ func _boss_steps(step: String, delta: float) -> void:
 				return
 			var route: Array = ROUTES[_boss_step]
 			if _route_at >= route.size():
-				_go("chime" if _boss_step == "threehead" else "parts")
+				_go("chime" if _boss_step == "wheelwarden" else "parts")
 				return
 			var goal: Vector2 = route[_route_at]
 			var at := _offset() + Vector3(goal.x, 0, goal.y)
@@ -193,7 +193,7 @@ func _boss_steps(step: String, delta: float) -> void:
 func _find_boss() -> void:
 	if _boss_id != 0 and game.beasts.has(_boss_id):
 		return
-	var species := "threehead" if _boss_step == "threehead" else "strangling_vine"
+	var species := "wheelwarden" if _boss_step == "wheelwarden" else "strangling_vine"
 	for id: int in game.beasts.keys():
 		var body: Variant = game.beasts[id]
 		if body is CreatureView and (body as CreatureView).species == species and not (body as CreatureView).is_dead:
@@ -261,9 +261,9 @@ func _look_at_breath() -> bool:
 		return true
 	return false
 
-## Stand in the chime's reach, no casts, until it rings and Threehead sleeps.
+## Stand in the chime's reach, no casts, until it rings and Wheelwarden sleeps.
 func _at_chime() -> void:
-	var chime: SleepChime = game.dungeon.chime
+	var chime: SluiceWheel = game.dungeon.chime
 	if chime.data.is_empty():
 		if _now() - _since > STEP_TIMEOUT:
 			_verdict("the run view carries no chime")
@@ -272,7 +272,7 @@ func _at_chime() -> void:
 		if _walk_to(toward.x, toward.z) > STOP_REACH:
 			_walk = 1.0
 		return
-	var at := SleepChime._vec(chime.data.get("at"))
+	var at := SluiceWheel._vec(chime.data.get("at"))
 	var reach := float(chime.data.get("radius", 2.6))
 	var me := _me()
 	var off := Vector2(me.x - at.x, me.z - at.z)
@@ -332,9 +332,9 @@ func _fight_parts(delta: float) -> void:
 		if not body.parts.is_empty() and _boss_step == "snare":
 			_go("body")
 		return
-	# Threehead awake again with the chime ready: back to it first.
-	var chime: SleepChime = game.dungeon.chime
-	if _boss_step == "threehead" and not body.asleep and not chime.data.is_empty() \
+	# Wheelwarden awake again with the chime ready: back to it first.
+	var chime: SluiceWheel = game.dungeon.chime
+	if _boss_step == "wheelwarden" and not body.asleep and not chime.data.is_empty() \
 			and float(game.session.server_tick()) >= float(chime.data.get("ready_tick", 0)) and _has("boss_asleep"):
 		_go("chime")
 		return
@@ -374,7 +374,7 @@ func _capture_part_down(body: CreatureView) -> void:
 	if body.part_sag(key) >= PART_CAPTURE_SAG:
 		_seen("part_down", "%s part %s (entity %d), sag %.2f, down [%s]" % [body.species, key, _part_capture_id,
 			body.part_sag(key), ", ".join(body.parts_down)])
-		_capture("head_slumped" if _boss_step == "threehead" else "vine_withered")
+		_capture("head_slumped" if _boss_step == "wheelwarden" else "vine_withered")
 		_part_capture_id = 0
 
 ## The vine never moves: the check stands off its lash.
@@ -383,7 +383,7 @@ func _hold_stand() -> void:
 	if _walk_to(at.x, at.z) > STOP_REACH:
 		_walk = 1.0
 
-## The Strangling Vine's heart once its vines are gone.
+## The Brinebriar's heart once its vines are gone.
 func _fight_body(delta: float) -> void:
 	var body := _boss_view()
 	if body == null:
@@ -405,7 +405,7 @@ func _verdict(failure: String) -> void:
 	var corrections := int(_s["corrections"]) + int(stats.get("corrections", 0))
 	var seen: Dictionary = _s["seen"]
 	var wanted := ["land", "gate_prompt", "loading_1", "copy", "running", "boss_seen", "part_card", "part_down", "boss_down"]
-	if _boss_step == "threehead":
+	if _boss_step == "wheelwarden":
 		wanted.append_array(["chime_seen", "chime_ringing", "boss_asleep"])
 	var missing := wanted.filter(func(k): return not seen.has(k))
 	var ok := failure == "" and missing.is_empty()

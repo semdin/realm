@@ -1,7 +1,7 @@
 extends HudWindow
 class_name HudWaylink
 
-## Where should the Waylink go? Opened by right-clicking an Old Boot in the
+## Where should the Waystake go? Opened by right-clicking an Waystake in the
 ## bag (inventory_arcane.gd asks the HUD's `waylink`); the server sets it down
 ## at the owner's feet (RealmSession.waylink_place). The destinations are
 ## travel.json `waylink.destinations`; one above the character's level is
@@ -14,12 +14,12 @@ var _list: VBoxContainer
 var buttons := {}
 
 func _init() -> void:
-	super._init("Waylink", Vector2(380, 360))
+	super._init("Waystake", Vector2(380, 360))
 	name = "WaylinkWindow"
 
 func _ready() -> void:
 	super._ready()
-	var hint := HudKit.label(tr("Set the boot down and choose where it goes. For ten seconds your party may grab hold; then everyone holding on is carried there together."), 13, HudKit.PARCHMENT)
+	var hint := HudKit.label(tr("Drive the stake in and choose where it leads. For ten seconds your party may take hold; then everyone holding on is carried there together."), 13, HudKit.PARCHMENT)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.add_child(hint)
 	_list = VBoxContainer.new()

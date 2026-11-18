@@ -3,7 +3,7 @@ extends Node
 ## `--check-others`: another player drawn as it is, on a dev join
 ## (build/logs/aup_others.sh: the coordinator and the grounds server; the
 ## check character 900811 and the partner 900812 - level 23, house Nisera,
-## the Sealed Wing Explorer title, the Runed Mantle - four metres apart). The
+## the Brine Vaults Explorer title, the Runed Mantle - four metres apart). The
 ## check starts the partner itself: a second, headless client of this game
 ## (`--others-guest NAME --character 900812`, its log in
 ## build/logs/others_guest.log), stopped by its PID at the end if it has not
@@ -247,7 +247,7 @@ func _guest() -> void:
 	if not await _until(said, 90.0):
 		_guest_done("%s never said it was ready" % guest_of)
 		return
-	print("realm guest others: %s is ready: new look %s, wand off" % [guest_of, NEW_LOOK])
+	print("realm guest others: %s is ready: new look %s, rod off" % [guest_of, NEW_LOOK])
 	# The wand first: an item request names the sheet revision it was made
 	# on, and the new look makes a new revision, so the look waits for it.
 	var answers: Array = []
@@ -255,7 +255,7 @@ func _guest() -> void:
 	_guest_unequip = game.sheet_view.submit("unequip", "main_hand")
 	_guest_asked = true
 	if not await _until(func(): return not (game.session.sheet()["equipment"] as Dictionary).has("main_hand")):
-		_guest_done("the wand never came off (request %d, answers %s)" % [_guest_unequip, answers])
+		_guest_done("the rod never came off (request %d, answers %s)" % [_guest_unequip, answers])
 		return
 	var look: Dictionary = (game.session.sheet()["look"] as Dictionary).duplicate()
 	for key: String in NEW_LOOK:
@@ -267,7 +267,7 @@ func _guest() -> void:
 		return not (sheet["equipment"] as Dictionary).has("main_hand") \
 			and NEW_LOOK.keys().all(func(k): return is_equal_approx(float(now.get(k, -1.0)), float(NEW_LOOK[k])))
 	if not await _until(dressed):
-		_guest_done("the sheet never showed the new look without the wand (unequip request %d)" % _guest_unequip)
+		_guest_done("the sheet never showed the new look without the rod (unequip request %d)" % _guest_unequip)
 		return
 	print("realm guest others: dressed; waiting for %s to go" % guest_of)
 	await _until(func(): return host.call() == 0, 60.0)

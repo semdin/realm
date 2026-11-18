@@ -14,28 +14,28 @@ class_name HudBestiary
 const PORTRAITS := "res://assets/ui/bestiary/%s.png"
 # i18n-begin
 const LORE := {
-	"drowned_one": "Drowned corpses bewitched to serve the Ash Priest. Slow, relentless and terrified of fire.",
-	"drowned_warden": "Drowned Ones raised from a cursed lake to guard what lies beneath. Their cold grip drags you down; fire still breaks them.",
-	"goblin_teller": "Goblin moneylenders from Orvell's vaults, out collecting debts. They count every coin and carry a heavy purse.",
-	"goblin_guard": "Vault guards in goblin-wrought silver. Shoving, stubborn and well paid; what they carry is rarely ordinary.",
-	"goblin_hexer": "Goblin magic needs no wand. Hexers walk with the tellers and the guards and blast debtors off their feet with bare hands.",
-	"black_weaver": "Giant spiders of the Raven Woods, bred from an ancient brood-mother. They hunt in packs.",
-	"dark_bandit": "Wizards turned bounty hunters, roaming the roads in gangs. Some cast from range.",
+	"drowned_one": "Lake dead cured hard by Lunra's brine and walked back ashore by the Ash Priest. Slow, relentless and dry as tinder.",
+	"drowned_warden": "Saltwights raised in old Vigil mail to hold the shore. Their crusted grip drags you down; fire still takes them.",
+	"goblin_teller": "Goblin salvagers who strip battlefields and old mines, hauling every scrap of worth on their backs.",
+	"goblin_guard": "Scrap-plated goblin muscle that keeps a salvage crew alive. Shoving, stubborn and greedy; what they carry is rarely ordinary.",
+	"goblin_hexer": "Hexers burn stolen shard-dust between their palms and blast anything that comes near the salvage.",
+	"black_weaver": "Spiders swollen on the shard-dust that drifts down through the Raven Woods. Each nest is spun around a fallen splinter.",
+	"dark_bandit": "Deserters who broke their oath to the Vigil and now rob the caravan roads. Some still remember how to cast.",
 	"troll_forest": "Hulking forest trolls with crude clubs. Slow to anger, slower to fall.",
 	"troll_mountain": "The largest trolls, grey-skinned and thick-hided, guarding the high moors.",
-	"pallid": "Soul-sucking wardens of Morhal. Their cold drains your will; only the Light of Ithrel truly drives them off.",
-	"fidgetling": "Electric-blue pests that lift wizards off their feet and hurl them about.",
-	"armour_guard": "Suits of armour enchanted to defend the castle's sealed wing.",
-	"armour_commander": "A cursed suit that commands the others. Its shield turns aside blows from the front.",
-	"strangling_vine": "A creeping plant that strangles whatever struggles. Burn its vines to reach the heart.",
-	"threehead": "A three-headed hound bound to guard the sealed wing's stone hatch. The sleep chime lulls it.",
+	"pallid": "Empty mail that marches out of the Morhal mist, still keeping a watch no one remembers. Its cold numbs the body; hard dawn light burns the mist out of it.",
+	"fidgetling": "Little gale-sprites that ride the drafts of old cellars and toss intruders into the air.",
+	"armour_guard": "Sentries of a garrison walled in long ago. The men are gone; the armour never stood down.",
+	"armour_commander": "The last castellan of the vaults, still giving orders to empty mail. Its shield turns aside blows from the front.",
+	"strangling_vine": "A salt-fed briar that split the vault floor. Flame only steams it; frost and force crack its stems and bare the heart.",
+	"wheelwarden": "A brass colossus built to turn the great Tidewheel, gone mad in the dark. Flood its joints at the sluice wheel and break its three plates.",
 	"venomfang_weaver": "Lean, long-legged hunters of the Blackweb Caverns. Their emerald venom burns for seconds after the bite.",
 	"broodguard": "Bone-plated giants that guard the egg caverns. Their armour turns blows from the front; their webs pin you down.",
 }
 const RESIST_NAMES := {"fire": "Fire (Flame Wave)", "stun": "Stuns", "force": "Force (Shockwave)",
-	"ithrel_light": "Light of Ithrel", "arcane": "Arcane"}
-const FAMILY_NAMES := {"troll": "Troll", "undead": "Undead", "ashbound": "Ashbound", "pallid": "Pallid",
-	"beast": "Beast", "pixie": "Fidgetling", "snare": "Plant", "armour": "Enchanted armour", "hound": "Hound",
+	"ithrel_light": "Dawnbreak", "arcane": "Arcane"}
+const FAMILY_NAMES := {"troll": "Troll", "undead": "Undead", "ashbound": "Ashbound", "pallid": "Mistguard",
+	"beast": "Beast", "pixie": "Galeling", "snare": "Plant", "armour": "Hollow sentry", "hound": "Construct",
 	"spider": "Spider", "goblin": "Goblin"}
 # i18n-end
 ## Roles that are not creatures of their own (a boss's head or vine, an egg
@@ -297,7 +297,7 @@ func show_species(sp: String) -> void:
 	if int(e["aggressive_from"]) > 0:
 		_fact(tr("Aggressive"), tr("from Lv %d") % int(e["aggressive_from"]), Color(1.0, 0.6, 0.5))
 
-## One short labelled line: "Found   Village Outskirts, Pitch Woods".
+## One short labelled line: "Found   Village Outskirts, Field Woods".
 func _fact(caption: String, text: String, colour: Color = HudKit.TEXT) -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
