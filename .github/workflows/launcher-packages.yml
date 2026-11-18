@@ -1,0 +1,362 @@
+# Every launcher package, built and checked on GitHub-hosted machines:
+#   Windows   ThousandRealms_Launcher.exe, ThousandRealms-Setup.exe (Inno Setup)
+#   Linux     ThousandRealms_Launcher-x86_64.AppImage, ThousandRealms-linux-x86_64.tar.gz
+#   macOS     ThousandRealms.dmg, ThousandRealms_Launcher-macos(.zip)
+#   itch.io   one folder per channel, validated with butler
+#
+# client-release.yml calls this. Started by hand it is a dry run: it builds and
+# checks everything, keeps the results as workflow artifacts, and publishes
+# nothing.  gh workflow run launcher-packages.yml
+#
+# macOS signing and notarization turn on by themselves once the APPLE_* secrets
+# exist (launcher/packaging/macos/build_app.sh lists them).
+
+name: launcher-packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: 'Build even when the published launcher is the same version'
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      rebuild:
+        type: boolean
+        default: false
+    secrets:
+      APPLE_DEVELOPER_ID_P12_BASE64:
+        required: false
+      APPLE_DEVELOPER_ID_P12_PASSWORD:
+        required: false
+      APPLE_NOTARY_KEY_BASE64:
+        required: false
+      APPLE_NOTARY_KEY_ID:
+        required: false
+      APPLE_NOTARY_ISSUER_ID:
+        required: false
+
+permissions:
+  contents: read
+
+env:
+  GIT_LFS_SKIP_SMUDGE: '1'
+  LATEST: https://github.com/${{ github.repository }}/releases/latest/download
+  INNO_VERSION: '7.1.1'
+  INNO_TAG: is-7_1_1
+  INNO_SHA256: 8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0
+  BUTLER_VERSION: '15.32.0'
+  BUTLER_SHA256: 2335971394ef6596f95ded0833e85ee28755e13761716ef4c91d6b11f69162f5
+
+jobs:
+  windows:
+    name: Windows launcher
+    runs-on: ubuntu-24.04
+    outputs:
+      reused: ${{ steps.reuse.outputs.hit }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the launcher version is the last launcher commit time
+          lfs: false
+      - name: Resolve the launcher version
+        id: v
+        run: echo "launcher=3.0.$(git log -1 --format=%ct -- launcher)" >> "$GITHUB_OUTPUT"
+      - name: Reuse the published launcher when launcher/ is unchanged
+        id: reuse
+        if: ${{ !inputs.rebuild }}
+        run: |
+          python3 tools/release/reuse_launcher.py --base "$LATEST" --manifest manifest.json \
+            --version "${{ steps.v.outputs.launcher }}" --out out ThousandRealms_Launcher.exe
+      - name: Build with the MinGW-w64 cross compiler
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          set -eu
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            g++-mingw-w64-x86-64-posix gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 ninja-build
+          # The -posix toolchain: the default win32-thread variant has no std::thread/std::mutex.
+          cmake -S launcher -B build-mingw -G Ninja -DCMAKE_SYSTEM_NAME=Windows \
+            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix \
+            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
+            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
+            -DCMAKE_BUILD_TYPE=Release -DREALM_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
+          ninja -C build-mingw ThousandRealms_Launcher ThousandRealms_UpdaterCLI
+          mkdir -p out
+          cp build-mingw/ThousandRealms_Launcher.exe build-mingw/ThousandRealms_UpdaterCLI.exe out/
+      - uses: actions/upload-artifact@v7
+        with:
+          name: launcher-windows
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-setup:
+    name: Windows installer
+    needs: [windows]
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: launcher-windows
+          path: out
+      - name: Resolve the launcher version
+        id: v
+        shell: bash
+        run: echo "launcher=3.0.$(git log -1 --format=%ct -- launcher)" >> "$GITHUB_OUTPUT"
+      - name: Reuse the published installer when launcher/ is unchanged
+        id: reuse
+        if: ${{ !inputs.rebuild }}
+        shell: bash
+        run: |
+          python tools/release/reuse_launcher.py --base "$LATEST" --manifest manifest.json \
+            --version "${{ steps.v.outputs.launcher }}" --out setup ThousandRealms-Setup.exe
+      - name: Install Inno Setup ${{ env.INNO_VERSION }}
+        if: steps.reuse.outputs.hit != 'true'
+        shell: pwsh
+        run: |
+          $file = Join-Path $env:RUNNER_TEMP "innosetup-$env:INNO_VERSION-x64.exe"
+          Invoke-WebRequest -Uri "https://github.com/jrsoftware/issrc/releases/download/$env:INNO_TAG/innosetup-$env:INNO_VERSION-x64.exe" -OutFile $file
+          if ((Get-FileHash $file -Algorithm SHA256).Hash -ne $env:INNO_SHA256) { throw 'Inno Setup hash mismatch' }
+          $dir = Join-Path $env:RUNNER_TEMP 'inno'
+          $p = Start-Process $file -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/SP-', '/PORTABLE=1', '/CURRENTUSER', "/DIR=$dir" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Inno Setup install failed: $($p.ExitCode)" }
+          "ISCC=$dir\ISCC.exe" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+      - name: Build ThousandRealms-Setup.exe
+        if: steps.reuse.outputs.hit != 'true'
+        shell: pwsh
+        run: |
+          & $env:ISCC /Q "/DLauncherExe=$PWD\out\ThousandRealms_Launcher.exe" "/DOutputDir=$PWD\setup" launcher\packaging\windows\ThousandRealms.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed: $LASTEXITCODE" }
+      - name: Install, check and uninstall it
+        shell: pwsh
+        run: launcher\packaging\windows\verify_setup.ps1 "$PWD\setup\ThousandRealms-Setup.exe"
+      - name: Updater tests against the Windows build
+        if: needs.windows.outputs.reused != 'true'
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/Scripts/pip" install --quiet cryptography numpy
+          "$RUNNER_TEMP/venv/Scripts/python" tools/release/test_updater.py \
+            --launcher out/ThousandRealms_UpdaterCLI.exe --gui-launcher out/ThousandRealms_Launcher.exe \
+            | tee "$RUNNER_TEMP/updater-tests.log"
+          grep -q "UPDATER RESULT: .*, 0 failures" "$RUNNER_TEMP/updater-tests.log"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: launcher-windows-setup
+          path: setup/ThousandRealms-Setup.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    name: Linux launcher
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: false
+      - name: Resolve the launcher version
+        id: v
+        run: echo "launcher=3.0.$(git log -1 --format=%ct -- launcher)" >> "$GITHUB_OUTPUT"
+      - name: Reuse the published launcher when launcher/ is unchanged
+        id: reuse
+        if: ${{ !inputs.rebuild }}
+        run: |
+          python3 tools/release/reuse_launcher.py --base "$LATEST" --manifest manifest-linux-x86_64.json \
+            --version "${{ steps.v.outputs.launcher }}" --out out \
+            ThousandRealms_Launcher-x86_64.AppImage ThousandRealms-linux-x86_64.tar.gz
+      - name: Build in the pinned Ubuntu 22.04 image
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          set -eu
+          mkdir -p out
+          docker build -q -t thousand-realms-launcher-build:22.04 launcher/packaging/linux >/dev/null
+          docker run --rm --user "$(id -u):$(id -g)" -v "$PWD/launcher:/src:ro" -v "$PWD/out:/out" \
+            thousand-realms-launcher-build:22.04 \
+            bash /src/packaging/linux/build_appimage.sh /src "${{ steps.v.outputs.launcher }}" /out
+      - name: Check the packages (no FUSE, execute bit, menu entry, old-launcher update)
+        run: |
+          set -eu
+          work="$RUNNER_TEMP/check"; mkdir -p "$work/shots" "$work/data"
+          image="$PWD/out/ThousandRealms_Launcher-x86_64.AppImage"
+          chmod +x "$image"
+          # Runs with FUSE out of reach, as on a machine without it.
+          if command -v fusermount3 fusermount >/dev/null; then echo "(FUSE tools exist here; the launcher never calls them)"; fi
+          strace -f -e trace=execve,mount -o "$work/trace" "$image" --print-state > "$work/state.json" || \
+            "$image" --print-state > "$work/state.json"
+          grep -q '"ok":true' "$work/state.json"
+          if [ -s "$work/trace" ] && grep -E 'fusermount|mount\(' "$work/trace"; then exit 1; fi
+          tar -xzf out/ThousandRealms-linux-x86_64.tar.gz -C "$work"
+          folder="$work/ThousandRealms"
+          test -x "$folder/ThousandRealms_Launcher"
+          test -f "$folder/THIRD_PARTY_NOTICES.txt"
+          desktop-file-validate "$folder/Thousand Realms.desktop" 2>/dev/null || true
+          for lang in en tr; do for state in ready network crash; do
+            "$folder/ThousandRealms_Launcher" --lang $lang --screenshot "$work/shots/$lang-$state.png" --screenshot-state $state
+          done; done
+          # First start adds the menu entry; an entry the player removed stays removed.
+          export XDG_DATA_HOME="$work/data" SDL_VIDEODRIVER=offscreen
+          timeout 30 "$folder/ThousandRealms_Launcher" --exit-after 1500 || true
+          grep -q "Exec=\"$folder/ThousandRealms_Launcher\"" "$work/data/applications/thousand-realms.desktop"
+          "$folder/ThousandRealms_Launcher" --remove-desktop-entry
+          timeout 30 "$folder/ThousandRealms_Launcher" --exit-after 1500 || true
+          test ! -e "$work/data/applications/thousand-realms.desktop"
+          # An old AppImage launcher starts the new file as its update helper,
+          # with its own APPIMAGE/APPDIR still set: the new file must swap itself in.
+          cp "$image" "$work/helper"; echo old > "$work/old-launcher"
+          APPIMAGE="$work/old-launcher" APPDIR=/tmp/.mount_old "$work/helper" --self-update-swap 0 "$work/old-launcher"
+          cmp "$work/helper" "$work/old-launcher"
+          cp -r "$work/shots" out-shots
+      - name: Updater tests against the Linux build
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet cryptography numpy
+          chmod +x out/ThousandRealms_UpdaterCLI-linux
+          "$RUNNER_TEMP/venv/bin/python" tools/release/test_updater.py \
+            --launcher out/ThousandRealms_UpdaterCLI-linux \
+            --gui-launcher out/ThousandRealms_Launcher-x86_64.AppImage | tee "$RUNNER_TEMP/updater-tests.log"
+          grep -q "UPDATER RESULT: .*, 0 failures" "$RUNNER_TEMP/updater-tests.log"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: launcher-linux
+          path: |
+            out/ThousandRealms_Launcher-x86_64.AppImage
+            out/ThousandRealms-linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: screens-linux
+          path: out-shots/
+          if-no-files-found: error
+          retention-days: 7
+
+  macos:
+    name: macOS launcher
+    # macos-14 images are retired; the app still targets macOS 11.
+    runs-on: macos-15
+    env:
+      APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
+      APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
+      APPLE_NOTARY_KEY_BASE64: ${{ secrets.APPLE_NOTARY_KEY_BASE64 }}
+      APPLE_NOTARY_KEY_ID: ${{ secrets.APPLE_NOTARY_KEY_ID }}
+      APPLE_NOTARY_ISSUER_ID: ${{ secrets.APPLE_NOTARY_ISSUER_ID }}
+    steps:
+      # A fresh hosted runner has no init.defaultBranch: checkout's `git init`
+      # printed git's "Using 'master' as the name for the initial branch" hint.
+      - name: Git default branch
+        run: git config --global init.defaultBranch main
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          lfs: false
+      - name: Resolve the launcher version
+        id: v
+        run: echo "launcher=3.0.$(git log -1 --format=%ct -- launcher)" >> "$GITHUB_OUTPUT"
+      - name: Reuse the published launcher when launcher/ is unchanged
+        id: reuse
+        if: ${{ !inputs.rebuild }}
+        run: |
+          set -eu
+          python3 tools/release/reuse_launcher.py --base "$LATEST" --manifest manifest-macos.json \
+            --version "${{ steps.v.outputs.launcher }}" --out "$RUNNER_TEMP/mac" \
+            ThousandRealms_Launcher-macos ThousandRealms_Launcher-macos.zip ThousandRealms.dmg
+          # Once signing is set up, an ad-hoc build is not good enough to reuse.
+          if [ -n "$APPLE_DEVELOPER_ID_P12_BASE64" ] && [ -f "$RUNNER_TEMP/mac/ThousandRealms.dmg" ] \
+             && ! xcrun stapler validate "$RUNNER_TEMP/mac/ThousandRealms.dmg"; then
+            echo "hit=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build, sign and package
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          brew list ninja >/dev/null 2>&1 || brew install ninja
+          bash launcher/packaging/macos/build_app.sh launcher "${{ steps.v.outputs.launcher }}" "$RUNNER_TEMP/mac"
+      - name: Check the disk image
+        run: |
+          set -eu
+          work="$RUNNER_TEMP/dmg-check"; mkdir -p "$work/shots"
+          hdiutil attach -nobrowse -readonly -mountpoint "$work/mnt" "$RUNNER_TEMP/mac/ThousandRealms.dmg" >/dev/null
+          ls -la "$work/mnt"
+          test -L "$work/mnt/Applications"
+          app="$work/mnt/Thousand Realms Launcher.app"
+          codesign --verify --deep --strict "$app"
+          codesign -dv "$app" 2>&1 | grep -E '^(Identifier|Signature|TeamIdentifier|Authority)' || true
+          grep -q com.agsilvery.thousandrealms.launcher "$app/Contents/Info.plist"
+          test -f "$app/Contents/Resources/THIRD_PARTY_NOTICES.txt"
+          lipo -archs "$app/Contents/MacOS/ThousandRealms_Launcher" | grep -q arm64
+          # What Gatekeeper says about the app as a browser would deliver it.
+          ditto "$app" "$work/copy.app"
+          xattr -w com.apple.quarantine "0081;00000000;Safari;" "$work/copy.app"
+          spctl --assess --type execute -vv "$work/copy.app" 2>&1 || true
+          bin="$work/copy.app/Contents/MacOS/ThousandRealms_Launcher"
+          xattr -d com.apple.quarantine "$work/copy.app"
+          "$bin" --print-state | grep -q '"ok":true'
+          for lang in en tr; do "$bin" --lang $lang --screenshot "$work/shots/$lang-disk.png" --screenshot-state disk; done
+          codesign --verify --deep --strict "$work/copy.app"   # running it added nothing to the sealed bundle
+          hdiutil detach "$work/mnt" >/dev/null
+          cp -r "$work/shots" "$RUNNER_TEMP/mac-shots"
+      - name: Updater tests against the macOS build
+        if: steps.reuse.outputs.hit != 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/venv"
+          "$RUNNER_TEMP/venv/bin/pip" install --quiet cryptography numpy
+          "$RUNNER_TEMP/venv/bin/python" tools/release/test_updater.py \
+            --launcher "$RUNNER_TEMP/mac/ThousandRealms_UpdaterCLI-macos" \
+            --gui-launcher "$RUNNER_TEMP/mac/ThousandRealms_Launcher-macos" \
+            --app-zip "$RUNNER_TEMP/mac/ThousandRealms_Launcher-macos.zip" | tee "$RUNNER_TEMP/updater-tests.log"
+          grep -q "UPDATER RESULT: .*, 0 failures" "$RUNNER_TEMP/updater-tests.log"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: launcher-macos
+          path: |
+            ${{ runner.temp }}/mac/ThousandRealms.dmg
+            ${{ runner.temp }}/mac/ThousandRealms_Launcher-macos.zip
+            ${{ runner.temp }}/mac/ThousandRealms_Launcher-macos
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: screens-macos
+          path: ${{ runner.temp }}/mac-shots/
+          if-no-files-found: error
+          retention-days: 7
+
+  itch:
+    name: itch.io folders
+    needs: [windows, linux, macos]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          lfs: false
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: launcher-*
+          path: dist
+          merge-multiple: true
+      - name: Install butler ${{ env.BUTLER_VERSION }}
+        run: |
+          set -eu
+          curl -fsSL -o "$RUNNER_TEMP/butler.zip" "https://broth.itch.zone/butler/linux-amd64/$BUTLER_VERSION/archive/default"
+          echo "$BUTLER_SHA256  $RUNNER_TEMP/butler.zip" | sha256sum -c -
+          mkdir -p "$RUNNER_TEMP/butler"
+          unzip -q "$RUNNER_TEMP/butler.zip" -d "$RUNNER_TEMP/butler"
+          chmod +x "$RUNNER_TEMP/butler/butler"
+      - name: Build the folders and validate them
+        run: |
+          python3 tools/release/itch_package.py --dist dist --out itch --butler "$RUNNER_TEMP/butler/butler" --validate
+          # A tar keeps the execute bits, which workflow artifacts lose.
+          tar -cf itch-builds.tar itch
+      - uses: actions/upload-artifact@v7
+        with:
+          name: itch-builds
+          path: itch-builds.tar
+          if-no-files-found: error
+          retention-days: 7

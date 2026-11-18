@@ -47,8 +47,8 @@ HERE = Path(__file__).resolve().parent
 CLIENT = HERE.parent.parent
 IS_WINDOWS = os.name == "nt"
 EXE = ".exe" if IS_WINDOWS else ""
-DEFAULT_LAUNCHER = CLIENT / "launcher_cpp" / "build" / ("ThousandRealms_UpdaterCLI" + EXE)
-DEFAULT_GUI_LAUNCHER = CLIENT / "launcher_cpp" / "build" / ("ThousandRealms_Launcher" + EXE)
+DEFAULT_LAUNCHER = CLIENT / "launcher" / "build" / ("ThousandRealms_UpdaterCLI" + EXE)
+DEFAULT_GUI_LAUNCHER = CLIENT / "launcher" / "build" / ("ThousandRealms_Launcher" + EXE)
 # The fake releases target the platform the launcher under test runs on (the
 # launcher refuses a release built for another platform).
 if IS_WINDOWS:
@@ -811,6 +811,39 @@ def test_self_update(t: Path, server: ReleaseServer, signer: ed25519.Ed25519Priv
           "self-update" in log_file.read_text(errors="ignore"))
 
 
+def test_bundle_update(t: Path, server: ReleaseServer, signer: ed25519.Ed25519PrivateKey,
+                       pin: str, pubkey: str):
+    """macOS: the signed app is replaced as a whole, and an app still carrying
+    the old bundle id (patched by an older launcher) gets the current one."""
+    root = t / "install"
+    rel = t / "rel"
+    rel.mkdir()
+    server.httpd.release_root = rel
+    apps = t / "Apps"
+    apps.mkdir()
+    subprocess.check_call(["ditto", "-x", "-k", str(ARGS.app_zip), str(apps)])
+    app = apps / "Thousand Realms Launcher.app"
+    plist = app / "Contents" / "Info.plist"
+    current = plist.read_text()
+    plist.write_text(current.replace("com.agsilvery.thousandrealms.launcher", "com.hpmmo.launcher"))
+    subprocess.check_call(["codesign", "--force", "--deep", "--sign", "-", str(app)])
+
+    release = Release(rel, signer)
+    release.add_package("ThousandRealms_Launcher-macos.zip", ARGS.app_zip.read_bytes(),
+                        kind="launcher-bundle", from_version="bundle")
+    release.write_manifest("1.0.0", launcher_version="0.0.1")
+    release.write_status("ONLINE")
+    exe = app / "Contents" / "MacOS" / "ThousandRealms_Launcher"
+    args = common_args(root, server.base, pin, pubkey) + ["--update"]
+    proc = subprocess.run([str(exe), *args], capture_output=True, text=True, timeout=240)
+    check("bundle update: exit code 18", proc.returncode == 18, proc.stdout + proc.stderr)
+    check("bundle update: current bundle id in place", plist.read_text() == current)
+    verify = subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], capture_output=True, text=True)
+    check("bundle update: signature intact", verify.returncode == 0, verify.stderr)
+    check("bundle update: nothing left beside the app", sorted(p.name for p in apps.iterdir()) == [app.name],
+          str(list(apps.iterdir())))
+
+
 def test_launcher_version_update(t: Path, server: ReleaseServer, signer: ed25519.Ed25519PrivateKey,
                                  pin: str, pubkey: str):
     """A release that merely ships a newer launcher (launcher_version above the
@@ -1075,10 +1108,12 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--launcher", default=str(DEFAULT_LAUNCHER))
     parser.add_argument("--gui-launcher", default=str(DEFAULT_GUI_LAUNCHER))
+    parser.add_argument("--app-zip", default="", help="macOS: the launcher app zip, for the whole-app update test")
     global ARGS
     ARGS = parser.parse_args()
     ARGS.launcher = Path(ARGS.launcher)
     ARGS.gui_launcher = Path(ARGS.gui_launcher)
+    ARGS.app_zip = Path(ARGS.app_zip) if ARGS.app_zip else None
 
     if not ARGS.launcher.is_file():
         print(f"launcher not found: {ARGS.launcher}")
@@ -1109,6 +1144,8 @@ def main() -> int:
         test_compression_methods,
         test_cleanup_and_usage,
     ]
+    if ARGS.app_zip:
+        tests.append(test_bundle_update)
 
     with tempfile.TemporaryDirectory(prefix="realm-updater-test-") as tmp:
         tmp_path = Path(tmp)

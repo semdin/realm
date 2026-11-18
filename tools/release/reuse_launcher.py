@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Reuse the published launcher when launcher_cpp/ has not changed.
+"""Reuse the published launcher when launcher/ has not changed.
 
-The launcher version is the time of the last commit touching launcher_cpp/,
+The launcher version is the time of the last commit touching launcher/,
 so a release whose version equals the live manifest's launcher_version would
 rebuild (and on macOS re-test) byte-for-byte the same sources. This copies the
 live release's launcher files instead; a release that changed the launcher, a
@@ -42,7 +42,7 @@ def reuse(base: str, manifest_name: str, version: str, out_dir: str, names: list
         print("[reuse] live launcher %s != %s: building" % (live, version))
         return False
     expected = {os.path.basename(a["url"]): a["sha256"]
-                for a in doc.get("artifacts", []) if a.get("kind") == "launcher"}
+                for a in doc.get("artifacts", []) if a.get("kind") in ("launcher", "launcher-bundle")}
     os.makedirs(out_dir, exist_ok=True)
     for name in names:
         try:

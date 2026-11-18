@@ -187,6 +187,18 @@ def make_manifest(args: argparse.Namespace) -> dict:
             "size": os.path.getsize(args.launcher_artifact),
             "sha256": rc.sha256_file(args.launcher_artifact),
         })
+    if args.launcher_bundle:
+        if args.platform != "macos" or not args.launcher_bundle.lower().endswith(".zip"):
+            rc.fail("--launcher-bundle is the macOS app as a .zip", 2)
+        if not os.path.isfile(args.launcher_bundle):
+            rc.fail("launcher bundle %s does not exist" % args.launcher_bundle, 2)
+        artifacts.append({
+            "kind": "launcher-bundle",
+            "from_version": "bundle",
+            "url": args.base_url.rstrip("/") + "/" + os.path.basename(args.launcher_bundle),
+            "size": os.path.getsize(args.launcher_bundle),
+            "sha256": rc.sha256_file(args.launcher_bundle),
+        })
     artifacts.sort(key=lambda entry: (entry["kind"], entry["from_version"] or "", entry["url"]))
 
     if args.kind == "delta" and len(artifacts) != 1:
@@ -371,7 +383,7 @@ def _safe_rel_path(path: str) -> bool:
     return all(part not in ("", ".", "..") for part in path.split("/"))
 
 
-def verify_content_index(doc: dict, directory: str, window: int) -> int:
+def verify_content_index(doc: dict, directory: str, window: int, check_chunks: bool = True) -> int:
     """Checks the signed content index against the manifest and the chunks.
 
     The local content.json must have the manifest's size and sha256 and
@@ -406,6 +418,9 @@ def verify_content_index(doc: dict, directory: str, window: int) -> int:
     files = index.get("files")
     if not isinstance(sources, list) or not isinstance(files, list) or not files:
         rc.fail("content index %s needs a list of sources and a non-empty list of files" % name, 3)
+    if not check_chunks:
+        say("content index %s matches the manifest (chunks were checked where they were built)" % name)
+        return 0
 
     own_base = ci["url"].rsplit("/", 1)[0]
     bins = {}   # source index -> this release's own chunks-<ver>.bin, mapped
@@ -539,7 +554,7 @@ def cmd_verify(args: argparse.Namespace) -> int:
             checked += 1
             say("artifact %s matches its recorded size and sha256" % name)
         if doc.get("content_index"):
-            verify_content_index(doc, directory, args.source_window)
+            verify_content_index(doc, directory, args.source_window, not args.skip_chunks)
             checked += 1
 
     print("MANIFEST OK: %s (channel %s, client %s, %d artifact(s) checked)"
@@ -652,6 +667,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--release-notes-file", default="")
     parser.add_argument("--launcher-artifact", default="", help="the launcher executable for self-update: .exe / .AppImage (optional)")
     parser.add_argument("--launcher-version", default="", help="version of --launcher-artifact")
+    parser.add_argument("--launcher-bundle", default="", help="macOS: the complete launcher app as a .zip (optional)")
+    parser.add_argument("--skip-chunks", action="store_true",
+                        help="verify the content index itself, not the chunk files (they are not here)")
+    parser.add_argument("--check-chunks", action="store_true",
+                        help="only check --content-index against the chunk files beside it (no key needed)")
     parser.add_argument("--content-index", default="", help="content.json from chunk_release.py (optional)")
     parser.add_argument("--published-at", default="", help="pin published_at for a reproducible manifest")
     parser.add_argument("--key", default="", help="Ed25519 private key (PEM) - never in a repository")
@@ -672,6 +692,24 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--installed-protocol", type=int, default=None)
     parser.add_argument("--installed-content", default=None)
     return parser
+
+
+def cmd_check_chunks(args: argparse.Namespace) -> int:
+    """Checks a content index against the chunks beside it, without a manifest
+    or a key: the build machine proves its chunks before they are uploaded, and
+    the signing job (which never has them) signs only the index's hash."""
+    if not args.content_index or not args.client_version:
+        rc.fail("--check-chunks needs --content-index and --client-version", 2)
+    doc = {
+        "client_version": args.client_version,
+        "content_index": {
+            "url": args.base_url.rstrip("/") + "/" + os.path.basename(args.content_index),
+            "size": os.path.getsize(args.content_index),
+            "sha256": rc.sha256_file(args.content_index),
+        },
+    }
+    verify_content_index(doc, os.path.dirname(os.path.abspath(args.content_index)), args.source_window)
+    return 0
 
 
 def cmd_build(args: argparse.Namespace) -> int:
@@ -767,6 +805,8 @@ def main(argv: list[str]) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     ALLOW_REPO_KEY = bool(args.allow_key_in_repo)
+    if args.check_chunks:
+        return cmd_check_chunks(args)
     if args.verify:
         if not args.manifest or not args.pubkey:
             rc.fail("--verify needs --manifest and --pubkey", 2)

@@ -59,7 +59,10 @@ KINDS = ("full", "delta")
 #: launcher self-update payload (the launcher's own selector skips it when
 #: choosing what to install); it is reserved here so the verifier does not
 #: reject a future publication, and documented in release-contract.md.
-KNOWN_ARTIFACT_KINDS = ("full", "delta", "launcher")
+#: `launcher-bundle` is the complete macOS app as a zip (whole-app self-update);
+#: its from_version is "bundle", which launchers that do not know the kind can
+#: never take for an installable client package.
+KNOWN_ARTIFACT_KINDS = ("full", "delta", "launcher", "launcher-bundle")
 
 #: The prefix every artifact, version directory and manifest belongs to.
 ARTIFACT_PREFIX = "thousandrealms-client"
