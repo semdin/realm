@@ -31,7 +31,7 @@ const BANNER_SIZE := Vector2(660, 74)
 ## Under the target card (top 10 + 74) and the notice band's line (96).
 const BANNER_TOP := 134.0
 const CARD_SIZE := Vector2(640, 280)
-const PROBLEM_CARD_H := 400.0
+const PROBLEM_CARD_H := 360.0
 const AMBER := Color(1.0, 0.74, 0.38)
 
 var hud: Control
@@ -65,6 +65,7 @@ var _deadline_ms := 0
 var _warned := false
 var _screen_root: Control
 var _closed_card: Panel
+var _closed_logo: Control
 
 ## Evidence for the checks: announcements seen, the states in order, the
 ## countdown texts shown.
@@ -253,6 +254,8 @@ func show_problem(title: String, detail: String, go_on := Callable(), go_on_text
 	# room for the log's path under the explanation
 	_closed_card.offset_top = -PROBLEM_CARD_H * 0.5
 	_closed_card.offset_bottom = PROBLEM_CARD_H * 0.5
+	_closed_logo.offset_top = -PROBLEM_CARD_H * 0.5 - 150.0
+	_closed_logo.offset_bottom = -PROBLEM_CARD_H * 0.5 - 12.0
 	screen_title.text = title
 	screen_detail.text = "%s\n\n%s" % [detail, tr("Log file: %s") % ProjectSettings.globalize_path("user://logs/godot.log")]
 	if not to_login.is_valid():
@@ -322,6 +325,7 @@ func _build_screen(was_in: bool) -> void:
 	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_screen_root.add_child(shade)
 	var logo := UITheme.logo(150.0)
+	_closed_logo = logo
 	logo.set_anchors_preset(Control.PRESET_CENTER)
 	logo.offset_left = -logo.custom_minimum_size.x * 0.5
 	logo.offset_right = logo.custom_minimum_size.x * 0.5
