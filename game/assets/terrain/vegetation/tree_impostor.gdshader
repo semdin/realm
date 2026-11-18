@@ -59,6 +59,7 @@ void fragment() {
 	// scissor goes first) instead of a screen-door dither.
 	ALPHA = albedo_tex.a * fade;
 	ALPHA_SCISSOR_THRESHOLD = 0.45;
+	// RenderCompat removes these two and alpha_to_coverage on NVK.
 	ALPHA_ANTIALIASING_EDGE = 0.3;
 	ALPHA_TEXTURE_COORDINATE = UV * vec2(textureSize(albedo_array, 0).xy);
 	BACKLIGHT = backlight_color;

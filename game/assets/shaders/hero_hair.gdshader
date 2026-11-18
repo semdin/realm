@@ -34,8 +34,8 @@ void fragment() {
 	ALPHA = texel.a * smoothstep(thin - 0.08, thin + 0.08, COLOR.r);
 	ALPHA_SCISSOR_THRESHOLD = 0.5;
 #if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
-	// not under Mobile: its half-precision fwidth crashes Mesa's NVK compiler
-	// and the hair disappears (scripts/autoload/render_compat.gd)
+	// Under Mobile (every platform today) the hair keeps its plain scissor edge.
+	// On NVK this line must not be compiled: scripts/autoload/render_compat.gd
 	ALPHA_ANTIALIASING_EDGE = 0.3;
 #endif
 }

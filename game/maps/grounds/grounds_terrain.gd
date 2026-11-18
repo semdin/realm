@@ -67,6 +67,7 @@ func _init() -> void:
 	# path, and an in-memory one makes it load an empty path (an error).
 	material = load(MATERIAL)
 	assets = load(ASSETS)
+	RenderCompat.clean_terrain_assets(assets)
 	# The ground draws on its own layer; the vegetation joins it.
 	render_layers = (render_layers & ~1) | RENDER_BIT
 
