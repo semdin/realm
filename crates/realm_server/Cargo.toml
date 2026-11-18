@@ -12,6 +12,7 @@ realm_data.workspace = true
 realm_proto.workspace = true
 realm_sim.workspace = true
 realm_rules.workspace = true
+realm_filter.workspace = true
 getrandom.workspace = true
 bevy_ecs.workspace = true
 crossbeam-channel.workspace = true

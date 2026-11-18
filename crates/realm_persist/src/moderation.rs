@@ -47,7 +47,10 @@ async fn load(client: &Client) -> Result<(Vec<SanctionRow>, Vec<BlockRow>), Stri
         });
     }
     let rows = client
-        .query("SELECT account_id, blocked_id, name FROM account_blocks", &[])
+        .query(
+            "SELECT account_id, blocked_id, name FROM account_blocks",
+            &[],
+        )
         .await
         .map_err(|e| text(&e))?;
     let mut blocks = Vec::with_capacity(rows.len());
@@ -145,7 +148,11 @@ async fn add_report(client: &Client, row: &ReportRow) -> Result<(), String> {
     Ok(())
 }
 
-async fn load_reports(client: &Client, limit: u32, open_only: bool) -> Result<Vec<ReportRow>, String> {
+async fn load_reports(
+    client: &Client,
+    limit: u32,
+    open_only: bool,
+) -> Result<Vec<ReportRow>, String> {
     let rows = client
         .query(
             "SELECT id, extract(epoch FROM at)::bigint, COALESCE(reporter_account, 0),

@@ -163,6 +163,29 @@ pub struct MapStats {
     pub rss_bytes: u64,
 }
 
+/// A GA's order. `verb`: kick, mute, unmute, ban, unban; `minutes` 0 is
+/// permanent.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModOrder {
+    pub verb: String,
+    pub target: String,
+    pub minutes: u32,
+    pub reason: String,
+}
+
+/// A player's report, with the chat its map remembers of the two of them.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReportNote {
+    pub reporter: u64,
+    pub account: u64,
+    pub target_character: u64,
+    pub target_name: String,
+    pub category: String,
+    pub text: String,
+    pub map: String,
+    pub context: Vec<String>,
+}
+
 /// Map server -> coordinator.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum MapMsg {
@@ -183,6 +206,7 @@ pub enum MapMsg {
     Claim {
         conn: u64,
         character: u64,
+        account: u64,
     },
     /// `character` left this map and its save has landed: here is the
     /// sheet. `arrival`: it travels there (it holds a seat).
@@ -276,6 +300,24 @@ pub enum MapMsg {
     Unreserve {
         characters: Vec<u64>,
     },
+    /// A GA (`by`, checked here) acts on a player.
+    Moderate {
+        by: u64,
+        order: ModOrder,
+    },
+    Report(Box<ReportNote>),
+    /// `from` blocks a player, or stops blocking one.
+    Block {
+        from: u64,
+        name: String,
+        on: bool,
+    },
+    /// A line for the audit trail (`detail`: a JSON object).
+    Audit {
+        character: u64,
+        kind: String,
+        detail: String,
+    },
 }
 
 /// Coordinator -> map server.
@@ -348,11 +390,13 @@ pub enum CoordMsg {
         from: String,
         text: String,
     },
-    /// A line for every player on this map (a shout).
+    /// A line for every player on this map (a shout), except those who
+    /// blocked the speaker's `account`.
     Broadcast {
         channel: u8,
         from: String,
         text: String,
+        account: u64,
     },
     /// `to` is invited into `from`'s party.
     Invite {
@@ -391,6 +435,30 @@ pub enum CoordMsg {
     /// The realm's weather; sent on linking and whenever it changes.
     Weather {
         rain: bool,
+    },
+    /// Every muted account and when it ends (0: permanent); sent on linking
+    /// and whenever it changes.
+    Mutes(Vec<(u64, u64)>),
+    /// `account`'s block list, as accounts and as the names it shows.
+    Blocks {
+        account: u64,
+        blocked: Vec<u64>,
+        names: Vec<String>,
+    },
+    /// Tell `character` of a sanction; kick and ban also take it out.
+    Sanctioned {
+        character: u64,
+        kind: String,
+        reason: String,
+        until: u64,
+    },
+    /// The answer to `to`'s report or block.
+    Social {
+        to: u64,
+        what: String,
+        ok: bool,
+        reason: String,
+        name: String,
     },
 }
 

@@ -38,6 +38,11 @@
 //!                                       and polls /admin/metrics with it
 //!   POST /admin/maintenance/begin|abort, /admin/save, /admin/disconnect-all,
 //!        /admin/ga, /admin/announce     the cycle, barriers, GAs, notices
+//!   GET  /admin/health                  state, maps up and down, alerts
+//!   POST /admin/admit, /admin/access    the login service's questions
+//!   POST /admin/sanction {action: kick|mute|unmute|ban|unban, name | character
+//!        | account, minutes (0: permanent), reason, by}
+//!   GET  /admin/sanctions, /admin/reports; POST /admin/reports/close {id, status}
 
 use std::collections::{HashSet, VecDeque};
 use std::net::SocketAddr;
@@ -571,7 +576,7 @@ impl Book {
                     .values()
                     .filter(|s| matches!(s, Seat::On { link, .. } if link == id))
                     .count();
-                json!({"map": l.map, "address": l.address, "capacity": l.capacity, "players": players})
+                json!({"map": l.map, "address": l.address, "capacity": self.map_cap(*id), "players": players})
             })
             .collect();
         maps.sort_by(|a, b| a["map"].as_str().cmp(&b["map"].as_str()));
@@ -661,6 +666,18 @@ async fn route(req: Request, book: &Arc<Mutex<Book>>) -> (u16, Value) {
             deferred(rx).await
         }
         ("POST", "/admin/ga") => book.lock().await.admin_ga(&req.body),
+        ("GET", "/admin/health") => (200, book.lock().await.health_view()),
+        ("POST", "/admin/admit") => (200, book.lock().await.admit_request(&req.body)),
+        ("POST", "/admin/access") => {
+            let account = req.body["account"].as_u64().unwrap_or(0);
+            (200, book.lock().await.access_view(account))
+        }
+        ("POST", "/admin/sanction") => crate::moderation::admin_sanction(book, &req.body).await,
+        ("GET", "/admin/sanctions") => (200, book.lock().await.sanctions_view()),
+        ("GET", "/admin/reports") => crate::moderation::admin_reports(book).await,
+        ("POST", "/admin/reports/close") => {
+            crate::moderation::admin_close_report(book, &req.body).await
+        }
         // The login service, before a deletion or after a new password.
         ("POST", "/admin/characters/release") => {
             let ids = |key: &str| req.body[key].as_array().cloned().unwrap_or_default();

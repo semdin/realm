@@ -2299,6 +2299,9 @@ func _show_notices() -> void:
 		if kind == "maintenance":
 			maintenance.on_notice(notice)
 			continue
+		if kind in ["sanction", "social", "blocks"]:
+			_moderation_notice(notice)
+			continue
 		if kind == "update_soon":
 			var soon := tr("An update is on its way: the realm restarts in about %d minutes.") % int(notice["value"])
 			hud.show_notice(soon, "update")
@@ -3121,3 +3124,13 @@ bag: %s" % [
 			and _check_loop_passed() \
 			and check_bursts > 0 and (_check_hit_statuses() & StatusFX.STATUS_KNOCKED != 0 or not _check_hit_throwable())
 		get_tree().quit(0 if passed else 1)
+
+## What moderation says to this player: a kick or a ban is shown on the end
+## screen when the connection closes, anything else in the chat log.
+func _moderation_notice(notice: Dictionary) -> void:
+	if String(notice["kind"]) == "sanction" and String(notice["state"]) in ["kick", "ban"]:
+		maintenance.on_sanction(notice)
+		return
+	var line: String = hud.player_menu.social_notice(notice)
+	if line != "":
+		hud.chat.add_system_line(line)

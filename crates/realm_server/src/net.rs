@@ -142,7 +142,11 @@ impl Meter {
     /// May this input go on? Err: the connection has to go.
     fn input(&mut self) -> Result<Option<Held>, &'static str> {
         self.tick_window();
-        let held = if self.inputs.take(1.0) { self.hold() } else { None };
+        let held = if self.inputs.take(1.0) {
+            self.hold()
+        } else {
+            None
+        };
         if held.is_none() {
             self.dropped_inputs += 1;
             if self.dropped_inputs > DROPS_INPUT_MAX {
@@ -300,7 +304,11 @@ pub async fn accept_loop(endpoint: Endpoint, sim: Sender<NetEvent>, key: Verifyi
     while let Some(incoming) = endpoint.accept().await {
         let ip = incoming.remote_address().ip();
         let verdict = gate.lock().map_or(Verdict::Refuse, |mut g| {
-            g.judge(ip, incoming.remote_address_validated(), incoming.may_retry())
+            g.judge(
+                ip,
+                incoming.remote_address_validated(),
+                incoming.may_retry(),
+            )
         });
         match verdict {
             Verdict::Refuse => {

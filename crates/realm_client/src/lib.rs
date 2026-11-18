@@ -503,7 +503,11 @@ impl RealmSession {
                     self.creature_info.push(info);
                 }
                 NetEvent::Control(
-                    notice @ (ServerMsg::Notice { .. } | ServerMsg::Maintenance { .. }),
+                    notice @ (ServerMsg::Notice { .. }
+                    | ServerMsg::Maintenance { .. }
+                    | ServerMsg::Sanction { .. }
+                    | ServerMsg::Blocks(_)
+                    | ServerMsg::SocialResult { .. }),
                 ) => {
                     self.notices.push(notice);
                 }
@@ -1044,6 +1048,31 @@ impl RealmSession {
         }
     }
 
+    /// Reports a player: `category` is harassment, hate, spam, cheating, name
+    /// or other; the answer comes as a `social` notice.
+    #[func]
+    fn report_player(&mut self, character: i64, name: GString, category: GString, text: GString) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Report {
+                character: u64::try_from(character).unwrap_or(0),
+                name: name.to_string(),
+                category: category.to_string(),
+                text: text.to_string(),
+            });
+        }
+    }
+
+    /// Blocks a player's account, or stops blocking it.
+    #[func]
+    fn block_player(&mut self, name: GString, on: bool) {
+        if let Some(net) = self.net.as_ref() {
+            net.send_control(&ClientMsg::Block {
+                name: name.to_string(),
+                on,
+            });
+        }
+    }
+
     /// Chat lines since the last call: `channel` (0 local, 1 shout, 2 party,
     /// 3 system), `from` (the speaker's name; empty for a system line),
     /// `text`, `speaker` (its entity when it stands on this map, for a
@@ -1488,6 +1517,50 @@ impl RealmSession {
                 d.set("state", &GString::from(state.as_str()).to_variant());
                 d.set("reason", &GString::from(reason.as_str()).to_variant());
                 d.set("seconds", &i64::from(*seconds).to_variant());
+                out.push(&d.to_variant());
+                continue;
+            }
+            // What moderation says to this player: `sanction` {state: kick, ban,
+            // mute, unmute; reason; until}, `social` {what, ok, reason, name}
+            // and `blocks` {names}.
+            if let ServerMsg::Sanction {
+                kind,
+                reason,
+                until,
+            } = &msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("kind", &GString::from("sanction").to_variant());
+                d.set("state", &GString::from(kind.as_str()).to_variant());
+                d.set("reason", &GString::from(reason.as_str()).to_variant());
+                d.set("until", &i64::try_from(*until).unwrap_or(0).to_variant());
+                out.push(&d.to_variant());
+                continue;
+            }
+            if let ServerMsg::SocialResult {
+                what,
+                ok,
+                reason,
+                name,
+            } = &msg
+            {
+                let mut d = VarDictionary::new();
+                d.set("kind", &GString::from("social").to_variant());
+                d.set("what", &GString::from(what.as_str()).to_variant());
+                d.set("ok", &ok.to_variant());
+                d.set("reason", &GString::from(reason.as_str()).to_variant());
+                d.set("name", &GString::from(name.as_str()).to_variant());
+                out.push(&d.to_variant());
+                continue;
+            }
+            if let ServerMsg::Blocks(names) = &msg {
+                let mut list = VarArray::new();
+                for n in names {
+                    list.push(&GString::from(n.as_str()).to_variant());
+                }
+                let mut d = VarDictionary::new();
+                d.set("kind", &GString::from("blocks").to_variant());
+                d.set("names", &list.to_variant());
                 out.push(&d.to_variant());
                 continue;
             }

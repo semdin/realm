@@ -38,6 +38,8 @@ struct MapSeries {
     at: Option<Instant>,
     /// (players, tick p99 ms), oldest first.
     history: VecDeque<(u32, f32)>,
+    /// Saves that failed since the alerts last looked.
+    new_failures: u64,
 }
 
 #[derive(Default)]
@@ -51,6 +53,43 @@ pub struct Metrics {
     /// by an answer).
     persist: Option<(Instant, PersistStats)>,
     persist_error: Option<String>,
+}
+
+impl Metrics {
+    /// Maps heard from lately: name, the lowest tick p99 of the last three
+    /// windows (one slow window is not an alert), saves failed since last
+    /// asked.
+    pub fn recent_maps(&mut self) -> Vec<(String, f32, u64)> {
+        self.maps
+            .iter_mut()
+            .filter(|(_, s)| s.at.is_some_and(|at| at.elapsed().as_secs() < 30))
+            .map(|(name, s)| {
+                let last: Vec<f32> = s.history.iter().rev().take(3).map(|h| h.1).collect();
+                let p99 = if last.len() == 3 {
+                    last.iter().copied().fold(f32::MAX, f32::min)
+                } else {
+                    0.0
+                };
+                (name.clone(), p99, std::mem::take(&mut s.new_failures))
+            })
+            .collect()
+    }
+
+    /// What is wrong with the persistence service, if it is in use.
+    pub fn persist_problem(&self) -> Option<String> {
+        if !self.persist_on {
+            return None;
+        }
+        if let Some(e) = &self.persist_error {
+            return Some(e.clone());
+        }
+        match &self.persist {
+            None => Some("no answer yet".to_owned()),
+            Some((at, _)) if at.elapsed().as_secs() > 30 => Some("no answer for 30 s".to_owned()),
+            Some((_, s)) if !s.database_error.is_empty() => Some(s.database_error.clone()),
+            _ => None,
+        }
+    }
 }
 
 /// Fractions to three places: the timings travel as f32, and widened to
@@ -81,6 +120,8 @@ impl Book {
         };
         stats.map.clone_from(&map);
         let series = self.metrics.maps.entry(map).or_default();
+        let before = series.stats.as_ref().map_or(0, |s| s.saves_failed);
+        series.new_failures += stats.saves_failed.saturating_sub(before);
         series.history.push_back((stats.players, stats.tick_p99_ms));
         while series.history.len() > HISTORY {
             series.history.pop_front();

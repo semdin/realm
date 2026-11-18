@@ -458,6 +458,8 @@ static func reason_text(reason: String, who: String, value: int) -> String:
 			return I18n.t("The party changed.")
 		"map_full":
 			return I18n.t("Every copy of this dungeon is taken - try again shortly.")
+		"maintenance":
+			return I18n.t("The realm is going into maintenance.")
 		"range":
 			return I18n.t("Stand at the gate.")
 		"no_portal":

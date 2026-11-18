@@ -154,6 +154,9 @@ impl Sim {
                 None => return self.duel_tell(from, "Their party leader is not here."),
             }
         }
+        if let Err(why) = self.duel_allowed(from, target) {
+            return self.duel_tell(from, why);
+        }
         if self.duels.duel_of(from).is_some() || self.duels.duel_of(target).is_some() {
             return self.duel_tell(from, "One of you is already in a duel.");
         }

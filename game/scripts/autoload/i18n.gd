@@ -156,6 +156,10 @@ const COMPOSED := [
 	# the realm coordinator (parties)
 	"%s declined your party invitation.",
 	"%s is not online.",
+	"%s is not accepting invitations.",
+	"You are muted for %d more min.",
+	"You can shout from level %d.",
+	"You can shout again in %d s.",
 	"%s is already in a party.",
 	"Party invitation sent to %s.",
 	"%s joined the party.",

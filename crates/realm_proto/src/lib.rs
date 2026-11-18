@@ -27,7 +27,7 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 22;
+pub const PROTOCOL_VERSION: u16 = 23;
 
 /// QUIC application protocol name, checked during the TLS handshake.
 pub const ALPN: &[u8] = b"realm/22";

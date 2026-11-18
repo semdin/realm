@@ -41,6 +41,8 @@ var active := false
 ## (logged out by the cycle), "lost", "unanswered" (a join the server never
 ## answered), "refused".
 var screen_kind := ""
+## The kick or ban that is about to close the connection ({} when none).
+var sanction := {}
 ## main.gd's return_to_login(kind, detail) when the player came in through
 ## the login screen; unset (a dev join) the button reconnects.
 var to_login := Callable()
@@ -194,7 +196,20 @@ func show_closed(status: String, was_in := true) -> void:
 	var why := status.substr(status.find(": ") + 2) if status.contains(": ") else status
 	var title := ""
 	var detail := ""
-	if refused and why == "maintenance":
+	if not sanction.is_empty():
+		screen_kind = "refused"
+		var banned := String(sanction["state"]) == "ban"
+		title = tr("This account is banned") if banned else tr("You were removed from the realm")
+		detail = sanction_text(sanction)
+	elif refused and why == "banned":
+		screen_kind = "refused"
+		title = tr("This account is banned")
+		detail = tr("It cannot enter the realm.")
+	elif refused and why in ["realm_full", "map_full"]:
+		screen_kind = "refused"
+		title = tr("The realm is full")
+		detail = tr("Too many players are online right now. Please try again in a few minutes.")
+	elif refused and why == "maintenance":
 		screen_kind = "refused_maintenance"
 		title = tr("Server under maintenance")
 		detail = tr("The server is under maintenance. Please try again a little later.")
@@ -223,6 +238,27 @@ func show_closed(status: String, was_in := true) -> void:
 	_build_screen(was_in)
 	screen_title.text = title
 	screen_detail.text = detail
+
+## A kick or a ban arrived: the connection closes next, and the end screen says
+## why instead of "connection lost".
+func on_sanction(notice: Dictionary) -> void:
+	sanction = notice
+
+## The reason and, for a ban that ends, when.
+static func sanction_text(notice: Dictionary) -> String:
+	var lines := PackedStringArray()
+	var reason := String(notice.get("reason", ""))
+	if reason != "":
+		lines.append(TranslationServer.translate("Reason: %s") % reason)
+	var until := int(notice.get("until", 0))
+	if String(notice.get("state", "")) == "ban":
+		lines.append(TranslationServer.translate("Until: %s") % local_time(until) if until > 0 else TranslationServer.translate("This ban does not expire."))
+	return "\n".join(lines)
+
+## A Unix time as the player's own clock shows it.
+static func local_time(unix: int) -> String:
+	var bias := int(Time.get_time_zone_from_system().get("bias", 0))
+	return Time.get_datetime_string_from_unix_time(unix + bias * 60, true).left(16)
 
 func screen_visible() -> bool:
 	return _screen_root != null and _screen_root.visible

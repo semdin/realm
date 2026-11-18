@@ -10,10 +10,11 @@
 
 use realm_proto::control::ServerMsg;
 use realm_proto::coord::{
-    CHANNEL_LOCAL, CHANNEL_SYSTEM, CoordMsg, MapMsg, PartyCmd, PartyView, clean_chat,
+    CHANNEL_LOCAL, CHANNEL_PARTY, CHANNEL_SYSTEM, CoordMsg, MapMsg, PartyCmd, PartyView, clean_chat,
 };
 use realm_sim::SIM_HZ;
 
+use super::moderation::Said;
 use super::{ConnId, Entity, Player, Sim};
 
 /// A plain line carries this far (3D).
@@ -62,8 +63,17 @@ impl Sim {
             return;
         }
         if text.starts_with('/') {
+            if !self.may_say(conn, player, Said::Command, &text) {
+                return;
+            }
             return self.command(conn, player, character, &text);
         }
+        if self.muted(conn) {
+            return;
+        }
+        // What everyone hears passes the word filter; the rest of the line stays.
+        let said = text.clone();
+        let text = realm_filter::shared().mask(&text).unwrap_or(text);
         if let Some(rest) = text.strip_prefix('!') {
             let rest = clean_chat(rest);
             if !rest.is_empty()
@@ -76,14 +86,22 @@ impl Sim {
             }
             return;
         }
+        if !self.may_say(conn, player, Said::Local, &text) {
+            return;
+        }
+        // A report shows what was really said.
+        self.remember_line(CHANNEL_LOCAL, &name, &said);
+        let account = self.account_of(conn);
         let speaker = self.net_id_of(player);
         let hearers: Vec<ConnId> = self
             .clients
             .iter()
             .filter(|(_, c)| {
-                self.world
-                    .get::<Player>(c.entity)
-                    .is_some_and(|q| (q.body.pos - pos).length() <= LOCAL_RADIUS)
+                !self.hears_not(c.account, account)
+                    && self
+                        .world
+                        .get::<Player>(c.entity)
+                        .is_some_and(|q| (q.body.pos - pos).length() <= LOCAL_RADIUS)
             })
             .map(|(conn, _)| *conn)
             .collect();
@@ -107,15 +125,27 @@ impl Sim {
         if word.eq_ignore_ascii_case("/ga") {
             return self.ga_command(conn, player, character, rest);
         }
+        if self.social_command(conn, player, character, &word.to_lowercase(), rest) {
+            return;
+        }
         let party = |cmd: PartyCmd| MapMsg::Party {
             from: character,
             cmd,
         };
         let msg = match word.to_lowercase().as_str() {
             "/p" | "/party" => {
-                if rest.is_empty() {
+                if rest.is_empty()
+                    || self.muted(conn)
+                    || !self.may_say(conn, player, Said::Party, rest)
+                {
                     return;
                 }
+                let name = self
+                    .world
+                    .get::<Player>(player)
+                    .map(|p| p.sheet.name.clone())
+                    .unwrap_or_default();
+                self.remember_line(CHANNEL_PARTY, &name, rest);
                 MapMsg::PartyChat {
                     from: character,
                     text: rest.to_owned(),
@@ -172,14 +202,21 @@ impl Sim {
                 channel,
                 from,
                 text,
+                account,
             } => {
+                self.remember_line(channel, &from, &text);
                 let msg = ServerMsg::Chat {
                     channel,
                     from,
                     text,
                     speaker: 0,
                 };
-                let conns: Vec<ConnId> = self.clients.keys().copied().collect();
+                let conns: Vec<ConnId> = self
+                    .clients
+                    .iter()
+                    .filter(|(_, c)| !self.hears_not(c.account, account))
+                    .map(|(conn, _)| *conn)
+                    .collect();
                 for conn in conns {
                     self.send_control(conn, &msg);
                 }
@@ -236,6 +273,37 @@ impl Sim {
             CoordMsg::SaveAll { barrier } => self.save_barrier(barrier),
             CoordMsg::Gas(names) => self.gas_told(names),
             CoordMsg::Weather { rain } => self.weather_told(rain),
+            CoordMsg::Mutes(list) => self.mutes_told(list),
+            CoordMsg::Blocks {
+                account,
+                blocked,
+                names,
+            } => self.blocks_told(account, blocked, names),
+            CoordMsg::Sanctioned {
+                character,
+                kind,
+                reason,
+                until,
+            } => self.sanctioned(character, kind, reason, until),
+            CoordMsg::Social {
+                to,
+                what,
+                ok,
+                reason,
+                name,
+            } => {
+                if let Some((conn, _)) = self.player_of(to) {
+                    self.send_control(
+                        conn,
+                        &ServerMsg::SocialResult {
+                            what,
+                            ok,
+                            reason,
+                            name,
+                        },
+                    );
+                }
+            }
             CoordMsg::DisconnectAll { barrier } => self.disconnect_all(barrier),
             CoordMsg::Notice(msg) => {
                 let conns: Vec<ConnId> = self.clients.keys().copied().collect();

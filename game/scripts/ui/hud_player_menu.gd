@@ -8,7 +8,7 @@ class_name HudPlayerMenu
 ## the player could type (`/invite Name`, `/duel Name`, `/gduel Name`); the
 ## server checks everything again and answers in the chat. An entry that cannot
 ## apply stays listed but dimmed, with the reason under it, so the options are
-## always discoverable.
+## always discoverable. Below them, Block (or Unblock) and Report.
 ##
 ## It opens on a player within RANGE of the player's own body and closes beyond
 ## the same RANGE, so the reach that opens it and the reach that keeps it agree;
@@ -20,6 +20,9 @@ const MENU_W := 238.0
 const PARTY_ACCENT := Color(0.46, 0.74, 1.0)
 const DUEL_ACCENT := Color(1.0, 0.40, 0.32)
 const GROUP_ACCENT := Color(1.0, 0.58, 0.24)
+const BLOCK_ACCENT := Color(0.72, 0.72, 0.78)
+const REPORT_ACCENT := Color(0.95, 0.74, 0.30)
+const ReportWindowScript := "res://scripts/ui/hud_report_window.gd"
 
 var session: Node
 ## The player's own body (the range), the party frames (who is in the party,
@@ -30,6 +33,9 @@ var duel_view: HudDuel
 ## The player the menu is open on: its body and its name.
 var target: Node3D
 var target_name := ""
+## Names this account has blocked, as the server last said.
+var blocked_names: Array = []
+var _report_window: HudWindow
 var _panel: PanelContainer
 var _column: VBoxContainer
 ## Where its top-left corner wants to be (beside the cursor that opened it).
@@ -93,11 +99,60 @@ func open(body: Node3D, who: Dictionary, at: Vector2) -> void:
 		elif in_mine:
 			group_hint = tr("They are in your party.")
 	_column.add_child(_entry(tr("Group Duel"), GROUP_ACCENT, "/gduel %s" % target_name, group_hint))
+	var is_blocked := target_name in blocked_names
+	_column.add_child(_entry(tr("Unblock Player") if is_blocked else tr("Block Player"), BLOCK_ACCENT,
+		("/unblock \"%s\"" if is_blocked else "/block \"%s\"") % target_name, ""))
+	_column.add_child(_entry(tr("Report Player"), REPORT_ACCENT, _open_report.bind(target_name, int(who.get("character", 0))), ""))
 	visible = true
 	_panel.reset_size()
 	_corner = at + Vector2(10, 6)
 	_place()
 	AudioManager.play_sound_at("ui_open", Vector3.ZERO, null, true)
+
+## The report window, made the first time it is needed; it lives beside the
+## menu, which hides itself.
+func _open_report(who: String, character: int) -> void:
+	if _report_window == null:
+		_report_window = load(ReportWindowScript).new()
+		_report_window.session = session
+		get_parent().add_child(_report_window)
+	_report_window.open_on(who, character)
+
+## A moderation notice as a line for the chat log ("" for none).
+func social_notice(notice: Dictionary) -> String:
+	match String(notice["kind"]):
+		"blocks":
+			blocked_names = Array(notice["names"])
+		"sanction":
+			if String(notice["state"]) == "unmute":
+				return tr("You can speak again.")
+			var until := int(notice["until"])
+			var line := tr("You have been muted until %s.") % MaintenanceUI.local_time(until) if until > 0 else tr("You have been muted.")
+			var reason := String(notice["reason"])
+			return line if reason == "" else "%s %s" % [line, tr("Reason: %s") % reason]
+		"social":
+			return _social_line(String(notice["what"]), String(notice["reason"]), String(notice["name"]))
+	return ""
+
+func _social_line(what: String, reason: String, who: String) -> String:
+	match reason:
+		"sent":
+			return tr("Your report was sent. Thank you.")
+		"done":
+			return tr("%s is blocked. You will not see their messages or invitations.") % who if what == "block" else tr("%s is no longer blocked.") % who
+		"too_soon":
+			return tr("Please wait a little before sending another report.")
+		"daily_limit":
+			return tr("You have sent too many reports today.")
+		"duplicate":
+			return tr("You already reported this player recently.")
+		"self":
+			return tr("You cannot do that to yourself.")
+		"full":
+			return tr("Your block list is full.")
+		"not_found":
+			return tr("No player with that name was found.")
+	return tr("That is not available right now.")
 
 func close() -> void:
 	visible = false
@@ -168,7 +223,7 @@ func _header(who: String, level: int, house: String) -> Control:
 	return margin
 
 ## One entry: a coloured pip, the label, and (when it cannot apply) the reason.
-func _entry(text: String, accent: Color, command: String, blocked: String) -> Control:
+func _entry(text: String, accent: Color, command: Variant, blocked: String) -> Control:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -213,8 +268,10 @@ func _entry(text: String, accent: Color, command: String, blocked: String) -> Co
 		why.position = Vector2(26, 29)
 		b.add_child(why)
 	b.pressed.connect(func():
-		if session != null:
-			session.send_chat(command)
+		if command is Callable:
+			(command as Callable).call()
+		elif session != null:
+			session.send_chat(String(command))
 		AudioManager.play_sound_at("ui_button", Vector3.ZERO, null, true)
 		close())
 	return b

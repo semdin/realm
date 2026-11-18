@@ -548,6 +548,11 @@ fn main() -> AnyResult<()> {
                     | realm_proto::control::ServerMsg::Dungeon(_)
                     | realm_proto::control::ServerMsg::Gate { .. },
                 ) => {}
+                NetEvent::Control(
+                    realm_proto::control::ServerMsg::Sanction { .. }
+                    | realm_proto::control::ServerMsg::Blocks(_)
+                    | realm_proto::control::ServerMsg::SocialResult { .. },
+                ) => {}
                 NetEvent::Closed(why) => return Err(format!("connection closed: {why}").into()),
             }
         }

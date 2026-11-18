@@ -1116,8 +1116,13 @@ impl Sim {
                 return;
             }
             eprintln!("[claim] connection {conn} character {character}: asking the coordinator");
+            let account = join.ticket.account;
             self.pending.insert(conn, join);
-            self.coord_send(MapMsg::Claim { conn, character });
+            self.coord_send(MapMsg::Claim {
+                conn,
+                character,
+                account,
+            });
             return;
         }
         self.join_here(conn, join, None);

@@ -265,6 +265,25 @@ pub enum ServerMsg {
         reason: String,
         seconds: u32,
     },
+    /// Staff or the realm acted on this account. `kind`: kick and ban (the
+    /// connection closes next), mute, unmute. `until`: the Unix second it
+    /// ends (0: permanent, or it has no end).
+    Sanction {
+        kind: String,
+        reason: String,
+        until: u64,
+    },
+    /// The names this account has blocked (on joining, and when it changes).
+    Blocks(Vec<String>),
+    /// The answer to a report or a block. `what`: report, block, unblock;
+    /// `reason`: sent, done, too_soon, daily_limit, duplicate, not_found,
+    /// self, full, unavailable.
+    SocialResult {
+        what: String,
+        ok: bool,
+        reason: String,
+        name: String,
+    },
 }
 
 /// A duel as one duelist sees it. Running: `duel`, `group`, `phase` (0
@@ -343,6 +362,16 @@ pub enum ClientMsg {
     DungeonReady { id: u32, yes: bool },
     /// The dungeon guide: the player's records and this week's boards.
     DungeonGuide,
+    /// Report a player. `category`: harassment, hate, spam, cheating, name,
+    /// other; `text` is optional.
+    Report {
+        character: u64,
+        name: String,
+        category: String,
+        text: String,
+    },
+    /// Stop (or go back to) hearing from this player's account.
+    Block { name: String, on: bool },
 }
 
 /// A party member as the dungeon gate sees it.

@@ -6110,3 +6110,141 @@ msgstr "Diyar henüz hazır değil; birazdan tekrar dene."
 
 msgid "the realm is restarting; try again"
 msgstr "Diyar yeniden başlatılıyor; birazdan tekrar dene."
+
+msgid "%s is not accepting invitations."
+msgstr "%s davet kabul etmiyor."
+
+msgid "You are muted."
+msgstr "Susturuldun."
+
+msgid "You are muted for %d more min."
+msgstr "%d dakika daha susturuldun."
+
+msgid "You are sending messages too quickly."
+msgstr "Çok hızlı mesaj gönderiyorsun."
+
+msgid "You can shout from level %d."
+msgstr "%d. seviyeden itibaren bağırabilirsin."
+
+msgid "You can shout again in %d s."
+msgstr "%d sn sonra yeniden bağırabilirsin."
+
+msgid "You just shouted that."
+msgstr "Bunu az önce bağırdın."
+
+msgid "The realm is loud right now. Try again in a moment."
+msgstr "Diyar şu an çok gürültülü. Birazdan tekrar dene."
+
+msgid "Wait a moment before inviting again."
+msgstr "Yeniden davet etmeden önce biraz bekle."
+
+msgid "Wait a moment before challenging again."
+msgstr "Yeniden meydan okumadan önce biraz bekle."
+
+msgid "That player is not accepting challenges."
+msgstr "Bu oyuncu meydan okuma kabul etmiyor."
+
+msgid "Block Player"
+msgstr "Engelle"
+
+msgid "Unblock Player"
+msgstr "Engeli Kaldır"
+
+msgid "Report Player"
+msgstr "Oyuncuyu Şikâyet Et"
+
+msgid "Report %s"
+msgstr "%s adlı oyuncuyu şikâyet et"
+
+msgid "Harassment"
+msgstr "Taciz"
+
+msgid "Hate speech"
+msgstr "Nefret söylemi"
+
+msgid "Spam"
+msgstr "Spam"
+
+msgid "Cheating"
+msgstr "Hile"
+
+msgid "Offensive name"
+msgstr "Uygunsuz isim"
+
+msgid "Something else"
+msgstr "Başka bir şey"
+
+msgid "What happened? (optional)"
+msgstr "Ne oldu? (isteğe bağlı)"
+
+msgid "Recent chat from you and this player is sent with the report so staff can check it."
+msgstr "Görevlilerin inceleyebilmesi için ikinizin son sohbet satırları şikâyetle birlikte gönderilir."
+
+msgid "Send Report"
+msgstr "Şikâyeti Gönder"
+
+msgid "Your report was sent. Thank you."
+msgstr "Şikâyetin gönderildi. Teşekkürler."
+
+msgid "%s is blocked. You will not see their messages or invitations."
+msgstr "%s engellendi. Mesajlarını ve davetlerini görmeyeceksin."
+
+msgid "%s is no longer blocked."
+msgstr "%s artık engelli değil."
+
+msgid "Please wait a little before sending another report."
+msgstr "Yeni bir şikâyet göndermeden önce biraz bekle."
+
+msgid "You have sent too many reports today."
+msgstr "Bugün çok fazla şikâyet gönderdin."
+
+msgid "You already reported this player recently."
+msgstr "Bu oyuncuyu kısa süre önce şikâyet ettin."
+
+msgid "You cannot do that to yourself."
+msgstr "Bunu kendine yapamazsın."
+
+msgid "Your block list is full."
+msgstr "Engel listen dolu."
+
+msgid "No player with that name was found."
+msgstr "Bu isimde bir oyuncu bulunamadı."
+
+msgid "That is not available right now."
+msgstr "Bu şu an kullanılamıyor."
+
+msgid "You can speak again."
+msgstr "Yeniden konuşabilirsin."
+
+msgid "You have been muted."
+msgstr "Susturuldun."
+
+msgid "You have been muted until %s."
+msgstr "%s tarihine kadar susturuldun."
+
+msgid "Reason: %s"
+msgstr "Sebep: %s"
+
+msgid "Until: %s"
+msgstr "Bitiş: %s"
+
+msgid "This ban does not expire."
+msgstr "Bu yasağın süresi dolmaz."
+
+msgid "This account is banned"
+msgstr "Bu hesap yasaklandı"
+
+msgid "It cannot enter the realm."
+msgstr "Diyara giremez."
+
+msgid "You were removed from the realm"
+msgstr "Diyardan çıkarıldın"
+
+msgid "The realm is full"
+msgstr "Diyar dolu"
+
+msgid "Too many players are online right now. Please try again in a few minutes."
+msgstr "Şu an çok fazla oyuncu çevrim içi. Lütfen birkaç dakika sonra tekrar dene."
+
+msgid "The realm is going into maintenance."
+msgstr "Diyar bakıma giriyor."

@@ -1755,6 +1755,7 @@ dependencies = [
  "quinn",
  "rcgen",
  "realm_data",
+ "realm_filter",
  "realm_proto",
  "realm_rules",
  "realm_sim",

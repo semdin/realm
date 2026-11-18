@@ -351,12 +351,8 @@ impl Filter {
                 || e.hits_text(&whole_letters)
                 || (e.squashed.len() >= 4 && compare(e.kind, &whole_squashed, &e.squashed))
         };
-        let by_letters = |e: &Entry| {
-            !e.literal
-                && tokens
-                    .iter()
-                    .any(|t| compare(e.kind, &t.letters, &e.word))
-        };
+        let by_letters =
+            |e: &Entry| !e.literal && tokens.iter().any(|t| compare(e.kind, &t.letters, &e.word));
         self.reserved.iter().any(|e| listed(e) || by_letters(e))
             || self.profanity.iter().any(listed)
     }

@@ -35,6 +35,7 @@ mod duel;
 mod dungeon;
 mod ga;
 mod maintenance;
+mod moderation;
 mod quests;
 mod rewards;
 mod social;
@@ -208,6 +209,8 @@ struct Player {
     life: u8,
     /// The next tick this player may chat.
     chat_ready: u32,
+    /// How much it said lately, by channel.
+    chat_limits: moderation::ChatLimits,
     /// What the players near it were last told about it (PlayerInfo).
     info_key: u64,
     /// The lasting effects its owner was last told of.
@@ -468,6 +471,8 @@ pub struct Sim {
     maintenance: maintenance::Maintenance,
     /// Game admins and the weather.
     pub admins: ga::Admins,
+    /// Mutes, block lists and the chat memory reports draw on.
+    moderation: moderation::MapModeration,
     /// To the coordinator (None: running alone), and whether it is linked.
     coord_tx: Option<tokio::sync::mpsc::UnboundedSender<realm_proto::coord::MapMsg>>,
     coord_up: bool,
@@ -666,6 +671,7 @@ impl Sim {
             unsaved: HashMap::new(),
             maintenance: maintenance::Maintenance::default(),
             admins: ga::Admins::default(),
+            moderation: moderation::MapModeration::default(),
             coord_tx: None,
             coord_up: false,
             duels: duel::DuelBook::default(),
@@ -1133,6 +1139,7 @@ impl Sim {
             last_input_tick: self.tick,
             life: 0,
             chat_ready: 0,
+            chat_limits: moderation::ChatLimits::default(),
             info_key: 0,
             effects_sent: Vec::new(),
             items_seen: VecDeque::new(),
@@ -1353,6 +1360,16 @@ impl Sim {
             }
             ClientMsg::DungeonReady { id, yes } => self.dungeon_ready(entity, id, yes),
             ClientMsg::DungeonGuide => self.dungeon_guide(conn, entity),
+            ClientMsg::Report {
+                character,
+                name,
+                category,
+                text,
+            } => self.report_request(conn, entity, character, &name, &category, &text),
+            ClientMsg::Block { name, on } => {
+                let me = self.world.get::<Player>(entity).map_or(0, |p| p.sheet.id);
+                self.block_request(conn, me, &name, on);
+            }
             ClientMsg::Inspect(id) => {
                 let player = self.ids.get(&id).and_then(|e| self.player_info(*e));
                 let Some(info) = player.or_else(|| self.creature_info(id)) else {
@@ -1505,6 +1522,24 @@ impl Sim {
         );
         if let Some((kind, target)) = quest {
             self.quest_event(entity, kind, &target, false);
+        }
+        // What cannot be undone by the player is on the record.
+        if matches!(
+            op,
+            realm_rules::ItemOp::Refine { .. } | realm_rules::ItemOp::Enchant { .. }
+        ) && reason != "stale"
+            && let Some(character) = self.clients.get(&conn).map(|c| c.character)
+        {
+            let detail = format!(
+                "{{\"op\":{:?},\"ok\":{ok},\"reason\":{:?}}}",
+                format!("{op:?}"),
+                reason
+            );
+            self.coord_send(realm_proto::coord::MapMsg::Audit {
+                character,
+                kind: "item".to_owned(),
+                detail,
+            });
         }
         if ok || reason == "stale" {
             self.send_sheet(conn);

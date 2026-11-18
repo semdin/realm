@@ -134,6 +134,9 @@ impl Sim {
         }
         let (verb, arg) = rest.split_once(' ').unwrap_or((rest, ""));
         let arg = arg.trim();
+        if self.moderation_command(conn, character, verb, arg) {
+            return;
+        }
         let linked = self.coord_tx.is_some();
         match verb.to_lowercase().as_str() {
             "rain" | "yağmur" | "yagmur" => {

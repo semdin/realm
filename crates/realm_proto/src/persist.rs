@@ -214,11 +214,7 @@ pub enum PersistMsg {
         open_only: bool,
     },
     /// Set a report's status -> `Done`.
-    CloseReport {
-        req: u64,
-        id: u64,
-        status: String,
-    },
+    CloseReport { req: u64, id: u64, status: String },
     /// One line of the audit trail (`detail`: a JSON object) -> `Done`.
     Audit {
         req: u64,

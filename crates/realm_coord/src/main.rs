@@ -59,9 +59,11 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, mpsc};
 
+mod capacity;
 mod ga;
 mod maint;
 mod metrics;
+mod moderation;
 mod release;
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
@@ -177,6 +179,10 @@ struct Book {
     persist: Option<Arc<PersistClient>>,
     /// The realm's weather.
     rain: bool,
+    /// Sanctions, block lists, reports and the limits on shouts and invites.
+    moderation: moderation::Moderation,
+    /// The realm's and the maps' limits, the login line, the alerts.
+    capacity: capacity::Capacity,
     /// The maps' and the persistence service's numbers (metrics.rs).
     metrics: metrics::Metrics,
 }
@@ -333,9 +339,23 @@ impl Book {
         );
     }
 
+    fn refuse_claim(&self, link: u64, conn: u64, reason: &str) {
+        self.to_link(
+            link,
+            CoordMsg::Refuse {
+                conn,
+                reason: reason.to_owned(),
+            },
+        );
+    }
+
     /// A login for `character` on `link`.
-    fn claim(&mut self, link: u64, conn: u64, character: u64) {
+    fn claim(&mut self, link: u64, conn: u64, character: u64, account: u64) {
         let map = self.map_of(link);
+        if self.ban_of(account).is_some() {
+            eprintln!("[seat] character {character} on {map} (connection {conn}): refused, banned");
+            return self.refuse_claim(link, conn, "banned");
+        }
         if self.is_barred(character) {
             eprintln!("[seat] character {character} on {map} (connection {conn}): refused, barred");
             self.to_link(
@@ -359,6 +379,14 @@ impl Book {
                 },
             );
             return;
+        }
+        if !self.gas.contains(&account)
+            && let Err(reason) = self.claim_has_room(link, character)
+        {
+            eprintln!(
+                "[seat] character {character} on {map} (connection {conn}): refused, {reason}"
+            );
+            return self.refuse_claim(link, conn, reason);
         }
         match self.seats.remove(&character) {
             None => {
@@ -572,12 +600,7 @@ impl Book {
                     && !matches!(self.seats.get(c), Some(Seat::On { link: l, .. }) if *l == link)
             })
             .count();
-        seated + held
-    }
-
-    /// How many players `link`'s map holds.
-    fn map_cap(&self, link: u64) -> usize {
-        self.links.get(&link).map_or(0, |l| usize::from(l.capacity))
+        seated + held + self.holds_on(map)
     }
 
     fn tell(&self, character: u64, text: impl Into<String>) {
@@ -737,6 +760,9 @@ impl Book {
                 return self.tell(from, "Your party is full.");
             }
         }
+        if !self.invite_allowed(from, target) {
+            return;
+        }
         self.invites.insert(
             target,
             Invite {
@@ -875,7 +901,22 @@ impl Book {
     fn handle(&mut self, link: u64, msg: MapMsg) {
         match msg {
             MapMsg::Hello { .. } => {}
-            MapMsg::Claim { conn, character } => self.claim(link, conn, character),
+            MapMsg::Claim {
+                conn,
+                character,
+                account,
+            } => self.claim(link, conn, character, account),
+            MapMsg::Moderate { by, order } => self.moderate_from_map(by, order),
+            MapMsg::Report(note) => self.report_from_map(*note),
+            MapMsg::Block { from, name, on } => self.block_from_map(from, name, on),
+            MapMsg::Audit {
+                character,
+                kind,
+                detail,
+            } => {
+                let detail = serde_json::from_str(&detail).unwrap_or_default();
+                self.audit(Some(character), &kind, detail);
+            }
             MapMsg::Saved {
                 barrier,
                 saved,
@@ -1038,6 +1079,9 @@ impl Book {
                 if let Some(p) = self.party_of.get(&character).copied() {
                     self.refresh_party(p);
                 }
+                if let Some(account) = self.online.get(&character).map(|o| o.account) {
+                    self.tell_blocks(link, account);
+                }
             }
             MapMsg::Vitals {
                 character,
@@ -1057,12 +1101,17 @@ impl Book {
                 }
             }
             MapMsg::Shout { from, text } => {
+                if !self.shout_allowed(from, &text) {
+                    return;
+                }
                 let name = self.name(from);
+                let account = self.online.get(&from).map_or(0, |o| o.account);
                 for l in self.links.values() {
                     let _ = l.tx.send(CoordMsg::Broadcast {
                         channel: CHANNEL_SHOUT,
                         from: name.clone(),
                         text: text.clone(),
+                        account,
                     });
                 }
             }
@@ -1077,6 +1126,9 @@ impl Book {
                     .map(|p| p.members.clone())
                     .unwrap_or_default();
                 for m in members {
+                    if self.blocks(m, from) {
+                        continue;
+                    }
                     self.send(
                         m,
                         CoordMsg::Line {
@@ -1142,6 +1194,8 @@ impl Book {
     fn sweep(&mut self) {
         let now = Instant::now();
         self.sweep_releases();
+        self.moderation_sweep();
+        self.capacity_sweep();
         self.reservations.retain(|_, r| now < r.expires);
         let stale: Vec<u64> = self
             .seats
@@ -1280,6 +1334,7 @@ async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>)
         b.boards_changed();
         b.tell_maintenance(id);
         b.tell_ga(id);
+        b.tell_moderation(id);
     }
     let writer = tokio::spawn(async move {
         while let Some(msg) = rx.recv().await {
@@ -1367,6 +1422,7 @@ async fn main() -> AnyResult<()> {
         persist,
         ..Book::default()
     }));
+    moderation::start(&book).await?;
     maint::start_clock(book.clone());
     if let Some(addr) = &o.persist {
         // Its own link: the numbers never wait behind queued changes.
