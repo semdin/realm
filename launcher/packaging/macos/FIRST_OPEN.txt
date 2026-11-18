@@ -1,0 +1,41 @@
+Opening Thousand Realms for the first time (macOS 15 or newer)
+
+Thousand Realms is not notarized by Apple yet, so macOS blocks the first start.
+You allow it once, in System Settings. Nothing needs to be turned off.
+
+1. Drag Thousand Realms Launcher onto Applications.
+2. Open your Applications folder and double-click Thousand Realms Launcher.
+   macOS says it could not verify the app. Click Done (not Move to Trash).
+3. Open System Settings > Privacy & Security and scroll down to Security.
+   Next to the message about Thousand Realms Launcher, click Open Anyway.
+   The button stays there for about an hour after step 2.
+4. Confirm with your password or Touch ID, then click Open Anyway once more.
+
+After this the launcher opens normally. It downloads the game and keeps itself
+and the game up to date.
+
+If macOS says the app is damaged, or Open Anyway does not appear, please do not
+use Terminal commands and do not turn off macOS security. Tell us instead:
+https://github.com/semdin/realm/issues
+
+
+Thousand Realms'i ilk kez açmak (macOS 15 veya daha yenisi)
+
+Thousand Realms henüz Apple tarafından onaylanmadı (notarize edilmedi), bu
+yüzden macOS ilk açılışı engeller. Sistem Ayarları'ndan bir kez izin verirsin.
+Hiçbir güvenlik özelliğini kapatman gerekmez.
+
+1. Thousand Realms Launcher'ı Applications (Uygulamalar) simgesinin üzerine sürükle.
+2. Uygulamalar klasörünü aç ve Thousand Realms Launcher'a çift tıkla.
+   macOS uygulamayı doğrulayamadığını söyler. Bitti'ye bas (Çöp Sepetine Taşı'ya değil).
+3. Sistem Ayarları > Gizlilik ve Güvenlik'i aç, Güvenlik bölümüne in.
+   Thousand Realms Launcher ile ilgili iletinin yanındaki Yine de Aç'a bas.
+   Bu düğme 2. adımdan sonra yaklaşık bir saat görünür.
+4. Parolan veya Touch ID ile onayla, ardından bir kez daha Yine de Aç'a bas.
+
+Bundan sonra launcher normal şekilde açılır. Oyunu indirir, kendini ve oyunu
+güncel tutar.
+
+macOS uygulamanın hasarlı olduğunu söylerse ya da Yine de Aç görünmezse lütfen
+Terminal komutları kullanma ve macOS güvenliğini kapatma. Bize yaz:
+https://github.com/semdin/realm/issues

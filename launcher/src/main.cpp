@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "http.h"
+#include "i18n.h"
 #include "json.h"
 #include "launcher_app.h"
 #include "updater.h"
@@ -41,9 +42,11 @@ using namespace Gdiplus;
 #define IDR_FONT_TITLE 202
 #define IDR_FONT_BODY 203
 #define IDR_LOGO 204
+#define IDR_NOTICES 205
 
 #define WM_APP_REFRESH (WM_APP + 1)   // worker -> UI: state changed, repaint
 #define WM_APP_EXIT (WM_APP + 2)      // worker -> UI: self-update handed off, quit
+#define WM_APP_RESTORE (WM_APP + 3)   // the game failed: bring the launcher back
 
 namespace {
 
@@ -97,7 +100,7 @@ constexpr UINT kStatusPollMs = 30000;
 constexpr UINT kRecheckMs = 10 * 60 * 1000;   // look for a new release while idle
 
 // ------------------------------------------------------------------ state
-enum class Hit { None, Play, Close, Minimize, Repair };
+enum class Hit { None, Play, Close, Minimize, Repair, Support, Licenses, Logs };
 
 HWND g_Wnd = NULL;
 float g_Scale = 1.0f;
@@ -248,7 +251,7 @@ void DrawStrHalo(Graphics& g, const std::wstring& text, Font* font, const RectF&
 // Layout rectangles in client pixels.
 struct Layout {
     float w = 0, h = 0;
-    RectF close, minimize, play, progress, repair, pill, notes;
+    RectF close, minimize, play, progress, repair, support, licenses, logs, pill, notes;
 };
 
 Layout ComputeLayout(int cw, int ch) {
@@ -259,7 +262,10 @@ Layout ComputeLayout(int cw, int ch) {
     L.minimize = RectF(L.w - SF(92), 0, SF(46), SF(38));
     L.play = RectF(L.w - SF(48 + 250), L.h - SF(118), SF(250), SF(72));
     L.progress = RectF(SF(48), L.h - SF(58), L.play.X - SF(48) - SF(28), SF(10));
-    L.repair = RectF(SF(48), L.h - SF(34), SF(150), SF(22));
+    L.repair = RectF(SF(48), L.h - SF(34), SF(100), SF(22));
+    L.support = RectF(SF(152), L.h - SF(34), SF(58), SF(22));
+    L.licenses = RectF(SF(214), L.h - SF(34), SF(66), SF(22));
+    L.logs = RectF(SF(284), L.h - SF(34), SF(62), SF(22));
     L.pill = RectF(SF(52), SF(262), SF(230), SF(34));
     L.notes = RectF(SF(48), SF(316), SF(390), SF(110));
     return L;
@@ -292,8 +298,7 @@ void EnsureScaledBackground(int cw, int ch) {
 }
 
 
-void Paint(HDC hdc, int cw, int ch) {
-    Bitmap frame(cw, ch, PixelFormat32bppPARGB);
+void PaintFrame(Bitmap& frame, int cw, int ch) {
     Graphics g(&frame);
     g.SetSmoothingMode(SmoothingModeAntiAlias);
     g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
@@ -377,7 +382,7 @@ void Paint(HDC hdc, int cw, int ch) {
         g.DrawString(kGameTitle, -1, title, titleBox, &fmt, &gold);
     }
     Font* subtitle = MakeFont(g_TitleFamily, 15, FontStyleBold);
-    DrawStrHalo(g, L"B Ü Y Ü C Ü L Ü K   D İ Y A R I", subtitle, RectF(SF(54), SF(204), SF(520), SF(26)),
+    DrawStrHalo(g, realm::app::SubtitleText(), subtitle, RectF(SF(54), SF(204), SF(520), SF(26)),
                  Pal::GoldLt);
     {
         Pen rule(WithAlpha(Pal::Gold, 200), SF(1));
@@ -395,17 +400,10 @@ void Paint(HDC hdc, int cw, int ch) {
     // --- server pill
     {
         Color dot = Pal::Dim;
-        std::wstring text = L"Sunucu durumu alınıyor…";
-        if (s.server == L"ONLINE") {
-            dot = Pal::Good;
-            text = L"Sunucu çevrimiçi";
-        } else if (s.server == L"MAINTENANCE") {
-            dot = Pal::Warn;
-            text = L"Sunucu bakımda";
-        } else if (s.server == L"OFFLINE") {
-            dot = Pal::Bad;
-            text = L"Sunucuya ulaşılamıyor";
-        }
+        std::wstring text = realm::app::ServerLabel(s.server);
+        if (s.server == L"ONLINE") dot = Pal::Good;
+        else if (s.server == L"MAINTENANCE") dot = Pal::Warn;
+        else if (s.server == L"OFFLINE") dot = Pal::Bad;
         SolidBrush bg(Color(190, 8, 10, 15));
         FillRound(g, L.pill, L.pill.Height / 2, bg);
         StrokeRound(g, L.pill, L.pill.Height / 2, WithAlpha(Pal::GoldDk, 230), SF(1));
@@ -422,19 +420,18 @@ void Paint(HDC hdc, int cw, int ch) {
     }
 
     // --- what's new
-    if (!s.notes.empty() || !s.release.empty()) {
+    if (!s.notes.empty() || !s.release.empty() || !s.advice.empty()) {
         SolidBrush bg(Color(170, 8, 10, 15));
         FillRound(g, L.notes, SF(8), bg);
         StrokeRound(g, L.notes, SF(8), WithAlpha(Pal::Steel, 200), SF(1));
-        SolidBrush accent(Pal::Gold);
+        SolidBrush accent(s.advice.empty() ? Pal::Gold : Pal::Warn);
         g.FillRectangle(&accent, RectF(L.notes.X, L.notes.Y + SF(12), SF(3), L.notes.Height - SF(24)));
         Font* head = MakeFont(g_TitleFamily, 13, FontStyleBold);
-        std::wstring caption = L"YENİLİKLER";
-        if (!s.release.empty()) caption += L"  ·  v" + realm::Utf8ToWide(s.release);
+        std::wstring caption = realm::app::PanelCaption(s);
         DrawStr(g, caption, head, RectF(L.notes.X + SF(18), L.notes.Y + SF(12), L.notes.Width - SF(30), SF(20)),
                  Pal::GoldLt);
         Font* body = MakeFont(g_BodyFamily, 13);
-        std::wstring notes = s.notes.empty() ? L"Bu sürüm için not eklenmemiş." : s.notes;
+        std::wstring notes = realm::app::PanelBody(s);
         StringFormat fmt;
         fmt.SetTrimming(StringTrimmingEllipsisWord);
         // whole lines only: without it GDI+ draws the top half of a line that
@@ -454,7 +451,7 @@ void Paint(HDC hdc, int cw, int ch) {
     DrawStrHalo(g, s.title, statusTitle, RectF(SF(48), statusY, L.progress.Width, SF(28)), Pal::Parchment);
     Color detailColor = Pal::Dim;
     if (s.phase == Phase::Failed) detailColor = Pal::Bad;
-    if (s.phase == Phase::ReadyStale) detailColor = Pal::Warn;
+    else if (s.phase == Phase::ReadyStale || s.problem != realm::app::Problem::None) detailColor = Pal::Warn;
     DrawStr(g, s.detail, statusDetail, RectF(SF(48), statusY + SF(30), L.progress.Width, SF(22)), detailColor,
              StringAlignmentNear, StringAlignmentNear, true);
 
@@ -516,9 +513,15 @@ void Paint(HDC hdc, int cw, int ch) {
     {
         bool busy = !(s.phase == Phase::Ready || s.phase == Phase::ReadyStale || s.phase == Phase::Failed);
         Color c = busy ? WithAlpha(Pal::Dim, 110) : (g_Hover == Hit::Repair ? Pal::GoldHi : Pal::Dim);
-        DrawStr(g, L"Dosyaları onar", tiny, L.repair, c, StringAlignmentNear, StringAlignmentCenter);
-        std::wstring ver = L"Launcher v" + realm::Utf8ToWide(realm::kLauncherVersion);
-        if (!s.installed.empty()) ver = L"Oyun v" + realm::Utf8ToWide(s.installed) + L"   ·   " + ver;
+        DrawStr(g, realm::app::RepairLabel(), tiny, L.repair, c, StringAlignmentNear, StringAlignmentCenter);
+        auto link = [&](const wchar_t* text, const RectF& r, Hit which) {
+            DrawStr(g, text, tiny, r, g_Hover == which ? Pal::GoldHi : Pal::Dim, StringAlignmentNear,
+                    StringAlignmentCenter);
+        };
+        link(realm::app::SupportLabel(), L.support, Hit::Support);
+        link(realm::app::LicensesLabel(), L.licenses, Hit::Licenses);
+        link(realm::app::LogsLabel(), L.logs, Hit::Logs);
+        std::wstring ver = realm::app::VersionLine(s);
         DrawStr(g, ver, tiny, RectF(L.play.X - SF(400), L.h - SF(34), SF(400) - SF(28), SF(22)),
                  WithAlpha(Pal::Dim, 200), StringAlignmentFar, StringAlignmentCenter);
     }
@@ -568,7 +571,11 @@ void Paint(HDC hdc, int cw, int ch) {
     delete subtitle;
     delete statusTitle;
     delete statusDetail;
+}
 
+void Paint(HDC hdc, int cw, int ch) {
+    Bitmap frame(cw, ch, PixelFormat32bppPARGB);
+    PaintFrame(frame, cw, ch);
     Graphics screen(hdc);
     screen.DrawImage(&frame, 0, 0);
 }
@@ -586,6 +593,9 @@ Hit HitTest(int x, int y) {
     if (Contains(L.minimize, x, y)) return Hit::Minimize;
     if (Contains(L.play, x, y)) return Hit::Play;
     if (Contains(L.repair, x, y)) return Hit::Repair;
+    if (Contains(L.support, x, y)) return Hit::Support;
+    if (Contains(L.licenses, x, y)) return Hit::Licenses;
+    if (Contains(L.logs, x, y)) return Hit::Logs;
     return Hit::None;
 }
 
@@ -602,6 +612,9 @@ void Activate(Hit h) {
         case Hit::Repair:
             realm::app::RequestRepair();
             break;
+        case Hit::Support: realm::app::OpenSupport(); break;
+        case Hit::Licenses: realm::app::OpenLicenses(); break;
+        case Hit::Logs: realm::app::OpenLogs(); break;
         default: break;
     }
 }
@@ -633,6 +646,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         case WM_APP_EXIT:
             DestroyWindow(hWnd);
+            return 0;
+        case WM_APP_RESTORE:
+            ShowWindow(hWnd, SW_RESTORE);
+            SetForegroundWindow(hWnd);
             return 0;
         case WM_NCHITTEST: {
             LRESULT r = DefWindowProcW(hWnd, msg, wParam, lParam);
@@ -701,8 +718,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_CLOSE: {
             Phase p = CurrentPhase();
             if (p == Phase::Downloading || p == Phase::Installing) {
-                int answer = MessageBoxW(hWnd, L"Güncelleme sürüyor. Şimdi kapatırsan indirme bir sonraki açılışta kaldığı yerden devam eder.\n\nKapatılsın mı?",
-                                         L"Thousand Realms", MB_YESNO | MB_ICONQUESTION);
+                int answer = MessageBoxW(hWnd, realm::app::CloseDuringUpdateText(), L"Thousand Realms",
+                                         MB_YESNO | MB_ICONQUESTION);
                 if (answer != IDYES) return 0;
                 realm::app::Cancel();
             }
@@ -792,6 +809,45 @@ bool TakeInstanceMutexes(std::vector<HANDLE>& held) {
     return true;
 }
 
+// The value after a command-line flag, or "".
+std::wstring ArgValue(const wchar_t* flag) {
+    int argcW = 0;
+    LPWSTR* argvW = CommandLineToArgvW(GetCommandLineW(), &argcW);
+    std::wstring value;
+    if (argvW) {
+        for (int i = 1; i + 1 < argcW; i++)
+            if (_wcsicmp(argvW[i], flag) == 0) value = argvW[i + 1];
+        LocalFree(argvW);
+    }
+    return value;
+}
+
+void OpenWithShell(const std::wstring& target) {
+    ShellExecuteW(NULL, L"open", target.c_str(), NULL, NULL, SW_SHOWNORMAL);
+}
+
+// --screenshot <file.png>: paints one frame (a --screenshot-state, or the live
+// state after --screenshot-after ms) without opening a window.
+int RunScreenshot(const std::wstring& out) {
+    std::wstring state = ArgValue(L"--screenshot-state");
+    if (!state.empty()) {
+        if (!realm::app::ShowTestState(realm::WideToUtf8(state))) return 2;
+    } else {
+        realm::app::StartWorker();
+        realm::app::StartStatusPoll();
+        std::wstring after = ArgValue(L"--screenshot-after");
+        Sleep(after.empty() ? 4000 : (DWORD)_wtoi(after.c_str()));
+    }
+    g_Scale = 1.0f;
+    g_Anim = 1.0f;
+    Bitmap frame(kBaseW, kBaseH, PixelFormat32bppPARGB);
+    PaintFrame(frame, kBaseW, kBaseH);
+    static const CLSID kPng = {0x557cf406, 0x1a04, 0x11d3, {0x9a, 0x73, 0x00, 0x00, 0xf8, 0x1e, 0xf3, 0x2e}};
+    bool ok = frame.Save(out.c_str(), &kPng, NULL) == Ok;
+    fflush(nullptr);
+    ExitProcess(ok ? 0 : 1);  // detached workers may still be in network calls
+}
+
 bool HasArg(const wchar_t* flag) {
     int argcW = 0;
     LPWSTR* argvW = CommandLineToArgvW(GetCommandLineW(), &argcW);
@@ -811,8 +867,16 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         int headless = RunHeadlessFromGuiArgs();
         if (headless >= 0) return headless;
     }
+    realm::i18n::Init();
+    {
+        std::wstring lang = ArgValue(L"--lang");
+        if (!lang.empty())
+            realm::i18n::Set(realm::i18n::IsTurkishTag(realm::WideToUtf8(lang)) ? realm::i18n::Lang::Turkish
+                                                                                : realm::i18n::Lang::English);
+    }
+    std::wstring screenshot = ArgValue(L"--screenshot");
     if (HasArg(L"--post-self-update")) {
-        realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+        realm::SetLogPath(realm::EarlyLogPath());
         realm::LogMsg("[Launcher] restarted after self-update");
         wchar_t flag[8] = {0};
         if (GetEnvironmentVariableW(L"REALM_TEST_NO_GUI", flag, 8) > 0) return 0;
@@ -821,7 +885,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     // One launcher at a time: a second start brings the first to the front.
     // (A relaunch after self-update waits briefly for the old process to exit.)
     std::vector<HANDLE> single;
-    for (int attempt = 0; attempt < 20; attempt++) {
+    for (int attempt = 0; screenshot.empty() && attempt < 20; attempt++) {
         if (TakeInstanceMutexes(single)) break;
         if (!HasArg(L"--post-self-update")) {
             HWND other = FindWindowW(kWindowClass, NULL);
@@ -835,10 +899,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         Sleep(250);
     }
 
-    // Before LoadConfig: an exe still called HPMMO_Launcher*.exe takes the
-    // game's name (and the player's shortcuts follow it).
-    realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
-    realm::MigrateLegacyLauncherFile();
+    // Before LoadConfig: an exe still called by the old name takes the game's
+    // name (and the player's shortcuts follow it).
+    if (screenshot.empty()) {
+        realm::SetLogPath(realm::EarlyLogPath());
+        realm::MigrateLegacyLauncherFile();
+    }
 
     SetProcessDPIAware();
     {
@@ -860,7 +926,18 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
         if (g_Wnd) PostMessageW(g_Wnd, WM_APP_REFRESH, 0, 0);
     };
     hooks.exitForSelfUpdate = [] { PostMessageW(g_Wnd, WM_APP_EXIT, 0, 0); };
+    hooks.restoreWindow = [] {
+        if (g_Wnd) PostMessageW(g_Wnd, WM_APP_RESTORE, 0, 0);
+    };
+    hooks.openUrl = OpenWithShell;
+    hooks.openPath = OpenWithShell;
     realm::app::Init(realm::Config(), hooks);
+    {
+        const void* notices = nullptr;
+        DWORD noticesSize = 0;
+        if (LoadResourceBytes(IDR_NOTICES, &notices, &noticesSize)) realm::app::SetNotices(notices, noticesSize);
+    }
+    if (!screenshot.empty()) return RunScreenshot(screenshot);
 
     WNDCLASSEXW wcex = {sizeof(wcex)};
     wcex.style = CS_HREDRAW | CS_VREDRAW | CS_DROPSHADOW;

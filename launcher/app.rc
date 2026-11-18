@@ -5,6 +5,7 @@
 #define IDR_FONT_TITLE 202
 #define IDR_FONT_BODY 203
 #define IDR_LOGO 204
+#define IDR_NOTICES 205
 
 // Application + window icon (multi-size ICO generated from assets/branding).
 IDI_MAIN ICON "assets/thousand_realms.ico"
@@ -16,6 +17,8 @@ IDR_FONT_TITLE RCDATA "assets/Literata-Bold.ttf"
 IDR_FONT_BODY  RCDATA "assets/Literata-Medium.ttf"
 // The horizontal Thousand Realms logo drawn as the crest.
 IDR_LOGO       RCDATA "assets/thousand_realms_logo.png"
+// The "Licenses" link shows this text.
+IDR_NOTICES    RCDATA "THIRD_PARTY_NOTICES.txt"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION     3,0,0,0

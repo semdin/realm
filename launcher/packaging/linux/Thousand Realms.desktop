@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Thousand Realms
+Comment=Online fantasy role-playing game
+Comment[tr]=Çevrim içi fantastik rol yapma oyunu
+Exec=sh -c "exec \\"\\$(dirname \\"\\$0\\")/ThousandRealms_Launcher\\"" %k
+Icon=applications-games
+Categories=Game;RolePlaying;
+Terminal=false

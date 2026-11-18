@@ -40,6 +40,7 @@ add_library(realm_launcher_core STATIC
     src/delta.cpp
     src/legacy_names.cpp
     src/i18n.cpp
+    src/desktop_entry.cpp
     ${VENDOR_ED25519}/fe.c
     ${VENDOR_ED25519}/ge.c
     ${VENDOR_ED25519}/sc.c
@@ -127,7 +128,8 @@ if(NOT WIN32)
         FontTitle ${CMAKE_CURRENT_SOURCE_DIR}/assets/Literata-Bold.ttf
         FontBody ${CMAKE_CURRENT_SOURCE_DIR}/assets/Literata-Medium.ttf
         IconPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_256.png
-        LogoPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_logo.png)
+        LogoPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_logo.png
+        Notices ${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.txt)
 
     add_executable(ThousandRealms_Launcher
         src/main_sdl.cpp

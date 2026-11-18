@@ -1,4 +1,4 @@
-// HPMMO launcher updater (Release pipeline): CHECK -> COMPARE -> DOWNLOAD -> VERIFY ->
+// Thousand Realms launcher updater: CHECK -> COMPARE -> DOWNLOAD -> VERIFY ->
 // STAGE -> ACTIVATE -> LAUNCH, plus repair and launcher self-update.
 #pragma once
 
@@ -14,14 +14,14 @@ namespace realm {
 
 // The running launcher's version, stamped by the build (CMake
 // REALM_LAUNCHER_VERSION; CI derives it from the last commit that touched
-// launcher_cpp/). A manifest whose launcher_version (or min_launcher_version)
+// launcher/). A manifest whose launcher_version (or min_launcher_version)
 // is newer makes the launcher replace itself before anything else.
 #ifndef REALM_LAUNCHER_VERSION
 #define REALM_LAUNCHER_VERSION "3.0.0"
 #endif
 constexpr const char* kLauncherVersion = REALM_LAUNCHER_VERSION;
 // Default documented key id; the real id comes from client_config.json.
-constexpr const char* kDefaultPinnedKeyId = "hpmmo-release-key-unprovisioned";
+constexpr const char* kDefaultPinnedKeyId = "release-key-unprovisioned";
 
 // Documented exit codes (also printed by --help).
 enum ExitCode {
@@ -150,6 +150,9 @@ struct CheckSummary {
     bool maintenance = false;
     bool protocolOk = true;
     bool selfUpdateRequired = false;
+    // The release needs a newer launcher, but something else owns this copy
+    // (the itch app): only that owner can replace it.
+    bool launcherBlocked = false;
     bool gameRunning = false;
     std::string error;
     int errorCode = kExitOk;
@@ -172,11 +175,25 @@ CommandResult DoRepair(const CliOptions& opts, AppConfig cfg, std::atomic<bool>*
                        const std::function<void(const std::wstring&)>& status);
 bool IsGameRunningNow(const UpdaterPaths& paths, const AppConfig& cfg,
                       std::vector<RunningProcess>* matches);
-bool LaunchInstalledGame(const UpdaterPaths& paths, const AppConfig& cfg, bool solo,
-                         const std::wstring& username, const std::wstring& ticket);
-// Starts the installed game at its own login screen (the launcher no longer
-// signs in). clientVersion is shown on the login screen.
-bool LaunchGameClient(const UpdaterPaths& paths, const AppConfig& cfg, const std::string& clientVersion);
+// The game process the launcher started, so it can tell how it ended.
+struct GameLaunch {
+    bool tracked = false;
+    void* handle = nullptr;  // Windows process handle
+    int pid = 0;             // POSIX child
+    int error = 0;           // why the start failed (GetLastError / errno)
+};
+struct GameExit {
+    int code = 0;            // exit code (Windows: may be an NTSTATUS)
+    int signal = 0;          // POSIX: the signal that ended it
+};
+// Starts the installed game at its own login screen.
+bool LaunchGameClient(const UpdaterPaths& paths, GameLaunch& launch);
+// True once the tracked game has ended (`exit` says how); releases the handle.
+bool PollGameExit(GameLaunch& launch, GameExit& exit);
+// macOS: the launcher still runs from the disk image, from a read-only
+// translocated copy or from a folder it cannot write to, so it cannot update
+// itself until the player moves it to Applications.
+bool LauncherRunsFromTemporaryLocation();
 // Paths for the GUI (install root, game exe) without running a command.
 UpdaterPaths ResolvePathsForGui(AppConfig cfg);
 

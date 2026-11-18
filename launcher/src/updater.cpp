@@ -2,6 +2,7 @@
 #include "delta.h"
 
 #include "http.h"
+#include "i18n.h"
 #include "sha256.h"
 #include "zip.h"
 
@@ -15,6 +16,8 @@
 #ifndef _WIN32
 #include <errno.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <sys/stat.h>
 #include <sys/wait.h>
 #include <unistd.h>
 extern char** environ;
@@ -56,13 +59,16 @@ std::string ManifestFileName() {
 }
 
 #ifndef _WIN32
-// Starts exe detached from the launcher (double fork + setsid, so it is not
-// our child and survives the launcher exiting). The environment is the current
-// one minus every variable named in `drop`, plus `add` ("NAME=value"). A
-// failed exec is reported back through a close-on-exec pipe.
+// Starts exe in its own session, so it survives the launcher exiting. Without
+// `tracked` it is double-forked and is no child of ours; with it, *tracked
+// receives the pid of a direct child that PollGameExit can wait for. The
+// environment is the current one minus every variable named in `drop`, plus
+// `add` ("NAME=value"). A failed exec is reported back through a close-on-exec
+// pipe (execErrno, when given, receives its errno).
 bool SpawnDetached(const std::wstring& exe, const std::vector<std::wstring>& args,
                    const std::vector<std::string>& drop, const std::vector<std::wstring>& add,
-                   const std::wstring& workDir, std::string& err) {
+                   const std::wstring& workDir, std::string& err, pid_t* tracked = nullptr,
+                   int* execErrno = nullptr) {
     // Everything the children touch is prepared before fork().
     std::vector<std::string> argStore;
     argStore.push_back(WideToUtf8(exe));
@@ -98,8 +104,10 @@ bool SpawnDetached(const std::wstring& exe, const std::vector<std::wstring>& arg
     }
     if (mid == 0) {
         setsid();
-        pid_t child = fork();
-        if (child != 0) _exit(child < 0 ? 1 : 0);
+        if (!tracked) {
+            pid_t child = fork();
+            if (child != 0) _exit(child < 0 ? 1 : 0);
+        }
         close(fds[0]);
         if (!dir.empty() && chdir(dir.c_str()) != 0) {
             int e = errno;
@@ -113,7 +121,9 @@ bool SpawnDetached(const std::wstring& exe, const std::vector<std::wstring>& arg
     }
     close(fds[1]);
     int status = 0;
-    while (waitpid(mid, &status, 0) < 0 && errno == EINTR) {
+    if (!tracked) {
+        while (waitpid(mid, &status, 0) < 0 && errno == EINTR) {
+        }
     }
     int childErr = 0;
     ssize_t got;
@@ -122,8 +132,17 @@ bool SpawnDetached(const std::wstring& exe, const std::vector<std::wstring>& arg
     } while (got < 0 && errno == EINTR);
     close(fds[0]);
     if (got == (ssize_t)sizeof(childErr)) {
+        if (tracked) {
+            while (waitpid(mid, &status, 0) < 0 && errno == EINTR) {
+            }
+        }
+        if (execErrno) *execErrno = childErr;
         err = "cannot start " + argStore[0] + " (" + std::to_string(childErr) + ")";
         return false;
+    }
+    if (tracked) {
+        *tracked = mid;
+        return true;
     }
     if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
         err = "fork failed";
@@ -133,7 +152,7 @@ bool SpawnDetached(const std::wstring& exe, const std::vector<std::wstring>& arg
 }
 #endif
 
-// Until the rename from HPMMO the per-user install lived in <data>/HPMMO. The
+// Until the game was renamed the per-user install lived in <data>/HPMMO. The
 // first start of a launcher that knows the new name moves that folder as a
 // whole (one rename: versions/, current.json, launcher_state.json, user/,
 // logs) to <data>/ThousandRealms. Anything that makes the move unsafe - the
@@ -228,6 +247,69 @@ bool SleepCancellable(std::atomic<bool>* cancel, int ms) {
 
 bool LoadCurrentImpl(UpdaterContext& ctx, InstalledState& out);
 
+// The game executable of an installed version, or "" when it has none.
+std::wstring FindGameExe(const AppConfig& cfg, const std::wstring& versionDir) {
+#ifdef _WIN32
+    // The game's own name first; the old names are what versions installed
+    // before the rename (and a rollback to one) contain.
+    const wchar_t* candidates[] = {L"ThousandRealms.exe", L"HPMMO.exe", L"HPMMO_Game.exe", L"game.exe",
+                                   L"godot.exe"};
+#elif defined(__APPLE__)
+    const wchar_t* candidates[] = {L"Thousand Realms.app/Contents/MacOS/Thousand Realms",
+                                   L"HPMMO.app/Contents/MacOS/HPMMO"};
+#else
+    const wchar_t* candidates[] = {L"ThousandRealms.x86_64", L"ThousandRealms.arm64", L"HPMMO.x86_64",
+                                   L"HPMMO.arm64", L"HPMMO"};
+#endif
+    if (!cfg.gameExeName.empty()) {
+        std::wstring p = JoinPath(versionDir, cfg.gameExeName);
+        if (FileExists(p)) return p;
+    }
+    for (const wchar_t* c : candidates) {
+        std::wstring p = JoinPath(versionDir, c);
+        if (FileExists(p)) return p;
+    }
+    return L"";
+}
+
+// Downloads carry no permission bits, so the launcher gives the game's
+// programs theirs: the player never needs chmod. Nothing to do on Windows.
+void MarkGameExecutables(const std::wstring& gameExe) {
+#ifndef _WIN32
+    if (gameExe.empty()) return;
+    MakeExecutable(gameExe);
+    size_t slash = gameExe.find_last_of(L'/');
+    if (slash == std::wstring::npos) return;
+    std::wstring dir = gameExe.substr(0, slash);
+    std::vector<std::wstring> files;
+    std::string err;
+    if (!ListFilesRecursive(dir, files, err)) return;
+    for (const auto& rel : files) {
+        if (rel.find(L'/') != std::wstring::npos) continue;  // top level only
+#ifndef __APPLE__
+        // (macOS: every file beside the game in Contents/MacOS is a program.)
+        auto ends = [&](const wchar_t* suffix) {
+            std::wstring e = suffix;
+            return rel.size() > e.size() && rel.compare(rel.size() - e.size(), e.size(), e) == 0;
+        };
+        if (!ends(L".x86_64") && !ends(L".arm64") && !ends(L".sh")) continue;
+#endif
+        MakeExecutable(JoinPath(dir, rel));
+    }
+#else
+    (void)gameExe;
+#endif
+}
+
+// Until the player has picked a language in the game, it starts in the one the
+// launcher chose from the system. (The game keeps a picked one in language.cfg,
+// and that always wins.) After "--": the engine leaves these to the game.
+std::vector<std::wstring> FirstRunGameArgs() {
+    std::wstring dir = GameUserDataDir();
+    if (dir.empty() || FileExists(JoinPath(dir, L"language.cfg"))) return {};
+    return {L"--", L"--lang=" + Utf8ToWide(i18n::CurrentCode())};
+}
+
 // ------------------------------------------------------------------ context --
 
 UpdaterContext MakeContext(const CliOptions& cli, AppConfig cfg) {
@@ -259,31 +341,7 @@ UpdaterContext MakeContext(const CliOptions& cli, AppConfig cfg) {
     InstalledState cur;
     cur.present = false;
     if (LoadCurrentImpl(ctx, cur) && cur.present) {
-#ifdef _WIN32
-        // The game's own name first; the HPMMO names are what versions
-        // installed before the rename (and a rollback to one) contain.
-        const wchar_t* candidates[] = {L"ThousandRealms.exe", L"HPMMO.exe", L"HPMMO_Game.exe", L"game.exe",
-                                       L"godot.exe"};
-#elif defined(__APPLE__)
-        const wchar_t* candidates[] = {L"Thousand Realms.app/Contents/MacOS/Thousand Realms",
-                                       L"HPMMO.app/Contents/MacOS/HPMMO"};
-#else
-        const wchar_t* candidates[] = {L"ThousandRealms.x86_64", L"ThousandRealms.arm64", L"HPMMO.x86_64",
-                                       L"HPMMO.arm64", L"HPMMO"};
-#endif
-        if (!cfg.gameExeName.empty()) {
-            std::wstring p = JoinPath(cur.dir, cfg.gameExeName);
-            if (FileExists(p)) ctx.paths.gameExe = p;
-        }
-        if (ctx.paths.gameExe.empty()) {
-            for (const wchar_t* c : candidates) {
-                std::wstring p = JoinPath(cur.dir, c);
-                if (FileExists(p)) {
-                    ctx.paths.gameExe = p;
-                    break;
-                }
-            }
-        }
+        ctx.paths.gameExe = FindGameExe(cfg, cur.dir);
     }
     SetLogPath(ctx.paths.logFile);
     return ctx;
@@ -617,7 +675,8 @@ bool VerifyInstallFiles(const std::wstring& versionDir, const JsonValue& record,
 
 // ---------------------------------------------------------------- selection --
 
-bool IsLauncherArtifact(const Artifact& a) { return a.kind == "launcher"; }
+// "launcher" is the raw executable, "launcher-bundle" the whole macOS app.
+bool IsLauncherArtifact(const Artifact& a) { return a.kind == "launcher" || a.kind == "launcher-bundle"; }
 
 bool SelectInstallArtifact(const ReleaseManifest& m, const std::string& installedVersion,
                            Artifact& out, std::string& why) {
@@ -645,14 +704,18 @@ bool SelectInstallArtifact(const ReleaseManifest& m, const std::string& installe
     return true;
 }
 
-bool SelectLauncherArtifact(const ReleaseManifest& m, Artifact& out) {
+bool SelectArtifactOfKind(const ReleaseManifest& m, const char* kind, Artifact& out) {
     for (const auto& a : m.artifacts) {
-        if (IsLauncherArtifact(a)) {
+        if (a.kind == kind) {
             out = a;
             return true;
         }
     }
     return false;
+}
+
+bool SelectLauncherArtifact(const ReleaseManifest& m, Artifact& out) {
+    return SelectArtifactOfKind(m, "launcher", out);
 }
 
 // -------------------------------------------------------------- protocol ----
@@ -1099,13 +1162,182 @@ bool SameVersion(const std::string& a, const std::string& b) {
     return CompareVersions(a, b) == 0;
 }
 
+// The itch app installs and updates this copy (butler patches the files it
+// wrote), so the launcher must not rewrite itself there. It still updates the
+// game, which lives outside the itch folder.
+bool SelfUpdateDisabled() { return GetEnvW(L"ITCHIO_APP") == L"1"; }
+
+bool LauncherTooOld(const ReleaseManifest& m) {
+    return !m.minLauncherVersion.empty() && CompareVersions(m.minLauncherVersion, kLauncherVersion) > 0;
+}
+
+bool CanWriteInto(const std::wstring& dir) {
+    std::wstring probe = JoinPath(dir, L".thousandrealms-write-test-" + std::to_wstring(CurrentProcessId()));
+    if (!WriteFileBytes(probe, "x", 1)) return false;
+    DeleteFileQuiet(probe);
+    return true;
+}
+
+std::wstring ParentDir(const std::wstring& path) {
+    size_t slash = path.find_last_of(L"\\/");
+    return slash == std::wstring::npos ? L"." : path.substr(0, slash);
+}
+
+#ifdef __APPLE__
+// ---------------------------------------------------------------- macOS app --
+// The launcher is an app bundle whose signature seals every file in it, so it
+// is only ever replaced as a whole: the release's signed zip of the complete
+// app is unpacked beside it, checked and swapped in. A notarized app stays
+// exactly as Apple saw it. Only an app signed ad hoc by a launcher from before
+// this change still takes the old way (RunSelfUpdateSwap).
+const char kBundleExeName[] = "ThousandRealms_Launcher";
+const char kLegacyBundleId[] = "com.hpmmo.launcher";
+
+// ".../X.app" for an executable in X.app/Contents/MacOS, else "".
+std::string BundleOfExe(const std::wstring& exe) {
+    std::string e = WideToUtf8(exe);
+    size_t at = e.find(".app/Contents/MacOS/");
+    return at == std::string::npos ? "" : e.substr(0, at + 4);
+}
+
+// Runs a system tool; returns its exit code (-1 when it did not run) and,
+// when asked, what it printed on stdout and stderr.
+int RunTool(const std::vector<std::string>& argv, std::string* output = nullptr) {
+    int fds[2] = {-1, -1};
+    if (pipe(fds) != 0) return -1;
+    std::vector<std::string> store = argv;
+    std::vector<char*> args;
+    for (auto& a : store) args.push_back(&a[0]);
+    args.push_back(nullptr);
+    pid_t pid = fork();
+    if (pid < 0) {
+        close(fds[0]);
+        close(fds[1]);
+        return -1;
+    }
+    if (pid == 0) {
+        dup2(fds[1], 1);
+        dup2(fds[1], 2);
+        close(fds[0]);
+        close(fds[1]);
+        execv(args[0], args.data());
+        _exit(127);
+    }
+    close(fds[1]);
+    char buf[4096];
+    ssize_t got;
+    while ((got = read(fds[0], buf, sizeof(buf))) > 0 || (got < 0 && errno == EINTR)) {
+        if (got > 0 && output) output->append(buf, (size_t)got);
+    }
+    close(fds[0]);
+    int status = 0;
+    while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+    }
+    return WIFEXITED(status) ? WEXITSTATUS(status) : -1;
+}
+
+// The Team ID of a Developer ID signature; "" for an ad-hoc or missing one.
+std::string BundleTeamId(const std::string& bundle) {
+    std::string text;
+    RunTool({"/usr/bin/codesign", "-d", "--verbose=2", bundle}, &text);
+    const std::string key = "TeamIdentifier=";
+    size_t at = text.find(key);
+    if (at == std::string::npos) return "";
+    at += key.size();
+    size_t end = text.find('\n', at);
+    std::string team = text.substr(at, end == std::string::npos ? std::string::npos : end - at);
+    return team == "not set" ? "" : team;
+}
+
+bool BundleHasLegacyId(const std::string& bundle) {
+    std::string plist;
+    return ReadFileBytes(Utf8ToWide(bundle + "/Contents/Info.plist"), plist, 1u << 20) &&
+           plist.find(kLegacyBundleId) != std::string::npos;
+}
+
+bool BundleIsReplaceable(const std::string& bundle) {
+    if (bundle.find("/AppTranslocation/") != std::string::npos) return false;
+    return CanWriteInto(ParentDir(Utf8ToWide(bundle)));
+}
+
+bool PerformBundleUpdate(UpdaterContext& ctx, const Artifact& art, const std::string& bundle,
+                         std::string& message, int& code) {
+    code = kExitSelfUpdateFailed;
+    if (!BundleIsReplaceable(bundle)) {
+        message = "the launcher app cannot be replaced where it is (" + bundle + ")";
+        return false;
+    }
+    std::wstring zip;
+    int dlCode = kExitOk;
+    if (!DownloadArtifact(ctx, art, zip, message, dlCode)) {
+        code = dlCode;
+        return false;
+    }
+    // Unpacked beside the app: the swap below must stay on one volume.
+    std::string parent = WideToUtf8(ParentDir(Utf8ToWide(bundle)));
+    std::string work = parent + "/.thousand-realms-update-" + std::to_string(CurrentProcessId());
+    std::wstring workW = Utf8ToWide(work);
+    RemoveDirRecursive(workW);
+    auto fail = [&](const std::string& why) {
+        RemoveDirRecursive(workW);
+        message = why;
+        return false;
+    };
+    if (!CreateDirs(workW)) return fail("cannot create " + work);
+    std::string out;
+    if (RunTool({"/usr/bin/ditto", "-x", "-k", WideToUtf8(zip), work}, &out) != 0)
+        return fail("cannot unpack the launcher update: " + out);
+    std::string fresh = work + "/Thousand Realms Launcher.app";
+    std::string freshExe = fresh + "/Contents/MacOS/" + kBundleExeName;
+    if (!FileExists(Utf8ToWide(freshExe))) return fail("the launcher update holds no app");
+    out.clear();
+    if (RunTool({"/usr/bin/codesign", "--verify", "--deep", "--strict", fresh}, &out) != 0)
+        return fail("the launcher update's signature does not verify: " + out);
+    // Never trade a Developer ID app for one signed by anyone else (or nobody).
+    std::string team = BundleTeamId(bundle);
+    if (!team.empty() && BundleTeamId(fresh) != team)
+        return fail("the launcher update is not signed by team " + team);
+    if (renamex_np(fresh.c_str(), bundle.c_str(), RENAME_SWAP) != 0) {
+        std::string old = work + "/previous.app";
+        if (rename(bundle.c_str(), old.c_str()) != 0)
+            return fail("cannot move the old launcher aside (" + std::to_string(errno) + ")");
+        if (rename(fresh.c_str(), bundle.c_str()) != 0) {
+            int e = errno;
+            rename(old.c_str(), bundle.c_str());
+            return fail("cannot put the new launcher in place (" + std::to_string(e) + ")");
+        }
+    }
+    RemoveDirRecursive(workW);
+    LogMsg("[Updater] launcher app replaced as a whole: " + bundle);
+    if (ctx.interactive) {
+        std::string err;
+        if (!SpawnDetached(Utf8ToWide(bundle + "/Contents/MacOS/" + kBundleExeName), {L"--post-self-update"}, {}, {},
+                           L"", err))
+            LogMsg("[Updater] relaunch failed: " + err);
+    }
+    message = "launcher app updated";
+    code = kExitSelfUpdateDone;
+    return true;
+}
+#endif  // __APPLE__
+
 // The launcher replaces itself when the release requires a newer launcher, or
 // simply ships one (launcher_version newer than this build) - but only when the
 // manifest actually carries a launcher executable to install.
 bool LauncherUpdateNeeded(const ReleaseManifest& m) {
-    if (!m.minLauncherVersion.empty() && CompareVersions(m.minLauncherVersion, kLauncherVersion) > 0) {
-        return true;
+    if (SelfUpdateDisabled()) return false;
+    if (LauncherTooOld(m)) return true;
+#ifdef __APPLE__
+    // An app updated the old way still has its old Info.plist (bundle id,
+    // icon name): one whole-app update brings it in line.
+    {
+        Artifact bundleArt;
+        std::string bundle = BundleOfExe(GetExePath());
+        if (!bundle.empty() && SelectArtifactOfKind(m, "launcher-bundle", bundleArt) && BundleHasLegacyId(bundle) &&
+            BundleIsReplaceable(bundle))
+            return true;
     }
+#endif
     if (m.launcherVersion.empty() || CompareVersions(m.launcherVersion, kLauncherVersion) <= 0) {
         return false;
     }
@@ -1119,10 +1351,36 @@ bool LauncherUpdateNeeded(const ReleaseManifest& m) {
 
 bool PerformSelfUpdate(UpdaterContext& ctx, const ReleaseManifest& m, std::string& message,
                        int& code) {
+    std::wstring target = GetExePath();
+#ifdef __APPLE__
+    std::string bundle = BundleOfExe(target);
+    if (!bundle.empty()) {
+        Artifact bundleArt;
+        if (SelectArtifactOfKind(m, "launcher-bundle", bundleArt)) {
+            if (!CheckDiskSpace(ctx, bundleArt.size + kSpaceSlack, message)) {
+                code = kExitDiskSpace;
+                return false;
+            }
+            bool ok = PerformBundleUpdate(ctx, bundleArt, bundle, message, code);
+            if (ok) LogMsg("[Updater] " + message);
+            return ok;
+        }
+        if (!BundleTeamId(bundle).empty()) {
+            message = "this release has no complete launcher app, and a signed app is never patched";
+            code = kExitSelfUpdateFailed;
+            return false;
+        }
+    }
+#endif
     Artifact art;
     if (!SelectLauncherArtifact(m, art)) {
         message = "launcher self-update required (min_launcher_version " + m.minLauncherVersion +
                   ") but the manifest has no 'launcher' artifact";
+        code = kExitSelfUpdateFailed;
+        return false;
+    }
+    if (!CanWriteInto(ParentDir(target))) {
+        message = "the launcher's folder is read-only (" + WideToUtf8(ParentDir(target)) + ")";
         code = kExitSelfUpdateFailed;
         return false;
     }
@@ -1140,7 +1398,6 @@ bool PerformSelfUpdate(UpdaterContext& ctx, const ReleaseManifest& m, std::strin
         code = kExitSelfUpdateFailed;
         return false;
     }
-    std::wstring target = GetExePath();
 #ifdef _WIN32
     std::wstring cmd = L"\"" + newExe + L"\" --self-update-swap " +
                        std::to_wstring(GetCurrentProcessId()) + L" \"" + target + L"\"";
@@ -1159,8 +1416,8 @@ bool PerformSelfUpdate(UpdaterContext& ctx, const ReleaseManifest& m, std::strin
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 #else
-    // The downloaded launcher (an AppImage on Linux) is the helper: it waits
-    // for us to exit and renames itself over `target`.
+    // The downloaded launcher is the helper: it waits for us to exit and
+    // renames itself over `target`.
     MakeExecutable(newExe);
     std::vector<std::wstring> args = {L"--self-update-swap", std::to_wstring(CurrentProcessId()), target};
     if (ctx.interactive) args.push_back(L"--relaunch");
@@ -1263,6 +1520,7 @@ bool RunFetchAndCompare(UpdaterContext& ctx, ReleaseManifest& m, StatusDoc& st,
         summary->maintenance = (st.state == "MAINTENANCE");
         summary->protocolOk = protoOk;
         summary->selfUpdateRequired = selfUpdate;
+        summary->launcherBlocked = SelfUpdateDisabled() && LauncherTooOld(m);
         summary->errorCode = kExitOk;
         if (!protoOk) {
             summary->error = protoReason;
@@ -1548,11 +1806,21 @@ CommandResult UpdateImpl(UpdaterContext& ctx, CheckSummary* summary) {
     bool protoOk = ProtocolCompatible(m, st, serverProto, protoReason);
     bool selfUpdate = LauncherUpdateNeeded(m);
 
-    if (selfUpdate) {
-        int selfCode = kExitOk;
-        if (!PerformSelfUpdate(ctx, m, message, selfCode)) {
-            return Fail("update", selfCode, message);
-        }
+    if (SelfUpdateDisabled() && LauncherTooOld(m)) {
+        return Fail("update", kExitSelfUpdateFailed,
+                    "this release needs launcher " + m.minLauncherVersion + "; the itch app must update it");
+    }
+    int selfCode = kExitOk;
+    bool selfUpdated = selfUpdate && PerformSelfUpdate(ctx, m, message, selfCode);
+    if (selfUpdate && !selfUpdated) {
+        // A launcher the release insists on stops here. A merely newer one
+        // must not keep the player from the game (a read-only folder, a moved
+        // app, a bad download): it is tried again next time.
+        if (LauncherTooOld(m)) return Fail("update", selfCode, message);
+        LogMsg("[Updater] launcher not updated, continuing with the game: " + message);
+        message.clear();
+    }
+    if (selfUpdated) {
         CommandResult r;
         JsonValue j = JsonValue::Obj();
         j.set("command", JsonValue::Str("update"));
@@ -1729,6 +1997,7 @@ CommandResult UpdateImpl(UpdaterContext& ctx, CheckSummary* summary) {
                             activateCode)) {
         return Fail("update", activateCode, activateMsg);
     }
+    MarkGameExecutables(FindGameExe(ctx.cfg, JoinPath(ctx.paths.versionsDir, Utf8ToWide(m.clientVersion))));
     // The package has served its purpose once the version is active and
     // verified: keeping it would roughly double the install's disk footprint.
     // Every staged download goes (older packages, partial files, a finished
@@ -2078,84 +2347,14 @@ bool IsGameRunningNow(const UpdaterPaths& paths, const AppConfig& cfg,
     return IsGameRunningNowImpl(paths, cfg, matches);
 }
 
-#ifdef _WIN32
-bool LaunchInstalledGame(const UpdaterPaths& paths, const AppConfig& cfg, bool solo,
-                         const std::wstring& username, const std::wstring& ticket) {
-    if (paths.gameExe.empty() || !FileExists(paths.gameExe)) return false;
-    // No scene argument: the official Windows export templates are compiled with
-    // `disable_path_overrides=yes`, and a packaged Godot binary aborts outright
-    // ("Scene path was specified on the command line, but this Godot binary was
-    // compiled without support for path overrides") before it ever opens a
-    // window. The installed game's main scene is the main menu anyway, so the
-    // argument bought nothing and cost every online launch (Release gates defect).
-    std::wstring cmd = L"\"" + paths.gameExe + L"\"";
-    std::vector<wchar_t> envBlock;
-    LPVOID envPtr = NULL;
-    DWORD flags = 0;
-    if (solo) {
-        cmd += L" --solo";
-    } else {
-        cmd += L" --user \"" + username + L"\" --ip \"" + cfg.serverIp + L"\" --port " +
-               std::to_wstring(cfg.serverPort) + L" --autologin";
-        std::vector<std::wstring> entries;
-        LPWCH current = GetEnvironmentStringsW();
-        if (current) {
-            for (LPWCH p = current; *p; p += wcslen(p) + 1) {
-                if (_wcsnicmp(p, L"REALM_TICKET=", 13) == 0) continue;
-                if (_wcsnicmp(p, L"REALM_API_URL=", 14) == 0) continue;
-                if (_wcsnicmp(p, L"REALM_USER_DIR=", 15) == 0) continue;
-                entries.emplace_back(p);
-            }
-            FreeEnvironmentStringsW(current);
-        }
-        entries.push_back(L"REALM_API_URL=" + ApiBaseUrl(cfg));
-        entries.push_back(L"REALM_USER_DIR=" + paths.userDir);
-        entries.push_back(L"REALM_TICKET=" + ticket);
-        std::sort(entries.begin(), entries.end());
-        for (const auto& entry : entries) {
-            envBlock.insert(envBlock.end(), entry.begin(), entry.end());
-            envBlock.push_back(L'\0');
-        }
-        envBlock.push_back(L'\0');
-        envPtr = envBlock.data();
-        flags = CREATE_UNICODE_ENVIRONMENT;
-    }
-    STARTUPINFOW si = {sizeof(si)};
-    PROCESS_INFORMATION pi;
-    std::vector<wchar_t> buf(cmd.begin(), cmd.end());
-    buf.push_back(0);
-    if (CreateProcessW(NULL, buf.data(), NULL, NULL, FALSE, flags, envPtr, NULL, &si, &pi)) {
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-        return true;
-    }
+bool LauncherRunsFromTemporaryLocation() {
+#ifdef __APPLE__
+    std::string bundle = BundleOfExe(GetExePath());
+    return !bundle.empty() && (bundle.rfind("/Volumes/", 0) == 0 || !BundleIsReplaceable(bundle));
+#else
     return false;
+#endif
 }
-#else  // !_WIN32
-
-bool LaunchInstalledGame(const UpdaterPaths& paths, const AppConfig& cfg, bool solo,
-                         const std::wstring& username, const std::wstring& ticket) {
-    if (paths.gameExe.empty() || !FileExists(paths.gameExe)) return false;
-    MakeExecutable(paths.gameExe);
-    std::vector<std::wstring> args;
-    std::vector<std::wstring> add;
-    std::vector<std::string> drop;
-    if (solo) {
-        args.push_back(L"--solo");
-    } else {
-        args = {L"--user", username, L"--ip", cfg.serverIp, L"--port", std::to_wstring(cfg.serverPort),
-                L"--autologin"};
-        drop = {"REALM_TICKET", "REALM_API_URL", "REALM_USER_DIR"};
-        add = {L"REALM_API_URL=" + ApiBaseUrl(cfg),
-               L"REALM_USER_DIR=" + paths.userDir, L"REALM_TICKET=" + ticket};
-    }
-    std::string err;
-    if (SpawnDetached(paths.gameExe, args, drop, add, L"", err)) return true;
-    LogMsg("[Launcher] " + err);
-    return false;
-}
-
-#endif  // _WIN32
 
 UpdaterPaths ResolvePathsForGui(AppConfig cfg) {
     CliOptions cli;
@@ -2163,48 +2362,41 @@ UpdaterPaths ResolvePathsForGui(AppConfig cfg) {
 }
 
 #ifdef _WIN32
-bool LaunchGameClient(const UpdaterPaths& paths, const AppConfig& cfg, const std::string& clientVersion) {
+bool LaunchGameClient(const UpdaterPaths& paths, GameLaunch& launch) {
+    launch = GameLaunch{};
     if (paths.gameExe.empty() || !FileExists(paths.gameExe)) return false;
     // No scene argument: export templates refuse path overrides, and the main
     // scene is the login screen anyway.
     std::wstring cmd = L"\"" + paths.gameExe + L"\"";
-    std::vector<std::wstring> entries;
-    LPWCH current = GetEnvironmentStringsW();
-    if (current) {
-        for (LPWCH p = current; *p; p += wcslen(p) + 1) {
-            if (_wcsnicmp(p, L"REALM_TICKET=", 13) == 0) continue;
-            if (_wcsnicmp(p, L"REALM_API_URL=", 14) == 0) continue;
-            if (_wcsnicmp(p, L"REALM_USER_DIR=", 15) == 0) continue;
-            if (_wcsnicmp(p, L"REALM_CLIENT_VERSION=", 21) == 0) continue;
-            entries.emplace_back(p);
-        }
-        FreeEnvironmentStringsW(current);
-    }
-    entries.push_back(L"REALM_API_URL=" + ApiBaseUrl(cfg));
-    entries.push_back(L"REALM_USER_DIR=" + paths.userDir);
-    if (!clientVersion.empty()) entries.push_back(L"REALM_CLIENT_VERSION=" + Utf8ToWide(clientVersion));
-    std::sort(entries.begin(), entries.end(), [](const std::wstring& a, const std::wstring& b) {
-        return _wcsicmp(a.c_str(), b.c_str()) < 0;
-    });
-    std::vector<wchar_t> envBlock;
-    for (const auto& entry : entries) {
-        envBlock.insert(envBlock.end(), entry.begin(), entry.end());
-        envBlock.push_back(L'\0');
-    }
-    envBlock.push_back(L'\0');
+    for (const auto& a : FirstRunGameArgs()) cmd += L" " + a;
     std::wstring workDir = paths.gameExe.substr(0, paths.gameExe.find_last_of(L"\\/"));
     STARTUPINFOW si = {sizeof(si)};
     PROCESS_INFORMATION pi;
     std::vector<wchar_t> buf(cmd.begin(), cmd.end());
     buf.push_back(0);
-    if (!CreateProcessW(NULL, buf.data(), NULL, NULL, FALSE, CREATE_UNICODE_ENVIRONMENT,
-                        envBlock.data(), workDir.empty() ? NULL : workDir.c_str(), &si, &pi)) {
-        LogMsg("[Launcher] cannot start the game (error " + std::to_string(GetLastError()) + ")");
+    if (!CreateProcessW(NULL, buf.data(), NULL, NULL, FALSE, 0, NULL, workDir.empty() ? NULL : workDir.c_str(), &si,
+                        &pi)) {
+        launch.error = (int)GetLastError();
+        LogMsg("[Launcher] cannot start the game (error " + std::to_string(launch.error) + ")");
         return false;
     }
-    CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
+    launch.tracked = true;
+    launch.handle = pi.hProcess;
     LogMsg("[Launcher] game started: " + WideToUtf8(paths.gameExe));
+    return true;
+}
+
+bool PollGameExit(GameLaunch& launch, GameExit& exit) {
+    if (!launch.tracked || !launch.handle) return false;
+    if (WaitForSingleObject((HANDLE)launch.handle, 0) != WAIT_OBJECT_0) return false;
+    DWORD code = 0;
+    GetExitCodeProcess((HANDLE)launch.handle, &code);
+    CloseHandle((HANDLE)launch.handle);
+    launch.handle = nullptr;
+    launch.tracked = false;
+    exit.code = (int)code;
+    exit.signal = 0;
     return true;
 }
 
@@ -2254,27 +2446,48 @@ int RunSelfUpdateSwap(const std::string& pidStr, const std::wstring& target,
 }
 #else  // !_WIN32
 
-bool LaunchGameClient(const UpdaterPaths& paths, const AppConfig& cfg, const std::string& clientVersion) {
+bool LaunchGameClient(const UpdaterPaths& paths, GameLaunch& launch) {
+    launch = GameLaunch{};
     if (paths.gameExe.empty() || !FileExists(paths.gameExe)) return false;
-    // Zip/delta installs do not carry the exec bit reliably.
-    MakeExecutable(paths.gameExe);
-    std::vector<std::string> drop = {"REALM_TICKET", "REALM_API_URL", "REALM_USER_DIR", "REALM_CLIENT_VERSION"};
-    std::vector<std::wstring> add = {
-        L"REALM_API_URL=" + ApiBaseUrl(cfg),
-        L"REALM_USER_DIR=" + paths.userDir};
-    if (!clientVersion.empty()) add.push_back(L"REALM_CLIENT_VERSION=" + Utf8ToWide(clientVersion));
+    // Downloaded files carry no exec bit: the launcher sets it, not the player.
+    MarkGameExecutables(paths.gameExe);
+    std::vector<std::string> drop = {"APPIMAGE", "APPDIR", "ARGV0", "OWD"};
     std::wstring workDir = paths.gameExe.substr(0, paths.gameExe.find_last_of(L'/'));
     std::string err;
-    if (!SpawnDetached(paths.gameExe, {}, drop, add, workDir, err)) {
+    pid_t pid = 0;
+    if (!SpawnDetached(paths.gameExe, FirstRunGameArgs(), drop, {}, workDir, err, &pid, &launch.error)) {
         LogMsg("[Launcher] cannot start the game (" + err + ")");
         return false;
     }
+    launch.tracked = true;
+    launch.pid = (int)pid;
     LogMsg("[Launcher] game started: " + WideToUtf8(paths.gameExe));
+    return true;
+}
+
+bool PollGameExit(GameLaunch& launch, GameExit& exit) {
+    if (!launch.tracked || launch.pid <= 0) return false;
+    int status = 0;
+    pid_t got = waitpid((pid_t)launch.pid, &status, WNOHANG);
+    if (got == 0 || (got < 0 && errno == EINTR)) return false;
+    launch.tracked = false;
+    launch.pid = 0;
+    exit = GameExit{};
+    if (got > 0 && WIFEXITED(status)) exit.code = WEXITSTATUS(status);
+    if (got > 0 && WIFSIGNALED(status)) exit.signal = WTERMSIG(status);
     return true;
 }
 
 int RunSelfUpdateSwap(const std::string& pidStr, const std::wstring& target,
                       const std::wstring& newExe, bool relaunch) {
+#ifdef __APPLE__
+    // A Developer ID app is sealed and notarized: it is never patched in place.
+    std::string bundle = BundleOfExe(target);
+    if (!bundle.empty() && !BundleTeamId(bundle).empty()) {
+        LogMsg("[Updater] refusing to patch the signed app " + bundle);
+        return kExitSelfUpdateFailed;
+    }
+#endif
     uint32_t pid = 0;
     try {
         pid = (uint32_t)std::stoul(pidStr);
@@ -2298,25 +2511,11 @@ int RunSelfUpdateSwap(const std::string& pidStr, const std::wstring& target,
         }
     }
 #ifdef __APPLE__
-    // The binary lives in "HPMMO Launcher.app/Contents/MacOS/": a new binary
-    // breaks the bundle's ad-hoc seal, so the bundle is re-signed (ad-hoc) with
-    // the system codesign, which every macOS ships.
-    {
-        std::string t = WideToUtf8(target);
-        size_t at = t.find(".app/Contents/MacOS/");
-        if (at != std::string::npos) {
-            std::string bundle = t.substr(0, at + 4);
-            pid_t pid = fork();
-            if (pid == 0) {
-                execl("/usr/bin/codesign", "codesign", "--force", "--deep", "--sign", "-", bundle.c_str(), (char*)nullptr);
-                _exit(127);
-            }
-            int status = 0;
-            if (pid > 0) waitpid(pid, &status, 0);
-            if (pid < 0 || !WIFEXITED(status) || WEXITSTATUS(status) != 0)
-                LogMsg("[Updater] re-signing " + bundle + " failed; macOS may refuse to open it");
-        }
-    }
+    // Only the old update path gets here (an installed launcher from before
+    // whole-app updates started this helper): its app is signed ad hoc, a new
+    // binary breaks that seal, and the system codesign renews it.
+    if (!bundle.empty() && RunTool({"/usr/bin/codesign", "--force", "--deep", "--sign", "-", bundle}) != 0)
+        LogMsg("[Updater] re-signing " + bundle + " failed; macOS may refuse to open it");
 #endif
     LogMsg("[Updater] launcher self-update applied to " + WideToUtf8(target));
     if (relaunch) {

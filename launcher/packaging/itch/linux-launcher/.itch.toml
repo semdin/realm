@@ -1,0 +1,4 @@
+# itch app manifest: one action, so the app starts it without asking.
+[[actions]]
+name = "play"
+path = "ThousandRealms_Launcher"

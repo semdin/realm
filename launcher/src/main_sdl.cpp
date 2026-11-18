@@ -18,6 +18,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cctype>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -27,6 +28,7 @@
 #include <vector>
 
 #include "common.h"
+#include "i18n.h"
 #include "launcher_app.h"
 #include "painter.h"
 #include "updater.h"
@@ -43,6 +45,8 @@ extern const unsigned char kIconPng[];
 extern const size_t kIconPngSize;
 extern const unsigned char kLogoPng[];
 extern const size_t kLogoPngSize;
+extern const unsigned char kNotices[];
+extern const size_t kNoticesSize;
 }  // namespace assets
 }  // namespace realm
 
@@ -83,7 +87,7 @@ constexpr int kBaseW = 980;
 constexpr int kBaseH = 580;
 constexpr int kTopBar = 44;
 
-enum class Hit { None, Play, Close, Minimize, Repair };
+enum class Hit { None, Play, Close, Minimize, Repair, Support, Licenses, Logs };
 
 struct View {
     float scale = 1.0f;
@@ -102,7 +106,7 @@ float SF(const View& v, float x) { return x * v.scale; }
 
 struct Layout {
     float w = 0, h = 0;
-    RectF close, minimize, play, progress, repair, pill, notes;
+    RectF close, minimize, play, progress, repair, support, licenses, logs, pill, notes;
 };
 
 Layout ComputeLayout(const View& v, int cw, int ch) {
@@ -113,7 +117,10 @@ Layout ComputeLayout(const View& v, int cw, int ch) {
     L.minimize = RectF(L.w - SF(v, 92), 0, SF(v, 46), SF(v, 38));
     L.play = RectF(L.w - SF(v, 48 + 250), L.h - SF(v, 118), SF(v, 250), SF(v, 72));
     L.progress = RectF(SF(v, 48), L.h - SF(v, 58), L.play.x - SF(v, 48) - SF(v, 28), SF(v, 10));
-    L.repair = RectF(SF(v, 48), L.h - SF(v, 34), SF(v, 150), SF(v, 22));
+    L.repair = RectF(SF(v, 48), L.h - SF(v, 34), SF(v, 100), SF(v, 22));
+    L.support = RectF(SF(v, 152), L.h - SF(v, 34), SF(v, 58), SF(v, 22));
+    L.licenses = RectF(SF(v, 214), L.h - SF(v, 34), SF(v, 66), SF(v, 22));
+    L.logs = RectF(SF(v, 284), L.h - SF(v, 34), SF(v, 62), SF(v, 22));
     L.pill = RectF(SF(v, 52), SF(v, 262), SF(v, 230), SF(v, 34));
     L.notes = RectF(SF(v, 48), SF(v, 316), SF(v, 390), SF(v, 110));
     return L;
@@ -125,6 +132,9 @@ Hit HitTest(const View& v, int cw, int ch, float x, float y) {
     if (L.minimize.Contains(x, y)) return Hit::Minimize;
     if (L.play.Contains(x, y)) return Hit::Play;
     if (L.repair.Contains(x, y)) return Hit::Repair;
+    if (L.support.Contains(x, y)) return Hit::Support;
+    if (L.licenses.Contains(x, y)) return Hit::Licenses;
+    if (L.logs.Contains(x, y)) return Hit::Logs;
     return Hit::None;
 }
 
@@ -194,7 +204,7 @@ void BuildBase(const View& v, int cw, int ch) {
         g_Base.DrawText(kGameTitle, titleBox, title,
                         Linear(0, titleBox.y + SF(v, 10), 0, titleBox.y + SF(v, 60), {{0.0f, Pal::GoldHi}, {1.0f, Pal::GoldLt}}));
     }
-    DrawStrHalo(g_Base, v, L"B Ü Y Ü C Ü L Ü K   D İ Y A R I", RectF(SF(v, 54), SF(v, 204), SF(v, 520), SF(v, 26)),
+    DrawStrHalo(g_Base, v, realm::app::SubtitleText(), RectF(SF(v, 54), SF(v, 204), SF(v, 520), SF(v, 26)),
                 Style(g_TitleFont, SF(v, 15)), Pal::GoldLt);
     float y = SF(v, 242);
     g_Base.Line(SF(v, 54), y, SF(v, 200), y, Pal::Gold.WithAlpha(200), SF(v, 1));
@@ -226,17 +236,10 @@ void Paint(const View& v, int cw, int ch) {
     // --- server pill
     {
         Color dot = Pal::Dim;
-        std::wstring text = L"Sunucu durumu alınıyor…";
-        if (s.server == L"ONLINE") {
-            dot = Pal::Good;
-            text = L"Sunucu çevrimiçi";
-        } else if (s.server == L"MAINTENANCE") {
-            dot = Pal::Warn;
-            text = L"Sunucu bakımda";
-        } else if (s.server == L"OFFLINE") {
-            dot = Pal::Bad;
-            text = L"Sunucuya ulaşılamıyor";
-        }
+        std::wstring text = realm::app::ServerLabel(s.server);
+        if (s.server == L"ONLINE") dot = Pal::Good;
+        else if (s.server == L"MAINTENANCE") dot = Pal::Warn;
+        else if (s.server == L"OFFLINE") dot = Pal::Bad;
         g.FillRound(L.pill, L.pill.h / 2, Solid(Color(190, 8, 10, 15)));
         g.StrokeRound(L.pill, L.pill.h / 2, Pal::GoldDk.WithAlpha(230), SF(v, 1));
         float pulse = (s.server == L"MAINTENANCE") ? (0.6f + 0.4f * std::sin(v.anim * 4.0f)) : 1.0f;
@@ -248,15 +251,15 @@ void Paint(const View& v, int cw, int ch) {
     }
 
     // --- what's new
-    if (!s.notes.empty() || !s.release.empty()) {
+    if (!s.notes.empty() || !s.release.empty() || !s.advice.empty()) {
         g.FillRound(L.notes, SF(v, 8), Solid(Color(170, 8, 10, 15)));
         g.StrokeRound(L.notes, SF(v, 8), Pal::Steel.WithAlpha(200), SF(v, 1));
-        g.FillRect(RectF(L.notes.x, L.notes.y + SF(v, 12), SF(v, 3), L.notes.h - SF(v, 24)), Solid(Pal::Gold));
-        std::wstring caption = L"YENİLİKLER";
-        if (!s.release.empty()) caption += L"  ·  v" + realm::Utf8ToWide(s.release);
+        g.FillRect(RectF(L.notes.x, L.notes.y + SF(v, 12), SF(v, 3), L.notes.h - SF(v, 24)),
+                   Solid(s.advice.empty() ? Pal::Gold : Pal::Warn));
+        std::wstring caption = realm::app::PanelCaption(s);
         g.DrawText(caption, RectF(L.notes.x + SF(v, 18), L.notes.y + SF(v, 12), L.notes.w - SF(v, 30), SF(v, 20)),
                    Style(g_TitleFont, SF(v, 13)), Solid(Pal::GoldLt));
-        std::wstring notes = s.notes.empty() ? L"Bu sürüm için not eklenmemiş." : s.notes;
+        std::wstring notes = realm::app::PanelBody(s);
         TextStyle body = Style(g_BodyFont, SF(v, 13));
         body.wrap = true;
         g.DrawText(notes, RectF(L.notes.x + SF(v, 18), L.notes.y + SF(v, 38), L.notes.w - SF(v, 32), L.notes.h - SF(v, 48)),
@@ -269,7 +272,7 @@ void Paint(const View& v, int cw, int ch) {
                 Pal::Parchment);
     Color detailColor = Pal::Dim;
     if (s.phase == Phase::Failed) detailColor = Pal::Bad;
-    if (s.phase == Phase::ReadyStale) detailColor = Pal::Warn;
+    else if (s.phase == Phase::ReadyStale || s.problem != realm::app::Problem::None) detailColor = Pal::Warn;
     g.DrawText(s.detail, RectF(SF(v, 48), statusY + SF(v, 30), L.progress.w, SF(v, 22)),
                Style(g_BodyFont, SF(v, 14), Align::Near, Align::Near, true), Solid(detailColor));
 
@@ -327,9 +330,15 @@ void Paint(const View& v, int cw, int ch) {
     {
         bool busy = !(s.phase == Phase::Ready || s.phase == Phase::ReadyStale || s.phase == Phase::Failed);
         Color c = busy ? Pal::Dim.WithAlpha(110) : (v.hover == Hit::Repair ? Pal::GoldHi : Pal::Dim);
-        g.DrawText(L"Dosyaları onar", L.repair, Style(g_BodyFont, SF(v, 12), Align::Near, Align::Center), Solid(c));
-        std::wstring ver = L"Launcher v" + realm::Utf8ToWide(realm::kLauncherVersion);
-        if (!s.installed.empty()) ver = L"Oyun v" + realm::Utf8ToWide(s.installed) + L"   ·   " + ver;
+        TextStyle linkStyle = Style(g_BodyFont, SF(v, 12), Align::Near, Align::Center);
+        g.DrawText(realm::app::RepairLabel(), L.repair, linkStyle, Solid(c));
+        auto link = [&](const wchar_t* text, const RectF& r, Hit which) {
+            g.DrawText(text, r, linkStyle, Solid(v.hover == which ? Pal::GoldHi : Pal::Dim));
+        };
+        link(realm::app::SupportLabel(), L.support, Hit::Support);
+        link(realm::app::LicensesLabel(), L.licenses, Hit::Licenses);
+        link(realm::app::LogsLabel(), L.logs, Hit::Logs);
+        std::wstring ver = realm::app::VersionLine(s);
         g.DrawText(ver, RectF(L.play.x - SF(v, 400), L.h - SF(v, 34), SF(v, 400) - SF(v, 28), SF(v, 22)),
                    Style(g_BodyFont, SF(v, 12), Align::Far, Align::Center), Solid(Pal::Dim.WithAlpha(200)));
     }
@@ -383,6 +392,13 @@ bool LoadAssets() {
 // headless updater (and the self-update helper) instead of opening a window.
 int RunHeadless(int argc, char** argv) {
     if (argc < 2) return -1;
+#if defined(__linux__)
+    if (strcmp(argv[1], "--remove-desktop-entry") == 0) return realm::RemoveDesktopEntry();
+    {
+        int handled = realm::HandleAppImageOption(argv[1], realm::assets::kIconPng, realm::assets::kIconPngSize);
+        if (handled >= 0) return handled;
+    }
+#endif
     realm::CliOptions opts;
     std::string err;
     if (!realm::ParseCliArgs(argc, argv, opts, err)) return -1;
@@ -435,13 +451,18 @@ int AcquireSingleInstance(bool waitForOld) {
 }
 
 // --screenshot: run the real workers, paint their state into a PNG, exit.
-int RunScreenshot(const char* out, int afterMs) {
+int RunScreenshot(const char* out, int afterMs, const char* state) {
     View v;
     realm::app::Hooks hooks;
     realm::app::Init(realm::Config(), hooks);
-    realm::app::StartWorker();
-    realm::app::StartStatusPoll();
-    std::this_thread::sleep_for(std::chrono::milliseconds(afterMs));
+    if (state) {
+        if (!realm::app::ShowTestState(state)) return 2;
+        afterMs = 1000;
+    } else {
+        realm::app::StartWorker();
+        realm::app::StartStatusPoll();
+        std::this_thread::sleep_for(std::chrono::milliseconds(afterMs));
+    }
     v.anim = afterMs / 1000.0f;
     Paint(v, kBaseW, kBaseH);
     bool ok = g_Frame.WritePng(out);
@@ -453,6 +474,7 @@ int RunScreenshot(const char* out, int afterMs) {
 
 Uint32 g_EvRefresh = 0;
 Uint32 g_EvExit = 0;
+Uint32 g_EvRestore = 0;
 View g_View;
 SDL_Window* g_Window = nullptr;
 
@@ -465,16 +487,47 @@ SDL_HitTestResult HitTestCb(SDL_Window* win, const SDL_Point* pt, void*) {
     return SDL_HITTEST_NORMAL;
 }
 
+// A local path as a file:// URL for SDL_OpenURL.
+std::string FileUrl(const std::string& path) {
+    static const char hex[] = "0123456789ABCDEF";
+    std::string url = "file://";
+    for (unsigned char c : path) {
+        if (isalnum(c) || strchr("/-_.~", c)) {
+            url += (char)c;
+        } else {
+            url += '%';
+            url += hex[c >> 4];
+            url += hex[c & 15];
+        }
+    }
+    return url;
+}
+
+// The language the system reports (macOS gives GUI apps no $LANG).
+std::string PreferredLocale() {
+    std::string tag;
+    int count = 0;
+    SDL_Locale** locales = SDL_GetPreferredLocales(&count);
+    if (locales) {
+        if (count > 0 && locales[0] && locales[0]->language) tag = locales[0]->language;
+        SDL_free(locales);
+    }
+    return tag;
+}
+
 bool ConfirmCloseDuringUpdate() {
+    std::string no = realm::WideToUtf8(realm::app::NoLabel());
+    std::string yes = realm::WideToUtf8(realm::app::YesLabel());
+    std::string text = realm::WideToUtf8(realm::app::CloseDuringUpdateText());
     const SDL_MessageBoxButtonData buttons[] = {
-        {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, "Hayır"},
-        {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, "Evet"},
+        {SDL_MESSAGEBOX_BUTTON_ESCAPEKEY_DEFAULT, 0, no.c_str()},
+        {SDL_MESSAGEBOX_BUTTON_RETURNKEY_DEFAULT, 1, yes.c_str()},
     };
     SDL_MessageBoxData data = {};
     data.flags = SDL_MESSAGEBOX_INFORMATION;
     data.window = g_Window;
     data.title = "Thousand Realms";
-    data.message = "Güncelleme sürüyor. Şimdi kapatırsan indirme bir sonraki açılışta kaldığı yerden devam eder.\n\nKapatılsın mı?";
+    data.message = text.c_str();
     data.numbuttons = 2;
     data.buttons = buttons;
     int answer = 0;
@@ -489,25 +542,30 @@ int main(int argc, char** argv) {
         int headless = RunHeadless(argc, argv);
         if (headless >= 0) return headless;
     }
+    realm::i18n::Init(PreferredLocale());
+    if (const char* lang = ArgValue(argc, argv, "--lang"))
+        realm::i18n::Set(realm::i18n::IsTurkishTag(lang) ? realm::i18n::Lang::Turkish : realm::i18n::Lang::English);
+    SDL_SetAppMetadata("Thousand Realms", realm::kLauncherVersion, "thousand-realms");
     bool postSelfUpdate = HasArg(argc, argv, "--post-self-update");
     if (postSelfUpdate) {
-        realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+        realm::SetLogPath(realm::EarlyLogPath());
         realm::LogMsg("[Launcher] restarted after self-update");
         if (!realm::GetEnvW(L"REALM_TEST_NO_GUI").empty()) return 0;
     }
 
     // Before LoadConfig: on macOS the config sits inside the bundle, which
-    // this renames ("HPMMO Launcher.app" -> "Thousand Realms Launcher.app").
+    // this gives the current name when it still has the old one.
     if (!HasArg(argc, argv, "--screenshot")) {
-        realm::SetLogPath(realm::JoinPath(realm::GetExeDir(), L"launcher.log"));
+        realm::SetLogPath(realm::EarlyLogPath());
         realm::MigrateLegacyLauncherFile();
     }
     realm::LoadConfig();
     if (!LoadAssets()) realm::LogMsg("[Launcher] embedded fonts could not be loaded");
+    realm::app::SetNotices(realm::assets::kNotices, realm::assets::kNoticesSize);
 
     if (const char* shot = ArgValue(argc, argv, "--screenshot")) {
         const char* after = ArgValue(argc, argv, "--screenshot-after");
-        return RunScreenshot(shot, after ? atoi(after) : 4000);
+        return RunScreenshot(shot, after ? atoi(after) : 4000, ArgValue(argc, argv, "--screenshot-state"));
     }
 
     int lock = AcquireSingleInstance(postSelfUpdate);
@@ -515,13 +573,17 @@ int main(int argc, char** argv) {
         realm::LogMsg("[Launcher] another launcher is already running");
         return 0;
     }
+#if defined(__linux__)
+    realm::EnsureDesktopEntry(realm::assets::kIconPng, realm::assets::kIconPngSize);
+#endif
 
     if (!SDL_Init(SDL_INIT_VIDEO)) {
         fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
         return 1;
     }
-    g_EvRefresh = SDL_RegisterEvents(2);
+    g_EvRefresh = SDL_RegisterEvents(3);
     g_EvExit = g_EvRefresh + 1;
+    g_EvRestore = g_EvRefresh + 2;
 
     g_Window = SDL_CreateWindow("Thousand Realms", kBaseW, kBaseH,
                                 SDL_WINDOW_BORDERLESS | SDL_WINDOW_HIGH_PIXEL_DENSITY | SDL_WINDOW_HIDDEN);
@@ -564,6 +626,13 @@ int main(int argc, char** argv) {
         e.type = g_EvExit;
         SDL_PushEvent(&e);
     };
+    hooks.restoreWindow = [] {
+        SDL_Event e = {};
+        e.type = g_EvRestore;
+        SDL_PushEvent(&e);
+    };
+    hooks.openUrl = [](const std::wstring& url) { SDL_OpenURL(realm::WideToUtf8(url).c_str()); };
+    hooks.openPath = [](const std::wstring& path) { SDL_OpenURL(FileUrl(realm::WideToUtf8(path)).c_str()); };
     realm::app::Init(realm::Config(), hooks);
     realm::app::StartWorker();
     realm::app::StartStatusPoll();
@@ -608,6 +677,9 @@ int main(int argc, char** argv) {
                 }
                 break;
             case Hit::Repair: realm::app::RequestRepair(); break;
+            case Hit::Support: realm::app::OpenSupport(); break;
+            case Hit::Licenses: realm::app::OpenLicenses(); break;
+            case Hit::Logs: realm::app::OpenLogs(); break;
             default: break;
         }
     };
@@ -628,6 +700,9 @@ int main(int argc, char** argv) {
                 if (quitRequested()) running = false;
             } else if (e.type == g_EvExit) {
                 running = false;
+            } else if (e.type == g_EvRestore) {
+                SDL_RestoreWindow(g_Window);
+                SDL_RaiseWindow(g_Window);
             } else if (e.type == SDL_EVENT_MOUSE_MOTION) {
                 g_View.hover = hitAt(e.motion.x, e.motion.y);
                 bool handCursor = g_View.hover == Hit::Play ? realm::app::PlayEnabled(realm::app::CurrentPhase())

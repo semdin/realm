@@ -54,6 +54,13 @@ const std::wstring& ExePathOverride();
 // old name (HPMMO_Launcher*, "HPMMO Launcher.app") and points the player's
 // shortcuts / desktop entries at the new file. No-op once renamed.
 void MigrateLegacyLauncherFile();
+#if defined(__linux__)
+// desktop_entry.cpp: the application menu entry, and what desktop tools ask of
+// an AppImage. HandleAppImageOption returns -1 for an option it does not know.
+void EnsureDesktopEntry(const void* icon, size_t iconSize);
+int RemoveDesktopEntry();
+int HandleAppImageOption(const char* option, const void* icon, size_t iconSize);
+#endif
 std::wstring GetCwd();
 std::wstring TempDirPath();
 std::wstring NormalizePath(const std::wstring& path);
