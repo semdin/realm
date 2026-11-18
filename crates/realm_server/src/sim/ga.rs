@@ -1,11 +1,11 @@
 //! Game admins and the weather on a map. The coordinator keeps both for
-//! the realm; a map alone (no coordinator) keeps its own weather and the
+//! the realm; GA rights belong to account ids from the deployment's
+//! configuration (REALM_GA_ACCOUNTS), so nothing typed here grants them. A
+//! map alone (no coordinator) keeps its own weather and, for development, the
 //! GAs named by `--dev-ga`.
 //!
 //!   /ga rain on|off   (/ga yağmur aç|kapat; no word: the other way)
-//!   /ga add <Name>    (/ga ekle)
-//!   /ga remove <Name> (/ga sil, /ga kaldır)
-//!   /ga list          (/ga liste)
+//!   /ga list          (/ga liste): the GAs on this map
 
 use std::collections::HashSet;
 
@@ -16,9 +16,9 @@ use super::{ConnId, Entity, Player, Sim};
 
 #[derive(Default)]
 pub struct Admins {
-    /// The realm's GAs (lowercase names), as the coordinator told.
-    pub realm: HashSet<String>,
-    /// Development: GAs on a map without a coordinator.
+    /// The realm's GAs (account ids), as the coordinator told.
+    pub realm: HashSet<u64>,
+    /// Development: GAs by name on a map started with `--dev-ga`.
     pub dev: HashSet<String>,
     pub rain: bool,
 }
@@ -30,8 +30,7 @@ fn key(name: &str) -> String {
 impl Sim {
     pub(super) fn is_ga(&self, player: Entity) -> bool {
         self.world.get::<Player>(player).is_some_and(|p| {
-            let k = key(&p.sheet.name);
-            self.admins.realm.contains(&k) || self.admins.dev.contains(&k)
+            self.admins.realm.contains(&p.account) || self.admins.dev.contains(&key(&p.sheet.name))
         })
     }
 
@@ -98,13 +97,13 @@ impl Sim {
 
     /// The realm's GAs changed: everyone here sees the players whose
     /// emblem came or went.
-    pub(super) fn gas_told(&mut self, names: Vec<String>) {
+    pub(super) fn gas_told(&mut self, accounts: Vec<u64>) {
         let before: Vec<(Entity, bool)> = self
             .clients
             .values()
             .map(|c| (c.entity, self.is_ga(c.entity)))
             .collect();
-        self.admins.realm = names.into_iter().collect();
+        self.admins.realm = accounts.into_iter().collect();
         let changed: Vec<Entity> = before
             .into_iter()
             .filter(|(e, was)| self.is_ga(*e) != *was)
@@ -159,50 +158,21 @@ impl Sim {
                 self.system_line(conn, if on { "Rain started." } else { "Rain stopped." });
             }
             "add" | "ekle" | "remove" | "sil" | "kaldır" | "kaldir" => {
-                let on = matches!(verb.to_lowercase().as_str(), "add" | "ekle");
-                if arg.is_empty() {
-                    let usage = if on {
-                        "Usage: /ga add Name"
-                    } else {
-                        "Usage: /ga remove Name"
-                    };
-                    return self.system_line(conn, usage);
-                }
-                if linked {
-                    if !self.coord_send(MapMsg::Ga {
-                        by: character,
-                        name: arg.to_owned(),
-                        on,
-                    }) {
-                        return self.system_line(conn, "GA commands are not available right now.");
-                    }
-                } else {
-                    let mut names: Vec<String> = self.admins.realm.iter().cloned().collect();
-                    if on {
-                        names.push(key(arg));
-                    } else {
-                        names.retain(|n| *n != key(arg));
-                    }
-                    self.gas_told(names);
-                }
-                let line = if on {
-                    format!("{arg} is now a GA.")
-                } else {
-                    format!("{arg} is no longer a GA.")
-                };
-                self.system_line(conn, &line);
+                self.system_line(conn, "GA rights are set in the server configuration.");
             }
             "list" | "liste" => {
-                let mut names: Vec<String> =
-                    self.admins.realm.union(&self.admins.dev).cloned().collect();
+                let mut names: Vec<String> = self
+                    .clients
+                    .values()
+                    .filter(|c| self.is_ga(c.entity))
+                    .filter_map(|c| self.world.get::<Player>(c.entity))
+                    .map(|p| p.sheet.name.clone())
+                    .collect();
                 names.sort();
                 let line = format!("GAs: {}", names.join(", "));
                 self.system_line(conn, &line);
             }
-            _ => self.system_line(
-                conn,
-                "GA: /ga rain on|off, /ga add Name, /ga remove Name, /ga list",
-            ),
+            _ => self.system_line(conn, "GA: /ga rain on|off, /ga list"),
         }
     }
 }

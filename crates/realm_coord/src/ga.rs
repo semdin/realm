@@ -1,43 +1,40 @@
 //! Game admins and the weather, realm-wide.
 //!
-//! GAs are characters, by name (case does not matter): the list is kept by
-//! the persistence service (`--persist`) or in `--ga <file.json>` (an array
-//! of names), and seeded from REALM_GA (comma separated). The first GA is made through POST /admin/ga; a GA makes
-//! others in game with `/ga add Name`. Every map hears the list and the
-//! weather when it links and whenever they change.
+//! A GA is an account, by its id, which never changes and cannot be taken by
+//! creating a name. The list comes from the deployment's configuration:
+//! REALM_GA_ACCOUNTS (comma separated ids) in /etc/realm/realm.env, read when
+//! the coordinator starts. Nothing typed in chat changes it. POST /admin/ga
+//! (the operator's service token) adds or removes an account until the next
+//! restart. Every map hears the list and the weather when it links and
+//! whenever they change.
 
-use std::path::Path;
+use std::collections::BTreeSet;
 
 use realm_proto::coord::CoordMsg;
-use realm_proto::persist::PersistMsg;
 use serde_json::{Value, json};
 
 use crate::Book;
 
-pub fn clean(name: &str) -> String {
-    name.trim().to_lowercase()
-}
-
-/// The names kept in the file.
-pub fn from_file(file: Option<&Path>) -> Vec<String> {
-    file.and_then(|path| std::fs::read_to_string(path).ok())
-        .map(|text| serde_json::from_str(&text).unwrap_or_default())
-        .unwrap_or_default()
-}
-
-/// The kept names and REALM_GA.
-pub fn with_seed(kept: Vec<String>) -> std::collections::BTreeSet<String> {
-    let mut out = std::collections::BTreeSet::new();
-    out.extend(kept.iter().map(|n| clean(n)).filter(|n| !n.is_empty()));
-    if let Ok(seed) = std::env::var("REALM_GA") {
-        out.extend(seed.split(',').map(clean).filter(|n| !n.is_empty()));
+/// REALM_GA_ACCOUNTS: account ids, comma separated.
+pub fn from_env() -> BTreeSet<u64> {
+    let mut out = BTreeSet::new();
+    let Ok(list) = std::env::var("REALM_GA_ACCOUNTS") else {
+        return out;
+    };
+    for part in list.split(',').map(str::trim).filter(|p| !p.is_empty()) {
+        match part.parse::<u64>() {
+            Ok(id) if id > 0 => {
+                out.insert(id);
+            }
+            _ => eprintln!("[ga] REALM_GA_ACCOUNTS: {part:?} is not an account id; ignored"),
+        }
     }
     out
 }
 
 impl Book {
     pub fn gas_msg(&self) -> CoordMsg {
-        CoordMsg::Gas(self.gas.iter().cloned().collect())
+        CoordMsg::Gas(self.gas.iter().copied().collect())
     }
 
     /// A map that links hears the list and the weather.
@@ -46,51 +43,28 @@ impl Book {
         self.to_link(link, CoordMsg::Weather { rain: self.rain });
     }
 
-    fn is_ga(&self, character: u64) -> bool {
+    pub fn is_ga(&self, character: u64) -> bool {
         self.online
             .get(&character)
-            .is_some_and(|o| self.gas.contains(&clean(&o.name)))
+            .is_some_and(|o| self.gas.contains(&o.account))
     }
 
-    /// Makes `name` a GA (or takes it back); true when the list changed.
-    pub fn set_ga(&mut self, name: &str, on: bool) -> bool {
-        let key = clean(name);
-        if key.is_empty() || key.chars().count() > 32 {
-            return false;
-        }
+    /// Makes `account` a GA (or takes it back) until the next restart; true
+    /// when the list changed.
+    fn set_ga(&mut self, account: u64, on: bool) -> bool {
         let changed = if on {
-            self.gas.insert(key)
+            self.gas.insert(account)
         } else {
-            self.gas.remove(&key)
+            self.gas.remove(&account)
         };
-        if !changed {
-            return false;
-        }
-        if let Some(persist) = &self.persist {
-            let name = clean(name);
-            persist.keep(|req| PersistMsg::SetGa { req, name, on });
-        }
-        if let Some(path) = &self.ga_file {
-            let names: Vec<&String> = self.gas.iter().collect();
-            if let Ok(text) = serde_json::to_string_pretty(&names)
-                && let Err(e) = std::fs::write(path, text)
-            {
-                eprintln!("[ga] cannot keep the list in {}: {e}", path.display());
+        if changed {
+            println!("[ga] {} account {account}", if on { "+" } else { "-" });
+            let msg = self.gas_msg();
+            for l in self.links.values() {
+                let _ = l.tx.send(msg.clone());
             }
         }
-        println!("[ga] {} {}", if on { "+" } else { "-" }, clean(name));
-        let msg = self.gas_msg();
-        for l in self.links.values() {
-            let _ = l.tx.send(msg.clone());
-        }
-        true
-    }
-
-    /// A GA's `/ga add|remove` from a map.
-    pub fn ga_from_map(&mut self, by: u64, name: &str, on: bool) {
-        if self.is_ga(by) {
-            self.set_ga(name, on);
-        }
+        changed
     }
 
     /// A GA's `/ga rain` from a map.
@@ -105,14 +79,30 @@ impl Book {
         }
     }
 
-    /// POST /admin/ga {"name": "...", "on": true}.
+    /// POST /admin/ga {"account": id, "on": true}, or {"name": "..."} for the
+    /// account of a character online right now (a name nobody is playing
+    /// grants nothing). Lasts until the next restart: the lasting list is
+    /// REALM_GA_ACCOUNTS.
     pub fn admin_ga(&mut self, body: &Value) -> (u16, Value) {
-        let name = body["name"].as_str().unwrap_or("").trim();
-        if name.is_empty() || name.chars().count() > 32 {
-            return (400, json!({"ok": false, "error": "name required"}));
-        }
-        let changed = self.set_ga(name, body["on"].as_bool().unwrap_or(true));
-        let ga: Vec<&String> = self.gas.iter().collect();
-        (200, json!({"ok": true, "changed": changed, "ga": ga}))
+        let account = match (body["account"].as_u64(), body["name"].as_str()) {
+            (Some(id), _) if id > 0 => id,
+            (_, Some(name)) => {
+                let online = self
+                    .named(name.trim())
+                    .and_then(|c| self.online.get(&c))
+                    .map(|o| o.account);
+                let Some(account) = online else {
+                    return (404, json!({"ok": false, "error": "no such player online"}));
+                };
+                account
+            }
+            _ => return (400, json!({"ok": false, "error": "account required"})),
+        };
+        let changed = self.set_ga(account, body["on"].as_bool().unwrap_or(true));
+        let ga: Vec<u64> = self.gas.iter().copied().collect();
+        (
+            200,
+            json!({"ok": true, "changed": changed, "account": account, "ga": ga}),
+        )
     }
 }

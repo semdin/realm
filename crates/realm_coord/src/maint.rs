@@ -61,6 +61,8 @@ const URGENT_REMAINING_S: u64 = 15;
 const BARRIER_TIMEOUT: Duration = Duration::from_secs(15);
 const HISTORY_LIMIT: usize = 24;
 const REASON_MAX: usize = 200;
+/// Characters one release may name (an account holds far fewer).
+const RELEASE_MAX: usize = 16;
 const MAX_CONNECTIONS: usize = 8;
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(5);
 /// A request waiting on a barrier gives up after this long.
@@ -659,6 +661,27 @@ async fn route(req: Request, book: &Arc<Mutex<Book>>) -> (u16, Value) {
             deferred(rx).await
         }
         ("POST", "/admin/ga") => book.lock().await.admin_ga(&req.body),
+        // The login service, before a deletion or after a new password.
+        ("POST", "/admin/characters/release") => {
+            let ids = |key: &str| req.body[key].as_array().cloned().unwrap_or_default();
+            let characters: Vec<u64> = ids("characters")
+                .iter()
+                .filter_map(Value::as_u64)
+                .take(RELEASE_MAX)
+                .collect();
+            let names: Vec<String> = ids("names")
+                .iter()
+                .filter_map(Value::as_str)
+                .take(RELEASE_MAX)
+                .map(str::to_owned)
+                .collect();
+            let bar = req.body["bar_seconds"].as_u64().unwrap_or(0).min(600);
+            let (tx, rx) = oneshot::channel();
+            book.lock()
+                .await
+                .release_characters(&characters, &names, Duration::from_secs(bar), tx);
+            deferred(rx).await
+        }
         ("POST", "/admin/announce") => {
             if req.body["kind"].as_str() != Some("update_soon") {
                 return (400, json!({"ok": false, "error": "unknown kind"}));

@@ -1,17 +1,19 @@
 //! realm_coord --bind 127.0.0.1:7900 --keys keys
-//!             [--persist <addr> | --boards <file.json> --ga <file.json>]
+//!             [--persist <addr> | --boards <file.json>]
 //!             [--admin 127.0.0.1:8082] [--drain-seconds 10]
 //!             [--save-min-ms 1000] [--announce-ms 10000]
 //!
-//! The weekly boards and the game admins are kept by the persistence
-//! service with `--persist` (realm_persist, PostgreSQL; loaded at start,
-//! each change sent as it happens and tried until it lands), else in the
-//! `--boards` and `--ga` files (development, CI), else in memory only.
+//! The weekly boards are kept by the persistence service with `--persist`
+//! (realm_persist, PostgreSQL; loaded at start, each change sent as it happens
+//! and tried until it lands), else in the `--boards` file (development, CI),
+//! else in memory only.
 //!
 //! It also runs the realm's maintenance (maint.rs): the admin surface on
 //! `--admin` (loopback only, REALM_SERVICE_TOKEN required) begins, aborts
 //! and reports a cycle that freezes, saves and empties every map. It keeps
-//! the realm's game admins (`--ga`, ga.rs) and its weather, and the realm's
+//! the realm's game admins (by account id, REALM_GA_ACCOUNTS, ga.rs), its
+//! weather, takes characters out of the world for the login service
+//! (release.rs), and the realm's
 //! numbers (metrics.rs): every map's status window, the persistence
 //! service's counts, served as JSON, Prometheus text and an operator panel.
 //!
@@ -60,6 +62,7 @@ use tokio::sync::{Mutex, mpsc};
 mod ga;
 mod maint;
 mod metrics;
+mod release;
 
 type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -113,6 +116,7 @@ struct CopyRequest {
 }
 
 struct Online {
+    account: u64,
     name: String,
     house: String,
     level: u16,
@@ -163,11 +167,13 @@ struct Book {
     sent: HashMap<u64, PartyView>,
     /// The realm's maintenance.
     maint: maint::Maint,
-    /// Game admins by lowercase character name, and where they are kept.
-    gas: std::collections::BTreeSet<String>,
-    ga_file: Option<PathBuf>,
-    /// The persistence service, keeping the boards and the GAs (None: the
-    /// files above).
+    /// Game admins, by account id.
+    gas: std::collections::BTreeSet<u64>,
+    /// Characters refused a seat until then (being deleted).
+    barred: HashMap<u64, Instant>,
+    /// Releases waiting for their characters to leave.
+    pending_releases: Vec<release::Pending>,
+    /// The persistence service, keeping the boards (None: the file above).
     persist: Option<Arc<PersistClient>>,
     /// The realm's weather.
     rain: bool,
@@ -330,6 +336,17 @@ impl Book {
     /// A login for `character` on `link`.
     fn claim(&mut self, link: u64, conn: u64, character: u64) {
         let map = self.map_of(link);
+        if self.is_barred(character) {
+            eprintln!("[seat] character {character} on {map} (connection {conn}): refused, barred");
+            self.to_link(
+                link,
+                CoordMsg::Refuse {
+                    conn,
+                    reason: "character unavailable".to_owned(),
+                },
+            );
+            return;
+        }
         if !self.claim_allowed(character) {
             eprintln!(
                 "[seat] character {character} on {map} (connection {conn}): refused, maintenance"
@@ -408,6 +425,13 @@ impl Book {
             // Not this map's to give (a newer seat exists).
             _ => return,
         };
+        if self.is_barred(character) {
+            // On its way to deletion: it goes nowhere, whatever it was doing.
+            self.seats.remove(&character);
+            self.offline(character);
+            self.character_released(character);
+            return;
+        }
         if let Some((l, c)) = claim {
             eprintln!(
                 "[seat] character {character}: let go by {}, admitted on {} (connection {c})",
@@ -860,7 +884,6 @@ impl Book {
             MapMsg::Emptied { barrier, removed } => {
                 self.barrier_answer(link, barrier, 0, 0, removed);
             }
-            MapMsg::Ga { by, name, on } => self.ga_from_map(by, &name, on),
             MapMsg::Weather { by, rain } => self.weather_from_map(by, rain),
             MapMsg::Announce(notice) => {
                 for l in self.links.values() {
@@ -890,6 +913,10 @@ impl Book {
                             self.seats.remove(&character);
                         }
                     }
+                }
+                if self.is_barred(character) {
+                    self.offline(character);
+                    self.character_released(character);
                 }
             }
             MapMsg::OpenCopy { req, map, spec } => {
@@ -961,7 +988,11 @@ impl Book {
                 characters,
             } => self.board_run(dungeon, difficulty, week, run, characters),
             MapMsg::Reserve { character, map } => {
-                let answer = self.reserve(character, &map);
+                let answer = if self.is_barred(character) {
+                    Err("map_unavailable")
+                } else {
+                    self.reserve(character, &map)
+                };
                 self.to_link(
                     link,
                     CoordMsg::Reserved {
@@ -973,6 +1004,7 @@ impl Book {
             }
             MapMsg::Online {
                 character,
+                account,
                 name,
                 house,
                 level,
@@ -988,6 +1020,7 @@ impl Book {
                 self.online.insert(
                     character,
                     Online {
+                        account,
                         name,
                         house,
                         level,
@@ -1076,6 +1109,7 @@ impl Book {
             .collect();
         for (c, claim) in seated {
             self.seats.remove(&c);
+            self.character_released(c);
             if let Some((l, conn)) = claim {
                 self.admit(l, conn, c, None, None);
             }
@@ -1107,6 +1141,7 @@ impl Book {
 
     fn sweep(&mut self) {
         let now = Instant::now();
+        self.sweep_releases();
         self.reservations.retain(|_, r| now < r.expires);
         let stale: Vec<u64> = self
             .seats
@@ -1141,9 +1176,7 @@ struct Options {
     boards: Option<PathBuf>,
     /// The admin surface's address (loopback).
     admin: SocketAddr,
-    /// Where the game admins are kept (none: REALM_GA only, in memory).
-    ga: Option<PathBuf>,
-    /// The persistence service keeping the boards and the game admins.
+    /// The persistence service keeping the boards.
     persist: Option<String>,
     settings: maint::Settings,
 }
@@ -1154,7 +1187,6 @@ fn options() -> AnyResult<Options> {
         keys: PathBuf::from("keys"),
         boards: None,
         admin: "127.0.0.1:8082".parse()?,
-        ga: None,
         persist: None,
         settings: maint::Settings {
             release: std::env::var("REALM_RELEASE").unwrap_or_default(),
@@ -1170,7 +1202,6 @@ fn options() -> AnyResult<Options> {
             "--keys" => o.keys = PathBuf::from(value),
             "--boards" => o.boards = Some(PathBuf::from(value)),
             "--admin" => o.admin = value.parse()?,
-            "--ga" => o.ga = Some(PathBuf::from(value)),
             "--persist" => o.persist = Some(value.clone()),
             "--drain-seconds" => {
                 o.settings.drain = Duration::from_secs_f64(value.parse::<f64>()?.max(0.0));
@@ -1182,37 +1213,26 @@ fn options() -> AnyResult<Options> {
             other => return Err(format!("unknown option {other}").into()),
         }
     }
-    if o.persist.is_some() && (o.boards.is_some() || o.ga.is_some()) {
-        return Err("--persist keeps the boards and the GAs: no --boards or --ga".into());
+    if o.persist.is_some() && o.boards.is_some() {
+        return Err("--persist keeps the boards: no --boards".into());
     }
     Ok(o)
 }
 
-/// The boards and the GAs kept by the persistence service (tried for a
-/// while: a coordinator without them would serve an empty realm).
-async fn load_kept(persist: &PersistClient) -> AnyResult<(Vec<Board>, Vec<String>)> {
+/// The boards kept by the persistence service (tried for a while: a
+/// coordinator without them would serve an empty realm).
+async fn load_kept(persist: &PersistClient) -> AnyResult<Vec<Board>> {
     let wait = Duration::from_secs(30);
-    let boards = match tokio::time::timeout(
+    match tokio::time::timeout(
         wait,
         persist.call_until_answered(|req| PersistMsg::LoadBoards { req }),
     )
     .await
     {
-        Ok(Ok(PersistReply::Boards { result: Ok(b), .. })) => b,
-        Ok(other) => return Err(format!("loading the boards: {other:?}").into()),
-        Err(_) => return Err("the persistence service never gave the boards".into()),
-    };
-    let gas = match tokio::time::timeout(
-        wait,
-        persist.call_until_answered(|req| PersistMsg::LoadGas { req }),
-    )
-    .await
-    {
-        Ok(Ok(PersistReply::Gas { result: Ok(g), .. })) => g,
-        Ok(other) => return Err(format!("loading the GAs: {other:?}").into()),
-        Err(_) => return Err("the persistence service never gave the GAs".into()),
-    };
-    Ok((boards, gas))
+        Ok(Ok(PersistReply::Boards { result: Ok(b), .. })) => Ok(b),
+        Ok(other) => Err(format!("loading the boards: {other:?}").into()),
+        Err(_) => Err("the persistence service never gave the boards".into()),
+    }
 }
 
 async fn link(stream: TcpStream, id: u64, key: [u8; 32], book: Arc<Mutex<Book>>) -> AnyResult<()> {
@@ -1309,33 +1329,31 @@ async fn main() -> AnyResult<()> {
             " (no ticket.key: travel between maps is closed)"
         }
     );
-    // The weekly boards and the GAs survive a restart when kept by the
-    // persistence service or in files.
+    // The weekly boards survive a restart when kept by the persistence
+    // service or in a file.
     let persist = o
         .persist
         .as_ref()
         .map(|addr| PersistClient::start(addr.clone(), key));
-    let (rows, kept_gas) = match &persist {
+    let rows: Vec<Board> = match &persist {
         Some(client) => {
-            let (rows, gas) = load_kept(client).await?;
+            let rows = load_kept(client).await?;
             println!(
-                "[coord] {} board(s) and {} GA(s) from the persistence service at {}",
+                "[coord] {} board(s) from the persistence service at {}",
                 rows.len(),
-                gas.len(),
                 o.persist.as_deref().unwrap_or_default()
             );
-            (rows, gas)
+            rows
         }
-        None => {
-            let rows: Vec<Board> = o
-                .boards
-                .as_ref()
-                .and_then(|path| std::fs::read_to_string(path).ok())
-                .map(|text| serde_json::from_str(&text).unwrap_or_default())
-                .unwrap_or_default();
-            (rows, ga::from_file(o.ga.as_deref()))
-        }
+        None => o
+            .boards
+            .as_ref()
+            .and_then(|path| std::fs::read_to_string(path).ok())
+            .map(|text| serde_json::from_str(&text).unwrap_or_default())
+            .unwrap_or_default(),
     };
+    let gas = ga::from_env();
+    println!("[coord] {} GA account(s) from REALM_GA_ACCOUNTS", gas.len());
     let mut boards = HashMap::new();
     for b in rows {
         boards.insert((b.dungeon.clone(), b.difficulty), b);
@@ -1345,8 +1363,7 @@ async fn main() -> AnyResult<()> {
         boards,
         boards_file: o.boards.clone(),
         maint: maint::Maint::new(o.settings.clone()),
-        gas: ga::with_seed(kept_gas),
-        ga_file: o.ga.clone(),
+        gas,
         persist,
         ..Book::default()
     }));

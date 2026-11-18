@@ -1,17 +1,18 @@
 //! `realm_netcheck --ga --admin <addr> --token <t> --grounds <addr>
-//! --castle <addr> (--ga-file <file> | --persist-addr <addr>)`: game admins
-//! and the weather across the realm. Needs the coordinator
-//! (REALM_SERVICE_TOKEN, its admin surface on `--admin`, `--ga <file>` or
-//! `--persist <addr>` holding no GA yet), grounds and castle_interior.
+//! --castle <addr> [--config-ga <account>]`: game admins and the weather
+//! across the realm. Needs the coordinator (REALM_SERVICE_TOKEN, its admin
+//! surface on `--admin`, REALM_GA_ACCOUNTS holding `--config-ga` when given),
+//! grounds and castle_interior. A dev ticket's account is its character id.
 //!
-//! 1. a player who is no GA is refused `/ga`;
-//! 2. the admin surface makes A a GA: a player beside A sees its info
-//!    change (the emblem) without asking;
+//! 1. a player who is no GA is refused `/ga`; the account from the
+//!    configuration is one;
+//! 2. the admin surface makes A's account a GA: a player beside A sees its
+//!    info change (the emblem) without asking; a name nobody plays gets nothing;
 //! 3. A's `/ga rain on` reaches everyone on both maps, and a login after it
 //!    hears the rain on joining;
-//! 4. A makes B a GA in game; B lists the GAs and stops the rain for all;
-//! 5. A takes it back and B is refused again; the list kept (on disk, or
-//!    by the persistence service) holds A only;
+//! 4. `/ga add` in chat grants nothing; the surface makes B's account a GA;
+//!    B lists the GAs and stops the rain for all;
+//! 5. the surface takes it back and B is refused again;
 //! 6. A's new look and its wand taken off reach B unasked;
 //! 7. a world boss rising on the grounds (started with --dev-boss-respawn)
 //!    is heard in the castle too.
@@ -75,7 +76,6 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let token = arg(args, "--token", "check-token");
     let grounds = arg(args, "--grounds", "127.0.0.1:7777");
     let castle = arg(args, "--castle", "127.0.0.1:7778");
-    let ga_file = PathBuf::from(arg(args, "--ga-file", "build/gacheck/ga.json"));
     let keys = PathBuf::from(arg(args, "--keys", "keys"));
     let secret: [u8; 32] = std::fs::read(keys.join("ticket.key"))?
         .try_into()
@@ -99,9 +99,29 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     })? {
         return fail("B's /ga was not refused");
     }
-    println!("[ga] 1 ok: /ga refused to a player who is no GA");
+    if args.iter().any(|a| a == "--config-ga") {
+        let account: u64 = arg(args, "--config-ga", "").parse()?;
+        let mut c = login(&castle, "castle_interior", account, &key, args)?;
+        command(&mut c, "/ga list")?;
+        if !pump_all(&mut [&mut c], 3.0, |all| said(all[0], "GAs:"))? {
+            return fail("the configured account is not a GA");
+        }
+    }
+    println!("[ga] 1 ok: /ga refused to a player who is no GA, open to the configured account");
 
-    // 2. The surface makes A a GA; B sees the emblem come.
+    // 2. The surface makes A's account a GA; B sees the emblem come.
+    expect(
+        "a name nobody plays",
+        http(
+            &admin,
+            "POST",
+            "/admin/ga",
+            &token,
+            &json!({"name": "NobodyPlaysThis", "on": true}),
+        )?,
+        404,
+        |_| true,
+    )?;
     expect(
         "make A a GA",
         http(
@@ -149,20 +169,32 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     }
     println!("[ga] 3 ok: A's rain reached both maps and a later login");
 
-    // 4. A makes B a GA; B lists and stops the rain.
+    // 4. Chat grants nothing; the surface makes B's account a GA.
     command(&mut a, &format!("/ga add {bn}"))?;
     if !pump_all(&mut [&mut a, &mut b, &mut d], 3.0, |all| {
-        said(all[0], "is now a GA.")
+        said(all[0], "server configuration")
     })? {
-        return fail("A's /ga add got no answer");
+        return fail("A's /ga add was not turned down");
     }
+    let b_account = base + 1;
+    expect(
+        "make B a GA",
+        http(
+            &admin,
+            "POST",
+            "/admin/ga",
+            &token,
+            &json!({"account": b_account, "on": true}),
+        )?,
+        200,
+        |v| v["changed"] == true,
+    )?;
     pump_all(&mut [&mut a, &mut b, &mut d], 1.0, |_| false)?;
     command(&mut b, "/ga list")?;
-    let both = an.to_lowercase();
     if !pump_all(&mut [&mut a, &mut b, &mut d], 3.0, |all| {
         all[1].events.iter().any(|m| {
             matches!(m, ServerMsg::Chat { text, .. }
-                if text.starts_with("GAs:") && text.contains(&both) && text.contains(&bn.to_lowercase()))
+                if text.starts_with("GAs:") && text.contains(&an) && text.contains(&bn))
         })
     })? {
         return fail("B's /ga list did not name both");
@@ -173,15 +205,23 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     })? {
         return fail("B's rain off did not reach everyone");
     }
-    println!("[ga] 4 ok: A made B a GA in game; B listed both and stopped the rain (in Turkish)");
+    println!(
+        "[ga] 4 ok: chat granted nothing; B's account made a GA, B listed both and stopped the rain (in Turkish)"
+    );
 
     // 5. Taken back.
-    command(&mut a, &format!("/ga remove {bn}"))?;
-    if !pump_all(&mut [&mut a, &mut b, &mut d], 3.0, |all| {
-        said(all[0], "is no longer a GA.")
-    })? {
-        return fail("A's /ga remove got no answer");
-    }
+    expect(
+        "take B back",
+        http(
+            &admin,
+            "POST",
+            "/admin/ga",
+            &token,
+            &json!({"account": b_account, "on": false}),
+        )?,
+        200,
+        |v| v["changed"] == true,
+    )?;
     pump_all(&mut [&mut a, &mut b, &mut d], 1.0, |_| false)?;
     b.events.clear();
     command(&mut b, "/ga rain on")?;
@@ -190,41 +230,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     })? {
         return fail("B's /ga was not refused after removal");
     }
-    let persist = args
-        .iter()
-        .position(|a| a == "--persist-addr")
-        .map(|_| arg(args, "--persist-addr", ""));
-    let (kept, place): (Vec<String>, &str) = match &persist {
-        Some(addr) => {
-            let service: [u8; 32] = std::fs::read(keys.join("coord.key"))?
-                .try_into()
-                .map_err(|_| "coord.key must be 32 bytes")?;
-            // Changes land in order: the list is right once B's removal has.
-            let started = Instant::now();
-            loop {
-                let kept = match crate::persist::ask(
-                    addr,
-                    service,
-                    &realm_proto::persist::PersistMsg::LoadGas { req: 1 },
-                )? {
-                    realm_proto::persist::PersistReply::Gas { result: Ok(g), .. } => g,
-                    other => return fail(format!("the kept GAs: {other:?}")),
-                };
-                if kept == [an.to_lowercase()] || started.elapsed() > Duration::from_secs(5) {
-                    break (kept, "kept by the persistence service");
-                }
-                std::thread::sleep(Duration::from_millis(200));
-            }
-        }
-        None => (
-            serde_json::from_str(&std::fs::read_to_string(&ga_file)?)?,
-            "on disk",
-        ),
-    };
-    if kept != [an.to_lowercase()] {
-        return fail(format!("the list {place} is {kept:?}"));
-    }
-    println!("[ga] 5 ok: B taken back and refused; the list {place} holds A only");
+    println!("[ga] 5 ok: B's account taken back and refused");
 
     // 6. What others see of A, pushed when it changes. The look change and
     // the wand taken off go out together, the item request on the sheet
@@ -292,6 +298,6 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         return fail("the world boss rising on the grounds was not heard on both maps");
     }
     println!("[ga] 7 ok: a world boss rising on the grounds was heard in the castle too");
-    println!("[ga] ok: refusal, surface grant, emblem, realm rain, in-game add/list/remove");
+    println!("[ga] ok: refusal, configured account, surface grant, emblem, realm rain, list");
     Ok(())
 }

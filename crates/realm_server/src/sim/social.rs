@@ -280,6 +280,7 @@ impl Sim {
         if let Some(p) = self.world.get::<Player>(player) {
             self.coord_send(MapMsg::Online {
                 character: p.sheet.id,
+                account: p.account,
                 name: p.sheet.name.clone(),
                 house: p.sheet.house.clone(),
                 level: p.sheet.level,

@@ -220,6 +220,7 @@ pub enum MapMsg {
     /// A character came onto this map (or this server reconnected).
     Online {
         character: u64,
+        account: u64,
         name: String,
         house: String,
         level: u16,
@@ -260,12 +261,6 @@ pub enum MapMsg {
     Emptied {
         barrier: u64,
         removed: u32,
-    },
-    /// A GA (`by`, checked here) makes `name` a GA or takes it back.
-    Ga {
-        by: u64,
-        name: String,
-        on: bool,
     },
     /// A GA (`by`, checked here) starts or stops the rain.
     Weather {
@@ -390,9 +385,9 @@ pub enum CoordMsg {
     /// A notice for every player on the map (ServerMsg::Notice): the
     /// realm's (a world boss anywhere, a Legendary gold, update_soon).
     Notice(crate::control::ServerMsg),
-    /// The realm's game admins, by character name (lowercase); sent on
-    /// linking and whenever it changes.
-    Gas(Vec<String>),
+    /// The realm's game admins, by account id; sent on linking and whenever
+    /// it changes.
+    Gas(Vec<u64>),
     /// The realm's weather; sent on linking and whenever it changes.
     Weather {
         rain: bool,

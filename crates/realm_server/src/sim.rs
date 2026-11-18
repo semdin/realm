@@ -184,6 +184,8 @@ type IdMap<V> = HashMap<u32, V, BuildHasherDefault<IdHasher>>;
 
 #[derive(Component)]
 struct Player {
+    /// The account it belongs to (GA rights go by this, never by name).
+    account: u64,
     body: Body,
     /// Received inputs waiting for their tick, by sequence number.
     pending: BTreeMap<u32, InputFrame>,
@@ -929,6 +931,23 @@ impl Sim {
                     return;
                 };
                 match result {
+                    // A player's character with no stored sheet was deleted;
+                    // an old ticket does not make it anew.
+                    Ok(None)
+                        if join.ticket.character
+                            >= realm_proto::persist::FIRST_PLAYER_CHARACTER =>
+                    {
+                        eprintln!(
+                            "[join] connection {conn} character {}: no such character",
+                            join.ticket.character
+                        );
+                        self.coord_send(realm_proto::coord::MapMsg::Gone {
+                            character: join.ticket.character,
+                        });
+                        let _ = join
+                            .reply
+                            .send(JoinReply::Refused("character not found".to_owned()));
+                    }
                     Ok(sheet) => self.admit(conn, join, sheet.map(|s| *s)),
                     Err(e) => {
                         eprintln!("[store] load for connection {conn} failed: {e}");
@@ -1099,6 +1118,7 @@ impl Sim {
             )
         };
         let player = Player {
+            account: join.ticket.account,
             body: Body::at(start),
             pending: BTreeMap::new(),
             last_seq: 0,

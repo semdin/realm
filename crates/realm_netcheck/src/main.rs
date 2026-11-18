@@ -7,7 +7,7 @@
 //! realm_netcheck --boss threehead|snare --characters <dir>             (see boss.rs)
 //! realm_netcheck --lair eggs|queen --characters <dir>                  (see lair.rs)
 //! realm_netcheck --maintenance --admin <addr> --token <t> ...          (see maintenance.rs)
-//! realm_netcheck --ga --admin <addr> --token <t> --ga-file <file> ...  (see ga.rs)
+//! realm_netcheck --ga --admin <addr> --token <t> [--config-ga <id>] ...  (see ga.rs)
 //! realm_netcheck --login --login-addr <addr> [--persist-addr <addr>]    (see login.rs)
 //! realm_netcheck --persist --persist-addr <addr> --server <grounds>     (see persist.rs)
 //! realm_netcheck --smoke --server <addr> [--map grounds]               (see smoke.rs)

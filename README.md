@@ -45,7 +45,7 @@ cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --characters build/characters   # characters persist (JSON per character); Ctrl+C saves all
 cargo run --release -p realm_coord                      # coordinator: chat, parties across maps (127.0.0.1:7900, keys/coord.key)
 cargo run --release -p realm_coord -- --boards build/boards.json   # the same, keeping the weekly dungeon boards across restarts
-REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_coord -- --admin 127.0.0.1:8082 --ga build/ga.json   # with the admin surface (maintenance, GA, maps, metrics, the operator panel /panel) and the GA list
+REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_coord -- --admin 127.0.0.1:8082   # with the admin surface (maintenance, GA, maps, metrics, the operator panel /panel); REALM_GA_ACCOUNTS=<account ids> names the GAs
 docker run -d --name realm-pg -p 127.0.0.1:55432:5432 -e POSTGRES_USER=realm -e POSTGRES_PASSWORD=realm-dev -e POSTGRES_DB=realm postgres:18.7   # local PostgreSQL
 REALM_DATABASE_URL=postgres://realm:realm-dev@127.0.0.1:55432/realm cargo run --release -p realm_persist   # persistence service on 127.0.0.1:7970 (map servers: --persist 127.0.0.1:7970)
 REALM_SERVICE_TOKEN=<t> cargo run --release -p realm_login -- --characters build/characters   # login service on 127.0.0.1:7950 (the coordinator's admin surface on 127.0.0.1:8082)
