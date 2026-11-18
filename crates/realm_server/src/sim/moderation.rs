@@ -191,10 +191,20 @@ impl Sim {
             from: from.to_owned(),
             text: text.to_owned(),
         });
-        while log.len() > CHAT_LOG
-            || log
-                .front()
-                .is_some_and(|l| now.saturating_sub(l.at) > CHAT_LOG_S)
+        while log.len() > CHAT_LOG {
+            log.pop_front();
+        }
+        self.forget_old_chat();
+    }
+
+    /// Lines past their time leave memory, whether or not anyone speaks (the
+    /// Privacy Policy promises it).
+    pub(super) fn forget_old_chat(&mut self) {
+        let now = now_unix();
+        let log = &mut self.moderation.log;
+        while log
+            .front()
+            .is_some_and(|l| now.saturating_sub(l.at) >= CHAT_LOG_S)
         {
             log.pop_front();
         }
@@ -386,6 +396,7 @@ impl Sim {
         };
         let mut body = clean_chat(text);
         body = body.chars().take(REPORT_TEXT_MAX.min(CHAT_MAX)).collect();
+        self.forget_old_chat();
         let context: Vec<String> = {
             let lines: Vec<String> = self
                 .moderation

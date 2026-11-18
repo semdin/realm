@@ -7,7 +7,7 @@ This policy explains what Thousand Realms ("the game") stores about you, why, fo
 ## What we store
 
 - **Account:** your username, a one-way hash of your password (Argon2id), a one-way hash of your recovery code, when the account was created, your last login, when you changed your password, and which version of the terms you accepted and when, including your confirmation that you are 16 or older. We cannot read your password or recovery code.
-- **Characters:** name, house, level, appearance, items, gold, quests, skills, position and other progress, with creation and update times.
+- **Characters:** name, Watch, level, appearance, items, gold, quests, skills, position and other progress, with creation and update times.
 - **Dungeon boards:** the fastest runs of the week show character names and levels to other players.
 - **Moderation:** bans and chat limits on your account with their reason, the players you have blocked, and a history of moderation actions.
 - **Reports:** when a player reports someone, we keep the names of both, the category, what the reporter wrote, the map, and the recent chat lines around that moment.
@@ -15,7 +15,7 @@ This policy explains what Thousand Realms ("the game") stores about you, why, fo
 
 ## Chat
 
-Chat messages are sent to the players who should receive them. We do not write chat to our server logs, and we save it in our database only as part of a player report, as described above. The game servers hold recent lines briefly in memory so that a report can include them. Remember that other players can read, copy or screenshot what you write.
+Chat messages are sent to the players who should receive them. We do not write chat to our server logs, and we save it in our database only as part of a player report, as described above. The game servers hold recent local, shout and party lines in memory for up to 15 minutes so that a report can include them; after that they are gone, and a server restart clears them sooner. Remember that other players can read, copy or screenshot what you write.
 
 ## IP addresses and logs
 
@@ -25,7 +25,9 @@ Your IP address is needed to connect you to the game.
 - Our web server may record an IP address when a request fails.
 - Server logs record events such as logins and joins with numeric account and character numbers. They are kept for up to 30 days.
 
-The launcher downloads updates from GitHub, which sees your IP address when it does so.
+The launcher downloads the game and its updates from GitHub, and its own updates too unless the itch app manages it. GitHub sees your IP address when this happens.
+
+If you get the launcher through itch.io, itch.io delivers that download and, in the itch app, the launcher's updates. itch.io then handles your IP address and any itch.io account you use under its own terms and privacy policy (https://itch.io/docs/legal/privacy-policy). You do not need an itch.io account to play. Your game account is separate and we do not link it to itch.io. itch.io may show us statistics about its page, such as views and downloads.
 
 ## Why we use this data
 
@@ -37,12 +39,13 @@ We do not sell your data and do not use it for advertising.
 
 ## Who can see it
 
-Other players see your character name, house, level, appearance, equipment and chat. Our hosting provider runs the servers that hold the data. GitHub hosts the game's downloads and the public support page. Data may be processed outside your country, including where these providers operate. We may disclose data if the law requires it.
+Other players see your character name, Watch, level, appearance, equipment and chat. Our hosting provider runs the servers that hold the data. GitHub hosts the game's downloads and the public support page, and itch.io hosts the launcher where it is offered there. Data may be processed outside your country, including where these providers operate. We may disclose data if the law requires it.
 
 ## How long we keep it
 
 - Account and characters: until you delete them, or until we close the account or the game.
 - Login-protection records in memory: at most 24 hours.
+- Recent chat in game server memory: at most 15 minutes.
 - Reports: up to 180 days.
 - Bans, chat limits and block lists: while your account exists, or until they are lifted.
 - Server logs: up to 30 days.

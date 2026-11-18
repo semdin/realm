@@ -7,7 +7,7 @@ Bu politika, Thousand Realms'in ("oyun") hakkınızda neleri, neden ve ne kadar 
 ## Neleri saklıyoruz
 
 - **Hesap:** kullanıcı adınız, şifrenizin tek yönlü özeti (Argon2id), kurtarma kodunuzun tek yönlü özeti, hesabın oluşturulma zamanı, son girişiniz, şifre değiştirme zamanınız ve kabul ettiğiniz koşulların sürümü ile zamanı (16 yaşında veya daha büyük olduğunuza dair onayınız dahil). Şifrenizi veya kurtarma kodunuzu okuyamayız.
-- **Karakterler:** ad, hane, seviye, görünüm, eşyalar, altın, görevler, yetenekler, konum ve diğer ilerleme bilgileri ile oluşturulma ve güncellenme zamanları.
+- **Karakterler:** ad, Nöbet, seviye, görünüm, eşyalar, altın, görevler, yetenekler, konum ve diğer ilerleme bilgileri ile oluşturulma ve güncellenme zamanları.
 - **Zindan tabloları:** haftanın en hızlı koşuları, karakter adlarını ve seviyelerini diğer oyunculara gösterir.
 - **Moderasyon:** hesabınıza uygulanan yasaklar ve sohbet kısıtlamaları ile nedenleri, engellediğiniz oyuncular ve moderasyon işlemlerinin geçmişi.
 - **Bildirimler:** bir oyuncu başka birini bildirdiğinde iki tarafın adlarını, kategoriyi, bildirenin yazdıklarını, haritayı ve o andaki son sohbet satırlarını saklarız.
@@ -15,7 +15,7 @@ Bu politika, Thousand Realms'in ("oyun") hakkınızda neleri, neden ve ne kadar 
 
 ## Sohbet
 
-Sohbet mesajları, almaları gereken oyunculara iletilir. Sohbeti sunucu günlüklerine yazmıyoruz; veritabanına yalnızca yukarıda açıklandığı gibi bir oyuncu bildiriminin parçası olarak kaydediyoruz. Oyun sunucuları, bildirimlere eklenebilmesi için son satırları kısa süre bellekte tutar. Yazdıklarınızı diğer oyuncuların okuyabileceğini, kopyalayabileceğini veya ekran görüntüsünü alabileceğini unutmayın.
+Sohbet mesajları, almaları gereken oyunculara iletilir. Sohbeti sunucu günlüklerine yazmıyoruz; veritabanına yalnızca yukarıda açıklandığı gibi bir oyuncu bildiriminin parçası olarak kaydediyoruz. Oyun sunucuları, bildirimlere eklenebilmesi için yakın çevre, bağırma ve grup sohbetinin son satırlarını en fazla 15 dakika bellekte tutar; sonrasında silinirler, sunucu yeniden başlarsa daha erken silinirler. Yazdıklarınızı diğer oyuncuların okuyabileceğini, kopyalayabileceğini veya ekran görüntüsünü alabileceğini unutmayın.
 
 ## IP adresleri ve günlükler
 
@@ -25,7 +25,9 @@ Sizi oyuna bağlamak için IP adresiniz gereklidir.
 - Web sunucumuz, bir istek başarısız olduğunda IP adresini kaydedebilir.
 - Sunucu günlükleri; giriş ve oyuna katılma gibi olayları sayısal hesap ve karakter numaralarıyla kaydeder. En fazla 30 gün saklanır.
 
-Başlatıcı güncellemeleri GitHub'dan indirir; GitHub bu sırada IP adresinizi görür.
+Başlatıcı, oyunu ve güncellemelerini GitHub'dan indirir; itch uygulaması yönetmiyorsa kendi güncellemelerini de oradan alır. GitHub bu sırada IP adresinizi görür.
+
+Başlatıcıyı itch.io üzerinden edinirseniz bu indirmeyi ve itch uygulamasında başlatıcının güncellemelerini itch.io sağlar. Bu durumda IP adresiniz ve kullandığınız itch.io hesabı, itch.io'nun kendi koşullarına ve gizlilik politikasına (https://itch.io/docs/legal/privacy-policy) tabidir. Oynamak için itch.io hesabı gerekmez. Oyun hesabınız ayrıdır ve onu itch.io ile ilişkilendirmeyiz. itch.io bize sayfasıyla ilgili görüntülenme ve indirme gibi istatistikler gösterebilir.
 
 ## Bu verileri neden kullanıyoruz
 
@@ -37,12 +39,13 @@ Verilerinizi satmıyor, reklam için kullanmıyoruz.
 
 ## Kimler görebilir
 
-Diğer oyuncular karakter adınızı, hanenizi, seviyenizi, görünümünüzü, ekipmanınızı ve sohbetinizi görür. Verilerin bulunduğu sunucuları barındırma sağlayıcımız çalıştırır. GitHub, oyunun indirmelerini ve herkese açık destek sayfasını barındırır. Veriler, bu sağlayıcıların faaliyet gösterdiği yerler dahil ülkeniz dışında işlenebilir. Yasa gerektirirse verileri açıklayabiliriz.
+Diğer oyuncular karakter adınızı, Nöbet'inizi, seviyenizi, görünümünüzü, ekipmanınızı ve sohbetinizi görür. Verilerin bulunduğu sunucuları barındırma sağlayıcımız çalıştırır. GitHub, oyunun indirmelerini ve herkese açık destek sayfasını barındırır; başlatıcı itch.io'da sunulduğunda onu itch.io barındırır. Veriler, bu sağlayıcıların faaliyet gösterdiği yerler dahil ülkeniz dışında işlenebilir. Yasa gerektirirse verileri açıklayabiliriz.
 
 ## Ne kadar saklıyoruz
 
 - Hesap ve karakterler: siz silene veya biz hesabı ya da oyunu kapatana kadar.
 - Bellekteki giriş koruma kayıtları: en fazla 24 saat.
+- Oyun sunucusu belleğindeki son sohbet satırları: en fazla 15 dakika.
 - Bildirimler: en fazla 180 gün.
 - Yasaklar, sohbet kısıtlamaları ve engel listeleri: hesabınız var olduğu sürece veya kaldırılana kadar.
 - Sunucu günlükleri: en fazla 30 gün.

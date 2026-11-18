@@ -857,6 +857,9 @@ impl Sim {
         }
         self.maintenance_tick();
         self.sweep_claims();
+        if self.tick.is_multiple_of(10 * realm_sim::SIM_HZ) {
+            self.forget_old_chat();
+        }
         // Maintenance: idle does nothing; frozen keeps only what lets the
         // players leave and see the world stand still.
         if self.maintenance.idle {

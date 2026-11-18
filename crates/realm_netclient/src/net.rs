@@ -194,7 +194,16 @@ impl NetHandle {
                             let _ = connection.send_datagram(bytes.into());
                         }
                         read = recv.read(&mut chunk) => {
-                            let n = read.map_err(|e| e.to_string())?.ok_or("closed by the server")?;
+                            // A read error only says "connection lost"; which
+                            // branch wakes first is chance, so the reason comes
+                            // from the connection itself.
+                            let n = read
+                                .map_err(|e| {
+                                    connection
+                                        .close_reason()
+                                        .map_or_else(|| e.to_string(), |why| why.to_string())
+                                })?
+                                .ok_or("closed by the server")?;
                             reader.push(&chunk[..n]);
                             while let Some(frame) = reader.next_frame().map_err(|e| e.to_string())? {
                                 let msg = control::decode_server(&frame).map_err(|e| e.to_string())?;
