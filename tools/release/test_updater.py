@@ -836,7 +836,9 @@ def test_bundle_update(t: Path, server: ReleaseServer, signer: ed25519.Ed25519Pr
     exe = app / "Contents" / "MacOS" / "ThousandRealms_Launcher"
     args = common_args(root, server.base, pin, pubkey) + ["--update"]
     proc = subprocess.run([str(exe), *args], capture_output=True, text=True, timeout=240)
-    check("bundle update: exit code 18", proc.returncode == 18, proc.stdout + proc.stderr)
+    log_file = root / "launcher.log"
+    log_text = log_file.read_text(errors="ignore") if log_file.is_file() else ""
+    check("bundle update: exit code 18", proc.returncode == 18, proc.stdout + proc.stderr + log_text)
     check("bundle update: current bundle id in place", plist.read_text() == current)
     verify = subprocess.run(["codesign", "--verify", "--deep", "--strict", str(app)], capture_output=True, text=True)
     check("bundle update: signature intact", verify.returncode == 0, verify.stderr)

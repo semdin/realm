@@ -43,6 +43,8 @@ permissions:
 env:
   GIT_LFS_SKIP_SMUDGE: '1'
   LATEST: https://github.com/${{ github.repository }}/releases/latest/download
+  LLVM_MINGW_VERSION: '20261117'
+  LLVM_MINGW_SHA256: e7a15a49a2ea95e9f3d8a9d0cfabe5052a4b10fb4777cc54de5a8c27b64bb701
   INNO_VERSION: '7.1.1'
   INNO_TAG: is-7_1_1
   INNO_SHA256: 8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0
@@ -53,6 +55,7 @@ jobs:
   windows:
     name: Windows launcher
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     outputs:
       reused: ${{ steps.reuse.outputs.hit }}
     steps:
@@ -69,20 +72,17 @@ jobs:
         run: |
           python3 tools/release/reuse_launcher.py --base "$LATEST" --manifest manifest.json \
             --version "${{ steps.v.outputs.launcher }}" --out out ThousandRealms_Launcher.exe
-      - name: Build with the MinGW-w64 cross compiler
+      - name: Build with llvm-mingw ${{ env.LLVM_MINGW_VERSION }}
         if: steps.reuse.outputs.hit != 'true'
         run: |
           set -eu
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq --no-install-recommends \
-            g++-mingw-w64-x86-64-posix gcc-mingw-w64-x86-64-posix binutils-mingw-w64-x86-64 ninja-build
-          # The -posix toolchain: the default win32-thread variant has no std::thread/std::mutex.
-          cmake -S launcher -B build-mingw -G Ninja -DCMAKE_SYSTEM_NAME=Windows \
-            -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc-posix \
-            -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
-            -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres \
-            -DCMAKE_BUILD_TYPE=Release -DREALM_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
-          ninja -C build-mingw ThousandRealms_Launcher ThousandRealms_UpdaterCLI
+          name="llvm-mingw-$LLVM_MINGW_VERSION-ucrt-ubuntu-22.04-x86_64"
+          curl -fsSL -o "$RUNNER_TEMP/llvm-mingw.tar.xz"             "https://github.com/mstorsjo/llvm-mingw/releases/download/$LLVM_MINGW_VERSION/$name.tar.xz"
+          echo "$LLVM_MINGW_SHA256  $RUNNER_TEMP/llvm-mingw.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/llvm-mingw.tar.xz" -C "$RUNNER_TEMP"
+          export PATH="$RUNNER_TEMP/$name/bin:$PATH"
+          cmake -S launcher -B build-mingw -G "Unix Makefiles" -DCMAKE_SYSTEM_NAME=Windows             -DCMAKE_C_COMPILER=x86_64-w64-mingw32-clang             -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-clang++             -DCMAKE_RC_COMPILER=x86_64-w64-mingw32-windres             -DCMAKE_BUILD_TYPE=Release -DREALM_LAUNCHER_VERSION="${{ steps.v.outputs.launcher }}"
+          cmake --build build-mingw --parallel 4 --target ThousandRealms_Launcher ThousandRealms_UpdaterCLI
           mkdir -p out
           cp build-mingw/ThousandRealms_Launcher.exe build-mingw/ThousandRealms_UpdaterCLI.exe out/
       - uses: actions/upload-artifact@v7
@@ -96,6 +96,7 @@ jobs:
     name: Windows installer
     needs: [windows]
     runs-on: windows-2025
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
@@ -156,6 +157,7 @@ jobs:
   linux:
     name: Linux launcher
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
@@ -242,6 +244,7 @@ jobs:
     name: macOS launcher
     # macos-14 images are retired; the app still targets macOS 11.
     runs-on: macos-15
+    timeout-minutes: 45
     env:
       APPLE_DEVELOPER_ID_P12_BASE64: ${{ secrets.APPLE_DEVELOPER_ID_P12_BASE64 }}
       APPLE_DEVELOPER_ID_P12_PASSWORD: ${{ secrets.APPLE_DEVELOPER_ID_P12_PASSWORD }}
@@ -332,6 +335,7 @@ jobs:
     name: itch.io folders
     needs: [windows, linux, macos]
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:

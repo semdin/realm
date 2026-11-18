@@ -745,7 +745,15 @@ bool ProtocolCompatible(const ReleaseManifest& m, const StatusDoc& st, std::stri
 // ---------------------------------------------------------------- download --
 
 bool CheckDiskSpace(UpdaterContext& ctx, uint64_t required, std::string& message) {
-    uint64_t freeBytes = FreeDiskSpaceBytes(ctx.paths.installRoot);
+    // On a first start the install folder does not exist yet: ask its nearest
+    // existing parent, which is on the same disk.
+    std::wstring probe = ctx.paths.installRoot;
+    while (!probe.empty() && !DirExists(probe)) {
+        size_t slash = probe.find_last_of(L"\/");
+        if (slash == std::wstring::npos || slash == 0) break;
+        probe.resize(slash);
+    }
+    uint64_t freeBytes = FreeDiskSpaceBytes(probe);
     uint64_t available = freeBytes;
     if (ctx.stagingQuotaBytes > 0) {
         uint64_t used = DirSizeBytes(ctx.paths.stagingDir);
