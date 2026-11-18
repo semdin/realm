@@ -186,8 +186,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
 
     // 3. A player joins.
     // Below the players' ids (see the persistence check).
-    let character =
-        4_000_000 + SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() % 1_000_000;
+    let character = 4_000_000 + SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() % 1_000_000;
     {
         let mut s = Session::dev(&server, "grounds", character, &key, args)?;
         joined(&mut s)?;
