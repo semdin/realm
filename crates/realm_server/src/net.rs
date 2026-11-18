@@ -39,7 +39,9 @@ const JOIN_DEADLINE: Duration = Duration::from_secs(10);
 /// Connections still without a valid ticket, in all and from one address.
 const UNPROVEN_MAX: u32 = 256;
 const UNPROVEN_PER_IP: u32 = 8;
-/// New connections from one address in one window.
+/// New connections from one address in one window. Both per-address limits can
+/// be raised for load tests from one machine: REALM_UNPROVEN_PER_IP and
+/// REALM_NEW_PER_IP.
 const NEW_PER_IP: u32 = 60;
 const NEW_WINDOW: Duration = Duration::from_secs(10);
 /// With this many unproven connections, a peer proves its address first.
@@ -183,8 +185,17 @@ impl Meter {
 }
 
 /// Connections that have not shown a valid ticket yet.
+fn env_limit(name: &str, default: u32) -> u32 {
+    std::env::var(name)
+        .ok()
+        .and_then(|v| v.trim().parse().ok())
+        .unwrap_or(default)
+}
+
 #[derive(Default)]
 struct Gatehouse {
+    unproven_per_ip: u32,
+    new_per_ip: u32,
     unproven: HashMap<IpAddr, u32>,
     total: u32,
     recent: HashMap<IpAddr, (Instant, u32)>,
@@ -209,9 +220,9 @@ impl Gatehouse {
             (*at, *count) = (now, 0);
         }
         *count += 1;
-        let flooding = *count > NEW_PER_IP;
+        let flooding = *count > self.new_per_ip;
         let from_ip = self.unproven.get(&ip).copied().unwrap_or(0);
-        if flooding || from_ip >= UNPROVEN_PER_IP || self.total >= UNPROVEN_MAX {
+        if flooding || from_ip >= self.unproven_per_ip || self.total >= UNPROVEN_MAX {
             self.refused += 1;
             if self.told.is_none_or(|t| now - t > Duration::from_secs(30)) {
                 self.told = Some(now);
@@ -299,7 +310,11 @@ type Nonces = Arc<Mutex<HashMap<u64, u64>>>;
 
 pub async fn accept_loop(endpoint: Endpoint, sim: Sender<NetEvent>, key: VerifyingKey) {
     let nonces: Nonces = Arc::default();
-    let gate: Arc<Mutex<Gatehouse>> = Arc::default();
+    let gate = Arc::new(Mutex::new(Gatehouse {
+        unproven_per_ip: env_limit("REALM_UNPROVEN_PER_IP", UNPROVEN_PER_IP),
+        new_per_ip: env_limit("REALM_NEW_PER_IP", NEW_PER_IP),
+        ..Gatehouse::default()
+    }));
     let mut next_conn: ConnId = 1;
     while let Some(incoming) = endpoint.accept().await {
         let ip = incoming.remote_address().ip();

@@ -8,7 +8,10 @@
 //! last gate: without a seat or a held place it must find room too.
 //!
 //! REALM_CAP is the realm's limit; REALM_MAP_CAPS (`grounds=150,castle=80`)
-//! overrides the capacity a map server announced.
+//! overrides the capacity a map server announced. The defaults come from
+//! fighting bots on the grounds (release build, 16 threads): 150 players tick
+//! at p99 4-6 ms and 300 at 7-10 ms of the 33 ms there are, so they leave
+//! room for a smaller host that also runs the database and every other map.
 //!
 //! Alerts are single log lines, `[alert] FIRING key: what` when one starts,
 //! again every 10 minutes while it lasts, and `[alert] resolved key`:
@@ -23,6 +26,8 @@ use crate::maint::State;
 use crate::{Book, Seat};
 
 pub const DEFAULT_REALM_CAP: usize = 300;
+/// Where every new character starts; the other maps keep maps.json's number.
+const DEFAULT_MAP_CAPS: &str = "grounds=150";
 /// A place granted to a login lasts this long (its ticket lasts 60 s).
 const HOLD_TTL: Duration = Duration::from_secs(75);
 /// A place in line is lost after this long without asking again.
@@ -72,7 +77,7 @@ impl Default for Capacity {
             .and_then(|v| v.trim().parse().ok())
             .unwrap_or(DEFAULT_REALM_CAP);
         let map_caps = std::env::var("REALM_MAP_CAPS")
-            .unwrap_or_default()
+            .unwrap_or_else(|_| DEFAULT_MAP_CAPS.to_owned())
             .split(',')
             .filter_map(|pair| {
                 let (map, cap) = pair.split_once('=')?;
