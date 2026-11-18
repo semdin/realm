@@ -25,13 +25,32 @@ use realm_sim::FixedStep;
 use realm_sim::input::MoveInput;
 use realm_sim::pack::{HOLE, MapPack};
 
+/// The watch over stalls and the engine's shutdown, from its own thread.
+mod guard;
+mod guard_sys;
 /// Way-finding: paths, the nearest walkable point and the painted map sheet.
 mod way;
 
 struct RealmExtension;
 
 #[gdextension]
-unsafe impl ExtensionLibrary for RealmExtension {}
+unsafe impl ExtensionLibrary for RealmExtension {
+    fn on_stage_init(stage: InitStage) {
+        if stage == InitStage::MainLoop {
+            guard::main_loop_started();
+        }
+    }
+
+    fn on_main_loop_frame() {
+        guard::frame_finished();
+    }
+
+    fn on_stage_deinit(stage: InitStage) {
+        if stage == InitStage::MainLoop {
+            guard::begin_exit();
+        }
+    }
+}
 
 /// Build facts the client can show or check at start-up.
 #[derive(GodotClass)]
