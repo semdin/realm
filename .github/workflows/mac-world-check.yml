@@ -14,6 +14,16 @@ on:
         type: string
         required: false
         default: ''
+      game_args:
+        description: 'Extra game arguments after -- (e.g. --no-shader-warmup)'
+        type: string
+        required: false
+        default: ''
+      runs:
+        description: 'Starts in a row (shader caches stay between them)'
+        type: string
+        required: false
+        default: '3'
 
 permissions:
   contents: read
@@ -40,26 +50,41 @@ jobs:
           game="$(ls -d "$work"/install/versions/*/"Thousand Realms.app/Contents/MacOS/Thousand Realms")"
           chmod +x "$game"   # the launcher sets it when it starts the game
           sysctl -n machdep.cpu.brand_string; sw_vers
-          # Windowed (Metal), native arm64, --verbose; after 60 s a native stack
-          # sample of the running game (where it is stuck, if it is), then up
-          # to 240 s in all. A pty keeps output line-buffered.
+          # Windowed (Metal), native arm64, --verbose, started several times in a
+          # row: the shader caches stay, so each start shows how far they carry
+          # it. Once the shader warm-up begins (or after 60 s) the game's and
+          # Apple's Metal compiler's CPU use and a native stack sample are kept:
+          # a lock shows idle threads, a slow compile a busy MTLCompilerService.
+          # A pty keeps output line-buffered.
+          procs() { ps -Ao pid,pcpu,etime,comm | grep -E "MTLCompiler|Thousand Realms" | grep -v grep || true; }
           set +e
-          ( script -q "$work/play.log" perl -e 'alarm 240; exec @ARGV' \
-              arch -arm64 "$game" --verbose ${{ inputs.engine_args }} -- --check-play "$SMOKE_USER" "$SMOKE_PASS" ) &
-          sleep 60
-          pid="$(pgrep -x "Thousand Realms" | head -1)"
-          echo "game pid: ${pid:-none}"
-          if [ -n "$pid" ]; then sample "$pid" 8 -file "$work/sample.txt" >/dev/null 2>&1; fi
-          wait
-          rc=$?
+          for n in $(seq 1 ${{ inputs.runs }}); do
+            log="$work/play_$n.log"
+            : > "$log"
+            ( script -q "$log" perl -e 'alarm 240; exec @ARGV'                 arch -arm64 "$game" --verbose ${{ inputs.engine_args }} -- --check-play "$SMOKE_USER" "$SMOKE_PASS" ${{ inputs.game_args }} ) &
+            job=$!
+            for t in $(seq 1 60); do
+              grep -q "ShaderWarmup\] started" "$log" && break
+              kill -0 $job 2>/dev/null || break
+              sleep 1
+            done
+            sleep 4
+            pid="$(pgrep -x "Thousand Realms" | head -1)"
+            { echo "run $n, game pid ${pid:-none}"; procs; } > "$work/procs_$n.txt"
+            if [ -n "$pid" ]; then
+              sample "$pid" 5 -file "$work/sample_$n.txt" >/dev/null 2>&1
+              { echo "after the sample"; procs; } >> "$work/procs_$n.txt"
+            fi
+            wait $job
+            tr -d '' < "$log" > "$work/play_clean_$n.log"
+            echo "=== run $n"; cat "$work/procs_$n.txt"
+            grep -E "Metal [0-9]|ShaderWarmup|grounds\] built|joined grounds|realm check play" "$work/play_clean_$n.log" | cut -c1-200
+            grep -c "Failed to compile Metal library" "$work/play_clean_$n.log"
+          done
           set -e
-          tr -d '\r' < "$work/play.log" > "$work/play_clean.log"
-          cat "$work/play_clean.log"
           ud="$HOME/Library/Application Support/ThousandRealms/logs"
-          ls -la "$ud" || true
           cp "$ud/godot.log" "$work/godot.log" 2>/dev/null || true
-          echo "exit $rc"
-          grep -q "PASS" "$work/play_clean.log"
+          grep -q "realm check play: PASS" "$work/play_clean_${{ inputs.runs }}.log"
 
       - name: Keep the logs
         if: always()
@@ -67,8 +92,9 @@ jobs:
         with:
           name: mac-world-logs
           path: |
-            ${{ runner.temp }}/tr/play_clean.log
+            ${{ runner.temp }}/tr/play_clean_*.log
+            ${{ runner.temp }}/tr/procs_*.txt
+            ${{ runner.temp }}/tr/sample_*.txt
             ${{ runner.temp }}/tr/godot.log
-            ${{ runner.temp }}/tr/sample.txt
           if-no-files-found: ignore
           retention-days: 7
