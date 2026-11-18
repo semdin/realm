@@ -56,8 +56,10 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let persist = arg(args, "--persist-addr", "127.0.0.1:7970");
     let grounds = arg(args, "--server", "127.0.0.1:7777");
     let restarted = PathBuf::from(arg(args, "--restarted", "build/persistcheck/restarted"));
+    // Below the players' ids: a map makes such a character on first sight, and
+    // refuses a player's that has no stored sheet (it was deleted).
     let character =
-        30_000_000 + SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() % 1_000_000;
+        3_000_000 + SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs() % 1_000_000;
 
     // 1. Join, walk, leave.
     let left_at = {
