@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Shared naming, hashing and refusal rules for the HPMMO client release tools.
+"""Shared naming, hashing and refusal rules for the client release tools.
 
 Used by:
     package_client.py   builds the zip a launcher installs
@@ -21,9 +21,9 @@ Naming convention (one version directory per release, exactly what the
 launcher's "versioned installation directories + atomic active-version switch"
 needs):
 
-    hpmmo-client-<client_version>-<platform>            version directory
-    hpmmo-client-<client_version>-<platform>.zip        full artifact
-    hpmmo-client-<client_version>-from-<from>-<platform>.zip   delta artifact
+    thousandrealms-client-<client_version>-<platform>            version directory
+    thousandrealms-client-<client_version>-<platform>.zip        full artifact
+    thousandrealms-client-<client_version>-from-<from>-<platform>.zip   delta artifact
 """
 
 from __future__ import annotations
@@ -47,11 +47,10 @@ PLATFORMS = ("windows-x86_64", "linux-x86_64", "macos")
 #: into the same GitHub release with a "-<platform>" suffix.
 LEGACY_PLATFORM = "windows-x86_64"
 #: Game executable names the launcher resolves at the version root (lower case).
-#: The ThousandRealms names first; the HPMMO ones are builds from before the rename.
 GAME_EXECUTABLES = {
-    "windows-x86_64": ("thousandrealms.exe", "hpmmo.exe", "hpmmo_game.exe", "game.exe", "godot.exe"),
-    "linux-x86_64": ("thousandrealms.x86_64", "hpmmo.x86_64", "hpmmo"),
-    "macos": ("thousand realms.app/contents/macos/thousand realms", "hpmmo.app/contents/macos/hpmmo"),
+    "windows-x86_64": ("thousandrealms.exe", "game.exe", "godot.exe"),
+    "linux-x86_64": ("thousandrealms.x86_64",),
+    "macos": ("thousand realms.app/contents/macos/thousand realms",),
 }
 #: What this pipeline publishes today. Deltas are accepted by the tooling but
 #: the plan's order is full packages first.
@@ -63,7 +62,7 @@ KINDS = ("full", "delta")
 KNOWN_ARTIFACT_KINDS = ("full", "delta", "launcher")
 
 #: The prefix every artifact, version directory and manifest belongs to.
-ARTIFACT_PREFIX = "hpmmo-client"
+ARTIFACT_PREFIX = "thousandrealms-client"
 
 
 def validate_version(value: str, what: str = "version") -> str:
@@ -218,10 +217,6 @@ USER_DATA_DIRS = {
 USER_DATA_FILES = {
     "client_config.json",
     "launcher.log",
-    "hpmmo_save.json",
-    "hpmmo_character_save.json",
-    "pottermetin_save.json",
-    "pottermetin_character_save.json",
     "settings.cfg",
     "keybinds.cfg",
 }
@@ -229,6 +224,7 @@ USER_DATA_FILE_PATTERNS = (
     re.compile(r"(?i)^.*\.log$"),
     re.compile(r"(?i)^.*\.tmp$"),
     re.compile(r"(?i)^save[-_]?[0-9]*\.json$"),
+    re.compile(r"(?i)^.*_save\.json$"),
     re.compile(r"(?i)^.*\.save$"),
 )
 
@@ -253,7 +249,7 @@ SECRET_FILE_PATTERNS = (
     re.compile(r"(?i)^id_(rsa|dsa|ecdsa|ed25519)(\.pub)?$"),
     re.compile(r"(?i)^\.env(\..*)?$"),
     re.compile(r"(?i)^.*\.env$"),
-    re.compile(r"(?i)^hpmmo\.env.*$"),
+    re.compile(r"(?i)^realm\.env.*$"),
     re.compile(r"(?i)^credentials(\..*)?$"),
     re.compile(r"(?i)^secrets?(\..*)?$"),
     re.compile(r"(?i)^known_hosts$"),
@@ -268,8 +264,8 @@ SECRET_CONTENT_SIGNATURES = (
     b"-----BEGIN OPENSSH PRIVATE KEY-----",
     b"-----BEGIN RSA PRIVATE KEY-----",
     b"-----BEGIN EC PRIVATE KEY-----",
-    b"HPMMO_SERVICE_TOKEN=",
-    b"HPMMO_DB_PASSWORD=",
+    b"REALM_SERVICE_TOKEN=",
+    b"REALM_DATABASE_URL=",
     b"PGPASSWORD=",
     b"DATABASE_URL=postgres",
 )
@@ -350,7 +346,7 @@ def check_tree(root: str, skip: tuple[str, ...] = ()) -> list[tuple[str, str]]:
 # --- openssl helpers ---------------------------------------------------------
 
 def openssl_binary() -> str:
-    return os.environ.get("HPMMO_OPENSSL", "openssl")
+    return os.environ.get("REALM_OPENSSL", "openssl")
 
 
 def run_openssl(args: list[str], stdin: bytes | None = None) -> tuple[int, bytes, bytes]:

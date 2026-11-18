@@ -521,7 +521,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 0,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey0_yaw0",
@@ -603,7 +603,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 10750,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey1_yaw270",
@@ -687,7 +687,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 0,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey2_yaw180",
@@ -771,7 +771,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 10750,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey3_yaw90",
@@ -855,7 +855,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 0,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey4_yaw0",
@@ -939,7 +939,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 10750,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey5_yaw270",
@@ -1023,7 +1023,7 @@
         "docking_ms": 1500
       },
       "start_delay_ms": 0,
-      "timing_scale_env": "HPMMO_DEV_STAIR_SCALE",
+      "timing_scale_env": "REALM_DEV_STAIR_SCALE",
       "docks": [
         {
           "id": "storey6_yaw180",

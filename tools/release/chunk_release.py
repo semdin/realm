@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Content-defined chunking for HPMMO client releases (delta updates).
+"""Content-defined chunking for client releases (delta updates).
 
 Splits every file of an exported client build into content-defined chunks
 (~256 KiB on average). A chunk's identity is its SHA-256, so the chunks of an
@@ -52,10 +52,15 @@ MASK = (1 << 18) - 1          # cut probability 2^-18 -> ~256 KiB average
 WINDOW = 18                   # only the last 18 bytes reach the masked bits
 
 
+#: Seed of the rolling-hash table. Part of the chunk format: another value moves
+#: every chunk boundary, and every player would download the whole game again.
+GEAR_SEED = bytes.fromhex("68706d6d6f2d67656172")
+
+
 def _gear():
     table = []
     for i in range(256):
-        table.append(struct.unpack("<Q", hashlib.sha256(b"hpmmo-gear-%d" % i).digest()[:8])[0])
+        table.append(struct.unpack("<Q", hashlib.sha256(GEAR_SEED + b"-%d" % i).digest()[:8])[0])
     return np.array(table, dtype=np.uint64) & np.uint64(MASK)
 
 

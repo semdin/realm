@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HPMMO client release manifest generator.
+"""Client release manifest generator.
 
 Takes an artifact built by package_client.py and emits the detached-signed
 release manifest the native launcher consumes:
@@ -33,12 +33,12 @@ file built only from them), and that every other chunk source lies inside the
 chunk source window (release_common.CHUNK_SOURCE_WINDOW).
 
 Usage:
-    python gen_manifest.py --artifact dist/hpmmo-client-0.7.0-windows-x86_64.zip \\
+    python gen_manifest.py --artifact dist/thousandrealms-client-0.7.0-windows-x86_64.zip \\
         --channel dev --client-version 0.7.0 --min-launcher-version 0.7.0 \\
         --protocol-version 4 --protocol-min 4 --protocol-max 4 \\
         --content-version 2026.10.04-1 --server-version 0.7.0 --schema-version 4 \\
         --base-url https://185.118.141.74:8443/releases \\
-        --key /secure/hpmmo-release.key.pem --out dist
+        --key /secure/client-release.key.pem --out dist
 
     python gen_manifest.py --verify --manifest dist/manifest.json --pubkey release.pub.pem
     python gen_manifest.py --gate --manifest dist/manifest.json \\
@@ -632,7 +632,7 @@ ALLOW_REPO_KEY = False
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Generate and verify the HPMMO client release manifest")
+    parser = argparse.ArgumentParser(description="Generate and verify the client release manifest")
     parser.add_argument("--artifact", action="append", default=[], help="packaged client zip (repeatable)")
     parser.add_argument("--kind", choices=rc.KINDS, default="full")
     parser.add_argument("--delta-from", default="", help="version a delta patches from")
@@ -741,7 +741,7 @@ def cmd_build(args: argparse.Namespace) -> int:
 
     # Prove our own output before anyone can publish it.
     import tempfile
-    workdir = tempfile.mkdtemp(prefix="hpmmo-selfverify-")
+    workdir = tempfile.mkdtemp(prefix="realm-selfverify-")
     try:
         args.manifest = manifest_path
         args.pubkey = _public_key_of(args.key, os.path.join(workdir, "release.pub.pem"))

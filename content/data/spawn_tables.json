@@ -2,7 +2,7 @@
   "_comment": "Server-owned encounter content. The authority is the only process that samples these tables; clients receive the result.",
   "_policy": "Encounter policy: every encounter resolves through a template (pack size 3/5, boss solo, boss with exactly two escorts), carries a stable encounter id and a maximum alive count, and only becomes active when its region's pack_count allows it. Pack sizes and boss patterns are data; the AI, placement validation and the death/respawn lifecycle live in encounter_director.gd + mob_base.gd.",
   "map_id": "grounds",
-  "_debug_seed_note": "Reproducible encounter seed. Pass it as HPMMO_WORLD_SEED to replay an exact spawn layout; the world server uses it when the env var is unset.",
+  "_debug_seed_note": "Reproducible encounter seed. Pass it as REALM_WORLD_SEED to replay an exact spawn layout; the world server uses it when the env var is unset.",
   "debug_seed": 20261005,
   "templates": {
     "pack_three": {

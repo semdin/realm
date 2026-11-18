@@ -1,4 +1,4 @@
-# Release signing keys (HPMMO client updates)
+# Release signing keys (client updates)
 
 The client release manifest is detached-signed with Ed25519. The launcher
 downloads `manifest.json`, verifies its signature against a **pinned public
@@ -9,8 +9,8 @@ authoritative.
 ## Custody rules
 
 1. **The private key never lives in a repository.** It exists only in the
-   secret store that feeds the release pipeline (GitHub secret
-   `HPMMO_CLIENT_SIGNING_KEY`), plus whatever offline backup the project keeps.
+   secret store that feeds the release pipeline (the GitHub Actions secret
+   `client-release.yml` reads), plus whatever offline backup the project keeps.
    This directory contains documentation only; it has a `.gitignore` that
    refuses to stage key material. `gen_manifest.py` also refuses to sign with a
    key found inside a git working tree (`--allow-key-in-repo` exists for
@@ -29,10 +29,10 @@ authoritative.
 ## Generating a key pair
 
 ```sh
-openssl genpkey -algorithm ed25519 -out hpmmo-client-release.key.pem
-openssl pkey -in hpmmo-client-release.key.pem -pubout -out hpmmo-client-release.pub.pem
+openssl genpkey -algorithm ed25519 -out client-release.key.pem
+openssl pkey -in client-release.key.pem -pubout -out client-release.pub.pem
 # the key id (what travels in manifest.json.keyid):
-openssl pkey -in hpmmo-client-release.pub.pem -pubin -outform DER \
+openssl pkey -in client-release.pub.pem -pubin -outform DER \
   | openssl dgst -sha256
 ```
 
@@ -44,7 +44,7 @@ shipped - and only through a reviewed change that updates the launcher's pin.
 
 `.github/workflows/client-release.yml`:
 
-* fails closed at the first step when `HPMMO_CLIENT_SIGNING_KEY` is absent, so
+* fails closed at the first step when the signing secret is absent, so
   a manifest can never be published unsigned or signed by an ad-hoc key;
 * writes the secret to `$RUNNER_TEMP` with mode 600 (never to the workspace,
   never into the artifact, never into a log);
@@ -75,8 +75,8 @@ material is in this repository, and none of the values below is secret.
 
 | Item | Value |
 | --- | --- |
-| Private key | `/root/hpmmo-keys/release.key` (mode 600, directory mode 700) |
-| Public key (PEM) | `/root/hpmmo-keys/release.pub.pem` (mode 644) |
+| Private key | `release.key` in the key directory under `/root` (mode 600, directory mode 700) |
+| Public key (PEM) | `release.pub.pem` in the same directory (mode 644) |
 | Launcher pin `release_public_key` (base64 of the raw 32-byte public key) | `esKd/SD57YU8pPbapFWLGgLpdldYYCE+eqNNG6uKyDI=` |
 | Key id `release_public_key_id` = `sha256(DER SPKI)` | `b521bf434e299b1963781ec249a2882068a42d881ef86d8ee31c76f74458399b` |
 | TLS release certificate SPKI pin `pinned_spki_sha256` | `703a2267c7b37414632dc23d628eca31df70029581b5d19603f5589902a78fae` |
@@ -89,7 +89,7 @@ values are what `deploy/tls/make_cert.sh` and `manifest.json.keyid` print.
 * **Custodian: the project owner** - the only person with root on the
   deployment host (`ssh root@185.118.141.74`). The key file is readable by root
   alone; the host's SSH login is therefore release-signing access.
-* A copy for CI (`HPMMO_CLIENT_SIGNING_KEY`, a GitHub Actions secret) is
+* A copy for CI (a GitHub Actions secret) is
   **not yet provisioned**. Until it is, releases are signed on the host by an
   operator (that is how the first release was published); `client-release.yml`
   fails closed without the secret, so CI cannot publish an unsigned manifest.
@@ -99,19 +99,19 @@ values are what `deploy/tls/make_cert.sh` and `manifest.json.keyid` print.
 ### Rotation
 
 1. Generate the new pair **on the host**, outside every working tree:
-   `openssl genpkey -algorithm ed25519 -out /root/hpmmo-keys/release-next.key`,
+   `openssl genpkey -algorithm ed25519 -out <key dir>/release-next.key`,
    then derive its pin and key id with the two commands at the top of this
    file.
 2. Ship a launcher release that pins the **new** public key **and** still
    accepts the old key id during the overlap window (the launcher refuses a
    manifest whose key id does not match its pin; a manifest cannot introduce
    its own key).
-3. Add the new private key as `HPMMO_CLIENT_SIGNING_KEY` (or sign on the host),
+3. Add the new private key as the CI signing secret (or sign on the host),
    re-publish every channel manifest with the new key, and record the new pin
    in `client/client_config.json` alongside `pinned_spki_sha256` changes.
 4. After the overlap window closes, remove the old key from the launcher's pin
    list and destroy the old private key
-   (`shred -u /root/hpmmo-keys/release.key` or delete the host volume).
+   (`shred -u <key dir>/release.key` or delete the host volume).
 
 ### If the key is lost or suspected compromised
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""HPMMO client packager.
+"""Client packager.
 
 Builds the zip a launcher installs, from a *build directory* laid out as:
 
@@ -11,7 +11,7 @@ Builds the zip a launcher installs, from a *build directory* laid out as:
 
 Nothing else may sit at the top level. The artifact:
 
-    hpmmo-client-<client_version>-<platform>.zip
+    thousandrealms-client-<client_version>-<platform>.zip
       ThousandRealms.exe the game payload, FLAT at the archive root
       ThousandRealms.pck
       launcher/...       the launcher payload, kept in its own directory
@@ -44,7 +44,7 @@ Usage:
         --content-version 2026.10.04-1 --out dist
     python package_client.py --check --build-dir build     # validate only
 Environment:
-    HPMMO_OPENSSL  openssl binary (default: openssl)
+    REALM_OPENSSL  openssl binary (default: openssl)
 Exit codes: 0 ok, 2 usage, 3 the input tree or the output is not acceptable.
 """
 
@@ -167,7 +167,7 @@ def build_release_doc(build_dir: str, client_version: str, content_version: str,
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Package an HPMMO client build")
+    parser = argparse.ArgumentParser(description="Package a client build")
     parser.add_argument("--build-dir", required=True, help="build directory (client/ and optional launcher/)")
     parser.add_argument("--client-version", required=True, help="the version this build actually is")
     parser.add_argument("--content-version", required=True, help="content version shipped inside this build")

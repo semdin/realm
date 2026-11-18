@@ -124,7 +124,7 @@
   },
   "source": {
     "date": "2026-11-13",
-    "game": "live game client 1.0.x (hpmmo-client main), Godot 4.7.2, game default settings",
+    "game": "live game client 1.0.x, Godot 4.7.2, game default settings",
     "load": "dev.ps1 perf -Bots 8: local dev world server + 8 headless walking bots + windowed probe on the same PC",
     "server": "9 players: worst frame 26-51 ms, prof ms/s mobs 144-174, snapshots 131-139, players 85-97, step 33-46",
     "caveats": "draws/primitives are the last frame of each phase, not a percentile; bots share the CPU with the probe"

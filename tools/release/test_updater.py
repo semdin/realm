@@ -78,7 +78,7 @@ def check(name: str, cond: bool, detail: str = "") -> bool:
 
 class Handler(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
-    server_version = "HPMMORelease/1.0"
+    server_version = "RealmRelease/1.0"
 
     def log_message(self, *_args):  # keep the output clean
         pass
@@ -213,7 +213,7 @@ class ReleaseServer:
 
 def make_certificates(tmp: Path):
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
-    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "hpmmo-test")])
+    subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "realm-test")])
     now = dt.datetime.now(dt.timezone.utc)
     cert = (
         x509.CertificateBuilder()
@@ -365,7 +365,7 @@ def common_args(root: Path, base: str, pin: str, pubkey: str, extra: list[str] |
         "--release-base", base,
         "--pinned-spki", pin,
         "--public-key", pubkey,
-        "--public-key-id", "hpmmo-test-key",
+        "--public-key-id", "realm-test-key",
     ]
     args += extra or []
     return args
@@ -779,7 +779,7 @@ def test_self_update(t: Path, server: ReleaseServer, signer: ed25519.Ed25519Priv
     if new_launcher == Path(ARGS.launcher).read_bytes():
         # No separate GUI build (Linux before L2): a byte-different copy of the
         # CLI still runs (trailing bytes after an ELF image are ignored).
-        new_launcher += b"#hpmmo-self-update-test-build"
+        new_launcher += b"#realm-self-update-test-build"
     release.add_package("launcher-9.9.9.exe", new_launcher, kind="launcher")
     release.write_manifest("9.9.9", min_launcher_version="9.9.9")
     release.write_status("ONLINE")
@@ -1110,7 +1110,7 @@ def main() -> int:
         test_cleanup_and_usage,
     ]
 
-    with tempfile.TemporaryDirectory(prefix="hpmmo-updater-test-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="realm-updater-test-") as tmp:
         tmp_path = Path(tmp)
         certfile, keyfile, pin = make_certificates(tmp_path)
         release_root = tmp_path / "release-root"
