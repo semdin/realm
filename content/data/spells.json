@@ -144,7 +144,7 @@
     "cast_lock": 0.28,
     "range": 36.0,
     "projectile_speed": 40.0,
-    "color": "#00ff77",
+    "color": "#b98cff",
     "hotkey": "E"
   },
   "light_of_ithrel": {
