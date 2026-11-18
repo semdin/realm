@@ -20,6 +20,12 @@
 //! file store did. A save is answered once it is committed, so a map
 //! releases a leaving character only when its save is really on disk.
 //!
+//! Deleting a character or an account is one transaction too: the rows go,
+//! the names leave the weekly boards, the old GA list and block lists, reports
+//! and the moderation history lose what identifies the player, and one
+//! anonymous `audit` row stays (what, when, how many characters). Player characters are only made by `CreateCharacter`,
+//! so a save that arrives late cannot bring a deleted one back.
+//!
 //! It counts what it does (loads, saves, stale saves, failures, the last
 //! minute's save latency) and answers `Stats` with those, its linked callers
 //! and the database's size and rows; the coordinator asks every 5 s for its
@@ -35,7 +41,8 @@ use std::time::{Duration, Instant};
 use realm_proto::control::FrameReader;
 use realm_proto::coord::Board;
 use realm_proto::persist::{
-    AccountRow, CharacterSummary, PersistMsg, PersistReply, PersistStats, decode_msg, encode_reply,
+    AccountRow, CharacterSummary, DELETED_NAME, FIRST_PLAYER_CHARACTER, PersistMsg, PersistReply,
+    PersistStats, decode_msg, encode_reply, forget_board_names,
 };
 use realm_rules::CharacterSheet;
 use realm_rules::names::name_key;
@@ -43,7 +50,7 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_postgres::error::SqlState;
 use tokio_postgres::types::Json;
-use tokio_postgres::{Client, NoTls};
+use tokio_postgres::{Client, NoTls, Transaction};
 
 mod moderation;
 
@@ -53,6 +60,7 @@ type AnyResult<T> = Result<T, Box<dyn std::error::Error + Send + Sync>>;
 const MIGRATIONS: &[(i32, &str)] = &[
     (1, include_str!("../migrations/0001_realm.sql")),
     (2, include_str!("../migrations/0002_logins_boards_gas.sql")),
+    (3, include_str!("../migrations/0003_account_rights.sql")),
     (5, include_str!("../migrations/0005_moderation.sql")),
 ];
 
@@ -111,14 +119,52 @@ async fn load(client: &Client, character: u64) -> Result<Option<Box<CharacterShe
     Ok(Some(Box::new(sheet)))
 }
 
-/// Ok(true): stored; Ok(false): the stored revision is newer.
-async fn save(client: &Client, sheet: &CharacterSheet) -> Result<bool, String> {
+/// What became of a save.
+enum Saved {
+    Stored,
+    /// The stored revision is newer.
+    Stale,
+    /// A player's character with no row: it was deleted, and stays deleted.
+    Deleted,
+}
+
+async fn save(client: &Client, sheet: &CharacterSheet) -> Result<Saved, String> {
     let id = i64::try_from(sheet.id).map_err(|_| "character id out of range".to_owned())?;
     let revision = i64::try_from(sheet.revision).map_err(|_| "revision out of range".to_owned())?;
     let name_key = name_key(&sheet.name);
     let map = sheet.place.as_ref().map(|p| p.map.clone());
     let level = i32::from(sheet.level);
     let doc = Json(sheet);
+    if sheet.id >= FIRST_PLAYER_CHARACTER {
+        let updated = client
+            .execute(
+                "UPDATE characters SET
+                    name = $2, name_key = $3, house = $4, level = $5, map = $6,
+                    revision = $7, sheet = $8, updated_at = now()
+                 WHERE id = $1 AND revision <= $7",
+                &[
+                    &id,
+                    &sheet.name,
+                    &name_key,
+                    &sheet.house,
+                    &level,
+                    &map,
+                    &revision,
+                    &doc,
+                ],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        if updated > 0 {
+            return Ok(Saved::Stored);
+        }
+        let exists = client
+            .query_opt("SELECT 1 FROM characters WHERE id = $1", &[&id])
+            .await
+            .map_err(|e| e.to_string())?
+            .is_some();
+        return Ok(if exists { Saved::Stale } else { Saved::Deleted });
+    }
     let stored = client
         .query_opt(
             "INSERT INTO characters (id, name, name_key, house, level, map, revision, sheet)
@@ -142,7 +188,11 @@ async fn save(client: &Client, sheet: &CharacterSheet) -> Result<bool, String> {
         )
         .await
         .map_err(|e| e.to_string())?;
-    Ok(stored.is_some())
+    Ok(if stored.is_some() {
+        Saved::Stored
+    } else {
+        Saved::Stale
+    })
 }
 
 fn id_of(value: u64, what: &str) -> Result<i64, String> {
@@ -153,12 +203,20 @@ fn text(e: &tokio_postgres::Error) -> String {
     e.to_string()
 }
 
-async fn register(client: &Client, username: &str, hash: &str) -> Result<u64, String> {
+async fn register(
+    client: &Client,
+    username: &str,
+    hash: &str,
+    recovery_hash: &str,
+    terms_version: &str,
+) -> Result<u64, String> {
     let row = client
         .query_opt(
-            "INSERT INTO accounts (username, password_hash) VALUES ($1, $2)
+            "INSERT INTO accounts (username, password_hash, recovery_hash, recovery_created_at,
+                                   terms_version, terms_accepted_at, age_confirmed_at)
+             VALUES ($1, $2, $3, now(), $4, now(), now())
              ON CONFLICT DO NOTHING RETURNING id",
-            &[&username, &hash],
+            &[&username, &hash, &recovery_hash, &terms_version],
         )
         .await
         .map_err(|e| text(&e))?;
@@ -172,7 +230,8 @@ async fn register(client: &Client, username: &str, hash: &str) -> Result<u64, St
 async fn find_account(client: &Client, username: &str) -> Result<Option<AccountRow>, String> {
     let row = client
         .query_opt(
-            "SELECT id, username, password_hash FROM accounts WHERE lower(username) = lower($1)",
+            "SELECT id, username, password_hash, terms_version, recovery_hash
+             FROM accounts WHERE lower(username) = lower($1)",
             &[&username],
         )
         .await
@@ -185,7 +244,251 @@ async fn find_account(client: &Client, username: &str) -> Result<Option<AccountR
         id: u64::try_from(id).map_err(|_| "account id out of range".to_owned())?,
         username: row.try_get(1).map_err(|e| text(&e))?,
         hash: row.try_get(2).map_err(|e| text(&e))?,
+        terms_version: row.try_get(3).map_err(|e| text(&e))?,
+        recovery_hash: row.try_get(4).map_err(|e| text(&e))?,
     }))
+}
+
+/// Runs an update of one account; no such row is Err("no account").
+async fn update_account(
+    client: &Client,
+    sql: &str,
+    params: &[&(dyn tokio_postgres::types::ToSql + Sync)],
+) -> Result<(), String> {
+    match client.execute(sql, params).await.map_err(|e| text(&e))? {
+        0 => Err("no account".to_owned()),
+        _ => Ok(()),
+    }
+}
+
+async fn accept_terms(client: &Client, account: u64, version: &str) -> Result<(), String> {
+    update_account(
+        client,
+        "UPDATE accounts SET terms_version = $2, terms_accepted_at = now(),
+                             age_confirmed_at = now()
+         WHERE id = $1",
+        &[&id_of(account, "account")?, &version],
+    )
+    .await
+}
+
+async fn set_password(client: &Client, account: u64, hash: &str) -> Result<(), String> {
+    update_account(
+        client,
+        "UPDATE accounts SET password_hash = $2, password_changed_at = now() WHERE id = $1",
+        &[&id_of(account, "account")?, &hash],
+    )
+    .await
+}
+
+async fn set_recovery(client: &Client, account: u64, recovery_hash: &str) -> Result<(), String> {
+    update_account(
+        client,
+        "UPDATE accounts SET recovery_hash = $2, recovery_created_at = now() WHERE id = $1",
+        &[&id_of(account, "account")?, &recovery_hash],
+    )
+    .await
+}
+
+/// One statement, so two uses of one code cannot both win.
+async fn recover(
+    client: &Client,
+    account: u64,
+    used: &str,
+    hash: &str,
+    recovery_hash: &str,
+) -> Result<(), String> {
+    let changed = client
+        .execute(
+            "UPDATE accounts SET password_hash = $3, password_changed_at = now(),
+                                 recovery_hash = $4, recovery_created_at = now()
+             WHERE id = $1 AND recovery_hash = $2",
+            &[&id_of(account, "account")?, &used, &hash, &recovery_hash],
+        )
+        .await
+        .map_err(|e| text(&e))?;
+    if changed == 0 {
+        return Err("stale".to_owned());
+    }
+    Ok(())
+}
+
+/// A case-insensitive whole-word pattern for a character name.
+fn name_pattern(name: &str) -> String {
+    let mut out = String::from("\\m");
+    for c in name.chars() {
+        if !c.is_alphanumeric() && c != ' ' {
+            out.push('\\');
+        }
+        out.push(c);
+    }
+    out.push_str("\\M");
+    out
+}
+
+/// What stays of deleted characters elsewhere: their names leave the weekly
+/// boards, the old GA list and other players' block lists; reports keep only
+/// their category, map, time and status once they involve or mention one; the
+/// moderation history keeps only what was done and when.
+async fn forget_characters(
+    tx: &Transaction<'_>,
+    ids: &[i64],
+    names: &[String],
+    keys: &[String],
+) -> Result<(), String> {
+    if ids.is_empty() {
+        return Ok(());
+    }
+    tx.execute("DELETE FROM gas WHERE name_key = ANY($1)", &[&keys])
+        .await
+        .map_err(|e| text(&e))?;
+    let forgotten: std::collections::HashSet<String> = keys.iter().cloned().collect();
+    let rows = tx
+        .query("SELECT data FROM boards FOR UPDATE", &[])
+        .await
+        .map_err(|e| text(&e))?;
+    for row in rows {
+        let Json(mut board): Json<Board> = row.try_get(0).map_err(|e| text(&e))?;
+        if forget_board_names(&mut board, &forgotten) {
+            tx.execute(
+                "UPDATE boards SET data = $3, updated_at = now()
+                 WHERE dungeon = $1 AND difficulty = $2",
+                &[&board.dungeon, &i32::from(board.difficulty), &Json(&board)],
+            )
+            .await
+            .map_err(|e| text(&e))?;
+        }
+    }
+    tx.execute(
+        "UPDATE account_blocks SET name = $2 WHERE name = ANY($1)",
+        &[&names, &DELETED_NAME],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    tx.execute(
+        "UPDATE reports SET reporter_character = NULL, reporter_name = '',
+                            body = '', context = '[]'::jsonb
+         WHERE reporter_character = ANY($1) OR reporter_name = ANY($2)",
+        &[&ids, &names],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    tx.execute(
+        "UPDATE reports SET target_character = NULL, target_name = '',
+                            body = '', context = '[]'::jsonb
+         WHERE target_character = ANY($1) OR target_name = ANY($2)",
+        &[&ids, &names],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    tx.execute(
+        "UPDATE audit SET character_id = NULL, detail = '{}'::jsonb WHERE character_id = ANY($1)",
+        &[&ids],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    for name in names {
+        let pattern = name_pattern(name);
+        tx.execute(
+            "UPDATE reports SET body = '', context = '[]'::jsonb
+             WHERE body ~* $1 OR context::text ~* $1",
+            &[&pattern],
+        )
+        .await
+        .map_err(|e| text(&e))?;
+        tx.execute(
+            "UPDATE audit SET detail = '{}'::jsonb WHERE detail::text ~* $1",
+            &[&pattern],
+        )
+        .await
+        .map_err(|e| text(&e))?;
+    }
+    Ok(())
+}
+
+/// The anonymous trace a deletion leaves: what, and how many characters.
+async fn note_deletion(tx: &Transaction<'_>, kind: &str, characters: i64) -> Result<(), String> {
+    tx.execute(
+        "INSERT INTO audit (kind, detail) VALUES ($1, jsonb_build_object('characters', $2::bigint))",
+        &[&kind, &characters],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    Ok(())
+}
+
+async fn delete_character(client: &mut Client, account: u64, character: u64) -> Result<(), String> {
+    let (account, character) = (id_of(account, "account")?, id_of(character, "character")?);
+    let tx = client.transaction().await.map_err(|e| text(&e))?;
+    let row = tx
+        .query_opt(
+            "DELETE FROM characters WHERE id = $1 AND account_id = $2 RETURNING name_key, name",
+            &[&character, &account],
+        )
+        .await
+        .map_err(|e| text(&e))?;
+    let Some(row) = row else {
+        return Err("no character".to_owned());
+    };
+    let key: String = row.try_get(0).map_err(|e| text(&e))?;
+    let name: String = row.try_get(1).map_err(|e| text(&e))?;
+    forget_characters(&tx, &[character], &[name], &[key]).await?;
+    note_deletion(&tx, "character_deleted", 1).await?;
+    tx.commit().await.map_err(|e| text(&e))
+}
+
+async fn delete_account(client: &mut Client, account: u64) -> Result<(), String> {
+    let account = id_of(account, "account")?;
+    let tx = client.transaction().await.map_err(|e| text(&e))?;
+    // Locked first: a character being made for it waits, then finds no account.
+    if tx
+        .query_opt(
+            "SELECT 1 FROM accounts WHERE id = $1 FOR UPDATE",
+            &[&account],
+        )
+        .await
+        .map_err(|e| text(&e))?
+        .is_none()
+    {
+        return Err("no account".to_owned());
+    }
+    let rows = tx
+        .query(
+            "DELETE FROM characters WHERE account_id = $1 RETURNING id, name_key, name",
+            &[&account],
+        )
+        .await
+        .map_err(|e| text(&e))?;
+    let (mut ids, mut keys, mut names) = (Vec::new(), Vec::new(), Vec::new());
+    for row in &rows {
+        ids.push(row.try_get::<_, i64>(0).map_err(|e| text(&e))?);
+        keys.push(row.try_get::<_, String>(1).map_err(|e| text(&e))?);
+        names.push(row.try_get::<_, String>(2).map_err(|e| text(&e))?);
+    }
+    forget_characters(&tx, &ids, &names, &keys).await?;
+    // Reports by or about the account, under names it no longer has too.
+    tx.execute(
+        "UPDATE reports SET reporter_character = NULL, reporter_name = '',
+                            body = '', context = '[]'::jsonb
+         WHERE reporter_account = $1",
+        &[&account],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    tx.execute(
+        "UPDATE reports SET target_character = NULL, target_name = '',
+                            body = '', context = '[]'::jsonb
+         WHERE target_account = $1",
+        &[&account],
+    )
+    .await
+    .map_err(|e| text(&e))?;
+    // Its sanctions and block lists go with the row (ON DELETE CASCADE).
+    tx.execute("DELETE FROM accounts WHERE id = $1", &[&account])
+        .await
+        .map_err(|e| text(&e))?;
+    note_deletion(&tx, "account_deleted", ids.len() as i64).await?;
+    tx.commit().await.map_err(|e| text(&e))
 }
 
 async fn touch_account(client: &Client, account: u64) -> Result<(), String> {
@@ -397,6 +700,34 @@ async fn set_ga(client: &Client, name: &str, on: bool) -> Result<(), String> {
     Ok(())
 }
 
+/// Reports are kept this long (the Privacy Policy says so).
+const REPORT_DAYS: i32 = 180;
+
+/// Removes reports past their time, at start and then every hour.
+fn start_report_expiry(url: Arc<String>) {
+    tokio::spawn(async move {
+        let mut every = tokio::time::interval(Duration::from_secs(3600));
+        loop {
+            every.tick().await;
+            let done = match connect(&url).await {
+                Ok(client) => client
+                    .execute(
+                        "DELETE FROM reports WHERE at < now() - make_interval(days => $1)",
+                        &[&REPORT_DAYS],
+                    )
+                    .await
+                    .map_err(|e| text(&e)),
+                Err(e) => Err(e.to_string()),
+            };
+            match done {
+                Ok(0) => {}
+                Ok(n) => println!("[persist] {n} expired report(s) removed"),
+                Err(e) => eprintln!("[persist] expiring reports: {e}"),
+            }
+        }
+    });
+}
+
 /// Save latencies are kept this long for the service's numbers.
 const LATENCY_WINDOW: Duration = Duration::from_secs(60);
 /// At most this many latencies are kept (a burst of saves cannot grow the
@@ -555,13 +886,18 @@ async fn answer(client: &mut Client, msg: PersistMsg, metrics: &Metrics) -> Opti
             let (character, revision) = (sheet.id, sheet.revision);
             let began = Instant::now();
             let (ok, error) = match save(client, &sheet).await {
-                Ok(true) => {
+                Ok(Saved::Stored) => {
                     metrics.saved(began.elapsed());
                     (true, String::new())
                 }
-                Ok(false) => {
+                Ok(Saved::Stale) => {
                     metrics.stale.fetch_add(1, Ordering::Relaxed);
                     (false, "stale".to_owned())
+                }
+                // Nothing to keep, and nothing for the map to try again.
+                Ok(Saved::Deleted) => {
+                    println!("[persist] a save for deleted character {character} was dropped");
+                    (true, String::new())
                 }
                 Err(e) => (false, e),
             };
@@ -577,9 +913,11 @@ async fn answer(client: &mut Client, msg: PersistMsg, metrics: &Metrics) -> Opti
             req,
             username,
             hash,
+            recovery_hash,
+            terms_version,
         } => PersistReply::Registered {
             req,
-            result: register(client, &username, &hash).await,
+            result: register(client, &username, &hash, &recovery_hash, &terms_version).await,
         },
         PersistMsg::FindAccount { req, username } => PersistReply::Account {
             req,
@@ -622,10 +960,55 @@ async fn answer(client: &mut Client, msg: PersistMsg, metrics: &Metrics) -> Opti
             req,
             result: set_ga(client, &name, on).await,
         },
+        PersistMsg::AcceptTerms {
+            req,
+            account,
+            version,
+        } => PersistReply::Done {
+            req,
+            result: accept_terms(client, account, &version).await,
+        },
+        PersistMsg::SetPassword { req, account, hash } => PersistReply::Done {
+            req,
+            result: set_password(client, account, &hash).await,
+        },
+        PersistMsg::SetRecovery {
+            req,
+            account,
+            recovery_hash,
+        } => PersistReply::Done {
+            req,
+            result: set_recovery(client, account, &recovery_hash).await,
+        },
+        PersistMsg::Recover {
+            req,
+            account,
+            used,
+            hash,
+            recovery_hash,
+        } => PersistReply::Done {
+            req,
+            result: recover(client, account, &used, &hash, &recovery_hash).await,
+        },
+        PersistMsg::DeleteCharacter {
+            req,
+            account,
+            character,
+        } => PersistReply::Done {
+            req,
+            result: delete_character(client, account, character).await,
+        },
+        PersistMsg::DeleteAccount { req, account } => PersistReply::Done {
+            req,
+            result: delete_account(client, account).await,
+        },
     };
     // Refusals are answers; anything else is the store failing.
     if let Some(e) = reply.error()
-        && !matches!(e, "stale" | "taken" | "full")
+        && !matches!(
+            e,
+            "stale" | "taken" | "full" | "no account" | "no character"
+        )
     {
         metrics.failures.fetch_add(1, Ordering::Relaxed);
         eprintln!("[persist] request {}: {e}", reply.req());
@@ -719,6 +1102,7 @@ async fn main() -> AnyResult<()> {
     let listener = TcpListener::bind(o.bind).await?;
     println!("[persist] listening on {}", o.bind);
     let (key, url) = (Arc::new(key), Arc::new(url));
+    start_report_expiry(url.clone());
     let metrics = Arc::new(Metrics::new());
     loop {
         let (stream, from) = listener.accept().await?;

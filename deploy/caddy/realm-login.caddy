@@ -2,8 +2,10 @@
 # Install: `import /opt/realm/current/deploy/caddy/realm-login.caddy` in
 # /etc/caddy/Caddyfile with REALM_LOGIN_HOST set for Caddy (systemctl edit
 # caddy: Environment=REALM_LOGIN_HOST=login.example.org), a DNS A record to the
-# host, ports 80/443 open. Only /api/ is served; realm_login answers on
-# loopback only and trusts X-Forwarded-For from loopback for its rate limits.
+# host, ports 80/443 open. Only /api/ is served (the Terms and the Privacy
+# Policy are /api/legal/...); realm_login answers on loopback only and trusts
+# X-Forwarded-For from loopback for its rate limits. Caddy sets that header
+# itself and ignores what a client sends, as no trusted_proxies are configured.
 {$REALM_LOGIN_HOST} {
 	encode gzip
 	request_body {

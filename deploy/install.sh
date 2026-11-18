@@ -100,6 +100,9 @@ fi
 
 # Units and the map list.
 install -m 0644 "$rel"/deploy/systemd/*.service "$rel"/deploy/systemd/*.target "$rel"/deploy/systemd/*.timer /etc/systemd/system/
+install -d -m 0755 /etc/systemd/journald.conf.d
+install -m 0644 "$rel"/deploy/journald/realm.conf /etc/systemd/journald.conf.d/realm.conf
+systemctl restart systemd-journald
 systemctl daemon-reload
 for old in /etc/systemd/system/realm.target.wants/realm-map@*.service; do
     [ -e "$old" ] || continue

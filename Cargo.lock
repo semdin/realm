@@ -1666,6 +1666,7 @@ dependencies = [
  "realm_rules",
  "serde",
  "serde_json",
+ "sha2",
  "tokio",
 ]
 

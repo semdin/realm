@@ -9,13 +9,38 @@
 //! the store's own failure (anything else: the caller answers "try later").
 //! New variants go at the end: postcard numbers them in order.
 
+use std::collections::HashSet;
+
 use realm_rules::CharacterSheet;
 use serde::{Deserialize, Serialize};
 
 use crate::coord::Board;
+use realm_rules::names::name_key;
 
 #[cfg(feature = "client")]
 pub mod client;
+
+/// Characters the login service makes are numbered from here. They are only
+/// ever born in `CreateCharacter`: a save or a join for one with no stored
+/// row (it was deleted) brings nothing back. Development characters, which
+/// have no account, live below and are made by their first save.
+pub const FIRST_PLAYER_CHARACTER: u64 = 10_000_000;
+
+/// What a weekly board shows in place of a deleted character's name.
+pub const DELETED_NAME: &str = "—";
+
+/// Blanks the names whose `name_key` is in `keys` on `board`; true when one
+/// was there. The run itself stays.
+pub fn forget_board_names(board: &mut Board, keys: &HashSet<String>) -> bool {
+    let mut changed = false;
+    for (name, _) in board.runs.iter_mut().flat_map(|r| r.party.iter_mut()) {
+        if keys.contains(&name_key(name)) {
+            DELETED_NAME.clone_into(name);
+            changed = true;
+        }
+    }
+    changed
+}
 
 /// An account as the login service checks a password against it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -24,6 +49,10 @@ pub struct AccountRow {
     pub username: String,
     /// The argon2id PHC string.
     pub hash: String,
+    /// The version of the terms it last accepted (None: never).
+    pub terms_version: Option<String>,
+    /// The hash of its one-time recovery code (None: it has none yet).
+    pub recovery_hash: Option<String>,
 }
 
 /// A character as an account's roster shows it (read from its sheet).
@@ -125,12 +154,15 @@ pub enum PersistMsg {
         req: u64,
         sheet: Box<CharacterSheet>,
     },
-    /// A new account (`hash` already argon2id) -> `Registered`; Err("taken")
-    /// when the name is someone's, whatever the case.
+    /// A new account (`hash` already argon2id), its recovery code's hash and
+    /// the terms version it accepted, age confirmed -> `Registered`;
+    /// Err("taken") when the name is someone's, whatever the case.
     Register {
         req: u64,
         username: String,
         hash: String,
+        recovery_hash: String,
+        terms_version: String,
     },
     /// The account named `username`, whatever the case -> `Account`.
     FindAccount { req: u64, username: String },
@@ -154,9 +186,10 @@ pub enum PersistMsg {
     LoadBoards { req: u64 },
     /// Keep `board` (one per dungeon and difficulty) -> `Done`.
     SaveBoard { req: u64, board: Board },
-    /// The game admins' names (lowercase) -> `Gas`.
+    /// The old list of game admins by name (lowercase) -> `Gas`. GA rights
+    /// now come from REALM_GA_ACCOUNTS; nothing asks for this any more.
     LoadGas { req: u64 },
-    /// Make `name` a game admin or take it back -> `Done`.
+    /// Changes that old list -> `Done`. Unused, like `LoadGas`.
     SetGa { req: u64, name: String, on: bool },
     /// The service's numbers -> `Stats`.
     Stats { req: u64 },
@@ -195,6 +228,44 @@ pub enum PersistMsg {
     },
     /// The player's character called `name`, whatever the case -> `Character`.
     FindCharacter { req: u64, name: String },
+    /// `account` accepted the terms `version` and confirmed its age -> `Done`.
+    AcceptTerms {
+        req: u64,
+        account: u64,
+        version: String,
+    },
+    /// A new password hash -> `Done`; Err("no account").
+    SetPassword {
+        req: u64,
+        account: u64,
+        hash: String,
+    },
+    /// A new recovery code's hash -> `Done`; Err("no account").
+    SetRecovery {
+        req: u64,
+        account: u64,
+        recovery_hash: String,
+    },
+    /// A recovery code was used: the new password and the code that replaces
+    /// it, only while `used` is still the stored code -> `Done`; Err("stale")
+    /// when it is not (each code works once).
+    Recover {
+        req: u64,
+        account: u64,
+        used: String,
+        hash: String,
+        recovery_hash: String,
+    },
+    /// Deletes `account`'s `character` in one transaction, its name off the
+    /// weekly boards -> `Done`; Err("no character") when it has none such.
+    DeleteCharacter {
+        req: u64,
+        account: u64,
+        character: u64,
+    },
+    /// Deletes `account` and all its characters the same way -> `Done`;
+    /// Err("no account").
+    DeleteAccount { req: u64, account: u64 },
 }
 
 /// Persistence service -> caller.
@@ -290,7 +361,13 @@ impl PersistMsg {
             | Self::CloseReport { req, .. }
             | Self::Audit { req, .. }
             | Self::FindCharacter { req, .. }
-            | Self::Stats { req } => *req,
+            | Self::Stats { req }
+            | Self::AcceptTerms { req, .. }
+            | Self::SetPassword { req, .. }
+            | Self::SetRecovery { req, .. }
+            | Self::Recover { req, .. }
+            | Self::DeleteCharacter { req, .. }
+            | Self::DeleteAccount { req, .. } => *req,
         }
     }
 }

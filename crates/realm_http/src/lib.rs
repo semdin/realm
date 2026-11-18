@@ -144,6 +144,7 @@ pub async fn respond_raw<S: AsyncWrite + Unpin>(
         404 => "Not Found",
         409 => "Conflict",
         413 => "Payload Too Large",
+        426 => "Upgrade Required",
         429 => "Too Many Requests",
         431 => "Request Header Fields Too Large",
         503 => "Service Unavailable",

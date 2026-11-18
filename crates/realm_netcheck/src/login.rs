@@ -5,8 +5,8 @@
 //! the grounds server. With `--persist-addr` the check also asks the
 //! persistence service whose the new character is.
 //!
-//! 1. account rules: bad names and passwords refused, a name taken
-//!    (whatever the case) refused;
+//! 1. account rules: bad names and passwords refused, no consent refused, a
+//!    name taken (whatever the case) refused, a recovery code given;
 //! 2. a wrong password refused, the right one gives a session;
 //! 3. character rules: bad names, an unknown house, a name taken by
 //!    another account (whatever the case), a third character all refused;
@@ -14,7 +14,8 @@
 //! 4. play: a ticket for the grounds; joining with it brings the character
 //!    in with its name, house and look; another account's character is
 //!    not playable;
-//! 5. logout ends the session; ten failed logins make the next one wait.
+//! 5. logout ends the session; failed logins make one address wait, while
+//!    the right password from another address still gets in.
 
 use std::io::{Read, Write};
 use std::net::TcpStream;
@@ -26,6 +27,17 @@ use crate::travel::{Session, fail, joined};
 use crate::{AnyResult, arg};
 
 fn call(addr: &str, path: &str, bearer: &str, body: &Value) -> AnyResult<(u16, Value)> {
+    call_from(addr, path, bearer, body, "")
+}
+
+/// As the proxy would send it for a player at `from` ("": a local tool).
+fn call_from(
+    addr: &str,
+    path: &str,
+    bearer: &str,
+    body: &Value,
+    from: &str,
+) -> AnyResult<(u16, Value)> {
     let mut stream = TcpStream::connect(addr)?;
     stream.set_read_timeout(Some(Duration::from_secs(30)))?;
     let payload = body.to_string();
@@ -34,10 +46,19 @@ fn call(addr: &str, path: &str, bearer: &str, body: &Value) -> AnyResult<(u16, V
     } else {
         format!("Authorization: Bearer {bearer}\r\n")
     };
-    let method = if path == "/api/health" { "GET" } else { "POST" };
+    let forwarded = if from.is_empty() {
+        String::new()
+    } else {
+        format!("X-Forwarded-For: {from}\r\n")
+    };
+    let method = if path == "/api/health" || path == "/api/legal" {
+        "GET"
+    } else {
+        "POST"
+    };
     write!(
         stream,
-        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\n{auth}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
+        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\n{auth}{forwarded}Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{payload}",
         payload.len()
     )?;
     let mut text = String::new();
@@ -71,6 +92,20 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let (user_a, user_b) = (format!("check_a{stamp}"), format!("check_b{stamp}"));
     let pass = "riverstone42";
     want("health", call(&login, "/api/health", "", &json!({}))?, 200)?;
+    let legal = want("legal", call(&login, "/api/legal", "", &json!({}))?, 200)?;
+    let terms = legal["version"]
+        .as_str()
+        .ok_or("no terms version")?
+        .to_owned();
+    let new_account = |name: &str, password: &str| {
+        json!({
+            "username": name,
+            "password": password,
+            "terms_version": terms,
+            "terms_accepted": true,
+            "age_confirmed": true,
+        })
+    };
 
     // 1. Accounts.
     for (name, password) in [
@@ -81,46 +116,44 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     ] {
         want(
             &format!("register {name:?}/{password:?}"),
-            call(
-                &login,
-                "/api/register",
-                "",
-                &json!({"username": name, "password": password}),
-            )?,
+            call(&login, "/api/register", "", &new_account(name, password))?,
             400,
         )?;
     }
-    let registered = want(
-        "register a",
+    want(
+        "register without consent",
         call(
             &login,
             "/api/register",
             "",
             &json!({"username": user_a, "password": pass}),
         )?,
+        400,
+    )?;
+    let registered = want(
+        "register a",
+        call(&login, "/api/register", "", &new_account(&user_a, pass))?,
         200,
     )?;
+    if registered["recovery_code"].as_str().map(str::len) != Some(35) {
+        return fail(format!("no recovery code in {registered}"));
+    }
     want(
         "register a again (case)",
         call(
             &login,
             "/api/register",
             "",
-            &json!({"username": user_a.to_uppercase(), "password": pass}),
+            &new_account(&user_a.to_uppercase(), pass),
         )?,
         409,
     )?;
     want(
         "register b",
-        call(
-            &login,
-            "/api/register",
-            "",
-            &json!({"username": user_b, "password": pass}),
-        )?,
+        call(&login, "/api/register", "", &new_account(&user_b, pass))?,
         200,
     )?;
-    println!("[login] 1 ok: account names and passwords checked, a taken name refused");
+    println!("[login] 1 ok: account names, passwords and consent checked, a taken name refused");
 
     // 2. Sessions.
     want(
@@ -312,25 +345,32 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         call(&login, "/api/characters/list", &ta, &json!({}))?,
         401,
     )?;
-    for _ in 0..10 {
-        let _ = call(
-            &login,
-            "/api/login",
-            "",
-            &json!({"username": user_b, "password": "wrongpass1"}),
+    let right = json!({"username": user_b, "password": pass});
+    let (guesser, owner) = ("203.0.113.7", "203.0.113.8");
+    for _ in 0..8 {
+        want(
+            "a wrong password",
+            call_from(
+                &login,
+                "/api/login",
+                "",
+                &json!({"username": user_b, "password": "wrongpass1"}),
+                guesser,
+            )?,
+            401,
         )?;
     }
     want(
-        "after ten failures",
-        call(
-            &login,
-            "/api/login",
-            "",
-            &json!({"username": user_b, "password": pass}),
-        )?,
+        "the guessing address after its failures",
+        call_from(&login, "/api/login", "", &right, guesser)?,
         429,
     )?;
-    println!("[login] 5 ok: logout ends the session; ten failures make the next login wait");
+    want(
+        "the owner from another address",
+        call_from(&login, "/api/login", "", &right, owner)?,
+        200,
+    )?;
+    println!("[login] 5 ok: logout ends the session; a guesser waits, the owner still gets in");
     println!("[login] ok: accounts, sessions, characters, play ticket, join, logout, throttle");
     Ok(())
 }
