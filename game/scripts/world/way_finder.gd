@@ -6,7 +6,7 @@ class_name WayFinder
 ## (RealmSession.path_to over the map's navigation mesh) and the way the
 ## route is shown in the world:
 ##
-##   * On foot: the old Marauder's-Map footprints - a steady trail of
+##   * On foot: inked footprints - a steady trail of
 ##     left/right prints from the player's feet along the route for the next
 ##     stretch, pinned to the route (they do not swim as you walk) with a glow
 ##     rippling forward; new prints ink in ahead as you go.

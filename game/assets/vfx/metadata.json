@@ -628,7 +628,7 @@
       "colour": true,
       "blend": "add",
       "blend_default": "add",
-      "purpose": "Branching lightning strands, white, tinted (Stun_Bolt / Avada Arcana crackle)",
+      "purpose": "Branching lightning strands, white, tinted (Stun_Bolt crackle)",
       "sheet_px": [
         512,
         512

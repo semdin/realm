@@ -8,7 +8,7 @@
 //! comes from quests only; its rank follows combat.json house_ranks.
 //!
 //! The old game's `authority.quest_event`, `quest_claim_for_record`,
-//! `_complete_quest` and `HPRules.quests_open`.
+//! `_complete_quest` and `quests_open`.
 
 use serde_json::Value;
 

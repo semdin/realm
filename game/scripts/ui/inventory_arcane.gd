@@ -1,6 +1,6 @@
 extends Control
 
-## The inventory (I): one vertical window in the Metin2 / Knight Online layout -
+## The inventory (I): one vertical window -
 ## the worn pieces on top, placed around the hero's silhouette (hat above the
 ## head, robe on the torso, boots at the feet, wand / hands / ring I left,
 ## focus / neck / ring II right, broom bottom right; an empty slot shows the

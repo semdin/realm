@@ -399,7 +399,7 @@
       "spatial": false,
       "sample_rate": 44100,
       "seconds": 21.88,
-      "purpose": "Vast stone great hall interior of a magical castle: warm hearth crackling far away, faint echoing murmur of many distant people, tall ceiling reverb, cozy",
+      "purpose": "Vast stone hall interior of a castle: warm hearth crackling far away, faint echoing murmur of many distant people, tall ceiling reverb, cozy",
       "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2; tools/audio/audio_spec.json"
     },
     "amb_grounds": {
@@ -425,7 +425,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 4.37,
-      "purpose": "Distant warm laughter of a crowd echoing in a great hall, faint and muffled",
+      "purpose": "Distant warm laughter of a crowd echoing in a vast stone hall, faint and muffled",
       "source": "Stable Audio 3 small-sfx (local, CPU); amb_hall_laughter__s104.wav"
     },
     "amb_high_wind": {

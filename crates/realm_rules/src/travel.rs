@@ -7,7 +7,7 @@
 //! destination map works out on its own ground (only it has that map's
 //! terrain). The map the traveller leaves decides whether it may go.
 //!
-//! The old game's `request_transfer`, `request_travel`, `HPMaps` travel
+//! The old game's `request_transfer`, `request_travel`, map travel
 //! helpers and its boot travel, with these faults fixed: every check reads
 //! the renamed data (`hearthway`, `waylink`), a Waylink rider must meet the
 //! destination's level as its owner must, and nothing is learned (every

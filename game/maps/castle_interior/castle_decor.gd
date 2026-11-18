@@ -10,8 +10,8 @@ extends RefCounted
 ##     hourglasses stood, castle_kit.gd LEFT_OUT);
 ##   * moonlight through the windows (a shadowed directional light);
 ##   * the rooms' light sources, authored in the glb as FX_<kind>_<n> empties
-##     (sconces, hearths, green braziers, lanterns, chandeliers; the Rookery's
-##     FX_owl perches stay empty);
+##     (sconces, hearths, green braziers, lanterns, chandeliers; the tower
+##     loft's FX_owl perches stay empty);
 ##   * the hero props (two suits of armour).
 ## Built at the low preset the old game picked for Intel iGPUs (the only
 ## preset of this renderer): no chandelier shadows, a 2-split
@@ -365,7 +365,7 @@ static func _build_fx(scan_root: Node, root: Node3D) -> void:
 			continue
 		var kind := "_".join(parts.slice(1, parts.size() - 1))
 		if kind == "owl":
-			continue   # the Rookery's perches stay empty
+			continue   # the tower loft's perches stay empty
 		kinds[kind] = int(kinds.get(kind, 0)) + 1
 		var xf := n.global_transform
 		var scale := xf.basis.get_scale().x

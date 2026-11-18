@@ -7,7 +7,7 @@ class_name CharacterWindow
 ## between
 ##   Status      - health and mana gauges, the six core numbers, the purse;
 ##   Attributes  - the four status-point attributes, what a point gives, the
-##                 total so far, and the "+" that spends one (Metin2: two per
+##                 total so far, and the "+" that spends one (two per
 ##                 level, up to the cap in one attribute);
 ##   Properties  - the secondary stats in four groups, zeros dimmed.
 ##

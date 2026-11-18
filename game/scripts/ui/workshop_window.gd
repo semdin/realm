@@ -1,6 +1,6 @@
 extends Control
 
-## Kestrin's workshop (O, anywhere) - the Metin2 blacksmith. It works on ONE
+## Kestrin's workshop (O, anywhere) - the blacksmith. It works on ONE
 ## item put on its anvil: drag a wand, cloak, broom or accessory from the bag
 ## onto the slot, or right-click it in the bag while the workshop is open. The
 ## anvil header shows the item; below it two tabs:
@@ -146,7 +146,7 @@ func _build() -> void:
 	body.add_child(_foot)
 
 ## The anvil: the slot, the item's name and kind, and the button that takes
-## it off again (Metin2's Cancel).
+## it off again.
 func _build_anvil(body: VBoxContainer) -> void:
 	_anvil_card = PanelContainer.new()
 	_anvil_card.name = "Anvil"

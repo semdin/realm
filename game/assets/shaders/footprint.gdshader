@@ -1,6 +1,6 @@
 shader_type spatial;
-// The waypoint's footprints (scripts/world/way_finder.gd), the old game's
-// Marauder's-Map prints: one quad per print lying on the ground, UV.y = 0 at
+// The waypoint's footprints (scripts/world/way_finder.gd): one quad per print
+// lying on the ground, UV.y = 0 at
 // the toe. The prints from the player's feet along the next stretch of the
 // route always show; INSTANCE_CUSTOM.x is how many steps ago a glow rippling
 // forward passed this print (it brightens as the glow goes by), .y how far

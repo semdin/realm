@@ -14,10 +14,10 @@ class_name UITheme
 ## The game's name and horizontal logo wherever a player sees them: the logo
 ## crowns the login screen and character select, the name titles the window
 ## and the credits; the round emblem is the app icon (assets/branding/
-## hpmmo_icon.png). application/config/name is the game's name too (user://,
+## thousand_realms_icon.png). application/config/name is the game's name too (user://,
 ## the macOS app and Dock); files and folders on disk are ThousandRealms*.
-## Data from before the rename is carried over by UserDataMigration and the
-## launcher (launcher_cpp/src/legacy_names.cpp).
+## Data from earlier installs is carried over by UserDataMigration and the
+## launcher.
 const GAME_TITLE := "Thousand Realms"
 const LOGO := "res://assets/branding/thousand_realms_logo.png"
 
@@ -34,10 +34,8 @@ static func logo(height: float) -> TextureRect:
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
 
-const DIR := "res://assets/ui/"
 const ICON_DIR := "res://assets/ui/icons/"
 const FONT_DIR := "res://assets/fonts/"
-const THEME_PATH := DIR + "hpmmo.tres"
 
 ## Type-variation names. A widget asks for a role by setting
 ## `theme_type_variation` to one of these; the styles themselves are in the .tres.
@@ -96,7 +94,7 @@ const RIGHT_COL_W := 260.0
 ## The action bar: gauges, hotbar and quick actions in one row. There is no plate
 ## behind it - the bars and slots carry their own frames, and a full-width panel
 ## behind them read as a slab of background that the controls sat on rather than
-## as part of the game. Metin2's taskbar is 37 px at 1024x768; this is 80 px at
+## as part of the game. It is 80 px at
 ## 1280x720, which is the height the stacked gauges and the level badge need.
 ## `DECK_H` / `DECK_BOTTOM` are also what the right rail measures against to keep
 ## its notification stack clear of the bar.
@@ -496,17 +494,11 @@ static func font_deco() -> Font:
 
 # ------------------------------------------------------------------- theme
 
-## The one Theme, loaded once. Falls back to a code-built minimal theme when the
-## resource is absent, so a checkout without it still renders something usable
-## instead of magenta rectangles.
+## The one Theme, built once in code.
 static func get_theme() -> Theme:
 	if _theme != null:
 		return _theme
-	var loaded: Theme = null
-	if ResourceLoader.exists(THEME_PATH):
-		loaded = load(THEME_PATH) as Theme
-	if loaded == null:
-		loaded = _minimal_theme()
+	var loaded := _minimal_theme()
 	for variation in VARIATION_BASES:
 		loaded.set_type_variation(variation, VARIATION_BASES[variation])
 	_theme = loaded
@@ -540,7 +532,7 @@ static func _install_fonts(t: Theme) -> void:
 		engine.set_font("font", "Label3D", world_font(W_BODY))
 
 
-## The last-resort theme, used only when `hpmmo.tres` cannot be loaded.
+## The base theme: fonts, card styles and control defaults.
 static func _minimal_theme() -> Theme:
 	var t := Theme.new()
 	var body := font_body()
