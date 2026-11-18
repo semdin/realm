@@ -2,7 +2,7 @@
 ; the rules run 30 Hz prediction and replays, and a debug build of them is
 ; far slower than the game. Build it with: cargo build --release -p realm_client
 ;
-; Exports: Godot (4.7.2) copies the matching library from ../target/release
+; Exports: Godot copies the matching library from ../target/release
 ; (outside res:// is fine) beside the executable - macOS: into the bundle's
 ; Contents/Frameworks - and the exported game loads it from there. So build
 ; the release library there before exporting (for another platform's export,

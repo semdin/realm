@@ -3,4 +3,4 @@ config_version=5
 
 [application]
 config/name="realm gdext smoke"
-config/features=PackedStringArray("4.7")
+config/features=PackedStringArray("4.8")

@@ -41,7 +41,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GODOT_VERSION: '4.7.2'
+  GODOT_VERSION: '4.8.beta3'
   PLATFORM: 'windows-x86_64'
   MIN_LAUNCHER_VERSION: '3.0.0'
   SERVER_VERSION: '2.0.0'
@@ -302,11 +302,11 @@ jobs:
         run: |
           set -eu
           # Installed once on the host (server/docs/self-hosted-runner.md).
-          godot=/opt/hpmmo-ci/godot/godot
-          "$godot" --version | grep -q "^${GODOT_VERSION}\.stable" || {
+          godot=/opt/hpmmo-ci/godot-${GODOT_VERSION}/godot
+          "$godot" --version | grep -q "^${GODOT_VERSION}\." || {
             echo "::error::$godot is not Godot ${GODOT_VERSION}"; exit 1; }
-          test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/windows_release_x86_64.exe" \
-            && test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable/macos.zip" || {
+          test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}/windows_release_x86_64.exe" \
+            && test -f "$HOME/.local/share/godot/export_templates/${GODOT_VERSION}/macos.zip" || {
             echo "::error::Godot ${GODOT_VERSION} export templates are missing in $HOME"; exit 1; }
           echo "path=$godot" >> "$GITHUB_OUTPUT"
 

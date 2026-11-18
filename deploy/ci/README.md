@@ -7,7 +7,7 @@ assets re-import byte-identically and players download only what changed).
 | On the host | What |
 | --- | --- |
 | `/opt/actions-runner-realm` | the runner (user `ghrunner`, label `realm-release`, in `hpmmo-ci.slice` at Nice 10) |
-| `/opt/hpmmo-ci/godot/godot` | Godot 4.7.2 headless; export templates in `~ghrunner/.local/share/godot/export_templates/4.7.2.stable` |
+| `/opt/hpmmo-ci/godot-4.8.beta3/godot` | Godot 4.8 beta 3 headless; export templates in `~ghrunner/.local/share/godot/export_templates/4.8.beta3` |
 | `/opt/hpmmo-ci/build_linux_launcher.sh` | root-owned copy of `build_linux_launcher.sh` here; the only thing `ghrunner` may run through sudo (`/etc/sudoers.d/90-hpmmo-ci`): builds the AppImage in Docker from sources under the runner's workspace only |
 | `~ghrunner/.git-credentials` | the LFS server's credentials (`lfs.agsilvery.com`) for `git lfs pull` |
 

@@ -26,7 +26,7 @@ run/flush_stdout_on_print=true
 ; The window, taskbar and dock icon (the launcher's emblem); exports put it
 ; into the .exe and the macOS bundle too (export_presets.cfg).
 config/icon="res://assets/branding/thousand_realms_icon.png"
-config/features=PackedStringArray("4.7", "Mobile")
+config/features=PackedStringArray("4.8", "Mobile")
 
 [autoload]
 
@@ -40,11 +40,6 @@ window/size/viewport_height=900
 [rendering]
 renderer/rendering_method="mobile"
 renderer/rendering_method.mobile="mobile"
-; macOS draws with Forward+ (as the old game did): with the Mobile renderer
-; Godot 4.7.2 deadlocks on Metal compiling scene shader variants (the main
-; thread waits on worker compiles that wait on a lock it holds; seen on M1,
-; M5 and a GitHub M1 runner, stuck at the logo or "building sites").
-renderer/rendering_method.macos="forward_plus"
 anti_aliasing/quality/screen_space_aa=1
 textures/vram_compression/import_etc2_astc=true
 ; Interface pictures are drawn smaller than their source (a 256 px icon in a

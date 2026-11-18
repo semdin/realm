@@ -182,7 +182,7 @@ build/client_export/win/ThousandRealms.exe --headless -- --login-url http://127.
 ```
 
 - **The extension library.** `game/realm.gdextension` points at
-  `../target/release`; Godot 4.7.2 exports a library outside `res://` as it
+  `../target/release`; Godot exports a library outside `res://` as it
   does any other: it copies it beside the executable (macOS: the bundle's
   `Contents/Frameworks`), and the exported game loads it from there. An export
   fails when the library is missing. To export for another platform, put that
@@ -234,7 +234,7 @@ build/client_export/win/ThousandRealms.exe --headless -- --login-url http://127.
 
 ## Toolchain
 
-Rust is pinned in `rust-toolchain.toml` (1.100.0, edition 2024); Godot is 4.7.2. Rule: always the newest stable release of the toolchain, Godot, crates and CI images; pre-releases (for example rustls 0.24 dev) are skipped. Local Windows builds
+Rust is pinned in `rust-toolchain.toml` (1.100.0, edition 2024); Godot is 4.8 beta 3 (a deliberate exception: it carries the fix for the Mobile renderer's Metal deadlock). Rule: always the newest stable release of the toolchain, Godot, crates and CI images; pre-releases (for example rustls 0.24 dev) are skipped. Local Windows builds
 use the `x86_64-pc-windows-gnullvm` host (llvm-mingw); `.cargo/config.toml`
 links its unwinder statically so the DLL and the server need no extra
 runtime files. CI and Windows release builds use MSVC.
