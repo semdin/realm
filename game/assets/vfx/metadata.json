@@ -812,62 +812,6 @@
       "note": "Generated on a pure black background; luminance is the coverage, colour is un-premultiplied. One-shot: ends on an empty frame."
     },
     {
-      "id": "vfx_hearth_column",
-      "file": "atlases/hearth_column_8x8_2k.png",
-      "path": "atlases/hearth_column_8x8_2k.png",
-      "cols": 8,
-      "rows": 8,
-      "cell": 256,
-      "frames": 64,
-      "fps": 22,
-      "loop": false,
-      "colour": true,
-      "blend": "add",
-      "blend_default": "add",
-      "purpose": "Roaring column of emerald Hearth flames (Hearth Network departure and arrival)",
-      "sheet_px": [
-        2048,
-        2048
-      ],
-      "cell_px": 256,
-      "padding_px": 4,
-      "frame_order": "row-major, frame 0 at the top-left cell",
-      "alpha": "straight (non-premultiplied); coverage in A, linear",
-      "colour_space": "sRGB (RGB), linear (A)",
-      "generator": "client/tools/vfx/build_spell_vfx.py",
-      "source": "fal.ai alibaba/wan-3.0/text-to-video -> art/vfx/source/hearth_column.mp4",
-      "method": "generated video, packed",
-      "note": "Generated on a pure black background; luminance is the coverage, colour is un-premultiplied. One-shot: ends on an empty frame."
-    },
-    {
-      "id": "vfx_hearth_dust",
-      "file": "atlases/hearth_dust_8x8_1k.png",
-      "path": "atlases/hearth_dust_8x8_1k.png",
-      "cols": 8,
-      "rows": 8,
-      "cell": 128,
-      "frames": 64,
-      "fps": 33,
-      "loop": false,
-      "colour": true,
-      "blend": "add",
-      "blend_default": "add",
-      "purpose": "Puff of glittering green Hearth Powder thrown into the hearth",
-      "sheet_px": [
-        1024,
-        1024
-      ],
-      "cell_px": 128,
-      "padding_px": 4,
-      "frame_order": "row-major, frame 0 at the top-left cell",
-      "alpha": "straight (non-premultiplied); coverage in A, linear",
-      "colour_space": "sRGB (RGB), linear (A)",
-      "generator": "client/tools/vfx/build_spell_vfx.py",
-      "source": "fal.ai alibaba/wan-3.0/text-to-video -> art/vfx/source/hearth_dust.mp4",
-      "method": "generated video, packed",
-      "note": "Generated on a pure black background; luminance is the coverage, colour is un-premultiplied. One-shot: ends on an empty frame."
-    },
-    {
       "id": "vfx_waylink_vortex",
       "file": "atlases/waylink_vortex_8x8_2k.png",
       "path": "atlases/waylink_vortex_8x8_2k.png",
@@ -936,7 +880,7 @@
       "colour": true,
       "blend": "add",
       "blend_default": "add",
-      "purpose": "Burst of violet smoke and sparks (Twinned Cabinet)",
+      "purpose": "Burst of smoke and dust (the Old Shaft and passages)",
       "sheet_px": [
         1024,
         1024

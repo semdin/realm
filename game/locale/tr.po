@@ -6258,3 +6258,6 @@ msgstr "Diyar dolu: beklemen gerekebilir"
 
 msgid "The realm is having problems"
 msgstr "Diyarda sorun var"
+
+msgid "The Wheelwarden"
+msgstr "Çark Bekçisi"
