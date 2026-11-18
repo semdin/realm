@@ -82,7 +82,23 @@ Type: dirifempty; Name: "{app}"
 
 [Code]
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Attempt: Integer;
+  Exe: String;
 begin
+  { A virus scanner can still hold the launcher for a moment: keep trying, so
+    no program folder is left behind. }
+  if CurUninstallStep = usPostUninstall then
+  begin
+    Exe := ExpandConstant('{app}\{#ExeName}');
+    for Attempt := 1 to 60 do
+    begin
+      if (not FileExists(Exe)) or DeleteFile(Exe) then
+        Break;
+      Sleep(250);
+    end;
+    RemoveDir(ExpandConstant('{app}'));
+  end;
   { A silent uninstall never deletes game data or settings. }
   if (CurUninstallStep = usPostUninstall) and not UninstallSilent then
     if MsgBox(CustomMessage('RemoveGameData'), mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then

@@ -43,7 +43,7 @@ $uninstaller = ($entry.UninstallString -replace '"', '')
 $u = Start-Process -FilePath $uninstaller -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -PassThru -Wait
 Assert-That ($u.ExitCode -eq 0) 'uninstaller exits 0'
 # The uninstaller finishes from a temporary copy: give it a moment.
-for ($i = 0; $i -lt 40 -and (Test-Path $app); $i++) { Start-Sleep -Milliseconds 250 }
+for ($i = 0; $i -lt 100 -and (Test-Path $app); $i++) { Start-Sleep -Milliseconds 250 }
 Assert-That (-not (Test-Path $app)) 'program folder removed'
 Assert-That (-not (Test-Path $menu)) 'Start Menu shortcut removed'
 Assert-That (-not (Test-Path $desktop)) 'desktop shortcut removed'
