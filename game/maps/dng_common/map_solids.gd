@@ -12,7 +12,7 @@ extends SceneTree
 ##
 ## The caverns' big stalagmite spires (the view's `spires`) are boxed here
 ## from the stalag mesh, as `obstacle` boxes stacked inside the drawn rock;
-## a dungeon's stalagmites (the view's `stalagmites`, the Web Mother's lair)
+## a dungeon's stalagmites (the view's `stalagmites`, the Silk Queen's lair)
 ## the same way, as ordinary colliders. A view's `removed` (the old game's
 ## colliders for things drawn otherwise now) is written as the patch's
 ## `remove`. Other props a view lists in `shaped`

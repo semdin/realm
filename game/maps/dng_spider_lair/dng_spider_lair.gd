@@ -1,6 +1,6 @@
 extends "res://maps/dng_common/dungeon_view.gd"
 
-## The Web Mother's Lair drawn (maps.json "dng_spider_lair"), behind the web
+## The Silk Queen's Lair drawn (maps.json "dng_spider_lair"), behind the web
 ## gates of the Blackweb Caverns: the old game's code-built lair in the
 ## caverns' own stone, light and dressing. Its rooms are the server's boxes,
 ## drawn as a cave: rough rock skins over the walls (under a body's radius
@@ -13,7 +13,7 @@ extends "res://maps/dng_common/dungeon_view.gd"
 ##   web tunnel      z -10 ..  -50   spiders; the silk nest east (side slot)
 ##   egg chamber     z -50 .. -100   egg sacs to burn                 gate_a
 ##   brood hall      z -100 .. -140  the Brood Guardian; the bone pit west  gate_b
-##   mother's nest   z -140 .. -212  the Web Mother                   gate_c
+##   mother's nest   z -140 .. -212  the Silk Queen                   gate_c
 ##   hoard           z -212 .. -228  the chest, the way out
 ## Positions are local to the copy (the scene stands at the copy's offset).
 

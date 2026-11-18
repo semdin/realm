@@ -1,5 +1,5 @@
 {
-  "_comment": "Who stands on the maps and talks (the old game's game_world._setup_npcs). `name` is what quests name as giver and talk target; `dialogue` pages are English source strings (the client translates them); `robe` tints the robe and the dialogue medallion; `body` is a custom model (else the robed wizard); `services` opens a window from the dialogue (`workshop` = the wandmaker's refine and imbue). The server range-checks a talk against `pos` (quests.json talk_radius).",
+  "_comment": "Who stands on the maps and talks. `name` is what quests name as giver and talk target; `dialogue` pages are English source strings (the client translates them); `robe` tints the robe and the dialogue medallion; `body` is a custom model (else the robed figure); `services` opens a window from the dialogue (`workshop` = the wandmaker's refine and imbue). The server range-checks a talk against `pos` (quests.json talk_radius).",
   "npcs": {
     "teral_venn": {
       "name": "Commander Teral Venn",

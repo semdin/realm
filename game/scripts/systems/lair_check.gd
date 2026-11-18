@@ -1,6 +1,6 @@
 extends "res://scripts/systems/dungeon_check.gd"
 
-## `--check-lair`: the Web Mother's Lair the way a player fights it, against
+## `--check-lair`: the Silk Queen's Lair the way a player fights it, against
 ## the coordinator and two linked map servers (spider_caverns and
 ## dng_spider_lair, the dungeon server started with `--dev-dungeon-start
 ## <step> --dev-dungeon-scale 0.05 --dev-cocoon-solo`; build/logs/
@@ -19,7 +19,7 @@ extends "res://scripts/systems/dungeon_check.gd"
 ##                  once the sac is gone and its hatchlings stand round it
 ##   clear          (eggs) everything is cleared until the gate message
 ##                  ("The last sac withers...")
-##   queen          (queen) the Web Mother and her brood; the cocoon she spins
+##   queen          (queen) the Silk Queen and her brood; the cocoon she spins
 ##                  round the player captured (the player held inside it) and
 ##                  again as it splits open (a lone player cannot break it:
 ##                  it holds out its 12 s), the venom pools captured, the
@@ -437,7 +437,7 @@ func _watch_hatch(delta: float) -> void:
 			return
 		_go("clear")
 
-## queen: the Web Mother and her brood; the cocoon, the pools, her fall.
+## queen: the Silk Queen and her brood; the cocoon, the pools, her fall.
 func _queen(delta: float) -> void:
 	_find_queen()
 	var queen: CreatureView = game.beasts.get(_queen_id)

@@ -2,7 +2,7 @@ extends Node3D
 class_name NpcView
 
 ## A quest NPC (content/data/npcs.json), drawn here: NPCs are not server
-## entities, they stand on the ground under their `pos`. A robed wizard tinted
+## entities, they stand on the ground under their `pos`. A robed hero tinted
 ## by the robe colour, or the body of its own (`body.model`, Ombrek's on the
 ## hero rig); the nameplate "<name> / < click to talk >"; a little idle bob;
 ## a gold arrow bobbing and turning over the head while an open talk quest
@@ -12,14 +12,14 @@ class_name NpcView
 ## server range-checks against the same npcs.json position.
 
 const WIZARD := "res://assets/models/characters/wizard.glb"
-## The wizard's props an NPC does not carry.
+## The hero's props an NPC does not carry.
 const PROPS := ["Rig/Skeleton3D/handslot_r/2H_Staff", "Rig/Skeleton3D/handslot_l/Spellbook",
 	"Rig/Skeleton3D/handslot_l/Spellbook_open"]
 const CAPE := "Rig/Skeleton3D/chest/Mage_Cape"
 const LOOPING_CLIPS := ["Idle", "Talk", "Walk_A"]
 ## How long the NPC keeps gesturing after the player talks to it.
 const TALK_SECONDS := 4.0
-## The wizard's height and girth (metres) when the content gives no body.
+## The hero's height and girth (metres) when the content gives no body.
 const WIZARD_HEIGHT := 2.25
 const WIZARD_RADIUS := 0.45
 ## The nameplate's name and hint lines (screen pixels: the Label3D it
@@ -89,7 +89,7 @@ func setup(id: String, data: Dictionary) -> void:
 	if yaw != null:
 		rotation.y = float(yaw)
 
-## The robed wizard with its props put away and the cape in the robe colour,
+## The robed hero with its props put away and the cape in the robe colour,
 ## or the NPC's own body; Idle plays.
 func _build_body(body: Dictionary, size: float) -> void:
 	var model: Node3D

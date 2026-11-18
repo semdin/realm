@@ -405,7 +405,7 @@
     "type": "material",
     "desc": "Dark ore cut from the veins under the Stone Circle. Needed to refine rods to +5 - +7.",
     "rarity": "rare",
-    "icon": "heartstring",
+    "icon": "ore",
     "slots": []
   },
   "mat_night_steed_hair": {
@@ -636,7 +636,7 @@
     "id": "gloves_emberwing",
     "name": "Emberwing Gloves",
     "type": "accessory",
-    "desc": "Crimson dragonhide edged in gold filigree; the fingertips glow like coals.",
+    "desc": "Crimson salamander hide edged in gold filigree; the fingertips glow like coals.",
     "rarity": "epic",
     "armor": 22,
     "attack_speed": 6,

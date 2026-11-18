@@ -828,7 +828,7 @@ impl RealmSession {
         }
     }
 
-    /// Set a Waystake boot down for destination node `dest`.
+    /// Set a Waystake down for destination node `dest`.
     #[func]
     fn waylink_place(&mut self, dest: GString) {
         if let Some(net) = self.net.as_ref() {

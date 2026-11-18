@@ -146,7 +146,7 @@ pub(super) struct Run {
     pub chime: Option<Chime>,
     /// Per dungeon hazard (the breath): when it next blows.
     pub breath_next: Vec<u32>,
-    /// The Web Mother's cocoons: (wrapped player, cocoon, deadline, health
+    /// The Silk Queen's cocoons: (wrapped player, cocoon, deadline, health
     /// share lost if it is not broken in time).
     pub cocoons: Vec<(Entity, Entity, u32, f32)>,
     /// When a step last spoke (its line stands a while before any nag).
@@ -878,7 +878,7 @@ impl Sim {
         for g in &step.close {
             self.set_gate(i, g, false);
         }
-        // The Web Mother's floor: venom pools, webs.
+        // The Silk Queen's floor: venom pools, webs.
         for pool in &step.pools {
             self.lay_pool(i, pool);
         }
@@ -908,7 +908,7 @@ impl Sim {
         self.add_hazard(i, "pool", at, pool.radius, 0, until, share);
     }
 
-    /// The Web Mother spins a living player into a cocoon: held fast until
+    /// The Silk Queen spins a living player into a cocoon: held fast until
     /// the cocoon breaks, the share of its health lost if it holds out.
     /// Only with two or more standing (one alone could never get free).
     fn wrap_in_cocoon(&mut self, i: usize, s: usize, c: &realm_rules::dungeons::Cocoon) {
@@ -1206,7 +1206,7 @@ impl Sim {
                 // A run's boss keeps to the run's leash, as in the old
                 // dungeon director: its room is gated and a wipe sends it
                 // home. The template's arena radius is the open world's
-                // (18 m left the Web Mother resetting while a cocoon held
+                // (18 m left the Silk Queen resetting while a cocoon held
                 // her lone foe at the front of the nest).
                 arena_radius: 0.0,
             }
@@ -2324,7 +2324,7 @@ impl Sim {
             return;
         };
         // Elites under the bleeding curse, and creatures the run marked
-        // (the Web Mother on Legendary).
+        // (the Silk Queen on Legendary).
         let marked = self.runs[i].as_ref().is_some_and(|r| {
             r.mobs
                 .iter()

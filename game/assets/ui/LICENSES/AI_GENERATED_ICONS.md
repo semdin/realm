@@ -88,7 +88,7 @@ Tool: fal.ai `google/nano-banana-2.1` (1K, 1:1), the same full-bleed menu-icon t
 template as the 2026-10-13 menu set, text prompt only (no input image).
 
 * `icon_menu_{skills,character,quests}.png` - full-bleed square paintings for
-  the bottom-right menu cells (wand + spellbook, hooded wizard before a gold crest,
+  the bottom-right menu cells (wand + spellbook, hooded figure before a gold crest,
   sealed quest scroll), resized to 256 px by
   `tools/ui/cutout_icons.py` (`menu_<id>.png` sources in `art/ui_menu_icons_2026-10-18/src/`).
 

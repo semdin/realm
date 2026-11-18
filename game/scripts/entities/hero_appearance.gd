@@ -4,7 +4,7 @@ class_name HeroAppearance
 ## The hero body, and the one house-tint rule that dresses it.
 ##
 ## The in-game player and the character-select preview both spawn `MODEL` and
-## tint it through here, so the wizard a player picks on the podium is the wizard
+## tint it through here, so the hero a player picks on the podium is the hero
 ## they then play. Before this helper existed the preview loaded a different
 ## KayKit model (`wizard.glb`) and tinted a `Mage_Cape` node that only that model
 ## has, so the podium showed a character nobody could ever play.

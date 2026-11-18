@@ -13,7 +13,7 @@ class_name MapDungeon
 ##     the run tracker (HudDungeonRun) follows the run's "state" views, a new
 ##     step message shows on the notice band, the curses' marks burn on the
 ##     floor (DungeonHazards, from the "hazard" events and the run views).
-##     A run with a sluice wheel (the Brine Vaults', by Wheelwarden) shows it
+##     A run with a sluice wheel (the Brine Vaults', by the Wheelwarden) shows it
 ##     from the run view's `chime` (SluiceWheel).
 ##   * The end of a run takes no window: one line on the notice band (the
 ##     medal and the time, once the run's last step message has had its

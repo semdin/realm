@@ -507,7 +507,7 @@ pub struct Sim {
     /// Development: a run starts at this step (those before it done, their
     /// gates open, nothing of theirs spawned).
     pub dev_dungeon_start: Option<String>,
-    /// Development: the Web Mother's cocoon wraps a player even alone (it
+    /// Development: the Silk Queen's cocoon wraps a player even alone (it
     /// needs two otherwise).
     pub dev_cocoon_solo: bool,
     /// Development: players spawn on the ground at this world (x, z).

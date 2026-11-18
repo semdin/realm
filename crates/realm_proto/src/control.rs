@@ -349,7 +349,7 @@ pub enum ClientMsg {
     Travel { from: String, to: String },
     /// Mount the broom (true) or get off it (false).
     Ride(bool),
-    /// Set a Waystake boot down for `dest` (a travel node).
+    /// Set a Waystake down for `dest` (a travel node).
     WaylinkPlace(String),
     /// Hold on to (or let go of) the Waystake `id`.
     WaylinkHold { id: u32, hold: bool },
@@ -542,7 +542,7 @@ pub enum DungeonMsg {
     },
 }
 
-/// A Waystake boot as its party sees it. `phase` 0 set down (counting down
+/// A Waystake as its party sees it. `phase` 0 set down (counting down
 /// to `fires_tick`, a server tick), 1 fired, 2 gone (fizzled, or it left
 /// the viewer's party). `holders` are entities.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]

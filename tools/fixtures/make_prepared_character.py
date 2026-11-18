@@ -6,14 +6,14 @@
 
     python tools/fixtures/make_prepared_character.py build/travelcheck 900201 --travel-kit
 
-The character stands at the Hearth Pavilion (its shop sells Hearth Dust), is
+The character stands at the Ember Pavilion (its shop sells Waycoal), is
 hurt (100 hp), has 10 000 oril, the starter wand, and in its bag: health
-potions (cell 0), mana potions (1), Velkar Ash (2), imbue scrolls (3) and a
+potions (cell 0), mana potions (1), Forge Cinder (2), imbue scrolls (3) and a
 reweave scroll (4). The file is the CharacterSheet the server saves; run
 again to reset it.
 
 `--travel-kit` (the Godot client's --check-travel) also rides the Ashwood
-Sweeper (broom slot), carries 5 Hearth Dust and a Waylink boot (cells 5 and
+Sweeper (broom slot), carries 5 Waycoal and a Waystake (cells 5 and
 6), and stands on the grounds at the castle approach (spawn
 `castle_approach`), facing the castle door.
 
@@ -38,14 +38,14 @@ Godot client's --check-guide).
     python tools/fixtures/make_prepared_character.py build/bosscheck 900401 --dungeon-kit --sealed-wing --level 34
 
 `--sealed-wing` (with the kit; the Godot client's --check-boss) stands in
-the castle interior on the Sealed Wing gate (portal `fc_entry`) instead.
+the castle interior on the Brine Vaults gate (portal `fc_entry`) instead.
 `--level N` sets the level (the kit's 12 otherwise), with the health and
 mana a character of that level has, both full.
 
     python tools/fixtures/make_prepared_character.py build/laircheck 900501 --dungeon-kit --spider-lair
 
 `--spider-lair` (with the kit; the Godot client's --check-lair) stands in
-the Blackweb Caverns by the camp's web gate into the Web Mother's Lair
+the Blackweb Caverns by the camp's web gate into the Silk Queen's Lair
 (portal `lair_entry_camp`, as realm_netcheck --lair seeds its character), at
 level 30 unless `--level` says otherwise.
 
@@ -118,7 +118,7 @@ def main():
         "id": character, "name": "Prepared %d" % (character % 10000), "house": "velkar",
         "level": 1, "exp": 0, "hp": 100, "mana": 300, "base_max_hp": 500, "base_max_mana": 300,
         "oril": 10000, "bag": bag, "equipment": equipment, "look": [],
-        # Hearth Pavilion (travel.json), dropped onto the ground from above.
+        # Ember Pavilion (travel.json), dropped onto the ground from above.
         "place": {"map": "grounds", "pos": [-21.0, 60.0, 20.0], "yaw": 0.0},
         "revision": 1,
     }

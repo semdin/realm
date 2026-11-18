@@ -708,7 +708,7 @@
     "exp_mult": 3.0,
     "name_prefix": "Elite "
   },
-  "_level_gap_note": "Metin2-style level gap. diff = mob level - player level. Experience and loot drop chances are scaled by the first band whose `min_diff` the diff reaches (bands sorted high to low).",
+  "_level_gap_note": "Level gap. diff = mob level - player level. Experience and loot drop chances are scaled by the first band whose `min_diff` the diff reaches (bands sorted high to low).",
   "level_gap": {
     "bands": [
       {

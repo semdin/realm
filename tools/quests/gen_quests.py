@@ -329,7 +329,7 @@ REQUIRES = {
     15: [13],    # enchant with the scrolls the refine quest paid
     20: [19],    # equip the wand the Trial Hall paid
     39: [38],    # the Bandit Chief after scouting his camp
-    49: [48],    # the Black Widow after finding Spider Hollow
+    49: [48],    # the Hollow Spinner after finding Spider Hollow
     62: [61],    # the Brine Vaults after the Archivist's note
     76: [75],    # Grak after climbing the summit
     99: [96],    # the Warden after finding the barrow

@@ -496,14 +496,14 @@ msgstr "Oluşturulamadı"
 msgid "Log Out"
 msgstr "Çıkış Yap"
 
-msgid "YOUR WIZARDS"
-msgstr "BÜYÜCÜLERİN"
+msgid "YOUR CHARACTERS"
+msgstr "KARAKTERLERİN"
 
 msgid "New Character"
 msgstr "Yeni Karakter"
 
-msgid "YOUR WIZARDS  (%d / 2)"
-msgstr "BÜYÜCÜLERİN  (%d / 2)"
+msgid "YOUR CHARACTERS  (%d / 2)"
+msgstr "KARAKTERLERİN  (%d / 2)"
 
 msgid "%s\nLevel %d  ·  %s"
 msgstr "%s\nSeviye %d  ·  %s"
@@ -3997,8 +3997,8 @@ msgstr "Gümüş dikenli sarmaşıklar ve küçük zümrütlerle bağlanmış ab
 msgid "Emberwing Gloves"
 msgstr "Korkanat Eldivenler"
 
-msgid "Crimson dragonhide edged in gold filigree; the fingertips glow like coals."
-msgstr "Altın telkari kenarlı kızıl ejderha derisi; parmak uçları kor gibi parlar."
+msgid "Crimson salamander hide edged in gold filigree; the fingertips glow like coals."
+msgstr "Altın telkari kenarlı kızıl semender derisi; parmak uçları kor gibi parlar."
 
 msgid "Moonveil Gloves"
 msgstr "Ayörtü Eldivenler"

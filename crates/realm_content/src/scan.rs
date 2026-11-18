@@ -67,7 +67,7 @@ fn runs(text: &str) -> impl Iterator<Item = &str> {
 }
 
 /// `run` cut at its camelCase boundaries: `GateKeeper` and `HTTPServer` give
-/// two parts each, `nimbus` and `ABC` one.
+/// two parts each, `forest` and `ABC` one.
 fn camel_parts(run: &str) -> Vec<&str> {
     let chars: Vec<(usize, char)> = run.char_indices().collect();
     let mut parts = Vec::new();

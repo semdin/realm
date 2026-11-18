@@ -75,7 +75,7 @@ pub(super) struct Departing {
     pub since: u32,
 }
 
-/// A Waystake boot set down on this map.
+/// A Waystake set down on this map.
 pub(super) struct Waystake {
     pub id: u32,
     pub owner: Entity,

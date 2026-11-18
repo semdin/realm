@@ -19,7 +19,7 @@ class_name CreatureView
 ## sleep the chime lulls it into: its Sleep clip, a slow pale haze drifting up
 ## off each head still standing, "Seized!" over it, no stun stars.
 ##
-## A web thing (rig web_object: the Web Mother's egg sacs and cocoons) has no
+## A web thing (rig web_object: the Silk Queen's egg sacs and cocoons) has no
 ## clips: its death is the silk splitting open (SilkBurst, with the fluid
 ## inside it, creature_views.json `fluid`) while the model swells, slumps
 ## flat into the floor and is gone. `stretch` widens or heightens a model

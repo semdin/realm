@@ -72,19 +72,19 @@ extends Node3D
 ##                                                    the character from --dungeon-kit
 ##                                                    --dungeon-cleared normal --seals 20)
 ##   [--check-boss]                                   the check goes through the Brine Vaults gate
-##                                                    (castle_interior), walks to Wheelwarden, rings
-##                                                    the sluice wheel until it sleeps and kills its
+##                                                    (castle_interior), walks to the Wheelwarden, works
+##                                                    the sluice wheel until it is seized and breaks its
 ##                                                    heads one by one (BossCheck; the dungeon server
 ##                                                    runs with --dev-dungeon-start wheelwarden
 ##                                                    --dev-dungeon-scale 0.05: build/logs/dup_boss.sh)
 ##   [--check-boss-step snare]                        the Brinebriar instead (dup_boss.sh snare)
-##   [--check-lair]                                   the check goes through the Web Mother's Lair gate
+##   [--check-lair]                                   the check goes through the Silk Queen's Lair gate
 ##                                                    (spider_caverns), lets the egg sacs split open
 ##                                                    and clears the egg cavern (LairCheck; the
 ##                                                    dungeon server runs with --dev-dungeon-start
 ##                                                    eggs --dev-dungeon-scale 0.05 --dev-cocoon-solo:
 ##                                                    build/logs/aup_lair.sh)
-##   [--check-lair-step queen]                        the Web Mother instead: her cocoon round the
+##   [--check-lair-step queen]                        the Silk Queen instead: her cocoon round the
 ##                                                    player, the venom pools, her fall
 ##                                                    (aup_lair.sh queen)
 ##   [--check-ops]                                    the check drives the coordinator's admin surface

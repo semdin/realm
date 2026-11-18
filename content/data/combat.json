@@ -131,7 +131,7 @@
     ]
   },
   "enchant": {
-    "_comment": "Enchantments (efsun), Metin2 style. Imbue adds one bonus with imbue_chance[current count] percent (a failure still uses the scroll); reweave rerolls every bonus keeping the count. A bonus rolls a stat from the pool of the item's slot kind (slot_kinds; never a stat the item already has, never one of the item's own fixed stats) and a grade by grade_weights; value = values[grade]. `disabled` stats stay listed in the pools but are not rolled until their mechanic ships. `legacy` stats are no longer rolled but keep working on items that carry them. `flag` stats are on/off (any value > 0). Units: % is percent, /s points per second, plain numbers are flat. Every stat has a `theme` (attack, mind, hunt, control, guard, vitality, fortune, travel); slot_themes lists the themes a piece may roll, so a pool entry outside them never rolls (boots never roll attack speed or crit, only guard / mind / vitality / fortune). families maps a creature family (mobs.json) to its 'strong against' stat.",
+    "_comment": "Enchantments. Imbue adds one bonus with imbue_chance[current count] percent (a failure still uses the scroll); reweave rerolls every bonus keeping the count. A bonus rolls a stat from the pool of the item's slot kind (slot_kinds; never a stat the item already has, never one of the item's own fixed stats) and a grade by grade_weights; value = values[grade]. `disabled` stats stay listed in the pools but are not rolled until their mechanic ships. `legacy` stats are no longer rolled but keep working on items that carry them. `flag` stats are on/off (any value > 0). Units: % is percent, /s points per second, plain numbers are flat. Every stat has a `theme` (attack, mind, hunt, control, guard, vitality, fortune, travel); slot_themes lists the themes a piece may roll, so a pool entry outside them never rolls (boots never roll attack speed or crit, only guard / mind / vitality / fortune). families maps a creature family (mobs.json) to its 'strong against' stat.",
     "max_bonuses": 5,
     "imbue_scroll": "scroll_imbue",
     "reweave_scroll": "scroll_reweave",
@@ -775,7 +775,7 @@
     "multiplier": 1.75
   },
   "item_stats": {
-    "_comment": "Fixed item stats (items.json) and the Metin2-style hit rules. Damage: basic_cast adds a roll of the wand's attack_value, every other spell adds a roll of magic_attack x the spell's magic_attack_coef (spells.json); the sum scales with the +N multiplier, house and skill, then spell_power, family bonus, crit/pierce. Armour: reduction = armor / (armor + armor_base + armor_per_level x attacker level), capped; after it the matching melee/projectile/spell resistance (by mob_attack_kinds; unknown ids are spells), capped. Speeds: attack_speed shortens the basic_cast cooldown (/ (1 + pct)), cast_speed every other cooldown (x (1 - pct)), move_speed scales walking only. Piercing ignores the creature's resistances and front guard. Selling: sell_by_rarity is what a merchant pays for one piece (an item's own sell_price overrides it), +50% per refinement tier; stackables fetch a tenth.",
+    "_comment": "Fixed item stats (items.json) and the hit rules. Damage: basic_cast adds a roll of the wand's attack_value, every other spell adds a roll of magic_attack x the spell's magic_attack_coef (spells.json); the sum scales with the +N multiplier, house and skill, then spell_power, family bonus, crit/pierce. Armour: reduction = armor / (armor + armor_base + armor_per_level x attacker level), capped; after it the matching melee/projectile/spell resistance (by mob_attack_kinds; unknown ids are spells), capped. Speeds: attack_speed shortens the basic_cast cooldown (/ (1 + pct)), cast_speed every other cooldown (x (1 - pct)), move_speed scales walking only. Piercing ignores the creature's resistances and front guard. Selling: sell_by_rarity is what a merchant pays for one piece (an item's own sell_price overrides it), +50% per refinement tier; stackables fetch a tenth.",
     "armor_base": 100,
     "armor_per_level": 8,
     "armor_max_reduction": 75,
@@ -858,7 +858,7 @@
     "mana_per_second_nisera": 10.0
   },
   "skills": {
-    "_comment": "Metin2-style skill training. Every character level earns one skill point (points = level - points spent; the level-1 point learns the first spell); a point raises one upgradeable skill by one level. Level 10 is Master (shown as M). Damage, cooldown and effect duration scale with the caster's level of that skill; level 1 is the unmodified spells.json value.",
+    "_comment": "Skill training. Every character level earns one skill point (points = level - points spent; the level-1 point learns the first spell); a point raises one upgradeable skill by one level. Level 10 is Master (shown as M). Damage, cooldown and effect duration scale with the caster's level of that skill; level 1 is the unmodified spells.json value.",
     "max_level": 10,
     "master_level": 10,
     "upgradeable": [
@@ -876,7 +876,7 @@
     "effect_per_level": 0.04
   },
   "attributes": {
-    "_comment": "Metin2 status points (C window). points_per_level points per level gained ((level - 1) x points_per_level, derived, never stored), spent one at a time, up to `max` in one stat. Each point adds the listed amounts to the character's derived stats (HPEquipment.stats): max_hp / max_mana flat, attack_value / magic_attack to both ends of the wand range, attack_speed / crit_chance / spell_power in percent.",
+    "_comment": "Status points (C window). points_per_level points per level gained ((level - 1) x points_per_level, derived, never stored), spent one at a time, up to `max` in one stat. Each point adds the listed amounts to the character's derived stats (HPEquipment.stats): max_hp / max_mana flat, attack_value / magic_attack to both ends of the wand range, attack_speed / crit_chance / spell_power in percent.",
     "points_per_level": 2,
     "max": 90,
     "stats": {

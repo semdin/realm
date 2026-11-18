@@ -197,7 +197,7 @@ static func merge_extra_clips(player: AnimationPlayer) -> int:
 		return 0
 	# Every hero shares the GLB's library: once it holds the extra clips, the
 	# next body must not load every clip GLB again only to find each clip there
-	# (~35 ms per wizard that came into view, on clients and the server).
+	# (~35 ms per hero that came into view, on clients and the server).
 	var shared := player.get_animation_library("")
 	if shared != null and shared.has_meta(&"extra_clips_merged"):
 		return 0

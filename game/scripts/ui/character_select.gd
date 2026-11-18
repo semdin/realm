@@ -764,7 +764,7 @@ func _refresh_roster() -> void:
 		roster.remove_child(card)
 		card.queue_free()
 	roster_cards.clear()
-	roster_title.text = tr("YOUR WIZARDS  (%d / 2)") % characters.size()
+	roster_title.text = tr("YOUR CHARACTERS  (%d / 2)") % characters.size()
 	for i in range(MAX_CHARACTERS):
 		var card := Button.new()
 		card.name = "Slot%d" % (i + 1)

@@ -1,4 +1,4 @@
-"""The Feast Hall's west window and the upper corridor's tapestry, drawn
+"""The Long Table's west window and the upper corridor's tapestry, drawn
 procedurally for the realm (they replaced old-world heraldry and a borrowed
 scene).
 

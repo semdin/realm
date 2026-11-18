@@ -3,7 +3,7 @@
 //! coordinator, sharing the character store `<dir>`.
 //!
 //! A new character joins the grounds and leaves; its record then gets a
-//! broom, Waycoal and a Waystake boot (as play would give them). Then it
+//! broom, Waycoal and a Waystake (as play would give them). Then it
 //! must:
 //! 1. walk into the castle door and arrive in the castle, through a ticket
 //!    the coordinator signed, with the same bag, oril, level and health;
@@ -12,7 +12,7 @@
 //!    Pavilion to Orvell Square on the same map (one dust spent);
 //! 4. mount the broom, climb, be refused a landing in the air, descend and
 //!    get off;
-//! 5. set a Waystake boot down and be carried by it when it fires;
+//! 5. set a Waystake down and be carried by it when it fires;
 //! 6. hearth from the Pavilion to the Long Table in the castle;
 //! 7. log in again on the grounds while it plays in the castle: the castle
 //!    must let it go (its connection ends) and the grounds login must get

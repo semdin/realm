@@ -139,7 +139,7 @@
       "spatial": false,
       "sample_rate": 44100,
       "seconds": 21.82,
-      "purpose": "Forbidden stone corridor at night: heavy ominous silence, low rumbling drone, a huge beast breathing slowly far away behind a door, dread",
+      "purpose": "Sealed stone vault at night: heavy ominous silence, low rumbling drone, a huge beast breathing slowly far away behind a door, dread",
       "source": "Stable Audio 3 small-sfx (local, CPU); amb_corridor__s105.wav"
     },
     "amb_courtyard": {
@@ -1153,7 +1153,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 0.942,
-      "purpose": "Fantasy game monster: a giant three-headed dog panting heavily through three mouths, low and wet, very short",
+      "purpose": "Fantasy game monster: a giant engine venting steam in heavy pulses, low and wet, very short",
       "source": "fal.ai fal-ai/elevenlabs/sound-effects/v2 (ElevenLabs Sound Effects v2); art/audio_fal/hound_move_2.wav"
     },
     "hound_move_3": {
@@ -1412,7 +1412,7 @@
       "spatial": false,
       "sample_rate": 44100,
       "seconds": 120.035,
-      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Forbidden corridor suspense: creeping staccato low strings, heartbeat-like soft drum pulse, eerie high violin harmonics, building tension, something huge lurks nearby, slow and menacing.",
+      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Sealed vault suspense: creeping staccato low strings, heartbeat-like soft drum pulse, eerie high violin harmonics, building tension, something huge lurks nearby, slow and menacing.",
       "source": "fal.ai elevenlabs/music/v2.5; tools/audio/audio_spec.json",
       "variants": [
         "music_corridor_alt1"
@@ -1428,7 +1428,7 @@
       "spatial": false,
       "sample_rate": 44100,
       "seconds": 120.0,
-      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Forbidden corridor suspense: creeping staccato low strings, heartbeat-like soft drum pulse, eerie high violin harmonics, building tension, something huge lurks nearby, slow and menacing.",
+      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Sealed vault suspense: creeping staccato low strings, heartbeat-like soft drum pulse, eerie high violin harmonics, building tension, something huge lurks nearby, slow and menacing.",
       "source": "Stable Audio 3 small-music (local, CPU); art/audio_sa3/alts_raw/music_corridor__s204.wav"
     },
     "music_dungeon": {
@@ -1586,7 +1586,7 @@
       "spatial": false,
       "sample_rate": 44100,
       "seconds": 150.05,
-      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Main menu theme for a magical wizard school MMO: a mysterious, wondrous celesta melody over soft strings and harp, warm horns join, sense of wonder and nostalgia, waltz feel 3/4, moderate tempo, grows gently then settles.",
+      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Main menu theme for a high fantasy MMO of shattered realms: a mysterious, wondrous celesta melody over soft strings and harp, warm horns join, sense of wonder and nostalgia, waltz feel 3/4, moderate tempo, grows gently then settles.",
       "source": "fal.ai elevenlabs/music/v2.5; tools/audio/audio_spec.json",
       "variants": [
         "music_menu_alt1"
@@ -1602,7 +1602,7 @@
       "spatial": false,
       "sample_rate": 44100,
       "seconds": 118.0,
-      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Main menu theme for a magical wizard school MMO: a mysterious, wondrous celesta melody over soft strings and harp, warm horns join, sense of wonder and nostalgia, waltz feel 3/4, moderate tempo, grows gently then settles.",
+      "purpose": "Original fantasy video game soundtrack, cinematic orchestral, high production quality, instrumental only. Main menu theme for a high fantasy MMO of shattered realms: a mysterious, wondrous celesta melody over soft strings and harp, warm horns join, sense of wonder and nostalgia, waltz feel 3/4, moderate tempo, grows gently then settles.",
       "source": "Stable Audio 3 small-music (local, CPU); art/audio_sa3/alts_raw/music_menu__s201.wav"
     },
     "music_village": {
@@ -2356,7 +2356,7 @@
       "spatial": true,
       "sample_rate": 44100,
       "seconds": 1.177,
-      "purpose": "Wizard fires a spell: a sharp magical swish followed by a resonant energy whoosh flying away, punchy, short",
+      "purpose": "A caster fires a spell: a sharp magical swish followed by a resonant energy whoosh flying away, punchy, short",
       "source": "Stable Audio 3 small-sfx run locally (client/tools/audio/sa3_generate.py); art/audio_sa3/local/c3_p2_s56.wav"
     },
     "spell_stun_bolt_end": {

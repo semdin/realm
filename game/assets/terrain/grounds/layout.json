@@ -8,7 +8,7 @@
     ],
     "cell_m": 1.0,
     "axes": "Godot: +x east, +z south, north is -z",
-    "vertical_datum": "Black Lake surface = 0 m",
+    "vertical_datum": "Lake Lunra surface = 0 m",
     "y_range": [
       -18,
       165

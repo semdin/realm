@@ -198,9 +198,9 @@ jobs:
       - name: The Brine Vaults' multi-part bosses
         if: matrix.os == 'ubuntu-26.04'
         # Runs started at the boss (--dev-dungeon-start): the stair breath
-        # pushes, the sluice wheel puts Wheelwarden to sleep, its heads fall one
+        # pushes, the sluice wheel seizes the Wheelwarden, its plates fall one
         # by one and the body with the last; the Brinebriar's heart is
-        # untouchable until its vines are gone. No correction.
+        # untouchable until its stems are gone. No correction.
         run: |
           mkdir -p build/bosscheck
           ./target/release/realm_coord > coord.log 2>&1 &
@@ -218,11 +218,11 @@ jobs:
           kill $(jobs -p) 2>/dev/null || true
           wait || true   # every server this step started is gone before the next step binds its ports
 
-      - name: The Web Mother's Lair
+      - name: The Silk Queen's Lair
         if: matrix.os == 'ubuntu-26.04'
         # Runs started at the step (--dev-dungeon-start): egg sacs left alone
         # hatch into weavers and the brood must fall before the gate parts;
-        # the Web Mother spins the lone player into a cocoon
+        # the Silk Queen spins the lone player into a cocoon
         # (--dev-cocoon-solo), wells up venom pools and falls. No death, no
         # correction.
         run: |

@@ -53,7 +53,7 @@ type AnyResult<T> = Result<T, Box<dyn std::error::Error>>;
 /// Item requests made one after another, each with the answer the server
 /// must give. A new character (the starter kit: health potions in bag cell
 /// 0, mana potions in cell 1, the wand worn) runs the refusals and the bag
-/// moves; a prepared character (hurt, at a hearth, with Velkar Ash and
+/// moves; a prepared character (hurt, at a hearth, with Forge Cinder and
 /// scrolls in cells 2-4; tools/fixtures) runs the paid paths.
 fn item_script(prepared: bool) -> Vec<(ItemOp, bool, &'static str)> {
     use realm_rules::Slot::MainHand;

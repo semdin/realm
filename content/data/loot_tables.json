@@ -293,7 +293,7 @@
       ]
     },
     "goblin_teller": {
-      "_comment": "Goblins carry gold, not junk: no base item rolls, lots of orils, and gear only rarely but always enchanted (efsun).",
+      "_comment": "Goblins carry gold, not junk: no base item rolls, lots of orils, and gear only rarely but always enchanted.",
       "no_base_rolls": true,
       "always": [
         {
