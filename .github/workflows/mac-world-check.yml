@@ -2,7 +2,11 @@
 # windowed: the published launcher installs it, the game logs in to the live
 # realm with the CI smoke account (secrets REALM_MAC_SMOKE_USER/PASS; the first
 # run registers it), picks or makes its character and must reach the world
-# (--check-play). The client log is printed and kept as an artifact.
+# (--check-play). The client log is printed and kept as an artifact, with the
+# game's own stall reports. It shows that loading goes on and how long the
+# compiler takes on this machine; it proves nothing about what is drawn: the
+# runner's virtual GPU is not a real Apple GPU, and Godot 4.8 renders unreliably
+# on macOS virtual machines (godot#124859).
 # Manual: gh workflow run mac-world-check.yml
 name: mac-world-check
 
@@ -24,6 +28,11 @@ on:
         type: string
         required: false
         default: '3'
+      limit:
+        description: 'Seconds one start may take (a cold start compiles for minutes)'
+        type: string
+        required: false
+        default: '900'
 
 permissions:
   contents: read
@@ -31,7 +40,7 @@ permissions:
 jobs:
   world:
     runs-on: macos-15
-    timeout-minutes: 20
+    timeout-minutes: 60
     steps:
       - name: Install the latest release and enter the world (Metal)
         env:
@@ -61,7 +70,7 @@ jobs:
           for n in $(seq 1 ${{ inputs.runs }}); do
             log="$work/play_$n.log"
             : > "$log"
-            ( script -q "$log" perl -e 'alarm 240; exec @ARGV'                 arch -arm64 "$game" --verbose ${{ inputs.engine_args }} -- --check-play "$SMOKE_USER" "$SMOKE_PASS" ${{ inputs.game_args }} ) &
+            ( script -q "$log" perl -e 'alarm shift; exec @ARGV' "$(( ${{ inputs.limit }} + 60 ))" arch -arm64 "$game" --verbose ${{ inputs.engine_args }} -- --check-play "$SMOKE_USER" "$SMOKE_PASS" --check-play-limit "${{ inputs.limit }}" ${{ inputs.game_args }} ) &
             job=$!
             for t in $(seq 1 60); do
               grep -q "ShaderWarmup\] started" "$log" && break
@@ -78,12 +87,13 @@ jobs:
             wait $job
             tr -d '\r' < "$log" > "$work/play_clean_$n.log"
             echo "=== run $n"; cat "$work/procs_$n.txt"
-            grep -E "Metal [0-9]|ShaderWarmup|grounds\] built|joined grounds|realm check play" "$work/play_clean_$n.log" | cut -c1-200
+            grep -E "Metal [0-9]|ShaderWarmup|grounds\] built|joined grounds|realm check play|realm watch" "$work/play_clean_$n.log" | cut -c1-200
             grep -c "Failed to compile Metal library" "$work/play_clean_$n.log"
           done
           set -e
           ud="$HOME/Library/Application Support/ThousandRealms/logs"
           cp "$ud/godot.log" "$work/godot.log" 2>/dev/null || true
+          cp "$ud/stall_reports.jsonl" "$ud/stall_sample.txt" "$work/" 2>/dev/null || true
           grep -q "realm check play: PASS" "$work/play_clean_${{ inputs.runs }}.log"
 
       - name: Keep the logs
@@ -96,5 +106,7 @@ jobs:
             ${{ runner.temp }}/tr/procs_*.txt
             ${{ runner.temp }}/tr/sample_*.txt
             ${{ runner.temp }}/tr/godot.log
+            ${{ runner.temp }}/tr/stall_reports.jsonl
+            ${{ runner.temp }}/tr/stall_sample.txt
           if-no-files-found: ignore
           retention-days: 7

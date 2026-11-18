@@ -7,6 +7,17 @@ class_name ShaderWarmup
 ## driver compiles their pipelines there instead of in play (the old client's
 ## ShaderWarmup).
 ##
+## It goes in steps so the frames keep coming while the graphics driver works.
+## A draw that needs a pipeline not yet ready waits for it on the main thread,
+## and on a first start on Metal that can be minutes of a frozen screen (Apple's
+## compiler, godot#123481). So while the loading screen covers the world nothing
+## is drawn (WorldHold): the world and then these bodies, a few at a time, only
+## enter the scene, which queues their pipelines on the worker pool, and each
+## group waits for the pool to run dry (PipelineDrain) with the bar moving. Only
+## then is everything drawn once, behind the screen, for what could not be
+## foreseen. A long wait says so on the screen, and on a Mac's first start the
+## message is up before the first possible wait.
+##
 ## What it loaded stays loaded while the map is played (`_kept`, replaced by
 ## the next map's warm-up): freed with the warm-up's bodies, a creature's model
 ## was read from disk again on its first appearance (50-460 ms a species on the
@@ -33,16 +44,42 @@ class_name ShaderWarmup
 const DISTANCE := 7.0       # metres in front of the camera
 const SPACING := 1.4
 const SCALE := 0.35         # big creatures still fit the view; scale changes no shader
-## Done once every spell stage has fired and been drawn (DRAWN_FRAMES after
-## the last firing) and no pipeline compiled for QUIET seconds, or after
-## MAX_TIME (whatever is left compiles in play). No fixed minimum: a warm
-## pipeline cache finishes in about a second (it held 2.5 s on every
-## launch and trip before, w11 2026-11-16); the loading screen it runs under
+## The drawn pass ends once every spell stage has fired and been drawn
+## (DRAWN_FRAMES after the last firing) and no pipeline was asked for in QUIET
+## seconds, or after REVEAL_LIMIT (whatever is left compiles in play). No fixed
+## minimum: a warm pipeline cache finishes in about a second; the loading screen
 ## stays up for MapTravel's settle frames after it, so nothing flashes.
 const QUIET := 0.35
 const DRAWN_FRAMES := 3
-const MAX_TIME := 30.0
+const REVEAL_LIMIT := 30.0
 const REFIRE := [0.0, 0.5]  # spell stages fire twice: short layers die fast
+## Frames the screen is drawn before the first step may take long (it has been
+## presented by then, whatever the swap chain's depth).
+const PRESENTED_FRAMES := 3
+## A minimized window draws nothing: the wait for those frames ends anyway.
+const ANNOUNCE_LIMIT := 1.5
+## The groups grow while they are quick and fall to one thing at a time when
+## the driver is slow, so a cold start moves the bar in small steps.
+const BATCH_FIRST := 2
+const BATCH_MAX := 12
+const QUICK_STEP := 0.15
+const SLOW_STEP := 1.0
+## One group's wait for the compiler, and the whole queueing part: beyond them
+## the warm-up goes on to the drawn pass rather than hold the player forever.
+const STEP_LIMIT := 300.0
+const WORK_LIMIT := 1200.0
+## This long into the work the screen says it is taking a while.
+const NOTICE_AFTER := 4.0
+const PROGRESS_FROM := 60.0
+const PROGRESS_TO := 96.0
+## Which machine and build have been through a whole warm-up.
+const READY_FILE := "user://graphics_ready.cfg"
+# i18n-begin
+const TEXT_PREPARING := "Preparing graphics…"
+const TEXT_PERCENT := "Preparing graphics… %d%%"
+const TEXT_FIRST_START := "First start: preparing graphics. This can take several minutes, please do not close the game."
+const TEXT_SLOW := "Preparing graphics is taking a while. Please do not close the game."
+# i18n-end
 const HeroViewScript := "res://scripts/view/hero_view.gd"
 ## The Warden's thrown boulder (CombatView keeps it once thrown).
 const BOULDER_MODEL := "res://assets/models/vegetation/rock_boulder.glb"
@@ -78,17 +115,53 @@ var _slot := 0
 ## A creature kind on this map: a second body of it is drawn burning away (a
 ## fallen creature's dissolve, CreatureView.warm_burn).
 var _burn_kind := -1
+enum Stage { ANNOUNCE, WORK, REVEAL }
+var _stage := Stage.ANNOUNCE
+## What is left to bring in, one call per body, extra or spell stage.
+var _work: Array[Callable] = []
+var _next := 0
+var _batch := BATCH_FIRST
+var _drain: PipelineDrain = null
+var _drain_started := false
+var _step_began := 0
+var _work_began := 0
+var _waited_ms := 0
+var _presented := 0
+var _notice_shown := false
+var _reveal_t := 0.0
+var _draw_count := 0
+var _counting_stages := false
+var _screen: MapLoadingScreen = null
+## Set by MapTravel: keeps the world undrawn until the drawn pass.
+var hold: WorldHold = null
 
 static func wanted() -> bool:
 	if DisplayServer.get_name() == "headless":
 		return false
 	return not OS.get_cmdline_user_args().has("--no-shader-warmup")
 
-static func start(main: Node) -> ShaderWarmup:
+static func start(main: Node, world_hold: WorldHold = null) -> ShaderWarmup:
 	var warmup := ShaderWarmup.new()
 	warmup.name = "ShaderWarmup"
+	warmup.hold = world_hold
 	main.add_child(warmup)
 	return warmup
+
+## This machine has not been through a warm-up with this build.
+static func first_start() -> bool:
+	var file := ConfigFile.new()
+	return file.load(READY_FILE) != OK or String(file.get_value("graphics", "key", "")) != _graphics_key()
+
+static func _graphics_key() -> String:
+	return "%s|%s|%s|%s" % [ProjectSettings.get_setting("application/config/version", ""),
+		Engine.get_version_info().get("string", ""), RenderingServer.get_video_adapter_name(),
+		RenderingServer.get_current_rendering_method()]
+
+## Before anything that may wait: on a Mac's first start the screen says what
+## is coming (a wait there can stop the frames, so it must already be up).
+static func announce(screen: MapLoadingScreen) -> void:
+	if OS.has_feature("macos") and first_start():
+		screen.set_notice(screen.tr(TEXT_FIRST_START))
 
 static func pipeline_count() -> int:
 	var total := 0
@@ -109,15 +182,35 @@ func _ready() -> void:
 	AudioServer.set_bus_mute(0, true)
 	_start_count = pipeline_count()
 	_last_count = _start_count
-	_add_creatures(String(get_parent().get("map_name")) if get_parent() != null else "")
-	_add_hero()
-	_add_combat_extras()
-	print("[ShaderWarmup] started: %d bodies" % bodies)
+	var screen := get_tree().root.get_node_or_null("MapLoadingScreen") as MapLoadingScreen
+	if screen != null and screen.is_open():
+		_screen = screen
+		_screen.set_progress(PROGRESS_FROM, tr(TEXT_PREPARING))
+	if hold != null:
+		hold.cover_lights()
+	# the world first: it entered the scene with the map, its step only waits
+	_work.append(func() -> void: pass)
+	_plan_creatures(String(get_parent().get("map_name")) if get_parent() != null else "")
+	_work.append(_add_hero)
+	_work.append(_add_combat_extras)
+	for spell: Array in _spell_stages():
+		_work.append(_fire_stage.bindv(spell))
+	RenderingServer.frame_post_draw.connect(_on_frame_presented)
+	print("[ShaderWarmup] started: %d steps" % _work.size())
+
+func _exit_tree() -> void:
+	if hold != null:
+		hold.release()
+	if not done:
+		AudioServer.set_bus_mute(0, _mute_was)
+
+func _on_frame_presented() -> void:
+	_presented += 1
 
 ## The map's creatures (`map_kinds`): each species' body, an authored boss
 ## body where the map fields a boss of it, a Dark Shard's model. A map the
 ## content does not place (no y-band in maps.json) gets every species.
-func _add_creatures(map_id: String) -> void:
+func _plan_creatures(map_id: String) -> void:
 	var kinds := map_kinds(map_id)
 	if kinds.is_empty() and not _has_band(map_id):
 		kinds = _all_kinds()
@@ -125,9 +218,9 @@ func _add_creatures(map_id: String) -> void:
 		var view := CreatureView.view_for_kind(kind)
 		match String(view.get("object", "")):
 			"":
-				_add_creature(kind)
+				_work.append(_add_creature.bind(kind))
 			"stone":
-				_add_model(String(view.get("model", "")))
+				_work.append(_add_model.bind(String(view.get("model", ""))))
 
 func _add_creature(kind: int, burning := false) -> void:
 	var body := CreatureView.new()
@@ -298,20 +391,111 @@ func _grid(i: int) -> Vector3:
 	const COLUMNS := 7
 	return Vector3((i % COLUMNS - COLUMNS / 2) * SPACING, (i / COLUMNS) * SPACING - 1.0, 0.0)
 
-func _fire_spells() -> void:
-	var i := 0
+## [spell, stage, index] of every spell stage.
+func _spell_stages() -> Array:
+	var out: Array = []
 	for spell_id: String in VFXLibrary.SPELLS:
 		for stage: String in VFXLibrary.stages_for(spell_id):
-			var at := global_transform * Vector3(((i % 9) - 4) * 0.8, 1.5, -1.0)
-			if SkillFX.spawn_stage(self, spell_id, stage, at, -global_basis.z) != null:
-				stages += 1
-			i += 1
+			out.append([spell_id, stage, out.size()])
+	return out
+
+func _fire_stage(spell_id: String, stage: String, i: int) -> void:
+	var at := global_transform * Vector3(((i % 9) - 4) * 0.8, 1.5, -1.0)
+	if SkillFX.spawn_stage(self, spell_id, stage, at, -global_basis.z) != null and _counting_stages:
+		stages += 1
+
+func _fire_spells() -> void:
+	for spell: Array in _spell_stages():
+		_fire_stage.callv(spell)
 
 func _process(delta: float) -> void:
 	if done:
 		return
 	_t += delta
-	if _fired < REFIRE.size() and _t >= float(REFIRE[_fired]):
+	match _stage:
+		Stage.ANNOUNCE:
+			if _presented >= PRESENTED_FRAMES or _t >= ANNOUNCE_LIMIT:
+				_stage = Stage.WORK
+				_work_began = Time.get_ticks_msec()
+		Stage.WORK:
+			_process_work()
+		Stage.REVEAL:
+			_process_reveal(delta)
+
+## One group at a time: bring it in, let its frame queue its pipelines, wait for
+## the pool to run dry.
+func _process_work() -> void:
+	var now := Time.get_ticks_msec()
+	if _screen != null and not _notice_shown and now - _work_began > int(NOTICE_AFTER * 1000.0):
+		_show_notice()
+	if _drain == null:
+		if _next >= _work.size() or now - _work_began > int(WORK_LIMIT * 1000.0):
+			_begin_reveal()
+			return
+		var count := mini(_batch, _work.size() - _next)
+		for i in count:
+			(_work[_next + i] as Callable).call()
+		_next += count
+		_step_began = now
+		_drain = PipelineDrain.new()
+		_drain_started = false
+		RealmGuard.set_phase("warmup %d/%d" % [_next, _work.size()])
+		_dev_stall()
+		return
+	if not _drain_started:
+		# this group's surfaces were handed to the renderer in the last frame
+		_drain_started = true
+		_drain.start()
+		return
+	var state := _drain.poll()
+	var took := now - _step_began
+	if state == PipelineDrain.MISSED:
+		_drain.start()
+	if state != PipelineDrain.PASSED and took < int(STEP_LIMIT * 1000.0):
+		return
+	_drain = null
+	_waited_ms += took
+	if took < int(QUICK_STEP * 1000.0):
+		_batch = mini(_batch * 2, BATCH_MAX)
+	elif took > int(SLOW_STEP * 1000.0):
+		_batch = 1
+		if _screen != null and not _notice_shown:
+			_show_notice()
+	if _screen != null:
+		var share := float(_next) / float(_work.size())
+		_screen.set_progress(lerpf(PROGRESS_FROM, PROGRESS_TO, share), tr(TEXT_PERCENT) % int(share * 100.0))
+
+## The long wait is said once; a first start says what it is.
+func _show_notice() -> void:
+	_notice_shown = true
+	_screen.set_notice(tr(TEXT_FIRST_START) if first_start() else tr(TEXT_SLOW))
+
+## `--warmup-stall SECONDS` (not in a release): the main thread is held once, as
+## a blocked draw would hold it.
+func _dev_stall() -> void:
+	var args := OS.get_cmdline_user_args()
+	var i := args.find("--warmup-stall")
+	if _next >= 2 and i >= 0 and i + 1 < args.size() and not RealmPaths.is_release() \
+			and not has_meta(&"stalled"):
+		set_meta(&"stalled", true)
+		print("[ShaderWarmup] holding the main thread for %s s" % args[i + 1])
+		OS.delay_msec(int(float(args[i + 1]) * 1000.0))
+
+## Everything is compiled that could be asked for ahead: now it is drawn once.
+func _begin_reveal() -> void:
+	_stage = Stage.REVEAL
+	if hold != null:
+		hold.release()
+	_draw_count = int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_PIPELINE_COMPILATIONS_DRAW))
+	_counting_stages = true
+	_last_count = pipeline_count()
+	RealmGuard.set_phase("warmup drawn pass")
+	if _screen != null:
+		_screen.set_progress(PROGRESS_TO, tr("Almost there…"))
+
+func _process_reveal(delta: float) -> void:
+	_reveal_t += delta
+	if _fired < REFIRE.size() and _reveal_t >= float(REFIRE[_fired]):
 		_fire_spells()
 		_fired += 1
 		_frames_since_fire = 0
@@ -324,19 +508,28 @@ func _process(delta: float) -> void:
 	else:
 		_quiet += delta
 	var drawn := _fired >= REFIRE.size() and _frames_since_fire >= DRAWN_FRAMES
-	if (drawn and _quiet >= QUIET) or _t >= MAX_TIME:
+	if drawn and _quiet >= QUIET:
 		_finish("")
+	elif _reveal_t >= REVEAL_LIMIT:
+		_finish("out of time")
 
 func _finish(reason: String) -> void:
 	done = true
 	seconds = _t
 	compiled = _last_count - _start_count
+	var at_draw := int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_PIPELINE_COMPILATIONS_DRAW)) - _draw_count
+	if hold != null:
+		hold.release()
 	_keep()
 	AudioServer.set_bus_mute(0, _mute_was)
+	if reason == "":
+		var file := ConfigFile.new()
+		file.set_value("graphics", "key", _graphics_key())
+		file.save(READY_FILE)
 	last_report = {"bodies": bodies, "stages": stages, "compiled": compiled, "seconds": snappedf(seconds, 0.1),
-		"reason": reason}
-	print("[ShaderWarmup] %s%d bodies, %d spell stages, %d pipelines compiled in %.1f s" % [
-		(reason + ": ") if reason != "" else "", bodies, stages, compiled, _t])
+		"reason": reason, "steps": _work.size(), "at_draw": at_draw}
+	print("[ShaderWarmup] %s%d bodies, %d spell stages, %d pipelines compiled in %.1f s (%.1f s waiting on the driver, %d asked for while drawing)" % [
+		(reason + ": ") if reason != "" else "", bodies, stages, compiled, _t, _waited_ms / 1000.0, at_draw])
 	queue_free()
 
 ## Holds what the bodies were built from (each model's scene, the materials

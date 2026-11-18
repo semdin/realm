@@ -46,6 +46,7 @@ var opened := 0
 var closed_count := 0
 var last_title := ""
 var last_status := ""
+var last_notice := ""
 
 ## The one loading screen, on the root of `tree` (it outlives a scene reload).
 static func shared(tree: SceneTree) -> MapLoadingScreen:
@@ -144,6 +145,8 @@ func open(title: String, status: String) -> void:
 	last_status = status
 	opened += 1
 	_tip.text = tr("Tip: %s") % tr(String(TIPS[randi() % TIPS.size()]))
+	_tip.add_theme_color_override("font_color", HudKit.TEXT)
+	last_notice = ""
 	_target = 5.0
 	_bar.value = 0.0
 	_root.visible = true
@@ -157,6 +160,13 @@ func set_progress(percent: float, status: String = "") -> void:
 	if status != "":
 		_status.text = status
 		last_status = status
+
+## Something the player should know about this wait: it takes the tip's place,
+## in the bar's colour, until the screen is opened again.
+func set_notice(text: String) -> void:
+	last_notice = text
+	_tip.text = text
+	_tip.add_theme_color_override("font_color", HudKit.GOLD_HI)
 
 ## Fill the bar, respect the minimum show time, fade out (awaitable).
 func close() -> void:

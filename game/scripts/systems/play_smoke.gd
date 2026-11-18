@@ -15,11 +15,14 @@ extends Node
 ## Each step waits at most STEP_TIMEOUT, all of it TOTAL_TIMEOUT; any refusal
 ## the card or the roster shows fails at once. The verdict line quits 0 when
 ## the world was joined and drawn. The state lives on the Engine across the
-## scene reload.
+## scene reload. `--check-play-limit SECONDS` gives the world and the whole run
+## that long instead (a first start on a slow GPU compiles for minutes).
 
 const STATE_KEY := &"play_smoke_state"
 const TOTAL_TIMEOUT := 80.0
 const STEP_TIMEOUT := 25.0
+## The map's drawing, warm-up included.
+const WORLD_TIMEOUT := 40.0
 ## The join itself: longer than main.gd's JOIN_TIMEOUT, so a join the
 ## server holds (a claim the coordinator does not answer: 20 s) is refused and
 ## tried again before this gives up.
@@ -28,10 +31,16 @@ const JOIN_STEP_TIMEOUT := 45.0
 var game: Node
 var _s: Dictionary = {}
 var _done := false
+var _total_limit := TOTAL_TIMEOUT
+var _world_limit := WORLD_TIMEOUT
 ## The character screen while Enter World waits for its ticket.
 var _entering: CharacterSelect = null
 
 func _ready() -> void:
+	var limit_at := OS.get_cmdline_user_args().find("--check-play-limit")
+	if limit_at >= 0 and limit_at + 1 < OS.get_cmdline_user_args().size():
+		_total_limit = maxf(TOTAL_TIMEOUT, float(OS.get_cmdline_user_args()[limit_at + 1]))
+		_world_limit = maxf(WORLD_TIMEOUT, _total_limit)
 	var carried: Variant = Engine.get_meta(STATE_KEY) if Engine.has_meta(STATE_KEY) else null
 	if carried is Dictionary:
 		_s = carried
@@ -52,7 +61,7 @@ func _now() -> float:
 func _process(_delta: float) -> void:
 	if _done or _s.is_empty():
 		return
-	if _now() - float(_s["started"]) > TOTAL_TIMEOUT:
+	if _now() - float(_s["started"]) > _total_limit:
 		_fail("ran out of time at step %s" % _s["step"])
 	elif is_instance_valid(_entering) and not _entering.enter_btn.disabled and _entering.status_label.text != "":
 		_fail("Enter World was refused: %s" % _entering.status_label.text)
@@ -180,7 +189,7 @@ func _world() -> void:
 	if String(sheet.get("name", "")) != String(_s.get("name", "")):
 		_fail("the sheet is %s, the roster picked %s" % [sheet.get("name", ""), _s.get("name", "")])
 		return
-	if not await _until(func(): return game.built and not MapLoadingScreen.shared(get_tree()).is_open(), 40.0, failed):
+	if not await _until(func(): return game.built and not MapLoadingScreen.shared(get_tree()).is_open(), _world_limit, failed):
 		_fail("the map was never drawn (%s)" % session.status())
 		return
 	# the map's own scene from the pck, not the pack's grey stand-in
@@ -191,6 +200,7 @@ func _world() -> void:
 	_done = true
 	print("realm check play: PASS - %s joined %s and drawn, %.1f s" % [sheet.get("name", ""), game.map_name, _now() - float(_s["started"])])
 	Engine.remove_meta(STATE_KEY)
+	RealmGuard.set_exit_code(0)
 	get_tree().quit(0)
 
 func _fail(why: String) -> void:
@@ -199,4 +209,5 @@ func _fail(why: String) -> void:
 	_done = true
 	print("realm check play: FAIL - %s" % why)
 	Engine.remove_meta(STATE_KEY)
+	RealmGuard.set_exit_code(1)
 	get_tree().quit(1)

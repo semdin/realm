@@ -3547,6 +3547,21 @@ msgstr "Sunucu bekleniyor…"
 msgid "Almost there…"
 msgstr "Neredeyse vardık…"
 
+msgid "Preparing the world…"
+msgstr "Dünya hazırlanıyor…"
+
+msgid "Preparing graphics…"
+msgstr "Grafikler hazırlanıyor…"
+
+msgid "Preparing graphics… %d%%"
+msgstr "Grafikler hazırlanıyor… %%%d"
+
+msgid "First start: preparing graphics. This can take several minutes, please do not close the game."
+msgstr "İlk açılış: grafikler hazırlanıyor. Bu birkaç dakika sürebilir, lütfen oyunu kapatmayın."
+
+msgid "Preparing graphics is taking a while. Please do not close the game."
+msgstr "Grafiklerin hazırlanması biraz sürüyor. Lütfen oyunu kapatmayın."
+
 msgid "Lighting the torches…"
 msgstr "Meşaleler yakılıyor…"
 

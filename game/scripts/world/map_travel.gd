@@ -37,6 +37,13 @@ const PASSAGE_DELAY := 0.8
 ## lifts (its first draws compile pipelines); with the shader warm-up
 ## (ShaderWarmup) the screen lifts once that is done.
 const SETTLE_FRAMES := 8
+## Frames the loading screen is drawn with its new line before a map build
+## holds the main thread.
+const BUILD_NOTICE_FRAMES := 3
+## What a pause in a map's build waits for the driver at most.
+const BUILD_PAUSE_LIMIT := 120.0
+const PROGRESS_BUILD := 40.0
+const PROGRESS_BUILT := 60.0
 
 ## main.gd (session, player, hud, map_name, heroes, ground lookup).
 var game: Node
@@ -60,6 +67,9 @@ var leaving := false
 var reloading := false
 ## The shader warm-up behind the loading screen (null when none ran).
 var warmup: ShaderWarmup = null
+## Nothing of the world is drawn until the warm-up's drawn pass (a trip only).
+var world_hold: WorldHold = null
+var _build_notice := -1
 ## This scene was built for a trip (start_travel): the loading screen stays up
 ## until the map is drawn.
 var arrived_by_trip := false
@@ -112,6 +122,33 @@ func begin_arrival() -> void:
 	if not screen.is_open():
 		screen.open(_loading_title(map_name), _loading_text(map_name))
 	screen.set_progress(35.0, tr("Waiting for the server…"))
+	RealmGuard.set_phase("joining %s" % map_name)
+	if ShaderWarmup.wanted():
+		world_hold = WorldHold.new()
+		world_hold.begin(game)
+		ShaderWarmup.announce(screen)
+
+## main.gd asks each frame before it builds the joined map: on a trip the
+## loading screen first shows that the world is being prepared.
+func ready_to_build() -> bool:
+	if not arrived_by_trip:
+		return true
+	if _build_notice < 0:
+		_build_notice = BUILD_NOTICE_FRAMES
+		RealmGuard.set_phase("building %s" % map_name)
+		MapLoadingScreen.shared(get_tree()).set_progress(PROGRESS_BUILD, tr("Preparing the world…"))
+	_build_notice -= 1
+	return _build_notice < 0
+
+## Between the parts of a map's build, behind the loading screen (`done` of 1 is
+## all of it): a frame for the screen, and the part's pipelines get to compile
+## before the next part's shaders queue up behind them. Elsewhere it returns at
+## once.
+func build_pause(done: float) -> void:
+	if not arrived_by_trip or not ShaderWarmup.wanted():
+		return
+	MapLoadingScreen.shared(get_tree()).set_progress(lerpf(PROGRESS_BUILD, PROGRESS_BUILT, done))
+	await PipelineDrain.settle(get_tree(), BUILD_PAUSE_LIMIT)
 
 ## The map is drawn (main.gd built its geometry): this map's travel objects
 ## stand on it.
@@ -120,20 +157,21 @@ func on_map_built() -> void:
 	game.add_child(nodes)
 	nodes.build(map_name, floor_on.bind(game.get("map_view") as Node, game.session))
 	if arrived_by_trip:
-		MapLoadingScreen.shared(get_tree()).set_progress(85.0, tr("Almost there…"))
 		if ShaderWarmup.wanted():
 			_warm_then_settle()
 		else:
+			MapLoadingScreen.shared(get_tree()).set_progress(85.0, tr("Almost there…"))
 			_settle_frames = SETTLE_FRAMES
 	else:
 		_loading_done = true
+		RealmGuard.set_phase("in world %s" % map_name)
 		if OS.get_cmdline_user_args().has("--shader-warmup"):
 			warmup = ShaderWarmup.start(game)
 
-## Behind the loading screen: every body and spell drawn once (ShaderWarmup),
-## then the settle frames and the screen lifts.
+## Behind the loading screen: the map's pipelines, every body and spell
+## (ShaderWarmup), then the settle frames and the screen lifts.
 func _warm_then_settle() -> void:
-	warmup = ShaderWarmup.start(game)
+	warmup = ShaderWarmup.start(game, world_hold)
 	while is_instance_valid(warmup) and not warmup.done:
 		await get_tree().process_frame
 	_settle_frames = SETTLE_FRAMES
@@ -413,6 +451,9 @@ func _travel(to_map: String) -> void:
 ## The new map is drawn and settled: the loading screen lifts, and the body
 ## steps out of the arrival flames.
 func _finish_loading() -> void:
+	if world_hold != null:
+		world_hold.release()
+	RealmGuard.set_phase("in world %s" % map_name)
 	await MapLoadingScreen.shared(get_tree()).close()
 	_loading_done = true
 	if _pending_arrival != "":

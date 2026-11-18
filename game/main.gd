@@ -555,6 +555,8 @@ var check_attribute_results := {}
 var check_stones := {}
 var check_dummies := {}
 var built := false
+## The joined map is being built (it can take several frames).
+var _map_building := false
 ## The player is a game admin (its own player info's `ga`).
 var own_ga := false
 ## The realm's weather here (RealmWeather) and the maintenance banner and end
@@ -1269,6 +1271,7 @@ func _capsule(color: Color) -> Mesh:
 ## pack's meshes are at the map's own coordinates: a dungeon copy draws them
 ## at its offset.
 func _build_map() -> void:
+	_map_building = true
 	var offset: Vector3 = session.copy_offset()
 	# Phase 6: a map's own scene (res://maps/<map>/<map>.tscn) draws it; the
 	# pack's grey terrain and walls stand in where there is none yet, or
@@ -1276,15 +1279,20 @@ func _build_map() -> void:
 	# setup(session, main) when it has one.
 	var scene := "res://maps/%s/%s.tscn" % [map_name, map_name]
 	if ResourceLoader.exists(scene) and not OS.get_cmdline_user_args().has("--placeholder-world"):
-		map_view = (load(scene) as PackedScene).instantiate() as Node3D
-		map_view.name = "MapView"
-		map_view.position = offset
-		add_child(map_view)
-		if map_view.has_method("setup"):
-			map_view.call("setup", session, self)
+		var view := (load(scene) as PackedScene).instantiate() as Node3D
+		view.name = "MapView"
+		view.position = offset
+		add_child(view)
+		# a map may take frames over it behind the loading screen (a trip)
+		if view.has_method("setup"):
+			await view.call("setup", session, self)
+		if not is_inside_tree() or session == null:
+			return   # the scene went while the map was being built
+		map_view = view
 		QualityPreset.apply_map(map_view)
 	else:
 		_build_placeholder_world(offset)
+	_map_building = false
 	_map_built()
 
 ## The pack's own shapes, grey: terrain and every static collider.
@@ -2836,8 +2844,12 @@ func _process(delta: float) -> void:
 		FrontDoor.join_retries = 0
 		print("realm: joined %s in %.1f s" % [map_name, clock - _join_began])
 	if not built:
+		if _map_building or not travel.ready_to_build():
+			return
 		_build_map()
 		check_started = Time.get_ticks_msec() / 1000.0
+		if not built:
+			return
 	var strafe := 0.0
 	var forward := 0.0
 	var jump := false

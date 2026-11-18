@@ -76,19 +76,24 @@ func setup(p_session: Node, p_main: Node) -> void:
 	add_child(terrain)
 	Layout.terrain = terrain
 	lap.call("terrain", "castle")
+	await main.travel.build_pause(0.15)
 	var sun := main.get_node_or_null("Sun") as DirectionalLight3D
 	var env_node := main.get_node_or_null("WorldEnvironment") as WorldEnvironment
 	var env: Environment = env_node.environment if env_node != null else null
 	_sky_and_sun(sun, env)
 	Castle.build(self)
 	lap.call("castle", "courtyard")
+	await main.travel.build_pause(0.3)
 	Courtyard.build(self)
 	lap.call("courtyard", "precinct")
+	await main.travel.build_pause(0.4)
 	Precinct.build(self)
 	_broom_landing()
 	lap.call("precinct", "sites")
+	await main.travel.build_pause(0.5)
 	Sites.build_all(self)
 	lap.call("sites", "lake+horizon+lamps")
+	await main.travel.build_pause(0.75)
 	var lake := Node3D.new()
 	lake.name = "Lake"
 	add_child(lake)
@@ -98,6 +103,7 @@ func setup(p_session: Node, p_main: Node) -> void:
 	print("[grounds] building road lamps")
 	_road_lamps()
 	lap.call("lake+horizon+lamps", "vegetation")
+	await main.travel.build_pause(0.85)
 	terrain.call("plant", preset)
 	lap.call("vegetation", "quality")
 	_apply_scenery(preset)
