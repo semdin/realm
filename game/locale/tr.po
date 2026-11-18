@@ -3769,8 +3769,8 @@ msgstr "Yıldız Özlü Asa"
 msgid "A bar of shard-iron quenched in Lake Lunra. Loud, unstable and ruinously strong."
 msgstr "Lunra Gölü'nde su verilmiş bir kırık demiri çubuğu. Gürültülü, kararsız ve yıkıcı derecede güçlü."
 
-msgid "Ashwood Twig"
-msgstr "Dişbudak Çubuk"
+msgid "Ashwood Rod"
+msgstr "Dişbudak Asa"
 
 msgid "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first rod."
 msgstr "Düğümlü soluk dişbudak, sapı kenevir iple sarılmış. Her büyü ilk asayla başlar."
@@ -3784,20 +3784,20 @@ msgstr "Pirinç kuşaklı cilalı ceviz; soluk rünleri nişanı sabitler."
 msgid "Silverthorn Rod"
 msgstr "Gümüşdiken Asa"
 
-msgid "Black ebony gripped by a silver thorn vine, an emerald set in its pommel."
-msgstr "Gümüş dikenli bir sarmaşığın kavradığı kara abanoz; topuzunda bir zümrüt."
+msgid "Black ebony crowned with silver thorns around an emerald crystal."
+msgstr "Gümüş dikenlerle taçlanmış kara abanoz; ortasında zümrüt bir kristal."
 
 msgid "Emberwing Rod"
 msgstr "Korkanat Asa"
 
-msgid "Crimson lacquer and gold feathers around a glowing amber heart; its tip holds a live ember."
-msgstr "Parlayan kehribar bir kalbin çevresinde kızıl cila ve altın tüyler; ucunda canlı bir kor taşır."
+msgid "Crimson lacquer under a gold crown of flame; its crystal burns like a live ember."
+msgstr "Altın bir alev tacının altında kızıl cila; kristali canlı bir kor gibi yanar."
 
 msgid "Moonveil Sceptre"
 msgstr "Ayörtü Asası"
 
-msgid "Moonwood threaded with starlight behind a mithril crescent, crowned with a star crystal."
-msgstr "Mitril bir hilalin ardında yıldız ışığıyla örülmüş ay ağacı, tepesinde bir yıldız kristali."
+msgid "Moonwood threaded with starlight, a silver crescent holding a star crystal."
+msgstr "Yıldız ışığıyla örülmüş ay ağacı; gümüş bir hilal bir yıldız kristalini tutuyor."
 
 msgid "Recruit Robe"
 msgstr "Acemi Cüppesi"

@@ -16,6 +16,7 @@
     ],
     "attack_speed": 6,
     "upgrade_tier": 0,
+    "model": "res://assets/models/props/wands/wand_hawthorn.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -38,6 +39,7 @@
     ],
     "attack_speed": 12,
     "upgrade_tier": 0,
+    "model": "res://assets/models/props/wands/wand_ithrel_replica.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -45,7 +47,7 @@
   },
   "wand_ashwood": {
     "id": "wand_ashwood",
-    "name": "Ashwood Twig",
+    "name": "Ashwood Rod",
     "type": "weapon",
     "desc": "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first rod.",
     "rarity": "common",
@@ -61,7 +63,7 @@
     "item_tier": 1,
     "required_level": 1,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_ashwood.glb",
+    "model": "res://assets/models/props/wands/wand_ashwood.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -85,7 +87,7 @@
     "item_tier": 2,
     "required_level": 10,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_runebound.glb",
+    "model": "res://assets/models/props/wands/wand_runebound.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -95,7 +97,7 @@
     "id": "wand_silverthorn",
     "name": "Silverthorn Rod",
     "type": "weapon",
-    "desc": "Black ebony gripped by a silver thorn vine, an emerald set in its pommel.",
+    "desc": "Black ebony crowned with silver thorns around an emerald crystal.",
     "rarity": "rare",
     "attack_value": [
       42,
@@ -109,7 +111,7 @@
     "item_tier": 3,
     "required_level": 20,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_silverthorn.glb",
+    "model": "res://assets/models/props/wands/wand_silverthorn.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -119,7 +121,7 @@
     "id": "wand_emberwing",
     "name": "Emberwing Rod",
     "type": "weapon",
-    "desc": "Crimson lacquer and gold feathers around a glowing amber heart; its tip holds a live ember.",
+    "desc": "Crimson lacquer under a gold crown of flame; its crystal burns like a live ember.",
     "rarity": "epic",
     "attack_value": [
       62,
@@ -133,7 +135,7 @@
     "item_tier": 4,
     "required_level": 35,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_emberwing.glb",
+    "model": "res://assets/models/props/wands/wand_emberwing.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -143,7 +145,7 @@
     "id": "wand_moonveil",
     "name": "Moonveil Sceptre",
     "type": "weapon",
-    "desc": "Moonwood threaded with starlight behind a mithril crescent, crowned with a star crystal.",
+    "desc": "Moonwood threaded with starlight, a silver crescent holding a star crystal.",
     "rarity": "legendary",
     "attack_value": [
       88,
@@ -157,7 +159,7 @@
     "item_tier": 5,
     "required_level": 50,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_moonveil.glb",
+    "model": "res://assets/models/props/wands/wand_moonveil.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"

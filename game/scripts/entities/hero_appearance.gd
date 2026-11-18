@@ -108,8 +108,8 @@ static func show_equipped_wand(root: Node, entry: Dictionary) -> void:
 	skeleton.add_child(attachment)
 	var grip := wand_grip_transform(skeleton)
 	RigFollower.of(skeleton).attach(attachment, bone, grip)
-	# A tiered wand names its own model (items.json `model`, authored in this
-	# prop's frame by art/wands/scripts/build_wands.py); others keep the default.
+	# Each rod names its own model (items.json `model`, authored in this prop's
+	# frame by tools/art/rod_art.py); an item without one keeps the default.
 	var model_path := String(Items.item(String(entry.get("id", ""))).get("model", ""))
 	var scene: PackedScene = load(model_path) as PackedScene if model_path != "" and ResourceLoader.exists(model_path) else WAND
 	var wand := scene.instantiate() as Node3D
@@ -119,7 +119,9 @@ static func show_equipped_wand(root: Node, entry: Dictionary) -> void:
 	# follows every pose and is inherited by the mesh's own scaling.
 	var tip := Marker3D.new()
 	tip.name = "WandTip"
-	tip.position = WAND_TIP_LOCAL
+	# A rod model marks its own muzzle (the top of its crystal).
+	var muzzle := wand.find_child("RodTip", true, false) as Node3D
+	tip.position = muzzle.position if muzzle != null else WAND_TIP_LOCAL
 	wand.add_child(tip)
 	var tier := int(entry.get("tier", 0))
 	if tier >= 4:
@@ -140,7 +142,7 @@ static func show_equipped_wand(root: Node, entry: Dictionary) -> void:
 		# Anchored to the tip in the wand's space (the wand carries the 0.4 scale,
 		# so WAND_TIP_LOCAL needs no separate scaling) rather than a guessed 0.28 m
 		# up the bone, which pointed the aura away from the wand.
-		aura.position = wand.transform * WAND_TIP_LOCAL
+		aura.position = wand.transform * tip.position
 		attachment.add_child(aura)
 
 ## ---------------------------------------------------------------- cloak

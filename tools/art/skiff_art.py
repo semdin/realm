@@ -815,21 +815,22 @@ def paint(t, src, seed):
     return A
 
 
-def write_maps(A, stem):
-    albedo = Image.fromarray(np.uint8(np.clip(A.rgb, 0, 1) * 255 + 0.5))
+def write_maps(A, stem, scale=1.0):
+    side = lambda px: (int(px * scale), int(px * scale))
+    albedo = Image.fromarray(np.uint8(np.clip(A.rgb, 0, 1) * 255 + 0.5)).resize(side(SIZE), Image.LANCZOS)
     albedo.save(stem.with_name(stem.name + "_albedo.jpg"), quality=90, subsampling=0)
     occl = np.clip(0.55 + (blur(A.h, 1.5) - blur(A.h, 9)) * 3.0, 0.3, 1)
     orm = np.stack([occl, np.clip(A.r, 0.05, 1), np.clip(A.m, 0, 1)], 2)
-    Image.fromarray(np.uint8(orm * 255 + 0.5)).resize((512, 512), Image.LANCZOS).save(
+    Image.fromarray(np.uint8(orm * 255 + 0.5)).resize(side(512), Image.LANCZOS).save(
         stem.with_name(stem.name + "_orm.jpg"), quality=92, subsampling=0)
     h = np.asarray(Image.fromarray(np.uint8(np.clip(A.h, 0, 1) * 255)).filter(ImageFilter.GaussianBlur(0.7)), float) / 255
     dx = (np.roll(h, -1, 1) - np.roll(h, 1, 1)) * 3.2
     dy = (np.roll(h, -1, 0) - np.roll(h, 1, 0)) * 3.2
     nrm = norm(np.stack([-dx, dy, np.ones_like(h)], 2))
-    Image.fromarray(np.uint8((nrm * 0.5 + 0.5) * 255 + 0.5)).resize((512, 512), Image.LANCZOS).save(
+    Image.fromarray(np.uint8((nrm * 0.5 + 0.5) * 255 + 0.5)).resize(side(512), Image.LANCZOS).save(
         stem.with_name(stem.name + "_normal.png"), optimize=True)
     emit = np.clip(A.e / 3.4, 0, 1)
-    Image.fromarray(np.uint8(emit * 255 + 0.5)).resize((256, 256), Image.LANCZOS).save(
+    Image.fromarray(np.uint8(emit * 255 + 0.5)).resize(side(256), Image.LANCZOS).save(
         stem.with_name(stem.name + "_emit.jpg"), quality=88)
 
 
@@ -892,7 +893,7 @@ type="CompressedTexture2D"
 
 [deps]
 
-source_file="res://assets/models/props/skiffs/{file}"
+source_file="res://assets/models/props/{folder}/{file}"
 
 [params]
 
@@ -930,7 +931,7 @@ type="PackedScene"
 
 [deps]
 
-source_file="res://assets/models/props/skiffs/{file}"
+source_file="res://assets/models/props/{folder}/{file}"
 
 [params]
 
@@ -970,11 +971,11 @@ gltf/texture_map_mode=1
 def write_imports(name):
     scene = OUT / f"{name}.gltf.import"
     if not scene.exists():
-        scene.write_text(SCENE_IMPORT.format(file=f"{name}.gltf"), newline="\n")
+        scene.write_text(SCENE_IMPORT.format(file=f"{name}.gltf", folder=OUT.name), newline="\n")
     for suffix, normal in (("albedo.jpg", 0), ("orm.jpg", 2), ("normal.png", 1), ("emit.jpg", 0)):
         path = OUT / f"{name}_{suffix}.import"
         if not path.exists():
-            path.write_text(TEXTURE_IMPORT.format(file=f"{name}_{suffix}", normal=normal), newline="\n")
+            path.write_text(TEXTURE_IMPORT.format(file=f"{name}_{suffix}", normal=normal, folder=OUT.name), newline="\n")
 
 
 def build(tier, src, seed):
