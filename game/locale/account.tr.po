@@ -1,0 +1,230 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Thousand Realms account screens\n"
+"Language: tr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Too many attempts. Try again in a few minutes."
+msgstr "Çok fazla deneme yapıldı. Birkaç dakika sonra tekrar deneyin."
+
+msgid "Too many new accounts from your network. Try again later."
+msgstr "Ağınızdan çok fazla yeni hesap açıldı. Daha sonra tekrar deneyin."
+
+msgid "New accounts are paused for now. Try again later."
+msgstr "Yeni hesap açma şu an durduruldu. Daha sonra tekrar deneyin."
+
+msgid "The login service is busy. Try again in a moment."
+msgstr "Giriş hizmeti şu an yoğun. Birazdan tekrar deneyin."
+
+msgid "Invalid username or recovery code."
+msgstr "Kullanıcı adı veya kurtarma kodu geçersiz."
+
+msgid "Your current password is not correct."
+msgstr "Mevcut şifreniz doğru değil."
+
+msgid "The name you typed does not match."
+msgstr "Yazdığınız ad eşleşmiyor."
+
+msgid "The account name you typed does not match."
+msgstr "Yazdığınız hesap adı eşleşmiyor."
+
+msgid "That character could not leave the world yet. Try again in a moment."
+msgstr "Bu karakter henüz dünyadan çıkarılamadı. Birazdan tekrar deneyin."
+
+msgid "Accept the Terms of Service and Privacy Policy to continue."
+msgstr "Devam etmek için Kullanım Koşulları'nı ve Gizlilik Politikası'nı kabul edin."
+
+msgid "You must confirm that you are 16 or older."
+msgstr "16 yaşında veya daha büyük olduğunuzu onaylamalısınız."
+
+msgid "The Terms have changed. Please review them again."
+msgstr "Koşullar değişti. Lütfen yeniden gözden geçirin."
+
+msgid "Your game is out of date. Close it and open the launcher to update."
+msgstr "Oyununuz güncel değil. Oyunu kapatın ve güncellemek için başlatıcıyı açın."
+
+msgid "character unavailable"
+msgstr "Bu karakter şu anda kullanılamıyor."
+
+msgid "character not found"
+msgstr "Karakter bulunamadı."
+
+msgid "GA rights are set in the server configuration."
+msgstr "GA yetkileri sunucu yapılandırmasından verilir."
+
+msgid "GA: /ga rain on|off, /ga list"
+msgstr "GA: /ga rain on|off, /ga list"
+
+msgid "Update required"
+msgstr "Güncelleme gerekli"
+
+msgid "The realm is not reachable"
+msgstr "Diyara ulaşılamıyor"
+
+msgid "The game servers are not answering right now. Please try again in a few minutes."
+msgstr "Oyun sunucuları şu an yanıt vermiyor. Lütfen birkaç dakika sonra tekrar deneyin."
+
+msgid "The login server cannot be reached. It may be down, or your connection may have a problem."
+msgstr "Giriş sunucusuna ulaşılamıyor. Sunucu kapalı olabilir veya bağlantınızda sorun olabilir."
+
+msgid "Your account was deleted."
+msgstr "Hesabınız silindi."
+
+msgid "Forgot your password?"
+msgstr "Şifrenizi mi unuttunuz?"
+
+msgid "Help & Support"
+msgstr "Yardım ve Destek"
+
+msgid "Your password was changed. Log in with the new one."
+msgstr "Şifreniz değiştirildi. Yeni şifrenizle giriş yapın."
+
+msgid "Terms of Service"
+msgstr "Kullanım Koşulları"
+
+msgid "Privacy Policy"
+msgstr "Gizlilik Politikası"
+
+msgid "Open in browser"
+msgstr "Tarayıcıda aç"
+
+msgid "Loading…"
+msgstr "Yükleniyor…"
+
+msgid "The text could not be loaded. You can open it in your browser."
+msgstr "Metin yüklenemedi. Tarayıcınızda açabilirsiniz."
+
+msgid "I am 16 years old or older."
+msgstr "16 yaşında veya daha büyüğüm."
+
+msgid "I accept the Terms of Service and the Privacy Policy."
+msgstr "Kullanım Koşulları'nı ve Gizlilik Politikası'nı kabul ediyorum."
+
+msgid "Read the Terms"
+msgstr "Koşulları oku"
+
+msgid "Read the Privacy Policy"
+msgstr "Gizlilik Politikası'nı oku"
+
+msgid "Please read and accept our Terms of Service and Privacy Policy to keep playing."
+msgstr "Oynamaya devam etmek için lütfen Kullanım Koşulları'nı ve Gizlilik Politikası'nı okuyup kabul edin."
+
+msgid "Accept and continue"
+msgstr "Kabul et ve devam et"
+
+msgid "Your recovery code"
+msgstr "Kurtarma kodunuz"
+
+msgid "If you forget your password, this code is the only way back into your account. It is shown only now. Keep it somewhere safe and never share it."
+msgstr "Şifrenizi unutursanız hesabınıza dönmenin tek yolu bu koddur. Yalnızca şimdi gösterilir. Güvenli bir yerde saklayın ve kimseyle paylaşmayın."
+
+msgid "Copy"
+msgstr "Kopyala"
+
+msgid "Copied"
+msgstr "Kopyalandı"
+
+msgid "I have stored this code in a safe place."
+msgstr "Bu kodu güvenli bir yere kaydettim."
+
+msgid "Continue"
+msgstr "Devam et"
+
+msgid "Recover your account"
+msgstr "Hesabınızı kurtarın"
+
+msgid "Enter the recovery code you saved when you made your account. Without it the password cannot be reset, because we keep no email address."
+msgstr "Hesabınızı açarken kaydettiğiniz kurtarma kodunu girin. E-posta adresi tutmadığımız için bu kod olmadan şifre sıfırlanamaz."
+
+msgid "Username"
+msgstr "Kullanıcı adı"
+
+msgid "Recovery code"
+msgstr "Kurtarma kodu"
+
+msgid "New password"
+msgstr "Yeni şifre"
+
+msgid "New password (again)"
+msgstr "Yeni şifre (tekrar)"
+
+msgid "Set new password"
+msgstr "Yeni şifreyi kaydet"
+
+msgid "Delete character"
+msgstr "Karakteri sil"
+
+msgid "Delete Character"
+msgstr "Karakteri Sil"
+
+msgid "Delete forever"
+msgstr "Kalıcı olarak sil"
+
+msgid "This cannot be undone. The character, its items and its progress are deleted, and its name becomes free for others."
+msgstr "Bu işlem geri alınamaz. Karakter, eşyaları ve ilerlemesi silinir; adı başkaları tarafından alınabilir."
+
+msgid "Type %s to confirm:"
+msgstr "Onaylamak için %s yazın:"
+
+msgid "%s was deleted."
+msgstr "%s silindi."
+
+msgid "Account"
+msgstr "Hesap"
+
+msgid "Change password"
+msgstr "Şifre değiştir"
+
+msgid "Current password"
+msgstr "Mevcut şifre"
+
+msgid "New password (8+ characters, letters and digits)"
+msgstr "Yeni şifre (en az 8 karakter, harf ve rakam)"
+
+msgid "Changing it logs your account out everywhere else."
+msgstr "Şifreyi değiştirmek, hesabınızın diğer tüm oturumlarını kapatır."
+
+msgid "Your password was changed."
+msgstr "Şifreniz değiştirildi."
+
+msgid "Make a new recovery code"
+msgstr "Yeni kurtarma kodu oluştur"
+
+msgid "You have a recovery code. Making a new one cancels the old one."
+msgstr "Kurtarma kodunuz var. Yenisini oluşturursanız eskisi geçersiz olur."
+
+msgid "You have no recovery code yet. Make one now: without it a forgotten password cannot be recovered."
+msgstr "Henüz kurtarma kodunuz yok. Şimdi oluşturun: kod olmadan unutulan şifre kurtarılamaz."
+
+msgid "You have no recovery code yet. Make one under Account, so a forgotten password does not lock you out."
+msgstr "Henüz kurtarma kodunuz yok. Şifrenizi unutursanız hesabınızı kaybetmemek için Hesap bölümünden oluşturun."
+
+msgid "Checking…"
+msgstr "Kontrol ediliyor…"
+
+msgid "Help and legal"
+msgstr "Yardım ve yasal"
+
+msgid "Delete account"
+msgstr "Hesabı sil"
+
+msgid "This cannot be undone. Your account and all of its characters are deleted, and you are disconnected. Only an anonymous record of the deletion is kept; logs and backups expire as the Privacy Policy explains."
+msgstr "Bu işlem geri alınamaz. Hesabınız ve tüm karakterleri silinir, bağlantınız kesilir. Yalnızca silme işleminin anonim bir kaydı tutulur; günlükler ve yedekler Gizlilik Politikası'nda açıklandığı gibi sona erer."
+
+msgid "Type your username to confirm"
+msgstr "Onaylamak için kullanıcı adınızı yazın"
+
+msgid "Delete my account"
+msgstr "Hesabımı sil"
+
+msgid "Deleting…"
+msgstr "Siliniyor…"
+
+msgid "Logged in as %s"
+msgstr "Giriş yapan: %s"
+
+msgid "Log in from the login screen to manage your account."
+msgstr "Hesabınızı yönetmek için giriş ekranından oturum açın."

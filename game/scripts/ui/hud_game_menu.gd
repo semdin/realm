@@ -2,7 +2,8 @@ extends HudWindow
 class_name HudGameMenu
 
 ## The Esc menu: what a player reaches when nothing else is open. Resume,
-## Settings, Change character (back to the character screen) and Quit.
+## Settings, Help & Support (the issue tracker, in the browser), Change
+## character (back to the character screen) and Quit.
 ##
 ## Leaving an online world is not instant, as in the old game: a short
 ## countdown (3 s, 5 s after combat in the last 10 s) that damage taken,
@@ -36,14 +37,14 @@ var _last_combat_ms := -COMBAT_WINDOW_MS
 var _from := Vector3.INF
 
 func _init() -> void:
-	super._init("Menu", Vector2(340, 300))
+	super._init("Menu", Vector2(340, 340))
 	name = "GameMenu"
 
 func _ready() -> void:
 	super._ready()
 	body.add_theme_constant_override("separation", 8)
 	body.alignment = BoxContainer.ALIGNMENT_CENTER
-	for spec: Array in [["resume", tr("Resume")], ["settings", tr("Settings")],
+	for spec: Array in [["resume", tr("Resume")], ["settings", tr("Settings")], ["help", tr("Help & Support")],
 			["character", tr("Change Character")], ["quit", tr("Quit Game")]]:
 		var b := HudKit.button(String(spec[1]), 15)
 		b.name = String(spec[0]).capitalize().replace(" ", "")
@@ -69,6 +70,8 @@ func _on_pressed(id: String) -> void:
 		"settings":
 			close()
 			settings_requested.emit()
+		"help":
+			AccountDialogs.open_support()
 		"character", "quit":
 			begin_leave(id)
 

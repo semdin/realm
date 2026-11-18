@@ -22,10 +22,15 @@ class_name CharacterSelect
 ## as the character enters the world (main.gd: RealmSession.set_look, which
 ## the server cleans and saves); until then the roster shows it too.
 ##
+## Delete Character (on the chosen character's card) asks for its name typed
+## back; Account (top right) opens the account page (AccountPanel): password,
+## recovery code, the Terms and Privacy Policy, Help, deleting the account.
+##
 ## Everything comes from the login service (LoginApi): the roster is
 ## fetched when the screen opens; nothing is cached on disk.
 
 signal logged_out
+signal account_deleted
 signal play_granted(map: String, address: String, ticket: String)
 
 const MAX_CHARACTERS := 2
@@ -69,6 +74,11 @@ var current_body: Node3D
 var canvas: CanvasLayer
 var slot_label: Label
 var logout_btn: Button
+var account_btn: Button
+var account_window: HudWindow
+var account_panel: AccountPanel
+var delete_btn: Button
+var delete_dialog: AccountDialogs.ConfirmDelete
 var roster_panel: PanelContainer
 var roster: VBoxContainer
 var roster_title: Label
@@ -115,6 +125,7 @@ func _ready() -> void:
 	_build_ui()
 	_build_create_modal()
 	_build_look_editor()
+	_build_account_windows()
 	_select_house("velkar")
 	get_viewport().size_changed.connect(_layout)
 	_layout()
@@ -332,6 +343,16 @@ func _build_ui() -> void:
 	slot_label = HudKit.label("", 16, HudKit.PARCHMENT, HudKit.title(), 4)
 	slot_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	top.add_child(slot_label)
+	account_btn = HudKit.button(tr("Account"), 15)
+	account_btn.name = "AccountButton"
+	account_btn.custom_minimum_size = Vector2(130, 40)
+	account_btn.pressed.connect(open_account)
+	top.add_child(account_btn)
+	var help_btn := HudKit.button(tr("Help & Support"), 15)
+	help_btn.name = "HelpButton"
+	help_btn.custom_minimum_size = Vector2(170, 40)
+	help_btn.pressed.connect(AccountDialogs.open_support)
+	top.add_child(help_btn)
 	logout_btn = HudKit.button(tr("Log Out"), 15)
 	logout_btn.name = "LogoutButton"
 	logout_btn.custom_minimum_size = Vector2(130, 40)
@@ -389,6 +410,13 @@ func _build_ui() -> void:
 	motto_label = HudKit.label("", 14, HudKit.TEXT_DIM, HudKit.body(), 2)
 	motto_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(motto_label)
+	delete_btn = AccountDialogs.link(tr("Delete Character"), 13)
+	delete_btn.name = "DeleteCharacter"
+	delete_btn.add_theme_color_override("font_color", COLOR_ERROR)
+	delete_btn.add_theme_color_override("font_hover_color", COLOR_ERROR.lightened(0.25))
+	delete_btn.size_flags_horizontal = Control.SIZE_SHRINK_END
+	delete_btn.pressed.connect(open_delete)
+	vbox.add_child(delete_btn)
 
 	# --- the slot arrows beside the dais
 	nav = HBoxContainer.new()
@@ -531,6 +559,56 @@ func _build_look_editor() -> void:
 	look_editor.tab_changed.connect(func(tab_name: String):
 		_zoom_target = 1.0 if tab_name == "face" else 0.0)
 
+func _build_account_windows() -> void:
+	var root := canvas.get_child(0) as Control
+	account_window = HudWindow.new("Account", Vector2(640, 660))
+	account_window.name = "AccountWindow"
+	root.add_child(account_window)
+	account_panel = AccountPanel.new()
+	account_panel.setup(api, account_window)
+	account_window.body.add_child(account_panel)
+	account_panel.account_deleted.connect(func(): account_deleted.emit())
+	delete_dialog = AccountDialogs.ConfirmDelete.new()
+	root.add_child(delete_dialog)
+	delete_dialog.confirmed.connect(_delete_confirmed)
+
+func open_account() -> void:
+	account_window.open()
+	account_panel.refresh()
+
+## The account screens are up: the stage keys and the camera stay out of it.
+func _overlay_open() -> bool:
+	if account_window != null and account_window.visible:
+		return true
+	return delete_dialog != null and delete_dialog.visible
+
+func open_delete() -> void:
+	if creating or editing or is_switching or current_slot >= characters.size():
+		return
+	delete_dialog.ask(String(characters[current_slot].get("name", "")))
+
+func _delete_confirmed() -> void:
+	if current_slot >= characters.size():
+		return
+	var c: Dictionary = characters[current_slot]
+	var id := int(c.get("id", 0))
+	var res: Dictionary = await api.delete_character(id, delete_dialog.input.text.strip_edges())
+	if not is_inside_tree():
+		return
+	if not res.ok:
+		delete_dialog.refused(res.error)
+		return
+	delete_dialog.close()
+	pending_looks.erase(id)
+	var gone := String(c.get("name", ""))
+	var listed: Dictionary = await api.characters()
+	if not is_inside_tree():
+		return
+	characters = listed.body.get("characters", []) if listed.ok else characters.filter(func(x): return int(x.get("id", 0)) != id)
+	current_slot = 0
+	_update_slot_display()
+	set_status(tr("%s was deleted.") % gone, "info")
+
 ## Side columns shrink with the canvas; while creating, the look editor
 ## takes the left and the create card the right, the dais between them.
 func _layout() -> void:
@@ -595,6 +673,8 @@ func _load_characters() -> void:
 	characters = res.body.get("characters", [])
 	roster_loaded = true
 	set_status("")
+	if not LoginApi.has_recovery_code:
+		set_status(tr("You have no recovery code yet. Make one under Account, so a forgotten password does not lock you out."), "warn")
 	current_slot = 0
 	_update_slot_display()
 
@@ -644,6 +724,7 @@ func _update_slot_display() -> void:
 		enter_btn.visible = true
 		enter_btn.disabled = false
 		enter_btn.text = tr("ENTER WORLD")
+		delete_btn.visible = true
 		_spawn_podium_character(house, look_for(c))
 	else:
 		name_label.text = tr("Empty Slot")
@@ -654,6 +735,7 @@ func _update_slot_display() -> void:
 		place_label.text = ""
 		motto_label.text = ""
 		enter_btn.visible = false
+		delete_btn.visible = false
 		_clear_podium_character()
 		_apply_rune_color(Color(0.4, 0.5, 0.7, 0.6))
 	# an empty line still takes its height in the card
@@ -885,7 +967,7 @@ func _on_logout_pressed() -> void:
 ## ================================================================ input, camera
 
 func _unhandled_input(event: InputEvent) -> void:
-	if creating or editing:
+	if creating or editing or _overlay_open():
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
@@ -900,6 +982,9 @@ func _unhandled_input(event: InputEvent) -> void:
 ## Right-drag on the stage turns the character (sideways) and swings the
 ## camera over or under it (up / down); the wheel there moves in to the face.
 func _input(event: InputEvent) -> void:
+	if _overlay_open():
+		_drag_turn = false
+		return
 	var vp := get_viewport().get_visible_rect().size
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
 		_drag_turn = event.pressed and _on_stage(event.position, vp)

@@ -35,6 +35,8 @@ var api: LoginApi
 var login: LoginScreen
 var select: CharacterSelect
 var _login_layer: CanvasLayer
+## What the card says when the character screen closes ("": logged out).
+var farewell := ""
 
 func setup(login_url: String) -> void:
 	name = "FrontDoor"
@@ -73,6 +75,9 @@ func _show_select() -> void:
 	select.setup(api)
 	add_child(select)
 	select.logged_out.connect(_back_to_login)
+	select.account_deleted.connect(func():
+		farewell = "account_deleted"
+		_back_to_login())
 	select.play_granted.connect(_enter_world)
 
 func _back_to_login() -> void:
@@ -80,7 +85,11 @@ func _back_to_login() -> void:
 		select.queue_free()
 		select = null
 	_login_layer.visible = true
-	login.set_status(tr("You have logged out."), "info")
+	if farewell != "":
+		login.show_return_notice(farewell, "")
+		farewell = ""
+	else:
+		login.set_status(tr("You have logged out."), "info")
 
 ## The ticket came: the loading screen covers the change, and the scene is
 ## rebuilt to join `map` (main.gd sees the pending join).

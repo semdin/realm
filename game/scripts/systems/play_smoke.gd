@@ -109,6 +109,12 @@ func _card() -> void:
 	card.username_input.text = String(_s["user"])
 	card.password_input.text = String(_s["password"])
 	card.submit_btn.pressed.emit()
+	var asked := func(): return card.consent_dialog.visible
+	if await _until(func(): return signed_in.call() or asked.call(), STEP_TIMEOUT, refused) and asked.call():
+		# an account from before the current terms accepts them first
+		card.consent_dialog.boxes.age.button_pressed = true
+		card.consent_dialog.boxes.terms.button_pressed = true
+		card.consent_dialog.accept_btn.pressed.emit()
 	if not await _until(signed_in, STEP_TIMEOUT, refused):
 		if not refused.call():
 			_fail("the login card never answered (says: %s)" % card.status_label.text)
@@ -118,7 +124,13 @@ func _card() -> void:
 		card.username_input.text = String(_s["user"])
 		card.password_input.text = String(_s["password"])
 		card.confirm_input.text = String(_s["password"])
+		card.consent.age.button_pressed = true
+		card.consent.terms.button_pressed = true
 		card.submit_btn.pressed.emit()
+		# the one-time recovery code comes up before the login goes on
+		if await _until(func(): return card.code_dialog.visible, STEP_TIMEOUT, refused) and card.code_dialog.visible:
+			card.code_dialog.saved.button_pressed = true
+			card.code_dialog.done_btn.pressed.emit()
 		# registering logs straight in, then the roster loads
 		if not await _until(signed_in, STEP_TIMEOUT, refused):
 			_fail("not signed in after registering %s (card says: %s)" % [_s["user"], card.status_label.text])

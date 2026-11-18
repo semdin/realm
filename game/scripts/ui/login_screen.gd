@@ -11,7 +11,11 @@ class_name LoginScreen
 ##
 ## It talks to the login service through FrontDoor's LoginApi; a good login
 ## emits `signed_in` (FrontDoor shows the character screen). A new account
-## logs straight in. Only the username is remembered (PREFS_PATH), never the
+## needs the two consent boxes, is shown its one-time recovery code and logs
+## straight in; an older account that has not accepted the current terms is
+## asked first. "Forgot your password?" takes a recovery code. The service's
+## status decides the notice on the card (maintenance, the realm unreachable,
+## this game too old). Only the username is remembered (PREFS_PATH), never the
 ## password; the token stays in memory (LoginApi).
 
 signal signed_in
@@ -31,7 +35,7 @@ var api: LoginApi
 var keep_prefs := true
 var register_mode := false
 var busy := false
-## ONLINE | MAINTENANCE | OFFLINE | UNKNOWN
+## ONLINE | MAINTENANCE | REALM_DOWN | OFFLINE | OUTDATED | UNKNOWN
 var server_state := "UNKNOWN"
 
 var username_input: LineEdit
@@ -40,6 +44,12 @@ var confirm_input: LineEdit
 var confirm_block: Control
 var reveal_btn: Button
 var remember_check: CheckBox
+var consent: AccountDialogs.ConsentBoxes
+var forgot_btn: Button
+var reader: AccountDialogs.Reader
+var consent_dialog: AccountDialogs.Consent
+var code_dialog: AccountDialogs.RecoveryCode
+var recover_dialog: AccountDialogs.Recover
 var submit_btn: Button
 var login_tab: Button
 var register_tab: Button
@@ -105,6 +115,23 @@ func _build() -> void:
 	_build_server_pill()
 	_build_language_picker()
 	_build_footer()
+	_build_dialogs()
+
+func _build_dialogs() -> void:
+	reader = AccountDialogs.Reader.new(api)
+	consent_dialog = AccountDialogs.Consent.new(api, reader)
+	code_dialog = AccountDialogs.RecoveryCode.new()
+	recover_dialog = AccountDialogs.Recover.new(api)
+	# the consent card comes first: the reader opens over it
+	add_child(consent_dialog)
+	add_child(recover_dialog)
+	add_child(code_dialog)
+	add_child(reader)
+	consent_dialog.accepted.connect(_finish_login)
+	consent_dialog.declined.connect(func():
+		await api.logout()
+		set_status(tr("You have logged out."), "info"))
+	recover_dialog.recovered.connect(_on_recovered)
 
 func _build_crest() -> Control:
 	var box := VBoxContainer.new()
@@ -207,6 +234,11 @@ func _build_card() -> Control:
 		remember_check.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	v.add_child(remember_check)
 
+	consent = AccountDialogs.ConsentBoxes.new()
+	consent.name = "Consent"
+	consent.read_requested.connect(func(kind: String): reader.show_document(kind))
+	v.add_child(consent)
+
 	notice_panel = _build_notice()
 	v.add_child(notice_panel)
 
@@ -222,6 +254,12 @@ func _build_card() -> Control:
 	status_label.custom_minimum_size = Vector2(0, 40)
 	status_label.add_theme_font_size_override("font_size", 14)
 	v.add_child(status_label)
+
+	forgot_btn = AccountDialogs.link(tr("Forgot your password?"), 13)
+	forgot_btn.name = "ForgotPassword"
+	forgot_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	forgot_btn.pressed.connect(func(): recover_dialog.start(username_input.text.strip_edges()))
+	v.add_child(forgot_btn)
 
 	username_input.text_submitted.connect(func(_t: String): password_input.grab_focus())
 	password_input.text_submitted.connect(func(_t: String):
@@ -409,6 +447,17 @@ func _build_footer() -> void:
 	UITheme.set_button_icon(quit, "ui_close", 14.0)
 	quit.pressed.connect(func(): get_tree().quit())
 	add_child(quit)
+	var help := AccountDialogs.link(tr("Help & Support"))
+	help.name = "HelpButton"
+	help.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	help.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	help.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	help.offset_left = -340.0
+	help.offset_right = -170.0
+	help.offset_top = -48.0
+	help.offset_bottom = -14.0
+	help.pressed.connect(AccountDialogs.open_support)
+	add_child(help)
 
 func _client_version() -> String:
 	var v := str(ProjectSettings.get_setting("application/config/version", "")).strip_edges()
@@ -421,6 +470,9 @@ func _set_mode(p_register: bool) -> void:
 	login_tab.set_pressed_no_signal(not register_mode)
 	register_tab.set_pressed_no_signal(register_mode)
 	confirm_block.visible = register_mode
+	consent.visible = register_mode
+	remember_check.visible = not register_mode
+	forgot_btn.visible = not register_mode
 	submit_btn.text = tr("CREATE ACCOUNT") if register_mode else tr("ENTER GAME")
 	password_input.placeholder_text = tr("8+ characters, letters and digits") if register_mode else tr("Your password")
 	confirm_input.text = ""
@@ -433,7 +485,7 @@ func _toggle_reveal() -> void:
 
 func _set_busy(value: bool, message: String = "") -> void:
 	busy = value
-	submit_btn.disabled = value
+	submit_btn.disabled = value or server_state == "OUTDATED"
 	login_tab.disabled = value
 	register_tab.disabled = value
 	username_input.editable = not value
@@ -464,6 +516,26 @@ func show_maintenance_notice(show_it: bool, detail: String = "") -> void:
 		notice_body.text = detail if not detail.is_empty() else \
 			tr("The game is being updated right now. You can log in again in a few minutes.")
 
+## This game cannot play on the realm as it is now: said once, plainly, and
+## the button stays off until the launcher has updated it.
+func show_update_notice() -> void:
+	server_state = "OUTDATED"
+	_render_server_state()
+	notice_title.text = tr("Update required")
+	notice_body.text = tr("Your game is out of date. Close it and open the launcher to update.")
+	notice_panel.visible = true
+	submit_btn.disabled = true
+
+func _show_realm_down_notice() -> void:
+	notice_title.text = tr("The realm is not reachable")
+	notice_body.text = tr("The game servers are not answering right now. Please try again in a few minutes.")
+	notice_panel.visible = true
+
+func _show_service_down_notice() -> void:
+	notice_title.text = tr("Server unreachable")
+	notice_body.text = tr("The login server cannot be reached. It may be down, or your connection may have a problem.")
+	notice_panel.visible = true
+
 ## Why the world sent the player back here (MaintenanceUI's end screen kind).
 func show_return_notice(kind: String, detail: String) -> void:
 	match kind:
@@ -473,6 +545,8 @@ func show_return_notice(kind: String, detail: String) -> void:
 			set_status(tr("You can log in once maintenance is complete."), "warn")
 		"lost":
 			set_status(tr("The connection to the server was lost. Please log in again."), "warn")
+		"account_deleted":
+			set_status(tr("Your account was deleted."), "ok")
 		"refused", "unanswered":
 			set_status(detail, "warn")
 
@@ -490,15 +564,49 @@ func _poll_status() -> void:
 	if _status_in_flight or not is_inside_tree() or api == null:
 		return
 	_status_in_flight = true
-	var res: Dictionary = await api.health()
+	var res: Dictionary = await api.status()
 	_status_in_flight = false
 	if not is_inside_tree():
 		return
-	if not res.ok:
-		server_state = "OFFLINE"
-	elif server_state != "MAINTENANCE":
-		server_state = "ONLINE"
+	apply_status(res)
+
+## The service's answer on the card: the pill, and the notice that goes with
+## anything but an open realm.
+func apply_status(res: Dictionary) -> void:
+	if server_state == "OUTDATED":
+		return
+	var realm := String(res.body.get("realm", "")) if res.ok else ""
+	if not res.ok and int(res.code) == 404:
+		# an older service: it has no /api/status for us; it answered, so it is up
+		realm = "open"
+	var theirs := int(String(res.body.get("protocol_version", "0"))) if res.ok else 0
+	var ours := LoginApi.protocol_version()
+	if theirs > 0 and ours > 0 and theirs != ours:
+		show_update_notice()
+		return
+	var before := server_state
+	match realm:
+		"open":
+			server_state = "ONLINE"
+		"maintenance":
+			server_state = "MAINTENANCE"
+		"unreachable":
+			server_state = "REALM_DOWN"
+		"":
+			server_state = "OFFLINE"
+		_:
+			server_state = "ONLINE"
 	_render_server_state()
+	if server_state == before:
+		return
+	notice_panel.visible = false
+	match server_state:
+		"MAINTENANCE":
+			show_maintenance_notice(true)
+		"REALM_DOWN":
+			_show_realm_down_notice()
+		"OFFLINE":
+			_show_service_down_notice()
 
 func _render_server_state() -> void:
 	if server_label == null:
@@ -512,6 +620,12 @@ func _render_server_state() -> void:
 		"MAINTENANCE":
 			colour = COLOR_WARN
 			text = tr("Server under maintenance")
+		"REALM_DOWN":
+			colour = COLOR_WARN
+			text = tr("The realm is not reachable")
+		"OUTDATED":
+			colour = COLOR_ERROR
+			text = tr("Update required")
 		"OFFLINE":
 			colour = COLOR_ERROR
 			text = tr("Server unreachable")
@@ -554,17 +668,31 @@ func _do_register(user: String, pass_w: String) -> void:
 		set_status(tr("The passwords do not match."), "error")
 		confirm_input.grab_focus()
 		return
+	if not consent.age.button_pressed:
+		set_status(tr("You must confirm that you are 16 or older."), "error")
+		return
+	if not consent.terms.button_pressed:
+		set_status(tr("Accept the Terms of Service and Privacy Policy to continue."), "error")
+		return
 	_set_busy(true, tr("Creating account…"))
 	var res: Dictionary = await api.register(user, pass_w)
 	if not is_inside_tree():
 		return
 	_set_busy(false)
 	if not res.ok:
+		if res.update_required:
+			show_update_notice()
 		set_status(res.error, "error")
 		return
-	# Straight in: nobody wants to type the password they just chose twice more.
 	_set_mode(false)
+	consent.clear()
 	set_status(tr("Your account was created! Logging in…"), "ok")
+	# The code first, while nothing else is going on: it is never shown again.
+	code_dialog.present(String(res.body.get("recovery_code", "")))
+	await code_dialog.finished
+	if not is_inside_tree():
+		return
+	# Straight in: nobody wants to type the password they just chose twice more.
 	_do_login(user, pass_w)
 
 func _do_login(user: String, pass_w: String) -> void:
@@ -574,7 +702,10 @@ func _do_login(user: String, pass_w: String) -> void:
 		return
 	_set_busy(false)
 	if not res.ok:
-		if res.maintenance:
+		if res.update_required:
+			show_update_notice()
+			set_status("")
+		elif res.maintenance:
 			show_maintenance_notice(true)
 			set_status(res.error, "warn")
 		else:
@@ -583,12 +714,24 @@ func _do_login(user: String, pass_w: String) -> void:
 			password_input.grab_focus()
 		return
 	_save_prefs(user)
-	show_maintenance_notice(false)
-	server_state = "ONLINE"
-	_render_server_state()
 	set_status("")
 	password_input.text = ""
+	if LoginApi.terms_required:
+		consent_dialog.open()
+		return
+	_finish_login()
+
+func _finish_login() -> void:
 	signed_in.emit()
+
+## A recovery went through: the replacement code is shown, then the card asks
+## for the new password.
+func _on_recovered(new_code: String, user: String) -> void:
+	username_input.text = user
+	password_input.text = ""
+	_set_mode(false)
+	set_status(tr("Your password was changed. Log in with the new one."), "ok")
+	code_dialog.present(new_code)
 
 ## ================================================================ prefs
 

@@ -2,12 +2,13 @@ extends HudWindow
 class_name SettingsWindow
 
 ## Settings, opened from the Esc menu (GameSettings keeps and applies them):
-## five tabs in one window - General (language, fullscreen, interface scale,
+## six tabs in one window - General (language, fullscreen, interface scale,
 ## mouse sensitivity, screen shake and flash), Graphics (the quality preset
 ## and the time of day on the grounds), Audio (master and the four buses),
-## Controls (key rebinding) and Credits (GameCredits). The key list and the
-## credits scroll inside their tabs. Every change applies at once and is
-## saved.
+## Controls (key rebinding), Account (AccountPanel: password, recovery code,
+## the Terms and Privacy Policy, Help, deleting the account) and Credits
+## (GameCredits). The key list, the account page and the credits scroll inside
+## their tabs. Every change applies at once and is saved.
 ##
 ## Key capture is explicit: a row listens only after its button is pressed,
 ## and the very next key (Escape cancels) is consumed and never reaches the
@@ -18,7 +19,7 @@ class_name SettingsWindow
 signal language_apply_requested
 
 const WINDOW_SIZE := Vector2(660, 640)
-const TABS := ["general", "graphics", "audio", "controls", "credits"]
+const TABS := ["general", "graphics", "audio", "controls", "account", "credits"]
 
 ## Player-facing names of the bindable actions.
 const ACTION_NAMES := {
@@ -52,6 +53,7 @@ var quality_picker: OptionButton
 var time_picker: OptionButton
 var status: Label
 var credits: RichTextLabel
+var account: AccountPanel
 var listening := ""
 ## Evidence for the menu check.
 var rebinds := 0
@@ -73,12 +75,12 @@ func _ready() -> void:
 	holder.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(holder)
 	var titles := {"general": tr("General"), "graphics": tr("Graphics"), "audio": tr("Audio"), "controls": tr("Controls"),
-		"credits": tr("Credits")}
+		"account": tr("Account"), "credits": tr("Credits")}
 	for key: String in TABS:
 		var b := HudKit.button(String(titles[key]), 15)
 		b.name = key.capitalize() + "Tab"
 		b.toggle_mode = true
-		b.custom_minimum_size = Vector2(100, 34)
+		b.custom_minimum_size = Vector2(90, 34)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(show_page.bind(key))
 		tabs.add_child(b)
@@ -93,6 +95,7 @@ func _ready() -> void:
 	_build_graphics(pages["graphics"])
 	_build_audio(pages["audio"])
 	_build_controls(pages["controls"])
+	_build_account(pages["account"])
 	credits = GameCredits.build()
 	(pages["credits"] as VBoxContainer).add_child(credits)
 	var footer := HBoxContainer.new()
@@ -120,6 +123,8 @@ func show_page(key: String) -> void:
 		(tab_buttons[k] as Button).set_pressed_no_signal(k == key)
 	if key != "controls":
 		listening = ""
+	if key == "account" and account != null:
+		account.refresh()
 
 func page_shown() -> String:
 	for k: String in pages:
@@ -266,6 +271,25 @@ func _build_controls(c: VBoxContainer) -> void:
 		rows.add_child(stripe)
 		bind_buttons[action] = button
 		index += 1
+
+## The account page, on the login service the front door used. Deleting the
+## account ends the world for this client: back to the card.
+func _build_account(page: VBoxContainer) -> void:
+	var api := LoginApi.new(_login_url())
+	add_child(api)
+	account = AccountPanel.new()
+	account.setup(api, self)
+	account.playing_character = FrontDoor.playing_character
+	page.add_child(account)
+	account.account_deleted.connect(func():
+		var game := get_tree().current_scene
+		if game != null and game.has_method("return_to_login"):
+			game.call("return_to_login", "account_deleted"))
+
+static func _login_url() -> String:
+	var args := OS.get_cmdline_user_args()
+	var at := args.find("--login-url")
+	return args[at + 1] if at >= 0 and at + 1 < args.size() else LoginApi.default_url()
 
 ## The language picker. Labels built from now on use the new language at once;
 ## what is already on screen switches when the HUD is built again, so the row

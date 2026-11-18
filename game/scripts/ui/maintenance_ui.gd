@@ -202,6 +202,10 @@ func show_closed(status: String, was_in := true) -> void:
 		screen_kind = "maintenance"
 		title = tr("You were logged out for maintenance")
 		detail = tr("Your progress is saved. You can log in again once maintenance is over.")
+	elif refused and why == "client version does not match the server":
+		screen_kind = "refused"
+		title = tr("Update required")
+		detail = tr("Your game is out of date. Close it and open the launcher to update.")
 	elif refused:
 		screen_kind = "refused"
 		title = tr("Could not enter the realm")

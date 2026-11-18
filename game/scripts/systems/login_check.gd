@@ -150,7 +150,21 @@ func _register(user: String, capture_card: bool) -> CharacterSelect:
 	card.username_input.text = user
 	card.password_input.text = String(_s["password"])
 	card.confirm_input.text = String(_s["password"])
+	card.consent.age.button_pressed = true
+	card.consent.terms.button_pressed = true
 	card.submit_btn.pressed.emit()
+	# the one-time recovery code is shown before the login goes on
+	if not await _until(func(): return card.code_dialog.visible or card.status_label.get_theme_color("font_color") == LoginScreen.COLOR_ERROR):
+		_fail("no recovery code after registering %s (card says: %s)" % [user, card.status_label.text])
+		return null
+	if not card.code_dialog.visible:
+		_fail("registering %s was refused: %s" % [user, card.status_label.text])
+		return null
+	if card.code_dialog.code_box.text.length() != 35:
+		_fail("the recovery code looks wrong: %d characters" % card.code_dialog.code_box.text.length())
+		return null
+	card.code_dialog.saved.button_pressed = true
+	card.code_dialog.done_btn.pressed.emit()
 	if not await _until(func(): return door.select != null and door.select.roster_loaded):
 		_fail("no roster after registering %s (card says: %s)" % [user, card.status_label.text])
 		return null
