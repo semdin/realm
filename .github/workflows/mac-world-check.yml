@@ -76,7 +76,7 @@ jobs:
               { echo "after the sample"; procs; } >> "$work/procs_$n.txt"
             fi
             wait $job
-            tr -d '' < "$log" > "$work/play_clean_$n.log"
+            tr -d '\r' < "$log" > "$work/play_clean_$n.log"
             echo "=== run $n"; cat "$work/procs_$n.txt"
             grep -E "Metal [0-9]|ShaderWarmup|grounds\] built|joined grounds|realm check play" "$work/play_clean_$n.log" | cut -c1-200
             grep -c "Failed to compile Metal library" "$work/play_clean_$n.log"
