@@ -10,7 +10,6 @@
 
 pub mod catalog;
 pub mod maps;
-pub mod rename;
 
 use std::collections::BTreeMap;
 use std::path::Path;

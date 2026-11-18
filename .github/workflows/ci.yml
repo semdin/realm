@@ -79,13 +79,17 @@ jobs:
         run: cargo run --release -p realm_simcheck | tee "simcheck-${{ matrix.os }}.txt"
 
       - name: Content check
-        # References, leftover franchise names, and the content hash (appended
-        # to the fingerprint, so every platform must agree on it too).
-        run: cargo run --release -p realm_content -- check content/rename_map.toml content/data | tee -a "simcheck-${{ matrix.os }}.txt"
+        # References and the content hash (appended to the fingerprint, so
+        # every platform must agree on it too).
+        run: cargo run --release -p realm_content -- check content/data | tee -a "simcheck-${{ matrix.os }}.txt"
 
-      - name: No franchise-derived names left
+      - name: Reserved words
         if: matrix.os == 'ubuntu-26.04'
-        run: cargo run --release -p realm_content -- scan content/rename_map.toml game crates content/data tools README.md
+        run: >-
+          cargo run --release -p realm_content -- scan
+          --list tools/content_guard/reserved.sha256
+          --exclude launcher/src/legacy_names.cpp
+          game crates content/data tools launcher deploy README.md
 
       - name: Map packs check
         # Every map: bodies rest on ground from each spawn point and keep to

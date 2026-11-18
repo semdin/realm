@@ -1,6 +1,6 @@
 [package]
 name = "realm_content"
-description = "Content tool: imports the old game's data through the rename map, and checks content."
+description = "Content tool: checks the content folder and scans files for reserved terms."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -9,7 +9,7 @@ publish.workspace = true
 
 [dependencies]
 realm_data.workspace = true
-serde_json.workspace = true
+sha2.workspace = true
 
 [lints]
 workspace = true
