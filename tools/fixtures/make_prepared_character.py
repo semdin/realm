@@ -13,7 +13,7 @@ reweave scroll (4). The file is the CharacterSheet the server saves; run
 again to reset it.
 
 `--travel-kit` (the Godot client's --check-travel) also rides the Ashwood
-Sweeper (broom slot), carries 5 Waycoal and a Waystake (cells 5 and
+Skiff (the broom slot), carries 5 Waycoal and a Waystake (cells 5 and
 6), and stands on the grounds at the castle approach (spawn
 `castle_approach`), facing the castle door.
 
@@ -123,7 +123,7 @@ def main():
         "revision": 1,
     }
     if travel_kit:
-        equipment[9] = item("broom_ashwood", uid=4243)  # broom
+        equipment[9] = item("broom_ashwood", uid=4243)  # skiff
         bag[5] = item("hearth_dust", 5)
         bag[6] = item("waylink_boot", 1)
         # maps.json grounds spawn_points.castle_approach

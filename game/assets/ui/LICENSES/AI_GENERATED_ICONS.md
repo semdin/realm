@@ -27,17 +27,18 @@ spell and potion icons. No third-party image was used as an input.
   (border-connected white removed, soft edge alpha with the white un-mixed),
   trimmed square and resized to 128 px. They replace the previous minimap set.
 
-## 2026-10-16 additions (fal.ai) - broom tiers
+## 2026-11-19 additions (fal.ai) - windskiffs
 
-Tool: fal.ai `google/nano-banana-2.1/edit` (1K, 1:1). Input image: the project's
-own broom concept painting for that tier (generated the same day with
-`openai/gpt-image-2.5/sunburst`, kept in `art/brooms/<tier>/views/main.png`);
-no third-party image was used.
+Tool: fal.ai `bytedance/seedream/v5.5/edit` (1024 px). Input images: our own
+renders of each skiff model (`tools/art/skiff_art.py`) and, for style, our own
+`icon_wand_hawthorn.png` and the first skiff icon; no third-party image was used.
+Sources: `art/skiffs/icons/`.
 
-* `icon_broom_{ashwood,runebound,silverthorn,emberwing,moonveil}.png` - the
-  tier's broom shown diagonally on flat white with its aura colour, cut out by
-  `tools/ui/cutout_icons.py` (`item_<id>.png` sources) and resized to 512 px to
-  match the earlier `icon_broom_*` icons. Sources: `art/brooms/icons_src/`.
+* `icon_broom_{ashwood,windcutter_2000,runebound,silverthorn,emberwing,skysplitter,moonveil}.png`
+  - each tier's skiff on a diagonal, transparent background, 512 px. The file
+  names keep the items' saved ids.
+* `icon_status_mounted.png`, `icon_ui_mount.png` - the Ashwood Skiff.
+* `icon_menu_mount.png` - a skiff on a ribbon of amber wind, full bleed, 256 px.
 
 ## 2026-10-16 additions (fal.ai) - enchantment scrolls
 
@@ -138,8 +139,6 @@ Cut-out icons, 512 px:
 * `icon_mat_dragon_heartstring.png` - Deepvein Ore: a lump of dark ore split by a bright vein.
 * `icon_mat_night_steed_hair.png` - Starfall Filings: silver filings in a leather-lined dish.
 * `icon_mat_elder_core.png` - Keystone Ingot: a wedge-shaped ingot of dark star-metal.
-* `icon_broom_windcutter_2000.png` - Reedrunner: bound lake reed on a bent pale ash haft.
-* `icon_broom_skysplitter.png` - Thunderhaft: dark storm-seasoned oak with an iron keel.
 * `icon_wand_hawthorn.png` - Thornbark Rod: a thorny bark rod wrapped in salt-cured cord.
 * `icon_wand_ithrel_replica.png` - Starcore Rod: a forged iron bar with glowing seams.
 * `icon_status_despair.png` - Numbed: frost creeping over a clenched hand.
