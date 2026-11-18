@@ -416,12 +416,21 @@ fn serve(args: &[String]) -> AnyResult<()> {
     }
 }
 
-/// How many players `map` holds at most (maps.json `capacity`).
+/// How many players `map` holds at most: maps.json `capacity`, per copy on
+/// a dungeon map (`instance_cap` copies, at most the COPIES it can stand).
 fn content_capacity(content: &Content, map: &str) -> u16 {
-    content
-        .file("maps.json")
-        .and_then(|m| m["maps"][map]["capacity"].as_u64())
-        .map_or(64, |c| c.min(u64::from(u16::MAX)) as u16)
+    let maps = content.file("maps.json");
+    let entry = maps.map(|m| &m["maps"][map]);
+    let capacity = entry.and_then(|m| m["capacity"].as_u64()).unwrap_or(64);
+    let copies = if entry.and_then(|m| m["instanced"].as_bool()) == Some(true) {
+        entry
+            .and_then(|m| m["instance_cap"].as_u64())
+            .unwrap_or(u64::from(realm_rules::dungeons::COPIES))
+            .clamp(1, u64::from(realm_rules::dungeons::COPIES))
+    } else {
+        1
+    };
+    (capacity * copies).min(u64::from(u16::MAX)) as u16
 }
 
 /// Resolves when the server is asked to stop: Ctrl+C anywhere, SIGTERM on

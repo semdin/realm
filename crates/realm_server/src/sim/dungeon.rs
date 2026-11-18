@@ -196,6 +196,18 @@ pub(super) struct Launch {
     pub since: u32,
 }
 
+/// A party going into its copy: the leader first. Its trip pays the keys
+/// when its seat is confirmed, and only then do the others follow.
+pub(super) struct Boarding {
+    pub leader: u64,
+    pub roster: Vec<u64>,
+    pub copy: u8,
+    pub map: String,
+    pub spawn: String,
+    pub label: String,
+    pub since: u32,
+}
+
 /// An egg sac due to hatch: (its index in the run, the sac, where, what
 /// hatches (mob, role), its step).
 type Hatching = (usize, Entity, Vec3, Vec<(String, String)>, usize);
@@ -3307,7 +3319,9 @@ impl Sim {
             if let Some((conn, _)) = self.player_of(l.leader) {
                 self.gate_refuse(conn, "map_unavailable", "", 0);
             }
+            self.call_off(&l.roster);
         }
+        self.sweep_boardings();
     }
 
     /// Everyone agreed: the rules once more, then a copy is asked for.
@@ -3379,43 +3393,70 @@ impl Sim {
         });
     }
 
-    /// The coordinator found (or did not find) a copy for a launch.
-    pub(super) fn copy_opened(&mut self, req: u64, copy: u8) {
+    /// The coordinator found (or did not find) a copy for a launch; a found
+    /// copy comes with the whole party's seats held.
+    pub(super) fn copy_opened(&mut self, req: u64, copy: u8, reason: &str) {
         let Some(k) = self.launches.iter().position(|l| l.req == req) else {
             return;
         };
         let l = self.launches.remove(k);
         let Some((portal, def)) = self.gate_of(&l.portal) else {
-            return;
+            return self.call_off(&l.roster);
         };
-        let leader = self.player_of(l.leader);
         if copy == 0 {
-            if let Some((conn, _)) = leader {
-                self.gate_refuse(conn, "map_full", "", 0);
+            if let Some((conn, _)) = self.player_of(l.leader) {
+                let reason = if reason.is_empty() {
+                    "map_full"
+                } else {
+                    reason
+                };
+                self.gate_refuse(conn, reason, "", 0);
             }
             return;
         }
-        // The leader's keys open the gate.
-        if l.keys > 0 && !def.key.is_empty() {
-            let tick = self.tick;
-            let paid = leader.is_some_and(|(_, e)| {
-                self.world.get_mut::<Player>(e).is_some_and(|mut p| {
-                    let ok = realm_rules::items::take_items(&mut p.sheet, &def.key, l.keys).is_ok();
-                    if ok {
-                        p.sheet.revision += 1;
-                        p.dirty_since.get_or_insert(tick);
-                    }
-                    ok
-                })
-            });
-            if !paid {
-                if let Some((conn, _)) = leader {
-                    self.gate_refuse(conn, "no_key", "", l.keys as i32);
-                }
-                return;
-            }
-            if let Some((conn, _)) = leader {
-                self.send_sheet(conn);
+        let spawn = portal.to_spawn.clone();
+        self.board(
+            copy,
+            &def,
+            &Gather::Gate(portal),
+            spawn,
+            l.leader,
+            l.roster,
+            l.keys,
+        );
+    }
+
+    /// The party sets off for `copy`, the leader first: nothing is spent
+    /// unless everyone can still go and the leader's seat is confirmed.
+    #[allow(clippy::too_many_arguments)]
+    fn board(
+        &mut self,
+        copy: u8,
+        def: &realm_rules::dungeons::DungeonDef,
+        at: &Gather,
+        spawn: String,
+        leader: u64,
+        roster: Vec<u64>,
+        keys: u32,
+    ) {
+        let Some((leader_conn, leader_entity)) = self.player_of(leader) else {
+            return self.call_off(&roster);
+        };
+        // Everyone still able to go, or nobody goes.
+        for ch in &roster {
+            let Some((_, e)) = self.player_of(*ch) else {
+                self.gate_refuse(leader_conn, "party_changed", "", 0);
+                return self.call_off(&roster);
+            };
+            let problem = self.member_problem(e, at, &def.map);
+            if !problem.is_empty() {
+                let name = self
+                    .world
+                    .get::<Player>(e)
+                    .map(|p| p.sheet.name.clone())
+                    .unwrap_or_default();
+                self.gate_refuse(leader_conn, problem, &name, 0);
+                return self.call_off(&roster);
             }
         }
         let label = self
@@ -3424,33 +3465,112 @@ impl Sim {
             .maps
             .get(&def.map)
             .map_or_else(|| def.display.clone(), |m| m.display.clone());
-        let n = l.roster.len() as u8;
-        for (slot, ch) in l.roster.iter().enumerate() {
-            let Some((conn, entity)) = self.player_of(*ch) else {
-                continue;
-            };
-            self.send_control(
-                conn,
-                &ServerMsg::Dungeon(Box::new(DungeonMsg::Launch {
-                    map: def.map.clone(),
-                })),
-            );
-            let trip = Trip {
-                arrival: Arrival {
-                    map: def.map.clone(),
-                    landing: Landing::Ring {
-                        spawn: portal.to_spawn.clone(),
-                        slot: slot as u8,
-                        of: n,
-                    },
-                    kind: TripKind::Door,
-                    copy,
+        let cost = (keys > 0 && !def.key.is_empty()).then(|| (def.key.clone(), keys));
+        self.boardings.push(Boarding {
+            leader,
+            roster: roster.clone(),
+            copy,
+            map: def.map.clone(),
+            spawn,
+            label,
+            since: self.tick,
+        });
+        self.board_member(leader_conn, leader_entity, leader, cost);
+        let waiting = self
+            .world
+            .get::<Player>(leader_entity)
+            .is_some_and(|p| p.trip.is_some());
+        if !waiting && self.boardings.iter().any(|b| b.leader == leader) {
+            // Refused on the spot (the trip's own answer said why).
+            self.boardings.retain(|b| b.leader != leader);
+            self.gate_refuse(leader_conn, "party_changed", "", 0);
+            self.call_off(&roster);
+        }
+    }
+
+    /// One member's trip into the copy of its boarding party.
+    fn board_member(
+        &mut self,
+        conn: ConnId,
+        entity: Entity,
+        character: u64,
+        cost: Option<(String, u32)>,
+    ) {
+        let Some(b) = self
+            .boardings
+            .iter()
+            .find(|b| b.roster.contains(&character))
+        else {
+            return;
+        };
+        let slot = b.roster.iter().position(|c| *c == character).unwrap_or(0);
+        let trip = Trip {
+            arrival: Arrival {
+                map: b.map.clone(),
+                landing: Landing::Ring {
+                    spawn: b.spawn.clone(),
+                    slot: slot as u8,
+                    of: b.roster.len() as u8,
                 },
-                label: label.clone(),
-                cost: None,
-                combat_lock_ms: 0,
-            };
-            self.start_trip(conn, entity, trip, false);
+                kind: TripKind::Door,
+                copy: b.copy,
+            },
+            label: b.label.clone(),
+            cost,
+            combat_lock_ms: 0,
+        };
+        let map = b.map.clone();
+        self.send_control(
+            conn,
+            &ServerMsg::Dungeon(Box::new(DungeonMsg::Launch { map })),
+        );
+        self.start_trip(conn, entity, trip, false);
+    }
+
+    /// The seats held for a launch that will not go.
+    fn call_off(&mut self, roster: &[u64]) {
+        self.coord_send(MapMsg::Unreserve {
+            characters: roster.to_vec(),
+        });
+    }
+
+    /// A boarding leader's trip was refused: nobody goes, nothing was paid.
+    pub(super) fn boarding_refused(&mut self, leader: u64, reason: &str) {
+        let Some(k) = self.boardings.iter().position(|b| b.leader == leader) else {
+            return;
+        };
+        let b = self.boardings.remove(k);
+        if let Some((conn, _)) = self.player_of(leader) {
+            self.gate_refuse(conn, reason, "", 0);
+        }
+        self.call_off(&b.roster);
+    }
+
+    /// The leader is on its way, its keys paid: the others follow.
+    pub(super) fn boarding_followers(&mut self, leader: u64) {
+        let Some(k) = self.boardings.iter().position(|b| b.leader == leader) else {
+            return;
+        };
+        let roster = self.boardings[k].roster.clone();
+        for ch in roster.iter().filter(|c| **c != leader) {
+            if let Some((conn, entity)) = self.player_of(*ch) {
+                self.board_member(conn, entity, *ch, None);
+            }
+        }
+        self.boardings.remove(k);
+    }
+
+    /// Boardings whose leader never heard back (the coordinator went away).
+    fn sweep_boardings(&mut self) {
+        let tick = self.tick;
+        let stale: Vec<u64> = self
+            .boardings
+            .iter()
+            .filter(|b| tick > b.since + LAUNCH_WAIT_TICKS)
+            .map(|b| b.leader)
+            .collect();
+        for leader in stale {
+            self.boarding_refused(leader, "map_unavailable");
         }
     }
 
@@ -3610,50 +3730,12 @@ impl Sim {
             return self.gate_refuse(leader_conn, "map_full", "", 0);
         }
         self.runs_changed();
-        if keys > 0 && !def.key.is_empty() {
-            let tick = self.tick;
-            if let Some(mut p) = self.world.get_mut::<Player>(leader_entity)
-                && realm_rules::items::take_items(&mut p.sheet, &def.key, keys).is_ok()
-            {
-                p.sheet.revision += 1;
-                p.dirty_since.get_or_insert(tick);
-            }
-            self.send_sheet(leader_conn);
-        }
-        let label = rules
-            .travel
-            .maps
-            .get(&def.map)
-            .map_or_else(|| def.display.clone(), |m| m.display.clone());
-        let n = roster.len() as u8;
-        println!("[dungeon] copy {from} runs again as copy {copy} for {n}");
-        for (slot, ch) in roster.iter().enumerate() {
-            let Some((conn, entity)) = self.player_of(*ch) else {
-                continue;
-            };
-            self.send_control(
-                conn,
-                &ServerMsg::Dungeon(Box::new(DungeonMsg::Launch {
-                    map: def.map.clone(),
-                })),
-            );
-            let trip = Trip {
-                arrival: Arrival {
-                    map: def.map.clone(),
-                    landing: Landing::Ring {
-                        spawn: portal.to_spawn.clone(),
-                        slot: slot as u8,
-                        of: n,
-                    },
-                    kind: TripKind::Door,
-                    copy,
-                },
-                label: label.clone(),
-                cost: None,
-                combat_lock_ms: 0,
-            };
-            self.start_trip(conn, entity, trip, false);
-        }
+        println!(
+            "[dungeon] copy {from} runs again as copy {copy} for {}",
+            roster.len()
+        );
+        let spawn = portal.to_spawn.clone();
+        self.board(copy, &def, &Gather::Copy(from), spawn, leader, roster, keys);
     }
 
     /// The copy of `map` whose run holds `character` (0: none).

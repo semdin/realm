@@ -267,6 +267,7 @@ impl Sim {
         let trip = pending.trip;
         let what = trip.arrival.kind.name();
         if !ok {
+            self.boarding_refused(character, reason);
             return self.travel_refused(conn, what, reason);
         }
         let still = self.world.get::<Player>(entity).is_some_and(|p| {
@@ -277,6 +278,7 @@ impl Sim {
                     .is_none_or(|(item, n)| realm_rules::items::count_items(&p.sheet, item) >= *n)
         });
         if !still {
+            self.boarding_refused(character, "no_key");
             return self.travel_refused(conn, what, "aborted");
         }
         self.pay_trip(conn, entity, &trip);
@@ -289,6 +291,7 @@ impl Sim {
             },
         );
         self.leave_world(conn, Some(trip.arrival));
+        self.boarding_followers(character);
     }
 
     /// Reservations the coordinator never answered.

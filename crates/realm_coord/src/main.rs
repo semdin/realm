@@ -104,6 +104,14 @@ struct Reservation {
     expires: Instant,
 }
 
+/// A copy asked for: the gate's link and number, the party whose seats are
+/// held meanwhile.
+struct CopyRequest {
+    link: u64,
+    req: u64,
+    roster: Vec<u64>,
+}
+
 struct Online {
     name: String,
     house: String,
@@ -138,8 +146,8 @@ struct Book {
     ticket_key: Option<SigningKey>,
     /// Each dungeon map's live copies, by link.
     runs: HashMap<u64, Vec<RunSummary>>,
-    /// Copy requests on their way to a dungeon map: ours -> (link, theirs).
-    copy_requests: HashMap<u64, (u64, u64)>,
+    /// Copy requests on their way to a dungeon map: ours -> who asked.
+    copy_requests: HashMap<u64, CopyRequest>,
     next_request: u64,
     /// The week's boards by (dungeon, difficulty), and where they are kept
     /// (None: in memory only).
@@ -459,31 +467,41 @@ impl Book {
         }
     }
 
-    /// A seat on `map` for `character`, if it is open and has room.
-    fn reserve(&mut self, character: u64, map: &str) -> Result<(), &'static str> {
+    /// The map's link, if travel to it is open at all.
+    fn open_link(&self, map: &str) -> Result<u64, &'static str> {
         if self.ticket_key.is_none() {
             return Err("map_unavailable");
         }
         if !self.travel_allowed() {
             return Err("maintenance");
         }
-        let Some((&target, link)) = self.links.iter().find(|(_, l)| l.map == map) else {
-            return Err("map_unavailable");
-        };
-        let seated = self
-            .seats
-            .values()
-            .filter(|s| matches!(s, Seat::On { link, .. } if *link == target))
-            .count();
-        let held = self
-            .reservations
+        self.links
             .iter()
-            .filter(|(c, r)| **c != character && r.map == map)
-            .count();
-        if seated + held >= usize::from(link.capacity) {
-            return Err("map_full");
-        }
-        let address = link.address.clone();
+            .find(|(_, l)| l.map == map)
+            .map(|(id, _)| *id)
+            .ok_or("map_unavailable")
+    }
+
+    /// Whether `character` needs a new seat on `map`: not when it already
+    /// stands there (a move between copies) or holds one.
+    fn needs_seat(&self, character: u64, target: u64, map: &str) -> bool {
+        let here = matches!(
+            self.seats.get(&character),
+            Some(Seat::On { link, .. }) if *link == target
+        );
+        !here
+            && self
+                .reservations
+                .get(&character)
+                .is_none_or(|r| r.map != map)
+    }
+
+    fn hold_seat(&mut self, character: u64, target: u64, map: &str) {
+        let address = self
+            .links
+            .get(&target)
+            .map(|l| l.address.clone())
+            .unwrap_or_default();
         self.reservations.insert(
             character,
             Reservation {
@@ -492,7 +510,50 @@ impl Book {
                 expires: Instant::now() + RESERVE_TTL,
             },
         );
+    }
+
+    /// A seat on `map` for `character`, if it is open and has room.
+    fn reserve(&mut self, character: u64, map: &str) -> Result<(), &'static str> {
+        self.reserve_all(&[character], map)
+    }
+
+    /// Seats on `map` for all of `characters`, or for none of them.
+    fn reserve_all(&mut self, characters: &[u64], map: &str) -> Result<(), &'static str> {
+        let target = self.open_link(map)?;
+        let new = characters
+            .iter()
+            .filter(|c| self.needs_seat(**c, target, map))
+            .count();
+        if self.map_used(target, map) + new > self.map_cap(target) {
+            return Err("map_full");
+        }
+        for c in characters {
+            self.hold_seat(*c, target, map);
+        }
         Ok(())
+    }
+
+    /// Everyone on `link` plus the seats held for `map`.
+    fn map_used(&self, link: u64, map: &str) -> usize {
+        let seated = self
+            .seats
+            .values()
+            .filter(|s| matches!(s, Seat::On { link: l, .. } if *l == link))
+            .count();
+        let held = self
+            .reservations
+            .iter()
+            .filter(|(c, r)| {
+                r.map == map
+                    && !matches!(self.seats.get(c), Some(Seat::On { link: l, .. }) if *l == link)
+            })
+            .count();
+        seated + held
+    }
+
+    /// How many players `link`'s map holds.
+    fn map_cap(&self, link: u64) -> usize {
+        self.links.get(&link).map_or(0, |l| usize::from(l.capacity))
     }
 
     fn tell(&self, character: u64, text: impl Into<String>) {
@@ -832,24 +893,60 @@ impl Book {
                 }
             }
             MapMsg::OpenCopy { req, map, spec } => {
+                // The whole party's seats first: a party either goes in
+                // together or hears why not, before anything is spent.
+                let roster: Vec<u64> = spec.roster.iter().map(|m| m.0).collect();
                 let target = self
                     .links
                     .iter()
                     .find(|(_, l)| l.map == map)
                     .map(|(id, _)| *id);
-                match target {
-                    Some(t) => {
+                let held = self.reserve_all(&roster, &map);
+                match (target, held) {
+                    (Some(t), Ok(())) => {
                         self.next_request += 1;
                         let ours = self.next_request;
-                        self.copy_requests.insert(ours, (link, req));
+                        self.copy_requests
+                            .insert(ours, CopyRequest { link, req, roster });
                         self.to_link(t, CoordMsg::OpenCopy { req: ours, spec });
                     }
-                    None => self.to_link(link, CoordMsg::CopyOpened { req, copy: 0 }),
+                    (_, held) => {
+                        let reason = held.err().unwrap_or("map_unavailable").to_owned();
+                        eprintln!("[dungeon] no copy of {map}: {reason}");
+                        self.to_link(
+                            link,
+                            CoordMsg::CopyOpened {
+                                req,
+                                copy: 0,
+                                reason,
+                            },
+                        );
+                    }
                 }
             }
             MapMsg::CopyOpened { req, copy } => {
-                if let Some((origin, theirs)) = self.copy_requests.remove(&req) {
-                    self.to_link(origin, CoordMsg::CopyOpened { req: theirs, copy });
+                if let Some(r) = self.copy_requests.remove(&req) {
+                    let mut reason = String::new();
+                    if copy == 0 {
+                        // Every copy is in use: the party's seats go back.
+                        for c in &r.roster {
+                            self.reservations.remove(c);
+                        }
+                        reason = "map_full".to_owned();
+                    }
+                    self.to_link(
+                        r.link,
+                        CoordMsg::CopyOpened {
+                            req: r.req,
+                            copy,
+                            reason,
+                        },
+                    );
+                }
+            }
+            MapMsg::Unreserve { characters } => {
+                for c in characters {
+                    self.reservations.remove(&c);
                 }
             }
             MapMsg::Runs(list) => {
@@ -1000,7 +1097,7 @@ impl Book {
         let lost: Vec<u64> = self
             .copy_requests
             .iter()
-            .filter(|(_, (origin, _))| *origin == link)
+            .filter(|(_, r)| r.link == link)
             .map(|(k, _)| *k)
             .collect();
         for k in lost {

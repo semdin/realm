@@ -277,6 +277,10 @@ pub enum MapMsg {
     /// The map's numbers, every 5 s while linked (the coordinator's
     /// metrics). Appended last: postcard numbers variants in order.
     Stats(MapStats),
+    /// A launch was called off after its copy opened: these seats go back.
+    Unreserve {
+        characters: Vec<u64>,
+    },
 }
 
 /// Coordinator -> map server.
@@ -321,10 +325,13 @@ pub enum CoordMsg {
         req: u64,
         spec: Box<RunSpec>,
     },
-    /// To the gate that asked: the copy (0: none free).
+    /// To the gate that asked: the copy, its party's seats held. Copy 0: no
+    /// copy, and why (`map_full`, `map_unavailable`,
+    /// `maintenance`).
     CopyOpened {
         req: u64,
         copy: u8,
+        reason: String,
     },
     /// Every dungeon map's live copies.
     Runs(Vec<RunSummary>),

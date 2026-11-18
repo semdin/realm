@@ -477,6 +477,8 @@ pub struct Sim {
     boards: Vec<realm_proto::coord::Board>,
     ready_checks: Vec<dungeon::Check>,
     launches: Vec<dungeon::Launch>,
+    /// Parties going into their copies, the leader's seat being confirmed.
+    boardings: Vec<dungeon::Boarding>,
     next_check: u32,
     next_hazard: u32,
     /// Development: a run's creatures' health and damage x this.
@@ -666,6 +668,7 @@ impl Sim {
             boards: Vec::new(),
             ready_checks: Vec::new(),
             launches: Vec::new(),
+            boardings: Vec::new(),
             next_check: 0,
             next_hazard: 0,
             dev_dungeon_scale: 1.0,
