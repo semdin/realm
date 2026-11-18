@@ -1,5 +1,5 @@
 {
-  "_comment": "Colliders for drawn solids the castle glb carries without one (found by comparing every drawn surface with the colliders on a 2 m grid, 1.4 m over each room's floor): the stone under the Entrance Hall, library and dungeon stairwell stairs (their colliders are only the walkway slab and the rails, so a body could walk under the drawn stair) and the potions room's cauldrons on their benches. Each box stays a few cm inside the drawn stone and under the walkway's underside; none is near the Grand Staircase's swinging flights (pivot (0, -6), reach ~16.5 m). Pack coordinates (layout + 200 m up). Applied by realm_worldc patch. The Feast Hall's angled tables and benches (castle_feast.gd HALL_TABLES) are boxes here too; `remove` takes the old long rows they replaced out of the pack. The Entrance Hall's hourglass plinth is removed too; the two fire bowls that stand there now (castle_decor.gd ENTRANCE_BRAZIERS) are boxes.",
+  "_comment": "Colliders for drawn solids the castle glb carries without one (found by comparing every drawn surface with the colliders on a 2 m grid, 1.4 m over each room's floor): the stone under the Entrance Hall, library and dungeon stairwell stairs (their colliders are only the walkway slab and the rails, so a body could walk under the drawn stair) and the potions room's cauldrons on their benches. Each box stays a few cm inside the drawn stone and under the walkway's underside; none is near the Tidewheel Stair's swinging flights (pivot (0, -6), reach ~16.5 m). Pack coordinates (layout + 200 m up). Applied by realm_worldc patch. The Long Table's angled tables and benches (castle_feast.gd HALL_TABLES) are boxes here too; `remove` takes the old long rows they replaced out of the pack. The Entrance Hall's hourglass plinth is removed too; the two fire bowls that stand there now (castle_decor.gd ENTRANCE_BRAZIERS) are boxes.",
   "boxes": [
     {
       "note": "Entrance Hall west stair under-stair stone, column 0 (drawn solid, its colliders are only the walkway and rails)",
@@ -1136,7 +1136,7 @@
       "yaw_deg": 0
     },
     {
-      "note": "Feast Hall table 1 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 1 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -81,
         200.425,
@@ -1150,7 +1150,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 1 bench (-z side of the board)",
+      "note": "Long Table table 1 bench (-z side of the board)",
       "center": [
         -81.5,
         200.23,
@@ -1164,7 +1164,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 1 bench (+z side of the board)",
+      "note": "Long Table table 1 bench (+z side of the board)",
       "center": [
         -80.5,
         200.23,
@@ -1178,7 +1178,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 2 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 2 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -67,
         200.425,
@@ -1192,7 +1192,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 2 bench (-z side of the board)",
+      "note": "Long Table table 2 bench (-z side of the board)",
       "center": [
         -67.5,
         200.23,
@@ -1206,7 +1206,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 2 bench (+z side of the board)",
+      "note": "Long Table table 2 bench (+z side of the board)",
       "center": [
         -66.5,
         200.23,
@@ -1220,7 +1220,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 3 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 3 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -53,
         200.425,
@@ -1234,7 +1234,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 3 bench (-z side of the board)",
+      "note": "Long Table table 3 bench (-z side of the board)",
       "center": [
         -53.5,
         200.23,
@@ -1248,7 +1248,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 3 bench (+z side of the board)",
+      "note": "Long Table table 3 bench (+z side of the board)",
       "center": [
         -52.5,
         200.23,
@@ -1262,7 +1262,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 4 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 4 (north of the aisle, turned +30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -39,
         200.425,
@@ -1276,7 +1276,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 4 bench (-z side of the board)",
+      "note": "Long Table table 4 bench (-z side of the board)",
       "center": [
         -39.5,
         200.23,
@@ -1290,7 +1290,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 4 bench (+z side of the board)",
+      "note": "Long Table table 4 bench (+z side of the board)",
       "center": [
         -38.5,
         200.23,
@@ -1304,7 +1304,7 @@
       "yaw_deg": 30
     },
     {
-      "note": "Feast Hall table 5 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 5 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -81,
         200.425,
@@ -1318,7 +1318,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 5 bench (-z side of the board)",
+      "note": "Long Table table 5 bench (-z side of the board)",
       "center": [
         -80.5,
         200.23,
@@ -1332,7 +1332,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 5 bench (+z side of the board)",
+      "note": "Long Table table 5 bench (+z side of the board)",
       "center": [
         -81.5,
         200.23,
@@ -1346,7 +1346,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 6 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 6 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -67,
         200.425,
@@ -1360,7 +1360,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 6 bench (-z side of the board)",
+      "note": "Long Table table 6 bench (-z side of the board)",
       "center": [
         -66.5,
         200.23,
@@ -1374,7 +1374,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 6 bench (+z side of the board)",
+      "note": "Long Table table 6 bench (+z side of the board)",
       "center": [
         -67.5,
         200.23,
@@ -1388,7 +1388,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 7 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
+      "note": "Long Table table 7 (south of the aisle, turned -30 deg; castle_feast.gd HALL_TABLES): the board and trestles",
       "center": [
         -53,
         200.425,
@@ -1402,7 +1402,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 7 bench (-z side of the board)",
+      "note": "Long Table table 7 bench (-z side of the board)",
       "center": [
         -52.5,
         200.23,
@@ -1416,7 +1416,7 @@
       "yaw_deg": -30
     },
     {
-      "note": "Feast Hall table 7 bench (+z side of the board)",
+      "note": "Long Table table 7 bench (+z side of the board)",
       "center": [
         -53.5,
         200.23,
@@ -2216,7 +2216,7 @@
   ],
   "remove": [
     {
-      "note": "Feast Hall: the old four long table rows and their eight benches (glb B_house_table_1..4, K_bench_489..496), replaced by the angled tables above",
+      "note": "Long Table: the old four long table rows and their eight benches (glb B_house_table_1..4, K_bench_489..496), replaced by the angled tables above",
       "min": [
         -88.5,
         199.9,
@@ -2411,7 +2411,7 @@
       ]
     },
     {
-      "note": "Feast Hall dais: the owl lectern's collider (the lectern itself was removed with the hall's redesign)",
+      "note": "Long Table dais: the owl lectern's collider (the lectern itself was removed with the hall's redesign)",
       "min": [
         -97.4,
         200.9,

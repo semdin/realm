@@ -123,7 +123,7 @@ pub struct CreatureDef {
     /// Element -> reduction (1 = immune, negative = weak).
     pub resist: BTreeMap<String, f32>,
     pub displace_resist: f32,
-    /// A hit drains mana before health (the pallids).
+    /// A hit drains mana before health (the mistguards).
     pub mana_first: bool,
 }
 
