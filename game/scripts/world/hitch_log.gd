@@ -20,6 +20,12 @@ extends Node
 ## the first-sight cost of a creature in play. `--hitch-drop-kept` lets go of
 ## what the warm-up kept first (the warm-up as it was before it kept anything).
 ##
+## Without `--hitch-log` it runs quiet, in every game: vsync and the render
+## timing are left alone, and only a frame over QUIET_MS once the map is built
+## is written to the log (at most QUIET_LINES a session), with what compiled in
+## it and where. A player's log then says what a freeze was (a Mac reported
+## "a stutter the first time I mounted, cast, attacked" with nothing to show).
+##
 ## `--hitch-cycle=low,medium,high`: the presets in turn, CYCLE_SECONDS each,
 ## switched live as Settings does but for this session only (nothing is
 ## saved), then the game quits; the summaries say what each one costs.
@@ -28,6 +34,12 @@ const HITCH_MS := 33.0
 const SUMMARY_SECONDS := 5.0
 const SOURCES := ["canvas", "mesh", "surface", "draw", "spec"]
 const CYCLE_SECONDS := 10.0
+const QUIET_MS := 250.0
+const QUIET_LINES := 40
+
+## Set before it enters the tree: the player's quiet log.
+var quiet := false
+var _quiet_left := QUIET_LINES
 
 var _infos: Array = []
 var _last: Array = []
@@ -48,6 +60,9 @@ func _ready() -> void:
 	_infos = ShaderWarmup.PIPELINE_INFOS
 	_last = _counts()
 	_span = _zeros()
+	if quiet:
+		_last_usec = Time.get_ticks_usec()
+		return
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 		RenderingServer.viewport_set_measure_render_time(get_viewport().get_viewport_rid(), true)
@@ -89,6 +104,12 @@ func _process(_delta: float) -> void:
 	if _skip > 0:
 		_skip -= 1
 		return
+	if quiet:
+		if ms > QUIET_MS and _quiet_left > 0 and bool(get_parent().get("built")) \
+				and get_parent().get_node_or_null("ShaderWarmup") == null and not _loading():
+			_quiet_left -= 1
+			print("[hitch] %d ms, compiled %s, %s" % [int(ms), _named(delta_counts), _where()])
+		return
 	var gpu := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
 	_frames.append(ms)
 	_gpu += gpu
@@ -127,6 +148,11 @@ func _next_preset() -> void:
 	QualityPreset.apply(get_parent())
 	print("[HitchLog] preset -> %s" % QualityPreset.current())
 	_cycle_at = CYCLE_SECONDS
+
+## A loading screen is up: what happens behind it is loading, not a hitch.
+func _loading() -> bool:
+	var screen := get_tree().root.get_node_or_null("MapLoadingScreen") as MapLoadingScreen
+	return screen != null and screen.is_open()
 
 func _named(counts: Array) -> String:
 	var parts: Array = []

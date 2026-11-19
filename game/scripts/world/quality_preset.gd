@@ -167,9 +167,10 @@ static func use_for_session(preset: String) -> void:
 ## spell effects, the map's own parts, the weather and the day's light.
 static func apply(main: Node) -> void:
 	var preset := settings()
-	if OS.get_cmdline_user_args().has("--hitch-log") and main.get_node_or_null("HitchLog") == null:
+	if main.get_node_or_null("HitchLog") == null:
 		var hitch_log: Node = load("res://scripts/world/hitch_log.gd").new()
 		hitch_log.name = "HitchLog"
+		hitch_log.set("quiet", not OS.get_cmdline_user_args().has("--hitch-log"))
 		main.add_child(hitch_log)
 	SkillFX.quality = current()
 	var viewport := main.get_viewport()

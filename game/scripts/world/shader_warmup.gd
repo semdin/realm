@@ -112,6 +112,14 @@ var _start_count := 0
 var _last_count := 0
 var _mute_was := false
 var _slot := 0
+## The warm-up hero (the wards are raised on it).
+var _hero: Node3D = null
+## The body that carries every status look.
+var _first_body: Node3D = null
+## What the flight stages follow: a trail or ribbon only takes geometry, and so
+## is only drawn, when the thing it follows moves.
+var _movers: Array[Node3D] = []
+const MOVER_SPEED := 2.5
 ## A creature kind on this map: a second body of it is drawn burning away (a
 ## fallen creature's dissolve, CreatureView.warm_burn).
 var _burn_kind := -1
@@ -334,6 +342,7 @@ func _add_hero() -> void:
 	add_child(hero)
 	hero.call("setup", Color(0.85, 0.4, 0.11))
 	_place(hero)
+	_hero = hero
 
 func _place(body: Node3D) -> void:
 	body.position = _grid(_slot)
@@ -354,6 +363,7 @@ func _add_combat_extras() -> void:
 		for bit: int in StatusFX.BITS:
 			all |= bit
 		(first as CreatureView).set_status(all)
+		_first_body = first
 	if _burn_kind >= 0:
 		_add_creature(_burn_kind, true)
 	for kind: int in [ChestView.KIND_CHEST, ChestView.KIND_CHEST_RARE]:
@@ -386,6 +396,53 @@ func _add_combat_extras() -> void:
 	mark.position = _grid(_slot) + Vector3.UP
 	_slot += 1
 	_add_model(BOULDER_MODEL)
+	_add_blood()
+	_add_wards()
+
+## A bleeding body's spot of blood on the ground (StatusFX): the warmed body
+## carries every status, knocked down included, and a knocked body leaves no
+## spot, so the spot is laid here as StatusFX lays it.
+func _add_blood() -> void:
+	var spot := MeshInstance3D.new()
+	var quad := QuadMesh.new()
+	quad.size = Vector2(0.4, 0.35)
+	quad.orientation = PlaneMesh.FACE_Y
+	quad.material = StatusFX._material("splat")
+	spot.mesh = quad
+	spot.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	spot.transparency = 0.15
+	add_child(spot)
+	spot.position = _grid(_slot)
+	spot.rotation.x = 0.7   # turned toward the camera, not edge-on
+	_slot += 1
+
+## The moments of a fight that last half a second, so they go into the drawn
+## pass (in the work steps nothing is drawn and they would be over unseen): a
+## bleeding wound's drops, the ice bursting off a body when a freeze ends, and
+## the low-health edge of the screen (under the loading screen's layer).
+func _fight_moments() -> void:
+	if is_instance_valid(_first_body):
+		for node: Node in _first_body.find_children("*", "", true, false):
+			if node is StatusFX:
+				(node as StatusFX)._spurt()
+				(node as StatusFX)._shatter()
+				break
+	var layer := CanvasLayer.new()
+	layer.layer = 80
+	add_child(layer)
+	var edge := LowHpVignette.new()
+	layer.add_child(edge)
+	edge.visible = true
+	(edge.material as ShaderMaterial).set_shader_parameter("strength", 0.5)
+
+## Both wards' shells on the warm-up hero (their own meshes and shaders; the
+## first ward raised in play compiled them).
+func _add_wards() -> void:
+	if not is_instance_valid(_hero):
+		return
+	for spell_id: String in ["ward_shield", "shardglass_ward"]:
+		if HudActionBar.spells().has(spell_id):
+			WardShield.raise(self, _hero, REVEAL_LIMIT, spell_id)
 
 func _grid(i: int) -> Vector3:
 	const COLUMNS := 7
@@ -401,7 +458,14 @@ func _spell_stages() -> Array:
 
 func _fire_stage(spell_id: String, stage: String, i: int) -> void:
 	var at := global_transform * Vector3(((i % 9) - 4) * 0.8, 1.5, -1.0)
-	if SkillFX.spawn_stage(self, spell_id, stage, at, -global_basis.z) != null and _counting_stages:
+	var opts := {}
+	if stage == "travel":
+		var mover := Node3D.new()
+		add_child(mover)
+		mover.global_position = at
+		_movers.append(mover)
+		opts["follow_target"] = mover
+	if SkillFX.spawn_stage(self, spell_id, stage, at, -global_basis.z, null, opts) != null and _counting_stages:
 		stages += 1
 
 func _fire_spells() -> void:
@@ -412,6 +476,9 @@ func _process(delta: float) -> void:
 	if done:
 		return
 	_t += delta
+	for mover: Node3D in _movers:
+		if is_instance_valid(mover):
+			mover.position += Vector3.RIGHT * MOVER_SPEED * delta
 	match _stage:
 		Stage.ANNOUNCE:
 			if _presented >= PRESENTED_FRAMES or _t >= ANNOUNCE_LIMIT:
@@ -487,6 +554,7 @@ func _begin_reveal() -> void:
 	if hold != null:
 		hold.release()
 	_draw_count = int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_PIPELINE_COMPILATIONS_DRAW))
+	_fight_moments()
 	_counting_stages = true
 	_last_count = pipeline_count()
 	RealmGuard.set_phase("warmup drawn pass")
