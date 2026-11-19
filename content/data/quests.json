@@ -2133,6 +2133,10 @@
         {
           "id": "cloak_moonveil",
           "amount": 1
+        },
+        {
+          "id": "broom_moonveil",
+          "amount": 1
         }
       ]
     }

@@ -271,6 +271,16 @@
         "item": "potion_mana",
         "amount": 10,
         "seals": 3
+      },
+      {
+        "item": "broom_windcutter_2000",
+        "amount": 1,
+        "seals": 30
+      },
+      {
+        "item": "broom_skysplitter",
+        "amount": 1,
+        "seals": 250
       }
     ]
   },

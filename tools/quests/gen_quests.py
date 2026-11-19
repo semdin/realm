@@ -316,7 +316,7 @@ CHAIN = [
      {'boss': True, 'items': [('wand_moonveil', 1)]}),
     (50, 'B', 'talk', 'Commander Teral Venn', 1, 'The Watch Relieved', 'Report your victory to Commander Teral Venn',
      "The valley is safe - for now. The Ash Priest has fled through a rift into another realm. Commander Teral Venn is waiting to congratulate you.", 'Commander Teral Venn',
-     {'items': [('cloak_moonveil', 1)]}),
+     {'items': [('cloak_moonveil', 1), ('broom_moonveil', 1)]}),
 ]
 
 # Story links: a quest opens only after the listed quests were claimed
