@@ -44,8 +44,8 @@ var active := false
 var screen_kind := ""
 ## The kick or ban that is about to close the connection ({} when none).
 var sanction := {}
-## The map refused this account as banned (no kick notice came first).
-var _refused_banned := false
+## This refusal will not pass by trying again (a ban, an old client).
+var _no_retry := false
 ## main.gd's return_to_login(kind, detail) when the player came in through
 ## the login screen; unset (a dev join) the button reconnects.
 var to_login := Callable()
@@ -197,6 +197,7 @@ func _process(_delta: float) -> void:
 func show_closed(status: String, was_in := true) -> void:
 	if screen_kind != "":
 		return
+	_no_retry = false
 	var refused := status.begins_with("refused")
 	var why := status.substr(status.find(": ") + 2) if status.contains(": ") else status
 	var title := ""
@@ -208,7 +209,7 @@ func show_closed(status: String, was_in := true) -> void:
 		detail = sanction_text(sanction)
 	elif refused and why == "banned":
 		screen_kind = "refused"
-		_refused_banned = true
+		_no_retry = true
 		title = tr("This account is banned")
 		detail = tr("It cannot enter the realm.")
 	elif refused and why in ["realm_full", "map_full"]:
@@ -227,10 +228,13 @@ func show_closed(status: String, was_in := true) -> void:
 		screen_kind = "refused"
 		title = tr("Update required")
 		detail = tr("Your game is out of date. Close it and open the launcher to update.")
+		_no_retry = true
 	elif refused:
 		screen_kind = "refused"
 		title = tr("Could not enter the realm")
 		detail = I18n.from_server(why)
+		# the server's reasons are bare phrases
+		detail = detail.left(1).to_upper() + detail.substr(1)
 	elif not was_in:
 		# never in: the connection, or the join on it, went unanswered
 		screen_kind = "unanswered"
@@ -369,8 +373,8 @@ func _build_screen(was_in: bool) -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 16)
 	column.add_child(buttons)
-	var banned := screen_kind == "refused" and (String(sanction.get("state", "")) == "ban" or _refused_banned)
-	var can_retry := retry.is_valid() and screen_kind != "refused_maintenance" and screen_kind != "maintenance" and not banned
+	var banned := String(sanction.get("state", "")) == "ban"
+	var can_retry := retry.is_valid() and screen_kind != "refused_maintenance" and screen_kind != "maintenance" 		and not banned and not _no_retry
 	if can_retry:
 		retry_button = HudKit.gold_button(tr("Try Again"), 42.0, 17)
 		retry_button.name = "TryAgain"

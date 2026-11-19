@@ -15,6 +15,8 @@ signal log_opened
 const WIDTH := 200.0
 const ICON := 30.0
 const MAX_ROWS := 3
+## Below this height the chat stands where the third card would end.
+const SHORT_SCREEN := 760.0
 const NEW_GLOW := Color(1.0, 0.82, 0.35)
 const READY_GLOW := Color(0.45, 1.0, 0.55)
 ## Where it sits: this far in from the left edge, this far above the middle.
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_more.pressed.connect(func(): log_opened.emit())
 	add_child(_more)
 	quests.quest_updated.connect(refresh)
+	get_viewport().size_changed.connect(refresh)
 	refresh()
 
 ## A card: the scroll icon on the left, the title and the objective beside it.
@@ -166,9 +169,10 @@ func refresh() -> void:
 	if _rows.is_empty():
 		return
 	var entries: Array = quests.log_entries()
+	var limit := MAX_ROWS - 1 if get_viewport_rect().size.y < SHORT_SCREEN else MAX_ROWS
 	for i in _rows.size():
 		var row: Button = _rows[i]
-		if i >= entries.size():
+		if i >= entries.size() or i >= limit:
 			row.visible = i == 0
 			_row_ids[i] = ""
 			if i == 0:
@@ -181,5 +185,5 @@ func refresh() -> void:
 		row.visible = true
 		_set_row(row, I18n.t(String(q.get("title", ""))), quests.objective_text(q))
 		row.tooltip_text = tr("Click to claim the reward") if quests.is_ready(id) else tr("Click to read the quest scroll")
-	_more.visible = entries.size() > MAX_ROWS
-	_more.text = tr("More quests (%d)  ·  %s") % [entries.size() - MAX_ROWS, GameSettings.key_name("quest_log")]
+	_more.visible = entries.size() > limit
+	_more.text = tr("More quests (%d)  ·  %s") % [entries.size() - limit, GameSettings.key_name("quest_log")]
