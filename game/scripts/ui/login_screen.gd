@@ -175,9 +175,15 @@ func _fit_column() -> void:
 	if crest_logo == null or size.y <= 0.0:
 		return
 	var room := size.y - COLUMN_MARGIN * 2.0
-	var rest := login_column.get_combined_minimum_size().y - (crest_box.get_combined_minimum_size().y if crest_box.visible else 0.0)
+	# The same answer with the crest shown or hidden: hiding it also removes
+	# the column's gap, and an answer that changed with it flipped the crest
+	# without end (a three-line message on the card crashed the game).
+	var gap := float(login_column.get_theme_constant("separation"))
+	var rest := login_column.get_combined_minimum_size().y
+	if crest_box.visible:
+		rest -= crest_box.get_combined_minimum_size().y + gap
 	var crest_extra := crest_box.get_combined_minimum_size().y - crest_logo.custom_minimum_size.y
-	var logo_room := room - rest - crest_extra - 18.0
+	var logo_room := room - rest - crest_extra - gap
 	crest_box.visible = logo_room >= LOGO_MIN_HEIGHT
 	var height := clampf(logo_room, LOGO_MIN_HEIGHT, LOGO_HEIGHT)
 	if not is_equal_approx(crest_logo.custom_minimum_size.y, height):

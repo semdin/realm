@@ -44,6 +44,8 @@ var active := false
 var screen_kind := ""
 ## The kick or ban that is about to close the connection ({} when none).
 var sanction := {}
+## The map refused this account as banned (no kick notice came first).
+var _refused_banned := false
 ## main.gd's return_to_login(kind, detail) when the player came in through
 ## the login screen; unset (a dev join) the button reconnects.
 var to_login := Callable()
@@ -206,6 +208,7 @@ func show_closed(status: String, was_in := true) -> void:
 		detail = sanction_text(sanction)
 	elif refused and why == "banned":
 		screen_kind = "refused"
+		_refused_banned = true
 		title = tr("This account is banned")
 		detail = tr("It cannot enter the realm.")
 	elif refused and why in ["realm_full", "map_full"]:
@@ -366,7 +369,8 @@ func _build_screen(was_in: bool) -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 16)
 	column.add_child(buttons)
-	var can_retry := retry.is_valid() and screen_kind != "refused_maintenance" and screen_kind != "maintenance"
+	var banned := screen_kind == "refused" and (String(sanction.get("state", "")) == "ban" or _refused_banned)
+	var can_retry := retry.is_valid() and screen_kind != "refused_maintenance" and screen_kind != "maintenance" and not banned
 	if can_retry:
 		retry_button = HudKit.gold_button(tr("Try Again"), 42.0, 17)
 		retry_button.name = "TryAgain"
