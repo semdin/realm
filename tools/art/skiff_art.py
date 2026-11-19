@@ -459,7 +459,7 @@ def build_hull(t):
     for sign in (1, -1):
         z0 = 0.5
         x0, y0 = h.section(np.array(z0), np.array(sign * 0.45))
-        ex = norm((sign * 0.82, -0.2, -0.54)); ey = norm((0, 0.15, 1.0))
+        ex = norm((sign * 0.46, -0.3, -0.84)); ey = norm((sign * 0.2, 0.15, 1.0))
         m.plate([(-0.01, -0.14), (-0.01, 0.13), (0.26 * scale, -0.12), (0.34 * scale, -0.26)],
                 (float(x0) - sign * 0.01, float(y0), z0), ex, ey, 0.007, FIN)
     # wind-stone in its cradle under the keel
