@@ -794,7 +794,8 @@ func _wants_front_door() -> bool:
 func _dev_switch() -> String:
 	for arg: String in OS.get_cmdline_user_args():
 		if arg == "--character" or arg == "--server" or arg.ends_with("-guest") \
-				or (arg.begins_with("--check") and arg != "--check-login" and arg != "--check-play"):
+				or (arg.begins_with("--check") and arg != "--check-login" and arg != "--check-play" \
+					and arg != "--check-play-limit"):
 			return arg
 	return ""
 
