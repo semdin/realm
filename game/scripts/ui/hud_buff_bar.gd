@@ -23,6 +23,7 @@ const ICON := 34.0
 # i18n-begin
 const KINDS := {
 	"ward": ["ward_shield", "Ward Shield", "Reflects projectiles; other damage reduced by 60%.", false],
+	"shardglass_ward": ["shardglass_ward", "Shardglass Ward", "Reflects a duel foe's bolts; other damage reduced by 35%.", false],
 	"stun": ["status_stun", "Stunned", "You cannot cast or move.", true],
 	"knock": ["status_stun", "Knocked back", "Thrown off your feet: no casting until you land.", true],
 	"freeze": ["status_stun", "Frozen", "Encased in ice: you cannot cast or move.", true],

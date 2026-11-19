@@ -233,8 +233,9 @@ pub enum ServerMsg {
     },
     /// What lasts on the player now and the server tick each ends (sent
     /// whenever it changes): stun, knock, web (slowed), despair (no natural
-    /// regeneration), venom, freeze, burn, bleed, weak, ward. The bar of
-    /// effects counts them down.
+    /// regeneration), venom, freeze, burn, bleed, weak, ward (Ward Shield),
+    /// or another ward by its spell id (shardglass_ward). The bar of effects
+    /// counts them down.
     Effects(Vec<(String, u32)>),
     /// The realm's weather (on joining and whenever it changes); the
     /// client shows it outdoors.

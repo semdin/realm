@@ -2008,6 +2008,9 @@ msgstr "Yanma %d x %d"
 msgid "Disarm %s s"
 msgstr "Silahsızlandırma %s sn"
 
+msgid "Attack power -%d%% for %s s"
+msgstr "Saldırı gücü -%%%d, %s sn"
+
 msgid "Special"
 msgstr "Özel"
 
@@ -4389,6 +4392,33 @@ msgstr "Buz Kıskacı"
 
 msgid "Frost nova. Hurls a spinning ice crystal that bursts into shards and freezing mist, freezing every enemy in the blast solid for up to 1.6 seconds; thawed enemies stay chilled and slowed for 2.5 seconds. Requires level 20."
 msgstr "Buz patlaması. Dönen bir buz kristali fırlatır; kristal parçalara ve dondurucu bir sise dönüşerek patlar, patlamadaki her düşmanı 1,6 saniyeye kadar buz kalıbına çevirir; çözülen düşmanlar 2,5 saniye boyunca üşür ve yavaşlar. 20. seviye gerekir."
+
+msgid "Hushing Gale"
+msgstr "Susturan Yel"
+
+msgid "A short, hard gust in front of you: every enemy within 8 metres in a 70-degree cone is knocked back, its casting is interrupted and its attack power drops by 25% for 3 seconds, longer as the skill grows. Light damage. Requires level 15."
+msgstr "Önüne kısa ve sert bir yel savurur: 8 metre içinde, 70 derecelik bir koninin içindeki her düşman geri itilir, büyüsü kesilir ve saldırı gücü 3 saniye boyunca %25 düşer; beceri geliştikçe süre uzar. Hasarı düşüktür. 15. seviye gerekir."
+
+msgid "Starnail"
+msgstr "Yıldız Çivisi"
+
+msgid "Drives a fast splinter of starlight into one target up to 44 metres away: high damage and a 0.9-second stun (0.25 seconds on a boss), longer as the skill grows. Requires level 25."
+msgstr "44 metreye kadar uzaktaki tek bir hedefe hızlı bir yıldız ışığı kıymığı saplar: yüksek hasar ve 0,9 saniye sersemletme (patronlarda 0,25 saniye); beceri geliştikçe süre uzar. 25. seviye gerekir."
+
+msgid "Shardglass Ward"
+msgstr "Sırça Kalkan"
+
+msgid "Raises a shell of shard-glass around you for 6 seconds, longer as the skill grows. In a duel a foe's single-target bolt that strikes it flies back at its caster; every other hit on you, creatures' bolts included, is reduced by 35%. Requires level 30."
+msgstr "Etrafında 6 saniye boyunca cam kırıklarından bir kabuk örer; beceri geliştikçe süre uzar. Düelloda rakibin ona çarpan tek hedefli mermisi atana geri döner; sana gelen diğer tüm vuruşlar, yaratıkların mermileri dahil, %35 azalır. 30. seviye gerekir."
+
+msgid "Reflects a duel foe's bolts; other damage reduced by 35%."
+msgstr "Düello rakibinin mermilerini geri yansıtır; diğer hasarlar %35 azalır."
+
+msgid "Dawnbreak"
+msgstr "Tan Işığı"
+
+msgid "Throws a narrow beam of dawn light 28 metres straight ahead (an 18-degree fan). Pallids take triple damage and the light breaks a Pallid's attack; most other creatures resist it and take half. Everything it hits is slowed by 55% for 2 seconds (1 second on a boss), longer as the skill grows. Requires level 45."
+msgstr "Tam önüne, 28 metre boyunca dar bir tan ışığı huzmesi salar (18 derecelik bir yelpaze). Solgunlar üç kat hasar alır ve ışık bir Solgun'un saldırısını bozar; diğer yaratıkların çoğu ona dirençlidir ve yarı hasar alır. İsabet ettiği her şey 2 saniye boyunca %55 yavaşlar (patronlarda 1 saniye); beceri geliştikçe süre uzar. 45. seviye gerekir."
 
 msgid "Easy"
 msgstr "Kolay"

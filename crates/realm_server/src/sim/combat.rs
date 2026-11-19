@@ -49,6 +49,9 @@ pub(super) struct Caster {
     /// A request that arrived just before the caster was ready.
     pub queued: Option<(InputFrame, u32)>,
     pub ward_until: u32,
+    /// The index of the self-cast spell that raised the ward (u8::MAX: the
+    /// first ward, as a revival's).
+    pub ward_spell: u8,
 }
 
 impl Caster {
@@ -63,6 +66,7 @@ impl Caster {
             combo_until: 0,
             queued: None,
             ward_until: 0,
+            ward_spell: u8::MAX,
         }
     }
 
@@ -474,8 +478,10 @@ impl Sim {
                 });
                 let ms = spell.duration_ms as f32 * self.game.rules.combat.skill_effect(skill);
                 if let Some(mut player) = self.world.get_mut::<Player>(caster) {
+                    // A new ward replaces the one held.
                     player.caster.ward_until =
                         tick + (ms / 1000.0 * realm_sim::SIM_HZ as f32).ceil() as u32;
+                    player.caster.ward_spell = spell.index;
                 }
             }
             Delivery::Cone => {
@@ -930,9 +936,7 @@ impl Sim {
         }
         if c.ward_until > tick {
             let ward = combat
-                .spells
-                .values()
-                .find(|s| s.delivery == Delivery::SelfCast)
+                .ward(c.ward_spell)
                 .map_or(1.0, |s| s.other_damage_multiplier);
             amount = (amount * ward).trunc();
         }

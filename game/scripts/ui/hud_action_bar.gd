@@ -418,9 +418,11 @@ func _item_tooltip(key: String, id: String) -> String:
 	var data := ItemRules.item(id)
 	return tr("[%s] %s\n%s\nDrag to move or swap; drag off the bar or right-click to clear.") % [key, I18n.t(String(data.get("name", id))), I18n.t(String(data.get("desc", "")))]
 
-## The saved layouts: quick slot items, and the spell order when it is a
-## permutation of today's spells (spells added since are appended in default
-## order; a removed or unknown spell falls back to the default layout).
+## The saved layouts: quick slot items, and the spell order when every entry
+## is a spell of today's (a default one, or one dragged onto the bar from the
+## skill window) and none repeats; while the bar has free slots the default
+## spells it lacks are appended in default order (spells added since). A
+## removed or unknown spell falls back to the default layout.
 func _load() -> void:
 	var defaults: Array = SPELLS.map(func(spec): return String(spec[0]))
 	spell_order = defaults.duplicate()
@@ -435,11 +437,11 @@ func _load() -> void:
 		return
 	var order: Array = []
 	for id in saved:
-		if not defaults.has(id) or order.has(id):
+		if not (defaults.has(id) or spells().has(id)) or order.has(id) or order.size() >= SPELLS.size():
 			return
 		order.append(id)
 	for id in defaults:
-		if not order.has(id):
+		if not order.has(id) and order.size() < SPELLS.size():
 			order.append(id)
 	spell_order = order
 

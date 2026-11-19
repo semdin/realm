@@ -549,6 +549,7 @@ impl Sim {
             p.hp = (p.max_hp * fraction).round().max(1.0);
             p.caster.mana = (p.caster.max_mana * fraction).round();
             p.caster.ward_until = tick + ward;
+            p.caster.ward_spell = u8::MAX;
             let at = p.body.pos;
             p.body = Body::at(at);
         } else {

@@ -197,5 +197,87 @@
     "requires_level": 20,
     "color": "#9fe8ff",
     "hotkey": "6"
+  },
+  "hushing_gale": {
+    "id": "hushing_gale",
+    "element": "force",
+    "name": "Hushing Gale",
+    "desc": "A short, hard gust in front of you: every enemy within 8 metres in a 70-degree cone is knocked back, its casting is interrupted and its attack power drops by 25% for 3 seconds, longer as the skill grows. Light damage. Requires level 15.",
+    "delivery": "cone",
+    "damage": 48,
+    "magic_attack_coef": 0.4,
+    "cooldown": 9.0,
+    "mana_cost": 45,
+    "cast_lock": 0.3,
+    "range": 8.0,
+    "cone_angle": 70.0,
+    "launch": {
+      "push": 6.0,
+      "lift": 3.0
+    },
+    "weaken_ms": 3000,
+    "weaken_factor": 0.75,
+    "interrupts": true,
+    "requires_level": 15,
+    "color": "#c8ecf4"
+  },
+  "starnail": {
+    "id": "starnail",
+    "element": "stun",
+    "name": "Starnail",
+    "desc": "Drives a fast splinter of starlight into one target up to 44 metres away: high damage and a 0.9-second stun (0.25 seconds on a boss), longer as the skill grows. Requires level 25.",
+    "delivery": "projectile",
+    "damage": 128,
+    "magic_attack_coef": 0.95,
+    "cooldown": 7.5,
+    "mana_cost": 45,
+    "cast_lock": 0.3,
+    "range": 44.0,
+    "projectile_speed": 72.0,
+    "stun_ms": 900,
+    "stun_ms_boss": 250,
+    "requires_level": 25,
+    "color": "#cfe2ff"
+  },
+  "shardglass_ward": {
+    "id": "shardglass_ward",
+    "element": "none",
+    "name": "Shardglass Ward",
+    "desc": "Raises a shell of shard-glass around you for 6 seconds, longer as the skill grows. In a duel a foe's single-target bolt that strikes it flies back at its caster; every other hit on you, creatures' bolts included, is reduced by 35%. Requires level 30.",
+    "delivery": "self",
+    "damage": 0,
+    "magic_attack_coef": 0,
+    "duration_ms": 6000,
+    "projectile_rule": "reflect",
+    "other_damage_multiplier": 0.65,
+    "cooldown": 15.0,
+    "mana_cost": 45,
+    "cast_lock": 0.28,
+    "requires_level": 30,
+    "color": "#bff0e6"
+  },
+  "dawnbreak": {
+    "id": "dawnbreak",
+    "element": "ithrel_light",
+    "name": "Dawnbreak",
+    "desc": "Throws a narrow beam of dawn light 28 metres straight ahead (an 18-degree fan). Pallids take triple damage and the light breaks a Pallid's attack; most other creatures resist it and take half. Everything it hits is slowed by 55% for 2 seconds (1 second on a boss), longer as the skill grows. Requires level 45.",
+    "delivery": "cone",
+    "damage": 104,
+    "magic_attack_coef": 0.8,
+    "cooldown": 12.0,
+    "mana_cost": 70,
+    "cast_lock": 0.32,
+    "range": 28.0,
+    "cone_angle": 18.0,
+    "slow": {
+      "ms": 2000,
+      "factor": 0.45,
+      "boss_ms": 1000
+    },
+    "banishes": [
+      "pallid"
+    ],
+    "requires_level": 45,
+    "color": "#ffe6b0"
   }
 }

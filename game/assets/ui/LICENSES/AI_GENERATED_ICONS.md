@@ -119,3 +119,14 @@ template as the 2026-10-13 menu set, text prompt only (no input image).
   rewards Z3) - `openai/gpt-image-2.5/sunburst/edit` with `icon_queen_seal.png` as the style reference
   (red wax seal with a portcullis on stone; iron key with an hourglass bow on flagstone; brass key with a
   three-headed-dog bow on red carpet), resized from 1024 to 512 px. Sources `art/dungeons/icons/`.
+
+## 2026-11-19 additions (fal.ai) - Seedream 5.5, four new spells
+
+Tool: fal.ai `bytedance/seedream/v5.5/edit` (Seedream 5.5, 1024 px, 1:1), a text prompt plus one of
+the project's own images as the style reference. No third-party image was used as an input. Resized with Lanczos to 512 px, full bleed. Painted in the night
+of 2026-11-18/19 (commit 67aa51c) for spells that did not exist yet; the old spells keep their own icons.
+
+* `icon_dawnbreak.png` - Dawnbreak: white-gold dawn light fanning through grey mist.
+* `icon_starnail.png` - Starnail: a splinter of star crystal driven down into cracked stone.
+* `icon_hushing_gale.png` - Hushing Gale: a silver-blue gust spiralling out of an open gloved palm.
+* `icon_shardglass_ward.png` - Shardglass Ward: a faceted wall of pale crystal catching a fiery bolt.

@@ -187,7 +187,7 @@ func _released(event: Dictionary) -> void:
 			SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
 		"self":
 			SkillFX.play_cast(self, hero, spell_id, from, dir, _house(caster))
-			_raise_ward(caster, hero)
+			_raise_ward(caster, hero, spell_id)
 		_:
 			if hero == null:
 				# A creature's bolt: the flash where it leaves the body.
@@ -387,18 +387,19 @@ static func _girth_of(body: Node3D) -> float:
 
 ## A ward round `hero` for as long as the server holds it: the spell's
 ## duration, scaled by the caster's skill level when it is the player's own.
-func _raise_ward(caster: int, hero: HeroView) -> void:
+## A new ward replaces the one held (Ward Shield or Shardglass Ward).
+func _raise_ward(caster: int, hero: HeroView, spell_id := "ward_shield") -> void:
 	if hero == null:
 		return
 	if is_instance_valid(_wards.get(caster)):
 		(_wards[caster] as Node).queue_free()
-	var seconds := float(spell("ward_shield").get("duration_ms", 3500)) / 1000.0
+	var seconds := float(spell(spell_id).get("duration_ms", 3500)) / 1000.0
 	var combat: Variant = RealmContent.table("combat")
 	if caster == own_id and session != null and combat is Dictionary:
 		var skills: Dictionary = (combat as Dictionary).get("skills", {})
-		var level := clampi(int(session.skill_level("ward_shield")), 1, int(skills.get("max_level", 10)))
+		var level := clampi(int(session.skill_level(spell_id)), 1, int(skills.get("max_level", 10)))
 		seconds *= 1.0 + float(skills.get("effect_per_level", 0.0)) * (level - 1)
-	_wards[caster] = WardShield.raise(self, hero, seconds)
+	_wards[caster] = WardShield.raise(self, hero, seconds, spell_id)
 
 func _hero(id: int) -> HeroView:
 	return player if id == own_id else heroes.get(id)

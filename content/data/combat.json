@@ -868,7 +868,11 @@
       "disarm",
       "ward_shield",
       "ultimate",
-      "frost_grip"
+      "frost_grip",
+      "hushing_gale",
+      "starnail",
+      "shardglass_ward",
+      "dawnbreak"
     ],
     "damage_per_level": 0.06,
     "master_damage_bonus": 0.1,

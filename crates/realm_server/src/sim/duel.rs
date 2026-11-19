@@ -517,10 +517,7 @@ impl Sim {
         // strength it would have struck with); everything else is weakened.
         let mut reflected = false;
         if c.ward_until > tick {
-            let ward = combat
-                .spells
-                .values()
-                .find(|s| s.delivery == Delivery::SelfCast);
+            let ward = combat.ward(c.ward_spell);
             if spell.delivery == Delivery::Projectile && ward.is_some_and(|w| w.reflects) {
                 reflected = true;
             } else {

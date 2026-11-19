@@ -395,6 +395,21 @@ impl CombatRules {
             .and_then(|id| self.spells.get(id))
     }
 
+    /// The ward a caster holds: the self-cast spell at `index` (the one it
+    /// raised), else the first self-cast spell in spells.json (Ward Shield,
+    /// which the ward of a revival also is).
+    #[must_use]
+    pub fn ward(&self, index: u8) -> Option<&SpellDef> {
+        self.spell_by_index(index)
+            .filter(|s| s.delivery == Delivery::SelfCast)
+            .or_else(|| {
+                self.spell_order
+                    .iter()
+                    .filter_map(|id| self.spells.get(id))
+                    .find(|s| s.delivery == Delivery::SelfCast)
+            })
+    }
+
     fn house(&self, house: &str) -> Option<&HouseMods> {
         self.houses.get(house)
     }

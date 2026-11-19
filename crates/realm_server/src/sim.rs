@@ -214,7 +214,7 @@ struct Player {
     /// What the players near it were last told about it (PlayerInfo).
     info_key: u64,
     /// The lasting effects its owner was last told of.
-    effects_sent: Vec<(&'static str, u32)>,
+    effects_sent: Vec<(String, u32)>,
     /// The bag and gear its owner saw with each of its last sheets
     /// (revision, fingerprint): an item request is stale only when the
     /// items changed since the sheet it was made on, not when something
@@ -1277,20 +1277,34 @@ impl Sim {
         if !tick.is_multiple_of(3) {
             return;
         }
+        let rules = std::sync::Arc::clone(&self.game.rules);
+        let first_ward = rules.combat.ward(u8::MAX).map(|w| w.index);
         let mut out = Vec::new();
         for (conn, c) in &self.clients {
             let Some(mut p) = self.world.get_mut::<Player>(c.entity) else {
                 continue;
             };
-            let mut now = p.afflictions.lasting(tick);
+            let mut now: Vec<(&str, u32)> = p.afflictions.lasting(tick);
             if p.caster.ward_until > tick {
-                now.push(("ward", p.caster.ward_until));
+                // The first ward (Ward Shield, a revival's) is "ward"; any
+                // other is named by its spell.
+                let kind = rules
+                    .combat
+                    .ward(p.caster.ward_spell)
+                    .filter(|w| Some(w.index) != first_ward)
+                    .map_or("ward", |w| w.id.as_str());
+                now.push((kind, p.caster.ward_until));
             }
-            if now != p.effects_sent {
-                let msg =
-                    ServerMsg::Effects(now.iter().map(|(k, t)| ((*k).to_owned(), *t)).collect());
-                p.effects_sent = now;
-                out.push((*conn, msg));
+            let same = now.len() == p.effects_sent.len()
+                && now
+                    .iter()
+                    .zip(&p.effects_sent)
+                    .all(|(a, b)| a.0 == b.0 && a.1 == b.1);
+            if !same {
+                let list: Vec<(String, u32)> =
+                    now.iter().map(|(k, t)| ((*k).to_owned(), *t)).collect();
+                p.effects_sent.clone_from(&list);
+                out.push((*conn, ServerMsg::Effects(list)));
             }
         }
         for (conn, msg) in out {

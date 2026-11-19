@@ -30,7 +30,10 @@ const FACE_MIN_SPEED := 0.6
 ## wand hand is furthest forward, `hold` how long the cast layer owns the arm,
 ## `aim` false for a swing that keeps its own arc. The basic chain is keyed per
 ## step ("basic_cast:<step>"); Light of Ithrel leaves the wand with Flame
-## Wave's thrust and Frost Grip with Shockwave's overhead throw.
+## Wave's thrust and Frost Grip with Shockwave's overhead throw. Hushing Gale
+## sweeps with Flame Wave's arc, Starnail flicks with Stun Bolt's, Shardglass
+## Ward rises with Ward Shield's and Dawnbreak is driven down the aim with the
+## ultimate's overhead throw.
 const SPELL_CLIPS := {
 	"stun_bolt": {"clip": "Cast_Stun_Bolt", "release": 0.226, "hold": 0.72},
 	"flame_wave": {"clip": "Cast_Flame_Wave", "release": 0.25, "hold": 0.66, "aim": false},
@@ -40,6 +43,10 @@ const SPELL_CLIPS := {
 	"disarm": {"clip": "Cast_Disarm", "release": 0.128, "hold": 0.6},
 	"ward_shield": {"clip": "Cast_Ward_Shield", "release": 0.128, "hold": 0.9, "aim": false},
 	"ultimate": {"clip": "Cast_Ultimate", "release": 0.158, "hold": 0.85},
+	"hushing_gale": {"clip": "Cast_Flame_Wave", "release": 0.25, "hold": 0.62, "aim": false},
+	"starnail": {"clip": "Cast_Stun_Bolt", "release": 0.226, "hold": 0.68},
+	"shardglass_ward": {"clip": "Cast_Ward_Shield", "release": 0.128, "hold": 0.95, "aim": false},
+	"dawnbreak": {"clip": "Cast_Ultimate", "release": 0.158, "hold": 0.85},
 	"basic_cast:0": {"clip": "Cast_Basic1", "release": 0.222, "hold": 0.36},
 	"basic_cast:1": {"clip": "Cast_Basic2", "release": 0.231, "hold": 0.4, "aim": false},
 	"basic_cast:2": {"clip": "Cast_Basic3", "release": 0.222, "hold": 0.55},

@@ -13,6 +13,10 @@ class_name HudSkillWindow
 ## window, level with the hovered spell, after TIP_DELAY, and moving to another
 ## card swaps it at once.
 ##
+## Every card shows when the screen has room; on a short screen (twelve cards
+## at 720p run past the window) the book keeps what fits above the action bar
+## and scrolls the rest (`_fit_book`).
+##
 ## The window only asks (RealmSession.learn_skill): the server checks the
 ## points and the cap and the new sheet is the answer; the levels and the free
 ## points are read off the session (skill_level, skill_points, the sheet's
@@ -53,6 +57,9 @@ var _points_box: PanelContainer
 var _coin: PanelContainer
 var _coin_box: StyleBoxFlat
 var _cards: Dictionary = {}   # spell_id -> SkillCard
+## The book's cards scroll when the screen is too short for all of them.
+var _scroll: ScrollContainer
+var _grid: GridContainer
 var _shown := ""
 var _tip: PanelContainer
 var _tip_body: VBoxContainer
@@ -84,12 +91,19 @@ func _ready() -> void:
 	book.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	book.add_theme_stylebox_override("panel", _box(Color(0.016, 0.027, 0.051, 0.6), LINE, 4, 10))
 	body.add_child(book)
+	_scroll = ScrollContainer.new()
+	_scroll.name = "Pages"
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	book.add_child(_scroll)
 	var grid := GridContainer.new()
 	grid.columns = COLUMNS
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	book.add_child(grid)
+	_scroll.add_child(grid)
+	_grid = grid
+	get_viewport().size_changed.connect(_fit_book)
 	var ids: Array = (Levels.skill_rules().get("upgradeable", []) as Array).duplicate()
 	ids.append_array(OTHER.filter(func(id): return HudActionBar.spells().has(id) and not Levels.skill_upgradeable(id)))
 	for spell_id in ids:
@@ -222,6 +236,20 @@ func open() -> void:
 	super.open()
 	_shown = ""
 	_refresh()
+	_fit_book()
+	# again once the window is laid out at its real size
+	_fit_book.call_deferred()
+
+## Every card shows when the screen has room; on a short screen the book
+## keeps what fits above the action bar and scrolls the rest. HudWindow sizes
+## the card to its content, up to the screen less 140 px.
+func _fit_book() -> void:
+	if _scroll == null or card == null or not visible:
+		return
+	var all := _grid.get_combined_minimum_size().y
+	var room := get_viewport().get_visible_rect().size.y - 140.0
+	var others := card._content_margin.get_combined_minimum_size().y - _scroll.custom_minimum_size.y
+	_scroll.custom_minimum_size.y = maxf(minf(all, room - others), minf(all, CARD_H * 2.0 + 8.0))
 
 func close() -> void:
 	_hide_tip()
@@ -504,7 +532,12 @@ func _control_lines(spell_id: String, lv: int) -> Array:
 	if not burn.is_empty():
 		out.append(tr("Burn %d x %d") % [int(burn.get("damage", 0)), int(burn.get("ticks", 0))])
 	if int(spell.get("weaken_ms", 0)) > 0:
-		out.append(tr("Disarm %s s") % I18n.num(float(spell.weaken_ms) * effect / 1000.0))
+		var weaken := I18n.num(float(spell.weaken_ms) * effect / 1000.0)
+		if spell_id == "disarm":
+			out.append(tr("Disarm %s s") % weaken)
+		else:
+			# Hushing Gale: not a disarm, a cut to the attack power
+			out.append(tr("Attack power -%d%% for %s s") % [roundi((1.0 - float(spell.get("weaken_factor", 1.0))) * 100.0), weaken])
 	return out
 
 
@@ -535,7 +568,8 @@ class SkillCard extends PanelContainer:
 		name = "Card_" + p_spell_id
 		custom_minimum_size = Vector2(0, HudSkillWindow.CARD_H)
 		size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		mouse_filter = Control.MOUSE_FILTER_STOP
+		# PASS: the wheel over a card reaches the book's scroll
+		mouse_filter = Control.MOUSE_FILTER_PASS
 		mouse_default_cursor_shape = Control.CURSOR_DRAG
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 11)
