@@ -482,7 +482,7 @@ pub struct Sim {
     departing: HashMap<u64, travel::Departing>,
     /// Maps the coordinator says are open.
     open_maps: Vec<String>,
-    waylinks: Vec<travel::Waystake>,
+    waylinks: Vec<travel::Waylink>,
     next_waylink: u32,
     /// A dungeon map: its copies' gates and runs.
     instanced: bool,
@@ -507,7 +507,7 @@ pub struct Sim {
     /// Development: a run starts at this step (those before it done, their
     /// gates open, nothing of theirs spawned).
     pub dev_dungeon_start: Option<String>,
-    /// Development: the Silk Queen's cocoon wraps a player even alone (it
+    /// Development: the Web Mother's cocoon wraps a player even alone (it
     /// needs two otherwise).
     pub dev_cocoon_solo: bool,
     /// Development: players spawn on the ground at this world (x, z).
@@ -1614,7 +1614,7 @@ impl Sim {
     /// Moves every player by its next input and starts its actions.
     fn players(&mut self) {
         let tick = self.tick;
-        // Turning stairs take their pose for this tick before anyone moves.
+        // Moving staircases take their pose for this tick before anyone moves.
         self.stairs.apply(&mut self.terrain, tick);
         let has_stairs = !self.stairs.flights.is_empty();
         let mut stairs_at = tick;

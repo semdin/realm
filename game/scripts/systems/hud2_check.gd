@@ -11,7 +11,7 @@ extends "res://scripts/systems/dungeon_check.gd"
 ##              closes it again; the character window's Status and
 ##              Properties pages (captures); B opens the bestiary on a
 ##              creature (capture)
-##   effects    learns Shardglass Ward if it must and casts it: the server's
+##   effects    learns Ward Shield if it must and casts it: the server's
 ##              effect list carries the ward and the bar under the unit
 ##              frame shows it counting down (capture)
 ##   ring       a training dummy taken as the target from a few metres: the
@@ -330,7 +330,7 @@ func _close(id: String) -> void:
 		_:
 			_window_of(id).call("close")
 
-## Shardglass Ward: learnt if it must be, cast; the bar shows it.
+## Ward Shield: learnt if it must be, cast; the bar shows it.
 func _effects() -> void:
 	var bar: HudBuffBar = game.hud.buff_bar
 	if bar.kinds().has("ward"):

@@ -1,7 +1,7 @@
 extends RefCounted
 
 ## Buildings and set dressing at the grounds' landmarks: Orvell (its square
-## built from VillageKit's kit buildings), Ombrek's hut, the greenhouses, the
+## built from VillageKit's kit buildings), Borin's hut, the greenhouses, the
 ## boathouse and its stair, the station, the skyring pitch, the highland stone
 ## circle, the smugglers' camp, the ruined crypt and the spider hollow.
 ##
@@ -37,7 +37,7 @@ static func build_all(parent: Node3D) -> void:
 	_crypt(root)
 	_spider_hollow(root)
 	# Village and site meshes end at the preset's site range (QualityPreset.apply):
-	# a signal pillar 900 m off is a few pixels and still a draw call.
+	# a pitch hoop 900 m off is a few pixels and still a draw call.
 	for node in root.find_children("*", "GeometryInstance3D", true, false):
 		node.add_to_group("grounds_site_geometry")
 
@@ -327,7 +327,7 @@ static func _lamp_post(parent: Node3D, at: Vector3) -> void:
 	Mats.lamp_light(parent, at + Vector3(0, 3.3, 0), 1.0, 8.0)
 
 
-# -------------------------------------------------------------- Ombrek's hut
+# -------------------------------------------------------------- Borin's hut
 
 static func _borin(parent: Node3D) -> void:
 	var h := Layout.landmark("borin_hut")
@@ -599,7 +599,7 @@ static func _stair_materials() -> Dictionary:
 	}
 
 
-# ------------------------------------------------------------------ landing
+# ------------------------------------------------------------------ station
 
 static func _station(parent: Node3D) -> void:
 	var s := Layout.landmark("station")
@@ -609,6 +609,10 @@ static func _station(parent: Node3D) -> void:
 	var fy := s.y + 0.9
 	kit.box(Vector3(s.x, fy - 1.5, s.z), Vector3(6.0, 3.0, 70.0), 0.0, "stone")
 	kit.box(Vector3(s.x - 0.0, fy + 0.02, s.z), Vector3(5.6, 0.06, 69.6), 0.0, "cobble", false)
+	for sx in [6.0, 7.5]:
+		kit.box(Vector3(s.x + sx, s.y + 0.1, s.z), Vector3(0.12, 0.15, 220.0), 0.0, "metal", false)
+	for k in 70:
+		kit.box(Vector3(s.x + 6.75, s.y - 0.02, s.z - 108.0 + k * 3.1), Vector3(2.4, 0.16, 0.3), 0.0, "timber", false)
 	cottage(kit, Vector2(s.x - 7.5, s.z), PI * 0.5, 14.0, 7.0, 1, "roof")
 	for k in 3:
 		kit.box(Vector3(s.x + 2.2, fy + 1.6, s.z - 20.0 + k * 20.0), Vector3(0.25, 3.2, 0.25), 0.0, "metal")
@@ -618,12 +622,13 @@ static func _station(parent: Node3D) -> void:
 		Mats.lamp_light(root, Vector3(s.x + 1.0, fy + 3.0, s.z - 20.0 + k * 20.0), 0.9, 9.0)
 
 
-# ---------------------------------------------------------- patrol field
+# ------------------------------------------------------- broom-sport pitch
 
-## The Sky Patrol's mustering field: an oval (PITCH_SHORT x PITCH_LONG
-## half-axes) ringed by ten stepped stone terraces with an arcaded back wall
-## hung with banners in the four Watches' colours, and three signal pillars
-## at each end.
+## The broom-sport pitch as a stone arena (world overhaul step 7, the user's
+## pick): an oval field (PITCH_SHORT x PITCH_LONG half-axes) ringed by ten
+## stepped stone terraces with an arcaded back wall hung with banners in the
+## four colours, three ring hoops at each end on carved stone pillars, and
+## chalk lines: the oval, the centre circle and line, the scoring arcs.
 const PITCH_LONG := 70.0
 const PITCH_SHORT := 30.0
 ## Terraces: their depth, rows and the gap between the field and the first row.
@@ -641,6 +646,7 @@ static func _skyring(parent: Node3D) -> void:
 	_pitch_hoops(kit, q)
 	_pitch_terraces(kit, q)
 	var root := kit.finish(parent, Mats.materials(), "SkyringPitch")
+	_pitch_lines(root, q)
 
 
 ## The point on the field's oval at angle a, pushed `out` metres beyond it.
@@ -648,7 +654,7 @@ static func _pitch_oval(q: Vector3, a: float, out: float) -> Vector2:
 	return Vector2(q.x + cos(a) * (PITCH_SHORT + out), q.z + sin(a) * (PITCH_LONG + out))
 
 
-## Three carved signal pillars per end (14 / 17 / 14 m), capped in gilt.
+## Three gilded ring hoops per end (14 / 17 / 14 m) on carved stone pillars.
 static func _pitch_hoops(kit: ArchKit, q: Vector3) -> void:
 	for end in [-1, 1]:
 		for k in 3:
@@ -659,7 +665,30 @@ static func _pitch_hoops(kit: ArchKit, q: Vector3) -> void:
 			kit.box(g + Vector3(0, 0.4, 0), Vector3(2.4, 1.4, 2.4), 0.0, "trim")
 			kit.cylinder(g + Vector3(0, 1.1, 0), 0.75, hgt - 2.0, "stone", 12, true, 0.5)
 			kit.cylinder(g + Vector3(0, hgt - 1.0, 0), 0.7, 0.6, "trim", 12, false)
-			kit.cylinder(g + Vector3(0, hgt - 0.4, 0), 1.05, 0.35, "gold", 12, false)
+			_pitch_ring(kit, g + Vector3(0, hgt + 2.4, 0), Vector3(0, 0, 1), 2.4, 0.2, "gold")
+
+
+## A torus: ring of radius R and tube radius r round `c`, its plane normal `axis`
+## (drawn only: players fly through the hoops).
+static func _pitch_ring(kit: ArchKit, c: Vector3, axis: Vector3, R: float, r: float, key: String, seg: int = 28, tseg: int = 8) -> void:
+	var u := axis.cross(Vector3.UP).normalized()
+	if u.length() < 0.5:
+		u = Vector3.RIGHT
+	var v := axis.cross(u).normalized()
+	var pt := func(i: int, j: int) -> Vector3:
+		var dir := u * cos(TAU * i / seg) + v * sin(TAU * i / seg)
+		return c + dir * (R + r * cos(TAU * j / tseg)) + axis * (r * sin(TAU * j / tseg))
+	# Smooth-shaded: each vertex takes the tube's own normal (from the nearest
+	# point on the core circle), as Blender's Shade Smooth would. With a face
+	# normal per quad the 28 x 8 facets showed as flat gold panels (2026-11-09).
+	var tube_normal := func(p: Vector3) -> Vector3:
+		var w := p - c
+		var in_plane := w - axis * w.dot(axis)
+		return (p - (c + in_plane.normalized() * R)).normalized()
+	for i in seg:
+		var core := c + (u * cos(TAU * (i + 0.5) / seg) + v * sin(TAU * (i + 0.5) / seg)) * R
+		for j in tseg:
+			kit.quad(key, pt.call(i, j), pt.call(i + 1, j), pt.call(i + 1, j + 1), pt.call(i, j + 1), core, tube_normal)
 
 
 ## Stone terraces all round the oval in straight segments tangent to it, each
@@ -699,6 +728,50 @@ static func _pitch_terraces(kit: ArchKit, q: Vector3) -> void:
 ## into one texture and projected onto the field by a Decal: a strip draped on
 ## the terrain dipped under the far terrain's coarser LOD and showed dashed.
 const PITCH_LINE_PX := 14.0   # texels per metre
+
+
+static func _pitch_lines(root: Node3D, q: Vector3) -> void:
+	var size := Vector2(PITCH_SHORT * 2.0 + 2.0, PITCH_LONG * 2.0 + 2.0)
+	var img := Image.create(int(size.x * PITCH_LINE_PX), int(size.y * PITCH_LINE_PX), false, Image.FORMAT_RGBA8)
+	img.fill(Color(1, 1, 1, 0))
+	var lines: Array = []
+	var oval: Array = []
+	for i in 193:
+		oval.append(_pitch_oval(Vector3.ZERO, TAU * i / 192.0, 0.0))
+	lines.append([oval, 0.35])
+	var circle: Array = []
+	for i in 49:
+		circle.append(Vector2(cos(TAU * i / 48.0), sin(TAU * i / 48.0)) * 6.0)
+	lines.append([circle, 0.3])
+	lines.append([[Vector2(-PITCH_SHORT, 0), Vector2(PITCH_SHORT, 0)], 0.3])
+	for end in [-1.0, 1.0]:
+		var arc: Array = []
+		for i in 25:
+			var a := PI * i / 24.0
+			arc.append(Vector2(cos(a) * 16.0, end * (PITCH_LONG - sin(a) * 16.0)))
+		lines.append([arc, 0.3])
+	for line in lines:
+		var pts: Array = line[0]
+		var w := maxi(2, int(float(line[1]) * PITCH_LINE_PX))
+		for k in pts.size() - 1:
+			var a: Vector2 = pts[k]
+			var b: Vector2 = pts[k + 1]
+			var steps := maxi(1, int(a.distance_to(b) * PITCH_LINE_PX))
+			for s in steps + 1:
+				var p: Vector2 = (a.lerp(b, float(s) / steps) + size * 0.5) * PITCH_LINE_PX
+				img.fill_rect(Rect2i(int(p.x) - w / 2, int(p.y) - w / 2, w, w), Color(0.95, 0.95, 0.9, 1))
+	img.generate_mipmaps()
+	var decal := Decal.new()
+	decal.name = "PitchLines"
+	decal.texture_albedo = ImageTexture.create_from_image(img)
+	decal.size = Vector3(size.x, 30.0, size.y)
+	decal.position = Layout.ground(q.x, q.z)
+	decal.normal_fade = 0.5    # the floor only, not the hoop pillars' sides
+	# The ground's render layer only: a decal paints everything inside its
+	# 30 m box, and the chalk lay white across every player and creature that
+	# walked over a line (2026-11-09).
+	decal.cull_mask = GROUND_RENDER_BIT
+	root.add_child(decal)
 
 
 # -------------------------------------------------------- stone circle etc.
@@ -860,7 +933,7 @@ static func _smugglers_camp(parent: Node3D) -> void:
 
 ## The old crypt of Crypt Hollow, now a roofless ruin: the walls stand broken
 ## to different heights, the roof lies in slabs on the floor and the doorway is
-## walled up. The Saltwights climbed out through its split floor; the way
+## walled up. The Drowned Ones climbed out through its split floor; the way
 ## down to the caverns is the cave mouth in Spider Hollow (GroundsPrecinct).
 static func _crypt(parent: Node3D) -> void:
 	var c := Layout.landmark("crypt")

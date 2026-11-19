@@ -11,8 +11,8 @@ class_name HeroView
 ## Fallen it lies in the death pose until it rises with the Revive clip.
 ## Mounted (`is_mounted`, from the own body or a remote's snapshot state) it
 ## sits on its broom (BroomRig, the rider's hands solved onto the shaft by
-## BroomGripModifier) and plays the broom clips; holding a Waystake it kneels
-## with a hand on the stake (the Waylink_Place clip held).
+## BroomGripModifier) and plays the broom clips; holding a Waylink it kneels
+## with a hand on the boot (the Waylink_Place clip held).
 
 ## A short hop or a step down keeps the light airborne pose; past this long
 ## in the air, or falling faster than HARD_FALL_SPEED, the body flails.
@@ -29,7 +29,7 @@ const FACE_MIN_SPEED := 0.6
 ## HeroAnimation.merge_extra_clips). `release` is the clip fraction where the
 ## wand hand is furthest forward, `hold` how long the cast layer owns the arm,
 ## `aim` false for a swing that keeps its own arc. The basic chain is keyed per
-## step ("basic_cast:<step>"); Dawnbreak leaves the wand with Flame
+## step ("basic_cast:<step>"); Light of Ithrel leaves the wand with Flame
 ## Wave's thrust and Frost Grip with Shockwave's overhead throw.
 const SPELL_CLIPS := {
 	"stun_bolt": {"clip": "Cast_Stun_Bolt", "release": 0.226, "hold": 0.72},
@@ -467,8 +467,6 @@ func _update_mount(velocity: Vector3, delta: float) -> void:
 			_seat_broom()
 	body.position.y = mount_blend * (0.34 + sin(_flight_time * 3.0) * 0.05)
 	var speed_ratio := Vector2(velocity.x, velocity.z).length() / maxf(1.0, mounted_speed)
-	if broom != null and broom.visible:
-		broom.pose_vanes(mount_blend, speed_ratio, _flight_time)
 	body.rotation.x = lerpf(body.rotation.x, -0.2 * speed_ratio * mount_blend, minf(1.0, delta * 5.0))
 
 var _wand_hidden := false
@@ -482,7 +480,7 @@ func _seat_broom() -> void:
 	if hips < 0:
 		return
 	var hips_at := skeleton.global_transform * skeleton.get_bone_global_pose(hips).origin
-	broom.scale = Vector3.ONE / body.scale * lerpf(0.72, 1.0, smoothstep(0.0, 0.8, mount_blend))
+	broom.scale = Vector3.ONE / body.scale
 	broom.rotation = Vector3.ZERO
 	broom.position = body.to_local(hips_at) - broom.basis * broom.seat_local()
 
@@ -499,16 +497,16 @@ func _broom_clip(velocity: Vector3) -> String:
 		return "Broom_Accelerate"
 	return "Broom_Seated_Idle"
 
-## ---------------------------------------------------------------- Waystake
+## ---------------------------------------------------------------- Waylink
 
-## WaylinkViews: the owner sets the stake down (the Place clip).
+## WaylinkViews: the owner sets the boot down (the Place clip).
 func waylink_place(boot_at: Vector3) -> void:
 	if anim == null or dead:
 		return
 	_face_point(boot_at)
 	anim.play_oneshot("Waylink_Place")
 
-## The body holds on: it kneels with a hand on the stake (the Place clip held
+## The body holds on: it kneels with a hand on the boot (the Place clip held
 ## once the hand is down) until it lets go.
 const WAYLINK_HOLD_AT := 1.45
 var kneeling := false
@@ -527,7 +525,7 @@ func waylink_kneel(boot_at: Vector3) -> void:
 	if generation == _kneel_generation and is_instance_valid(self) and kneeling and anim != null:
 		anim.hold_oneshot()
 
-## The body lets go (moved away, the Waystake fired or fizzled).
+## The body lets go (moved away, the Waylink fired or fizzled).
 func waylink_release() -> void:
 	if not kneeling:
 		return

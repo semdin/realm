@@ -27,7 +27,7 @@ class_name GroundWarning
 ## that cools away (`expire`) when it runs out. A curse's mark has a ragged
 ## edge: its boundary wanders with the cloud and fades out, with no line of
 ## fire on it and its embers rising from all over it, not round its rim. A
-## band (`band`, half extents x and z: the Brine Vaults' breath) is the same
+## band (`band`, half extents x and z: the Sealed Wing's breath) is the same
 ## ground on an axis-aligned strip, its fire counting out from the middle line
 ## and bursting on the release like a ring.
 

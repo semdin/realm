@@ -2,26 +2,28 @@ extends Node3D
 class_name TravelNodes
 
 ## The travel objects of this map in the world (travel.json `nodes`): the
-## Emberway's fireplaces, the Old Shafts and the Dry Cistern's passage
-## (and its Orvell end, the chandler's cellar hatch); the Old Shaft's two
-## ends are hatches as well.
-## A hearth is the fireplace model with a small fire in it, and the amber
+## Hearthway's fireplaces, the Twinned Cabinets and the Stone Raven's passage
+## (and its Orvell end, the sweetshop's cellar hatch).
+## A hearth is the fireplace model with a small fire in it, and the green
 ## flames (`burst`) a traveller steps into and out of. The server decides
 ## every trip; MapTravel asks this node which object the local body stands at.
 
 const FIREPLACE := "res://assets/models/travel/hearth_fireplace.glb"
 const MODELS := {
 	"hearthway": FIREPLACE,
+	"cabinet": "res://assets/models/travel/twinned_cabinet.glb",
 }
 ## Departure/arrival effect per kind: flame tint and sound.
 const KIND_FX := {
-	"hearthway": [Color(1.0, 0.68, 0.32), "hearth_whoosh"],
-	"cabinet": [Color(0.75, 0.68, 0.55), "passage_stone"],
+	"hearthway": [Color(0.35, 1.0, 0.45), "hearth_whoosh"],
+	"cabinet": [Color(0.55, 0.25, 0.85), "cabinet_vanish"],
 	"passage": [Color(0.75, 0.68, 0.55), "passage_stone"],
 	"waylink": [Color(0.5, 0.75, 1.0), "waylink_whoosh"],
 }
-## The baked model is 2.7 m tall; a walk-in hearth a body steps into is ~4.6 m.
+## The baked model is 2.7 m tall; a walk-in hearth a wizard steps into is ~4.6 m.
 const HEARTH_SCALE := 1.7
+## The cabinet must read as a walk-in wardrobe beside a 1.8 m wizard.
+const CABINET_SCALE := 1.4
 ## A node set on the ground (_seat): its plinth reaches this far past the
 ## model's footprint all round and this far under the lowest ground; a
 ## hearth's hearthstone rises this much over the highest and runs this far
@@ -57,7 +59,7 @@ func build(map_id: String, ground: Callable) -> void:
 			_trapdoor(root)
 		elif MODELS.has(look) and ResourceLoader.exists(String(MODELS[look])):
 			var body: Node3D = (load(String(MODELS[look])) as PackedScene).instantiate()
-			body.scale = Vector3.ONE * HEARTH_SCALE
+			body.scale = Vector3.ONE * (HEARTH_SCALE if kind == "hearthway" else CABINET_SCALE)
 			root.add_child(body)
 		elif kind == "passage":
 			_passage_mark(root)
@@ -65,6 +67,8 @@ func build(map_id: String, ground: Callable) -> void:
 			_seat(root, ground, kind)
 		if kind == "hearthway":
 			_hearth_fire(root)
+		elif kind == "cabinet":
+			_seam_glow(root)
 		roots[id] = root
 
 ## Where a node stands: its authored point; y 0 on the grounds is the terrain.
@@ -83,7 +87,7 @@ static func _on_ground(data: Dictionary) -> bool:
 ## ground under its footprint (and a hearth on its hearthstone over that),
 ## and a stone plinth under it reaches PLINTH_SINK below the lowest: on a
 ## slope no side is buried and none floats, and a hearth on a floor laid over
-## the terrain (the Ember Pavilion's paving) stands on it, not in it. Only a
+## the terrain (the Hearth Pavilion's paving) stands on it, not in it. Only a
 ## model with a footprint is seated (the passage mark is dust).
 func _seat(root: Node3D, ground: Callable, kind: String) -> void:
 	var box := _local_bounds(root)
@@ -152,7 +156,7 @@ func node_at(pos: Vector3) -> String:
 			return id
 	return ""
 
-## Where a traveller steps in: the hearth's mouth / the hatch, just
+## Where a traveller steps in: the hearth's mouth / the cabinet's doors, just
 ## in front of the object.
 func mouth(id: String) -> Vector3:
 	var root: Node3D = roots.get(id)
@@ -161,7 +165,7 @@ func mouth(id: String) -> Vector3:
 	var depth := 0.7 if String(root.get_meta("kind")) == "hearthway" else 0.5
 	return root.global_position + TravelData.facing(TravelData.node(id)) * depth
 
-## The Orvell end of the Dry Cistern's passage: a heavy wooden cellar trapdoor
+## The Orvell end of the Stone Raven's passage: a heavy wooden cellar trapdoor
 ## with iron straps set in a stone kerb, a dim lantern beside it.
 func _trapdoor(root: Node3D) -> void:
 	var stone := StandardMaterial3D.new()
@@ -211,7 +215,7 @@ func _trapdoor(root: Node3D) -> void:
 	light.position = Vector3(1.3, 1.2, 0)
 	root.add_child(light)
 
-## The Dry Cistern's end of the passage has no model in this client yet: its
+## The Stone Raven's end of the passage has no model in this client yet: its
 ## spot is marked by drifting dust and a few motes rising off the floor.
 func _passage_mark(root: Node3D) -> void:
 	FlipbookFX.play(root, root.global_position, [
@@ -221,6 +225,15 @@ func _passage_mark(root: Node3D) -> void:
 	var motes := RisingMotes.make(1.1, 4.0, Color(0.85, 0.75, 0.55), 10, 2.2, Vector2(0.15, 0.5), Vector2(0.008, 0.016))
 	RisingMotes.set_rate(motes, 0.5)
 	root.add_child(motes)
+
+## The cabinet's door seam breathes a faint violet light.
+func _seam_glow(root: Node3D) -> void:
+	var light := OmniLight3D.new()
+	light.light_color = Color(0.6, 0.3, 1.0)
+	light.light_energy = 0.9
+	light.omni_range = 3.5
+	light.position = Vector3(0, 1.3, 0.7)
+	root.add_child(light)
 
 ## A low fire in the hearth: three looping flame flipbooks staggered in depth
 ## and a warm light.
@@ -236,8 +249,8 @@ func _hearth_fire(root: Node3D) -> void:
 			"name": "HearthFire"})
 
 ## The effect a traveller steps into and out of, by kind (flipbooks): the
-## Emberway's burst of sparks and amber column, the Old Shaft's and the
-## passage's dust, the Waystake's whirlwind. `sound` false:
+## Hearthway's pinch of dust and roaring emerald column, the Twinned Cabinet's
+## violet smoke, the passage's dust, the Waylink's whirlwind. `sound` false:
 ## the flames without their sound (a trip sounds once).
 static func burst(parent: Node, at: Vector3, kind: String = "hearthway", sound := true) -> void:
 	var fx: Array = KIND_FX.get(kind, KIND_FX["hearthway"])
@@ -247,12 +260,16 @@ static func burst(parent: Node, at: Vector3, kind: String = "hearthway", sound :
 	match kind:
 		"hearthway":
 			FlipbookFX.play(parent, at, [
-				{"atlas": "smoke_puff_8x8_1k", "size": 2.4, "height": 1.0, "fps": 24.0, "tint": Color(0.95, 0.62, 0.3), "opacity": 0.5},
-				{"atlas": "flame_loop_8x8_1k", "size": Vector2(2.3, 4.4), "height": 2.1, "fps": 24.0, "delay": 0.1,
-					"tint": Color(1.0, 0.74, 0.42)},
-				{"atlas": "flame_loop_8x8_1k", "size": Vector2(1.7, 3.3), "height": 1.6, "fps": 20.0, "delay": 0.28,
-					"tint": Color(1.0, 0.86, 0.6), "opacity": 0.65},
+				{"atlas": "hearth_dust_8x8_1k", "size": 2.4, "height": 1.0, "fps": 33.0},
+				{"atlas": "hearth_column_8x8_2k", "size": Vector2(2.6, 4.8), "height": 2.3, "fps": 24.0, "delay": 0.12},
+				{"atlas": "hearth_column_8x8_2k", "size": Vector2(1.9, 3.6), "height": 1.7, "fps": 20.0, "delay": 0.3,
+					"opacity": 0.65},
 			], {"life": 3.4, "light": tint, "light_energy": 6.0, "light_range": 10.0, "sound": String(fx[1])})
+		"cabinet":
+			FlipbookFX.play(parent, at, [
+				{"atlas": "cabinet_smoke_8x8_1k", "size": 3.4, "height": 1.5, "fps": 22.0},
+				{"atlas": "cabinet_smoke_8x8_1k", "size": 2.4, "height": 1.0, "fps": 18.0, "delay": 0.25, "roll": 1.2, "opacity": 0.8},
+			], {"life": 3.2, "light": tint, "light_energy": 3.0, "sound": String(fx[1])})
 		"waylink":
 			FlipbookFX.play(parent, at, [
 				{"atlas": "waylink_vortex_8x8_2k", "size": 3.6, "height": 1.6, "fps": 30.0},

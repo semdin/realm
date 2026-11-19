@@ -4,7 +4,7 @@ class_name HeroAppearance
 ## The hero body, and the one house-tint rule that dresses it.
 ##
 ## The in-game player and the character-select preview both spawn `MODEL` and
-## tint it through here, so the hero a player picks on the podium is the hero
+## tint it through here, so the wizard a player picks on the podium is the wizard
 ## they then play. Before this helper existed the preview loaded a different
 ## KayKit model (`wizard.glb`) and tinted a `Mage_Cape` node that only that model
 ## has, so the podium showed a character nobody could ever play.
@@ -58,7 +58,7 @@ static func _bone_index(skeleton: Skeleton3D, bone: String) -> int:
 
 ## The tip of the equipped wand, as a live node that rides the animation, or null
 ## when no wand is equipped. Every emitter (spell flash, projectile, trail) reads
-## this one definition, so "out of the rod's head" means the same thing
+## this one definition, so "out of the wand's head" means the same thing
 ## everywhere.
 static func wand_tip(root: Node) -> Node3D:
 	if root == null:
@@ -108,20 +108,18 @@ static func show_equipped_wand(root: Node, entry: Dictionary) -> void:
 	skeleton.add_child(attachment)
 	var grip := wand_grip_transform(skeleton)
 	RigFollower.of(skeleton).attach(attachment, bone, grip)
-	# Each rod names its own model (items.json `model`, authored in this prop's
-	# frame by tools/art/rod_art.py); an item without one keeps the default.
+	# A tiered wand names its own model (items.json `model`, authored in this
+	# prop's frame by art/wands/scripts/build_wands.py); others keep the default.
 	var model_path := String(Items.item(String(entry.get("id", ""))).get("model", ""))
 	var scene: PackedScene = load(model_path) as PackedScene if model_path != "" and ResourceLoader.exists(model_path) else WAND
 	var wand := scene.instantiate() as Node3D
 	wand.transform = Transform3D(Basis().scaled(Vector3.ONE * WAND_SCALE), Vector3.ZERO)
 	attachment.add_child(wand)
-	# One definition of "the rod's tip", authored in the prop's own space so it
+	# One definition of "the wand's tip", authored in the prop's own space so it
 	# follows every pose and is inherited by the mesh's own scaling.
 	var tip := Marker3D.new()
 	tip.name = "WandTip"
-	# A rod model marks its own muzzle (the top of its crystal).
-	var muzzle := wand.find_child("RodTip", true, false) as Node3D
-	tip.position = muzzle.position if muzzle != null else WAND_TIP_LOCAL
+	tip.position = WAND_TIP_LOCAL
 	wand.add_child(tip)
 	var tier := int(entry.get("tier", 0))
 	if tier >= 4:
@@ -142,7 +140,7 @@ static func show_equipped_wand(root: Node, entry: Dictionary) -> void:
 		# Anchored to the tip in the wand's space (the wand carries the 0.4 scale,
 		# so WAND_TIP_LOCAL needs no separate scaling) rather than a guessed 0.28 m
 		# up the bone, which pointed the aura away from the wand.
-		aura.position = wand.transform * tip.position
+		aura.position = wand.transform * WAND_TIP_LOCAL
 		attachment.add_child(aura)
 
 ## ---------------------------------------------------------------- cloak

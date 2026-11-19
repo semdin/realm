@@ -1,4 +1,4 @@
-//! The castle's turning stairs.
+//! The castle's moving staircases (port of the old game's HPStaircase).
 //!
 //! A flight docks at one landing, warns, swings to its next dock and docks
 //! again, round and round. Nothing a player does changes that, so a flight's

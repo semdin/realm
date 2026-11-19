@@ -1,23 +1,23 @@
 extends "res://maps/dng_common/dungeon_view.gd"
 
-## The Brine Vaults drawn (maps.json "dng_sealed_wing"), entered through the
-## flood door in the castle's east corridor: vaults under the east wing, shut
-## for a long time - the castle's warm sandstone gone grey with dust and damp,
-## worn runners and faded plum cloths, rubble where the vaults have shed their
-## stone, cobwebs in the corners - and below them a cellar the damp has taken
-## (moss, wet cobbles) and the great engine hall
-## (the creature's own art: res://assets/dungeons/sealed_wing).
+## The Sealed Wing drawn (maps.json "dng_sealed_wing"), entered through the
+## locked door on the castle's third-floor east corridor: a wing of the
+## castle shut for a long time - the castle's warm sandstone gone grey with
+## dust and damp, worn runners and faded plum cloths, rubble where the vaults
+## have shed their stone, cobwebs in the corners - and below it a cellar the
+## damp has taken (moss, wet cobbles, the Snare's vines) and the hound's high
+## hall (the creature's own art: res://assets/dungeons/sealed_wing).
 ##
 ## Rooms, north (entry, local z +12) to south:
-##   corridor         z  12 ..  -56   galelings + two sentries         gate_a
-##   armour gallery   z -56 .. -100   the Brinebriar                   gate_b
-##   deep cellar      z -100 .. -140  the Hollow Castellan
-##   stair            z -140 .. -160  galeling swarm                   gate_c
-##   the engine hall  z -160 .. -216  Wheelwarden, the sluice wheel    gate_d
+##   corridor         z  12 ..  -56   pixies + two armours             gate_a
+##   armour gallery   z -56 .. -100   the Cursed Armour Commander      gate_b
+##   vine cellar      z -100 .. -140  the Strangling Vine
+##   stair            z -140 .. -160  pixie swarm                      gate_c
+##   the hound's hall z -160 .. -216  Threehead, the harp, the trapdoor gate_d
 ##   reward room      z -216 .. -232  the chest, the way out
 ## Positions are local to the copy (the scene stands at the copy's offset).
 
-const WHEEL := Vector3(18, 0, -172)
+const HARP := Vector3(18, 0, -172)
 const ARMOUR := "res://assets/models/monsters/armour_guard.glb"
 const VINE := "res://assets/models/monsters/strangling_vine.glb"
 const ART := "res://assets/dungeons/sealed_wing/"
@@ -89,7 +89,7 @@ func _build() -> void:
 	# The hall is taller than the rooms either side: wall over their doorways.
 	_box(Vector3(0, f + 11.0, -160), Vector3(8.2, 6.0, 1), _hall_wall)
 	_box(Vector3(0, f + 11.0, -216), Vector3(8.2, 6.0, 1), _hall_wall)
-	# (The sluice wheel stands on its own round foot: _dress_hall.)
+	# (The harp stands on its own round foot: _dress_hall.)
 	_dress_corridor(f)
 	_dress_gallery(f)
 	_dress_cellar(f)
@@ -162,19 +162,19 @@ func _dress_gallery(f: float) -> void:
 		_solid_prop(ARMOUR, Vector3(14.0, f, z), -90.0, 1.0, "suit of armour in the gallery's east row, z %.0f" % z)
 		_torch(Vector3(-14.3, f + 4.0, z + 6.0), Color(0.6, 0.75, 1.0), 1.4)
 		_torch(Vector3(14.3, f + 4.0, z + 6.0), Color(0.6, 0.75, 1.0), 1.4)
-	# The Brinebriar's growth up the gallery walls: its own stems, posed still.
-	var rng := RandomNumberGenerator.new()
-	rng.seed = 1999
-	for i in range(8):
-		var x := -11.2 if i % 2 == 0 else 11.2
-		var z := -62.0 - (i / 2) * 9.5 - (4.5 if i % 2 else 0.0)
-		_prop(VINE, Vector3(x, f, z), rng.randf_range(0, 360), rng.randf_range(0.55, 0.8))
 	# a beam end fallen from the ceiling and the plaster it brought down
 	_rubble(Vector3(12.6, f, -97.6), 1.4, 12)
 	_rubble(Vector3(-12.8, f, -58.6), 1.0, 8)
 	_webs(_corner_webs(Vector2(0, -78), Vector2(30, 44), f + 7.6, 3.2), Color(0.6, 0.6, 0.58), 0.4)
 
 func _dress_cellar(f: float) -> void:
+	# Vine growth climbing every wall: the creature's own vines, posed still.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1999
+	for i in range(10):
+		var x := -13.2 if i % 2 == 0 else 13.2
+		var z := -104.0 - (i / 2) * 7.5 - (3.5 if i % 2 else 0.0)
+		_prop(VINE, Vector3(x, f, z), rng.randf_range(0, 360), rng.randf_range(0.55, 0.8))
 	for z in [-108.0, -124.0, -136.0]:
 		_torch(Vector3(-14.2, f + 3.0, z), Color(0.75, 1.0, 0.6), 1.3, 14.0)
 		_torch(Vector3(14.2, f + 3.0, z), Color(0.75, 1.0, 0.6), 1.3, 14.0)
@@ -185,7 +185,8 @@ func _dress_cellar(f: float) -> void:
 	_webs(webs, Color(0.56, 0.62, 0.54), 0.4)
 
 func _dress_hall(f: float) -> void:
-	# A lamp over the drain at the hall's far end, and old bones.
+	# The trapdoor the hound guards, gnawed bones.
+	_prop(ART + "fc_trapdoor.glb", Vector3(0, f - 0.3, -205), 0.0, 1.35)
 	_light(Vector3(0, f + 4.5, -205), Color(1.0, 0.75, 0.45), 1.6, 9.0)
 	for b in [[Vector3(-7, 0, -181), 20.0], [Vector3(8, 0, -198), 140.0], [Vector3(-10, 0, -207), 250.0], [Vector3(5, 0, -186), 300.0]]:
 		_prop(ART + "fc_bones.glb", Vector3(b[0].x, f, b[0].z), b[1], 1.4)
@@ -196,13 +197,13 @@ func _dress_hall(f: float) -> void:
 	for z in [-168.0, -184.0, -200.0, -212.0]:
 		_torch(Vector3(-23.3, f + 5.0, z), Color(1.0, 0.62, 0.3), 2.2, 16.0)
 		_torch(Vector3(23.3, f + 5.0, z), Color(1.0, 0.62, 0.3), 2.2, 16.0)
-	# A fire basket hung from the vault so the Wheelwarden reads at range, and
+	# A fire basket hung from the vault so the hound reads at range, and
 	# braziers on drums in the corners.
 	_fire_basket(Vector3(0, f + 11.0, -188), f + wall_h + 7.0, Color(1.0, 0.68, 0.4), 34.0)
 	for x in [-20.0, 20.0]:
 		for z in [-164.5, -211.5]:
 			_brazier(Vector3(x, f, z), Color(1.0, 0.6, 0.28), 2.4, 14.0, true)
-	# The engine's chains: slung from rings high on the end walls, the free
+	# The hound's chains: slung from rings high on the end walls, the free
 	# ends hanging to the hall's floor rings.
 	for x in [-14.0, 14.0]:
 		_chain(Shapes.sag_points(Vector3(x, f + 9.0, -160.15), Vector3(x * 0.5, f + 9.0, -160.15), 1.2), 0.22)
@@ -211,41 +212,31 @@ func _dress_hall(f: float) -> void:
 	_rubble(Vector3(22.6, f, -207.0), 1.2, 10)
 	_rubble(Vector3(-14.0, f, -214.6), 1.0, 8)
 	_webs(_corner_webs(Vector2(0, -188), Vector2(48, 56), f + 12.5, 4.0), Color(0.6, 0.6, 0.58), 0.4)
-	# The sluice wheel's stone foot and post (SluiceWheel draws the wheel
-	# itself). The old 1 m pedestal box is not drawn: it goes, and the foot and
-	# the post get boxes inside them.
-	removed.append({"note": "the old pedestal (1 m box, 1.6 m square): the sluice wheel's foot is drawn",
-		"min": [WHEEL.x - 0.9, f - 0.1, WHEEL.z - 0.9], "max": [WHEEL.x + 0.9, f + 1.1, WHEEL.z + 0.9]})
-	solids.append({"note": "the sluice wheel's foot: drawn, inside its round base",
-		"center": [WHEEL.x, f + 0.185, WHEEL.z], "half": [0.38, 0.185, 0.38], "yaw_deg": 0})
-	solids.append({"note": "the sluice wheel's post: drawn",
-		"center": [WHEEL.x, f + 0.9, WHEEL.z], "half": [0.05, 0.9, 0.6], "yaw_deg": 0})
-	var post := Node3D.new()
-	post.name = "SluiceFoot"
-	post.position = Vector3(WHEEL.x, f, WHEEL.z)
-	dressing.add_child(post)
-	var foot := MeshInstance3D.new()
-	var drum := CylinderMesh.new()
-	drum.top_radius = 0.5
-	drum.bottom_radius = 0.56
-	drum.height = 0.37
-	foot.mesh = drum
-	foot.material_override = _trim
-	foot.position.y = 0.185
-	post.add_child(foot)
-	var pillar := MeshInstance3D.new()
-	var bar := BoxMesh.new()
-	bar.size = Vector3(0.1, 1.5, 0.2)
-	pillar.mesh = bar
-	pillar.material_override = _base
-	pillar.position.y = 1.05
-	post.add_child(pillar)
+	# The harp on its round foot (fc_harp.glb: a 0.38 m drum 1.1 m across,
+	# the strung frame over it in its x-y plane, turned to run along z). The
+	# old game's 1 m pedestal box (1.6 m square) is not drawn: it goes, and
+	# the drum and the frame get boxes inside them.
+	removed.append({"note": "the old harp pedestal (1 m box, 1.6 m square): the harp's drum is drawn",
+		"min": [HARP.x - 0.9, f - 0.1, HARP.z - 0.9], "max": [HARP.x + 0.9, f + 1.1, HARP.z + 0.9]})
+	solids.append({"note": "the harp's drum: drawn, inside its round foot",
+		"center": [HARP.x, f + 0.185, HARP.z], "half": [0.38, 0.185, 0.38], "yaw_deg": 0})
+	solids.append({"note": "the harp's strung frame: drawn",
+		"center": [HARP.x, f + 0.9, HARP.z], "half": [0.05, 0.9, 0.6], "yaw_deg": 0})
+	var harp := Node3D.new()
+	harp.name = "Harp"
+	harp.position = Vector3(HARP.x, f + 1.0, HARP.z)
+	dressing.add_child(harp)
+	if ResourceLoader.exists(ART + "fc_harp.glb"):
+		var model: Node3D = (load(ART + "fc_harp.glb") as PackedScene).instantiate()
+		model.position = Vector3(0, -1.0, 0)
+		model.rotation.y = deg_to_rad(-90.0)
+		harp.add_child(model)
 	var glow := OmniLight3D.new()
-	glow.light_color = Color(0.62, 0.92, 0.86)
+	glow.light_color = Color(1.0, 0.85, 0.5)
 	glow.light_energy = 1.2
 	glow.omni_range = 6.0
-	glow.position = Vector3(0, 2.0, 0)
-	post.add_child(glow)
+	glow.position = Vector3(0, 1.5, 0)
+	harp.add_child(glow)
 	_lights += 1
 
 func _dress_reward(f: float) -> void:

@@ -1,8 +1,8 @@
 extends Control
 
-## The inventory (I): one vertical window -
+## The inventory (I): one vertical window in the Metin2 / Knight Online layout -
 ## the worn pieces on top, placed around the hero's silhouette (hat above the
-## head, robe on the torso, stakes at the feet, wand / hands / ring I left,
+## head, robe on the torso, boots at the feet, wand / hands / ring I left,
 ## focus / neck / ring II right, broom bottom right; an empty slot shows the
 ## faint outline of its kind and its name), the satchel below in pages of
 ## 5 x 8 (tabs I, II, III only for pages ItemRules.BAG_SLOTS opens), the
@@ -15,8 +15,8 @@ extends Control
 ## entry carries its `cell`, and dragging inside the bag is a move request.
 
 # i18n-begin
-const SLOT_LABELS := {"head":"Head", "chest":"Robes", "hands":"Hands", "feet":"Feet", "main_hand":"Rod", "off_hand":"Focus", "neck":"Neck", "ring_left":"Ring I", "ring_right":"Ring II", "broom":"Skiff"}
-const REASONS := {"in_combat":"Wait five seconds after combat.", "casting":"Finish casting first.", "dead":"You are defeated.", "mounted":"Dismount before changing your skiff.", "level_too_low":"Your level is too low for that item.", "bag_full":"No room for the replaced item.", "wrong_slot":"That item does not fit.", "item_missing":"That item is no longer available.", "stale_inventory":"Inventory changed. Please try again.", "stale":"Inventory changed. Please try again.", "stack_full":"That stack is full.", "stale_request":"Action already handled.", "no_gold":"Not enough Oril.", "no_material":"Missing refinement material.", "no_wand":"Equip a rod first.", "max_tier":"Already fully refined.", "refined":"Refined!", "enchanted":"The enchantment holds!", "enchant_failed":"The weave slipped - the scroll is spent.", "no_scroll":"You have no such scroll.", "bonus_full":"This item cannot hold more enchantments.", "no_bonus":"There is nothing to reweave yet.", "not_enchantable":"That item cannot be enchanted.", "nothing_equipped":"Equip an item in that slot first.", "not_refinable":"That item cannot be refined.", "refinement_failed":"Refinement failed.", "save_conflict":"Inventory refreshed from your saved character.", "transfer_pending":"Wait until the map loads.", "invalid_state":"Equipment temporarily unavailable.", "resource_full":"That resource is already full.", "consumed":"", "sold":"", "not_sellable":"No merchant wants that.", "destroyed":"", "not_destroyable":"Take it off before destroying it."}
+const SLOT_LABELS := {"head":"Head", "chest":"Robes", "hands":"Hands", "feet":"Feet", "main_hand":"Wand", "off_hand":"Focus", "neck":"Neck", "ring_left":"Ring I", "ring_right":"Ring II", "broom":"Broom"}
+const REASONS := {"in_combat":"Wait five seconds after combat.", "casting":"Finish casting first.", "dead":"You are defeated.", "mounted":"Dismount before changing your broom.", "level_too_low":"Your level is too low for that item.", "bag_full":"No room for the replaced item.", "wrong_slot":"That item does not fit.", "item_missing":"That item is no longer available.", "stale_inventory":"Inventory changed. Please try again.", "stale":"Inventory changed. Please try again.", "stack_full":"That stack is full.", "stale_request":"Action already handled.", "no_gold":"Not enough Oril.", "no_material":"Missing refinement material.", "no_wand":"Equip a wand first.", "max_tier":"Already fully refined.", "refined":"Refined!", "enchanted":"The enchantment holds!", "enchant_failed":"The weave slipped - the scroll is spent.", "no_scroll":"You have no such scroll.", "bonus_full":"This item cannot hold more enchantments.", "no_bonus":"There is nothing to reweave yet.", "not_enchantable":"That item cannot be enchanted.", "nothing_equipped":"Equip an item in that slot first.", "not_refinable":"That item cannot be refined.", "refinement_failed":"Refinement failed.", "save_conflict":"Inventory refreshed from your saved character.", "transfer_pending":"Wait until the map loads.", "invalid_state":"Equipment temporarily unavailable.", "resource_full":"That resource is already full.", "consumed":"", "sold":"", "not_sellable":"No merchant wants that.", "destroyed":"", "not_destroyable":"Take it off before destroying it."}
 # i18n-end
 const COLUMNS := 5
 const ROWS := 8
@@ -819,7 +819,7 @@ func _activate(slot: UISlot) -> void:
 		_offer(slot.entry)
 		return
 	var item_data := ItemRules.item(slot.item_id)
-	# A Waystake: choose where it leads, the server sets it down.
+	# An Old Boot is a Waylink: choose where it goes, the server sets it down.
 	if slot.item_id == ItemRules.waylink_item():
 		var hud = get_parent().get_node_or_null("HUD") if get_parent() != null else null
 		if hud != null and hud.get("waylink") != null:

@@ -3,7 +3,7 @@ shader_type spatial;
 // camera, each on its instance origin (the quad's base, not its centre), on
 // one MultiMesh - one draw call for a whole ring of them. Each card starts on
 // its own frame and plays at its own rate, so a row of them never beats in
-// step. The light standing over a portal is this (the Waystake's aura clip);
+// step. The light standing over a portal is this (the Waylink's aura clip);
 // `grow` and `intensity` let a mark raise and fade its cards.
 // INSTANCE_CUSTOM: x = phase, y = mirrored (0/1).
 render_mode unshaded, blend_add, depth_draw_never, cull_disabled, shadows_disabled, fog_disabled;

@@ -8,10 +8,10 @@ extends Node
 ##
 ##   land      the sheet is in: three free points, and the taskbar's skill
 ##             book carries the badge with 3 (capture)
-##   open      V opens the skill window: Starnail at level 9, the points
-##             capsule says 3 (capture); the pointer rests on Starnail's card
+##   open      V opens the skill window: Stun Bolt at level 9, the points
+##             capsule says 3 (capture); the pointer rests on Stun Bolt's card
 ##             and its tooltip shows the numbers now and at Master (capture)
-##   master    Starnail's "+": the server's answer, then the sheet: level 10
+##   master    Stun Bolt's "+": the server's answer, then the sheet: level 10
 ##             (the card's plate and the bar's badge say "M"), 2 points left
 ##             (capture)
 ##   learn     Shockwave's "+" learns it: level 1, 1 point left (capture)
@@ -121,7 +121,7 @@ func _run() -> void:
 		return
 	await _wait(1.5)
 	if _points() != 3 or _level("stun_bolt") != 9:
-		_verdict("the fixture is not level 12 with Starnail 9 (points %d, stun bolt %d)" % [_points(), _level("stun_bolt")])
+		_verdict("the fixture is not level 12 with Stun Bolt 9 (points %d, stun bolt %d)" % [_points(), _level("stun_bolt")])
 		return
 	_see("land", "level %d, %d points" % [int(game.session.sheet()["level"]), _points()])
 	if await _until(func(): return game.hud._skill_badge.points == 3, 3.0):
@@ -140,7 +140,7 @@ func _run() -> void:
 	if window._points.text == "3":
 		_see("points_shown", window._points.text)
 	await _capture("window")
-	# the pointer rests on Starnail's card: the tooltip beside the window
+	# the pointer rests on Stun Bolt's card: the tooltip beside the window
 	var motion := InputEventMouseMotion.new()
 	motion.position = (stun as Control).get_global_rect().get_center()
 	motion.global_position = motion.position
@@ -158,9 +158,9 @@ func _run() -> void:
 	Input.parse_input_event(away)
 	await _frames(4)
 
-	# --- Starnail to Master
+	# --- Stun Bolt to Master
 	if not await _train("stun_bolt", 10, 2):
-		_verdict("Starnail did not reach Master (level %d, points %d, answers %s)" % [_level("stun_bolt"), _points(), _answers])
+		_verdict("Stun Bolt did not reach Master (level %d, points %d, answers %s)" % [_level("stun_bolt"), _points(), _answers])
 		return
 	_see("master", "level %d, %d points" % [_level("stun_bolt"), _points()])
 	if await _until(func(): return stun.slot.badge_text == "M" and _bar_slot("stun_bolt").badge_text == "M" \

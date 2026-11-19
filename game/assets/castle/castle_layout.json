@@ -37,7 +37,7 @@
     },
     {
       "id": "feast_hall",
-      "label": "Long Table",
+      "label": "Feast Hall",
       "y": 0,
       "rect": [
         -105,
@@ -61,7 +61,7 @@
     },
     {
       "id": "grand_staircase",
-      "label": "Tidewheel Stair",
+      "label": "Grand Staircase",
       "y": 0,
       "rect": [
         -23.0,
@@ -109,7 +109,7 @@
     },
     {
       "id": "transfiguration",
-      "label": "Assay Hall",
+      "label": "Transmutation Hall",
       "y": 10.0,
       "rect": [
         28.0,
@@ -133,7 +133,7 @@
     },
     {
       "id": "defence",
-      "label": "Muster Hall",
+      "label": "Warding Hall",
       "y": 20.0,
       "rect": [
         28.0,
@@ -145,7 +145,7 @@
     },
     {
       "id": "charms",
-      "label": "Weaving Loft",
+      "label": "Enchanting Hall",
       "y": 20.0,
       "rect": [
         57.0,
@@ -217,7 +217,7 @@
     },
     {
       "id": "velkar",
-      "label": "Nisera Quarters",
+      "label": "Velkar House",
       "y": 70.0,
       "rect": [
         28.0,
@@ -228,8 +228,8 @@
       "h": 9
     },
     {
-      "id": "quartermaster_loft",
-      "label": "Quartermaster's Loft",
+      "id": "room_of_requirement",
+      "label": "Wishing Room",
       "y": 70.0,
       "rect": [
         57.0,
@@ -241,7 +241,7 @@
     },
     {
       "id": "library",
-      "label": "Hall of Rolls",
+      "label": "Library",
       "y": 30.0,
       "rect": [
         -80,
@@ -253,7 +253,7 @@
     },
     {
       "id": "ilvane",
-      "label": "Torvan Quarters",
+      "label": "Ilvane House",
       "y": 50.0,
       "rect": [
         -56,
@@ -264,8 +264,8 @@
       "h": 9
     },
     {
-      "id": "signal_loft",
-      "label": "Tower Loft",
+      "id": "owlery",
+      "label": "Rookery",
       "y": 60.0,
       "rect": [
         -10,
@@ -334,7 +334,7 @@
     },
     {
       "id": "potions",
-      "label": "Still Room",
+      "label": "Alchemy Cellar",
       "y": -10.0,
       "rect": [
         -50,
@@ -346,7 +346,7 @@
     },
     {
       "id": "nisera",
-      "label": "Ilvane Quarters",
+      "label": "Nisera House",
       "y": -10.0,
       "rect": [
         -84,
@@ -370,7 +370,7 @@
     },
     {
       "id": "torvan",
-      "label": "Velkar Quarters",
+      "label": "Torvan House",
       "y": -10.0,
       "rect": [
         43,
@@ -963,7 +963,7 @@
       ]
     },
     {
-      "id": "signal_loft_bridge",
+      "id": "owlery_bridge",
       "y": 60.0,
       "rect": [
         -2.5,
@@ -973,7 +973,7 @@
       ]
     },
     {
-      "id": "signal_loft_landing_NE",
+      "id": "owlery_landing_NE",
       "y": 63.75,
       "rect": [
         6.5,
@@ -983,7 +983,7 @@
       ]
     },
     {
-      "id": "signal_loft_landing_NW",
+      "id": "owlery_landing_NW",
       "y": 67.5,
       "rect": [
         -10,
@@ -993,7 +993,7 @@
       ]
     },
     {
-      "id": "signal_loft_landing_SW",
+      "id": "owlery_landing_SW",
       "y": 71.25,
       "rect": [
         -10,
@@ -1206,7 +1206,7 @@
       "kind": "portrait"
     },
     {
-      "id": "quartermaster_loft_door",
+      "id": "room_of_requirement_door",
       "at": [
         70.0,
         -13.5
@@ -1309,7 +1309,7 @@
       "kind": "eagle_knocker"
     },
     {
-      "id": "signal_loft_bridge_tower",
+      "id": "owlery_bridge_tower",
       "at": [
         0,
         -29.75
@@ -1319,7 +1319,7 @@
       "h": 5
     },
     {
-      "id": "signal_loft_door",
+      "id": "owlery_door",
       "at": [
         0,
         -63.25
@@ -1534,7 +1534,7 @@
       "h": 5
     },
     {
-      "room": "quartermaster_loft",
+      "room": "room_of_requirement",
       "side": "N",
       "from": 62.0,
       "to": 78.0,
@@ -1904,7 +1904,7 @@
       "h": 5
     },
     {
-      "room": "signal_loft",
+      "room": "owlery",
       "side": "E",
       "from": -81,
       "to": -67,
@@ -1914,7 +1914,7 @@
       "h": 3.5
     },
     {
-      "room": "signal_loft",
+      "room": "owlery",
       "side": "W",
       "from": -81,
       "to": -67,
@@ -1924,7 +1924,7 @@
       "h": 3.5
     },
     {
-      "room": "signal_loft",
+      "room": "owlery",
       "side": "N",
       "from": -6,
       "to": 6,
@@ -2292,7 +2292,7 @@
       ]
     },
     {
-      "id": "signal_loft_flight_E",
+      "id": "owlery_flight_E",
       "from": [
         8.25,
         60.0,
@@ -2310,7 +2310,7 @@
       ]
     },
     {
-      "id": "signal_loft_flight_N",
+      "id": "owlery_flight_N",
       "from": [
         6.5,
         63.75,
@@ -2328,7 +2328,7 @@
       ]
     },
     {
-      "id": "signal_loft_flight_W",
+      "id": "owlery_flight_W",
       "from": [
         -8.25,
         67.5,
@@ -2346,7 +2346,7 @@
       ]
     },
     {
-      "id": "signal_loft_flight_S",
+      "id": "owlery_flight_S",
       "from": [
         -6.5,
         71.25,
@@ -3945,7 +3945,7 @@
       ]
     },
     {
-      "id": "long_table_1",
+      "id": "house_table_1",
       "kind": "furniture",
       "min": [
         -88,
@@ -3959,7 +3959,7 @@
       ]
     },
     {
-      "id": "long_table_2",
+      "id": "house_table_2",
       "kind": "furniture",
       "min": [
         -88,
@@ -3973,7 +3973,7 @@
       ]
     },
     {
-      "id": "long_table_3",
+      "id": "house_table_3",
       "kind": "furniture",
       "min": [
         -88,
@@ -3987,7 +3987,7 @@
       ]
     },
     {
-      "id": "long_table_4",
+      "id": "house_table_4",
       "kind": "furniture",
       "min": [
         -88,
@@ -4056,7 +4056,7 @@
       "radius": 3.0
     },
     {
-      "id": "PORTAL_signal_loft_launch",
+      "id": "PORTAL_owlery_launch",
       "at": [
         0,
         75.5,

@@ -3,7 +3,7 @@ shader_type spatial;
 // One material per skin texture, shared by every hero; each hero's skin tone
 // arrives as an instance uniform (HeroAppearance.apply_look) and multiplies
 // the painted skin. The head's scalp_tex holds one scalp mask per hairstyle
-// (build_rig.py scalp/scalp_<style>.png, layers in LOOK_HAIR_STYLES
+// (build_rig.py scalp/scalp_<style>.png, layers in HPRules.LOOK_HAIR_STYLES
 // order): under the worn style the skin shows short hair in the hair colour
 // (stretched strokes of the grain, a firm edge), so no bald skin shows between
 // the locks and the generated styles' bare temples read as a short cut. Flat

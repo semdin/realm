@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: Thousand Realms\n"
+"Project-Id-Version: HPMMO\n"
 "Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -49,20 +49,20 @@ msgstr "Yeni unvan kazanıldı: %s!"
 msgid "Elite %s"
 msgstr "Elit %s"
 
-msgid "Wheelwarden's %s Plate"
-msgstr "Çark Bekçisi'nin %s Plakası"
+msgid "Threehead's %s Head"
+msgstr "Üçbaş'ın %s Başı"
 
-msgid "Briar %s Stem"
-msgstr "%s Diken Sapı"
+msgid "Snare %s Vine"
+msgstr "%s Kapan Sarmaşığı"
 
-msgid "The Wheelwarden's %s plate cracks!"
-msgstr "Çark Bekçisi'nin %s plakası çatladı!"
+msgid "Threehead's %s head slumps!"
+msgstr "Üçbaş'ın %s başı yığılıp kaldı!"
 
-msgid "%s begins to turn the sluice wheel..."
-msgstr "%s savak çarkını çevirmeye başlıyor..."
+msgid "%s begins to ring the sleep chime..."
+msgstr "%s uyku çanını çalmaya başlıyor..."
 
-msgid "A stem cracks apart! %d left."
-msgstr "Bir sap çatlayıp dağıldı! %d kaldı."
+msgid "A vine shrivels in the flames! %d left."
+msgstr "Bir sarmaşık alevlerde kavruldu! %d tane kaldı."
 
 msgid "%s: a wave of creatures answers its call! (Wave %d/3)"
 msgstr "%s: çağrısına bir yaratık dalgası karşılık veriyor! (Dalga %d/3)"
@@ -223,23 +223,23 @@ msgstr "Büyülü Sandık"
 msgid "Chest"
 msgstr "Sandık"
 
-msgid "The Wheelwarden overdrives!"
-msgstr "Çark Bekçisi aşırı devre girdi!"
+msgid "Threehead is enraged!"
+msgstr "Üçbaş öfkeden çıldırdı!"
 
-msgid "The Wheelwarden's gears scream!"
-msgstr "Çark Bekçisi'nin dişlileri çığlık atıyor!"
+msgid "Threehead howls in fury!"
+msgstr "Üçbaş öfkeyle uluyor!"
 
-msgid "The Wheelwarden is frenzied - the sluice holds it only briefly!"
-msgstr "Çark Bekçisi kudurdu - savak onu ancak kısa süre tutabiliyor!"
+msgid "Threehead is frenzied - the chime holds it only briefly!"
+msgstr "Üçbaş kudurdu - çan onu ancak kısa süre tutabiliyor!"
 
 msgid "Someone"
 msgstr "Biri"
 
-msgid "The sluice wheel slips back!"
-msgstr "Savak çarkı geri kaçtı!"
+msgid "The music breaks off!"
+msgstr "Müzik kesildi!"
 
-msgid "Brine floods the Wheelwarden's joints! Its plates take more damage."
-msgstr "Tuzlu su Çark Bekçisi'nin eklemlerini bastı! Plakaları artık daha fazla hasar alıyor."
+msgid "The music lulls Threehead to sleep! Its heads take more damage."
+msgstr "Müzik Üçbaş'ı uyuttu! Başları artık daha fazla hasar alıyor."
 
 msgid " • ENRAGED"
 msgstr " • ÖFKELİ"
@@ -256,17 +256,17 @@ msgstr "Orta"
 msgid "Upper"
 msgstr "Üst"
 
-msgid "The stems are gone - the Brinebriar's heart is exposed!"
-msgstr "Saplar yok oldu - Tuz Dikeni'nin kalbi açığa çıktı!"
+msgid "The vines are gone - the Snare's heart is exposed!"
+msgstr "Sarmaşıklar yok oldu - Kapan'ın kalbi açığa çıktı!"
 
-msgid "A brave Sworn"
-msgstr "Cesur bir Yeminli"
+msgid "A brave Wizard"
+msgstr "Cesur bir büyücü"
 
 msgid "Dark Shard"
 msgstr "Kara Kırık"
 
-msgid "Vault Diver"
-msgstr "Mahzen Dalgıcı"
+msgid "Sealed Wing Explorer"
+msgstr "Mühürlü Kanat Kâşifi"
 
 msgid "Queen's Bane"
 msgstr "Kraliçe Avcısı"
@@ -278,16 +278,16 @@ msgid "Lv. %d  ·  %s"
 msgstr "Sv. %d  ·  %s"
 
 msgid "The Ancient Ward saved you!"
-msgstr "Kadim Koruma Seni Kurtardı!"
+msgstr "Kadim Koruma Kalkanı Seni Kurtardı!"
 
 msgid "You cannot mount right now."
-msgstr "Şu an kayığa binemezsin."
+msgstr "Şu an süpürgeye binemezsin."
 
 msgid "You are defeated!"
 msgstr "Yenildin!"
 
-msgid "You have no mount - equip a skiff first."
-msgstr "Bineğin yok - önce bir kayık kuşan."
+msgid "You have no mount - equip a broom first."
+msgstr "Bineğin yok - önce bir süpürge kuşan."
 
 msgid "You are stunned!"
 msgstr "Sersemledin!"
@@ -319,8 +319,8 @@ msgstr "Burada ayağa kalkacak yer yok!"
 msgid "The ceiling is too low to dismount!"
 msgstr "Tavan inmek için fazla alçak!"
 
-msgid "Skiff Flight"
-msgstr "Kayık Uçuşu"
+msgid "Broom Flight"
+msgstr "Süpürge Uçuşu"
 
 msgid "Space rises · Ctrl descends · Shift dismounts on level ground."
 msgstr "Boşluk yükselir · Ctrl alçalır · Shift düz zeminde iner."
@@ -352,14 +352,14 @@ msgstr "Korunan bölge!"
 msgid "Cast refused"
 msgstr "Büyü reddedildi"
 
-msgid "Shardglass Ward"
-msgstr "Kırıkcam Kalkanı"
+msgid "Ward Shield"
+msgstr "Koruma Kalkanı"
 
 msgid "Reflects projectiles; other damage reduced by 60%."
 msgstr "Mermileri geri yansıtır; diğer hasarlar %60 azalır."
 
-msgid "Shardglass Ward!"
-msgstr "KIRIKCAM KALKANI!"
+msgid "Ward Shield!"
+msgstr "KORUMA KALKANI!"
 
 msgid "Defeated!"
 msgstr "Yenildin!"
@@ -412,8 +412,8 @@ msgstr "Zehirlendi"
 msgid "Knocked back!"
 msgstr "Savruldu!"
 
-msgid "Hushed"
-msgstr "Susturuldu"
+msgid "Disarmed"
+msgstr "Silahsızlandı"
 
 msgid "Evaded"
 msgstr "Kaçındı"
@@ -427,8 +427,8 @@ msgstr "Tamamlandı! Ödülünü almak için tıkla"
 msgid "No open quests - level up to unlock more."
 msgstr "Açık görev yok - yenilerini açmak için seviye atla."
 
-msgid "Create New Character"
-msgstr "Yeni Karakter Oluştur"
+msgid "Create New Wizard"
+msgstr "Yeni Büyücü Oluştur"
 
 msgid "SLOT %d / 2"
 msgstr "YUVA %d / 2"
@@ -439,7 +439,7 @@ msgstr "Maksimum Karakter (2/2)"
 msgid "Level %d\nHealth  %d / %d\nMana  %d / %d"
 msgstr "Seviye %d\nCan  %d / %d\nMana  %d / %d"
 
-msgid "Rod  +%d"
+msgid "Wand  +%d"
 msgstr "Asa  +%d"
 
 msgid "Oril  %d"
@@ -454,8 +454,8 @@ msgstr "DİYARA GİR"
 msgid "Empty Slot"
 msgstr "Boş Yuva"
 
-msgid "Create a new character"
-msgstr "Yeni bir karakter oluşturun"
+msgid "Create a new wizard"
+msgstr "Yeni bir büyücü oluşturun"
 
 msgid "Loading World..."
 msgstr "Dünya Yükleniyor..."
@@ -484,8 +484,8 @@ msgstr "Dünya sunucusuna ulaşılamadı. Tekrar deneyin."
 msgid "A character name needs at least 2 letters!"
 msgstr "Karakter adı en az 2 harften oluşmalıdır!"
 
-msgid "Creating character..."
-msgstr "Karakter oluşturuluyor..."
+msgid "Creating wizard..."
+msgstr "Büyücü oluşturuluyor..."
 
 msgid "Character created!"
 msgstr "Karakter oluşturuldu!"
@@ -496,14 +496,14 @@ msgstr "Oluşturulamadı"
 msgid "Log Out"
 msgstr "Çıkış Yap"
 
-msgid "YOUR CHARACTERS"
-msgstr "KARAKTERLERİN"
+msgid "YOUR WIZARDS"
+msgstr "BÜYÜCÜLERİN"
 
-msgid "New Character"
-msgstr "Yeni Karakter"
+msgid "New Wizard"
+msgstr "Yeni Büyücü"
 
-msgid "YOUR CHARACTERS  (%d / 2)"
-msgstr "KARAKTERLERİN  (%d / 2)"
+msgid "YOUR WIZARDS  (%d / 2)"
+msgstr "BÜYÜCÜLERİN  (%d / 2)"
 
 msgid "%s\nLevel %d  ·  %s"
 msgstr "%s\nSeviye %d  ·  %s"
@@ -511,11 +511,11 @@ msgstr "%s\nSeviye %d  ·  %s"
 msgid "Edit Appearance"
 msgstr "Görünümü Düzenle"
 
-msgid "Equip a rod first"
+msgid "Equip a wand first"
 msgstr "Önce bir asa kuşan"
 
-msgid "Equip a skiff first"
-msgstr "Önce bir kayık kuşan"
+msgid "Equip a broom first"
+msgstr "Önce bir süpürge kuşan"
 
 msgid "Not enough Mana"
 msgstr "Yeterli mana yok"
@@ -544,8 +544,8 @@ msgstr "Yenildin"
 msgid "Unknown spell"
 msgstr "Bilinmeyen büyü"
 
-msgid "Your Watch rank is too low"
-msgstr "Nöbet rütben çok düşük"
+msgid "Your house rank is too low"
+msgstr "Bina rütben çok düşük"
 
 msgid "Your level is too low for that spell"
 msgstr "Bu büyü için seviyen çok düşük"
@@ -562,8 +562,8 @@ msgstr "Şu an olmaz"
 msgid "The map is still loading"
 msgstr "Harita hâlâ yükleniyor"
 
-msgid "The skiff cannot fly here"
-msgstr "Kayık burada uçamaz"
+msgid "The broom cannot fly here"
+msgstr "Süpürge burada uçamaz"
 
 msgid "Casting"
 msgstr "Büyü yapılıyor"
@@ -658,8 +658,8 @@ msgstr "Arazinin çim ve kaya dokuları"
 msgid "Character animations"
 msgstr "Karakter animasyonları"
 
-msgid "The robed Sworn"
-msgstr "Cüppeli Yeminli"
+msgid "The robed wizard"
+msgstr "Cüppeli büyücü"
 
 msgid "Flame and spark sprites"
 msgstr "Alev ve kıvılcım görselleri"
@@ -703,8 +703,8 @@ msgstr "geçersiz tuş"
 msgid "Critical"
 msgstr "Kritik"
 
-msgid "Welcome to Kaf Castle! Spells on 1-4, Q, E · potions on F1-F4 · Shift mounts the skiff."
-msgstr "Kaf Kalesi'ne hoş geldin! Büyüler 1-4, Q, E tuşlarında · iksirler F1-F4'te · Shift ile kayığa binersin."
+msgid "Welcome to Kaf Castle! Spells on 1-4, Q, E · potions on F1-F4 · Shift mounts the broom."
+msgstr "Kaf Kalesi'ne hoş geldin! Büyüler 1-4, Q, E tuşlarında · iksirler F1-F4'te · Shift ile süpürgeye binersin."
 
 msgid "Enter to chat, start a line with ! to shout to everyone. M opens the map, Esc the menu."
 msgstr "Sohbet için Enter; herkese seslenmek için satırı ! ile başlat. M haritayı, Esc menüyü açar."
@@ -853,7 +853,7 @@ msgstr "[Dünya] "
 msgid "[I] Bag - the potions you carry"
 msgstr "[I] Çanta - taşıdığın iksirler"
 
-msgid "[O] Kestrin - forge the rod higher"
+msgid "[O] Kestrin - forge the wand higher"
 msgstr "[O] Kestrin - asanı yükselt"
 
 msgid "Invite to Party"
@@ -904,26 +904,26 @@ msgstr "[%s] Hızlı yuva\nÇantandan (I) buraya bir iksir sürükle.\nYer deği
 msgid "[%s] %s\n%s\nDrag to move or swap; drag off the bar or right-click to clear."
 msgstr "[%s] %s\n%s\nTaşımak ya da yer değiştirmek için sürükle; boşaltmak için çubuğun dışına çek ya da sağ tıkla."
 
-msgid "Lake dead cured hard by Lunra's brine and walked back ashore by the Ash Priest. Slow, relentless and dry as tinder."
-msgstr "Lunra'nın tuzlu suyunda kurumuş, Kül Rahibi'nin yeniden karaya yürüttüğü göl ölüleri. Yavaş, amansız ve kav gibi kuru."
+msgid "Drowned corpses bewitched to serve the Ash Priest. Slow, relentless and terrified of fire."
+msgstr "Kül Rahibi'ne hizmet etsin diye büyülenmiş boğulmuş cesetler. Yavaş, amansız ve ateşten ödleri kopar."
 
-msgid "Saltwights raised in old Vigil mail to hold the shore. Their crusted grip drags you down; fire still takes them."
-msgstr "Kıyıyı tutsun diye eski Nöbet zırhlarıyla kaldırılmış Tuz Hortlakları. Kabuklu pençeleri seni aşağı çeker; ateş yine de onları alır."
+msgid "Drowned Ones raised from a cursed lake to guard what lies beneath. Their cold grip drags you down; fire still breaks them."
+msgstr "Lanetli bir gölden, derinde yatanı korumak için kaldırılmış Boğulmuş Ölüler. Soğuk pençeleri seni aşağı çeker; ateş yine de onları kırar."
 
-msgid "Goblin salvagers who strip battlefields and old mines, hauling every scrap of worth on their backs."
-msgstr "Savaş alanlarını ve eski madenleri soyan goblin yağmacılar; değerli her parçayı sırtlarında taşırlar."
+msgid "Goblin moneylenders from Orvell's vaults, out collecting debts. They count every coin and carry a heavy purse."
+msgstr "Orvell'in hazinelerinden gelen goblin tefeciler, borç tahsilatına çıkmış. Her sikkeyi sayarlar ve keseleri ağırdır."
 
-msgid "Scrap-plated goblin muscle that keeps a salvage crew alive. Shoving, stubborn and greedy; what they carry is rarely ordinary."
-msgstr "Yağmacı takımını hayatta tutan hurda zırhlı goblin kas gücü. İtip kakan, inatçı ve açgözlü; taşıdıkları nadiren sıradandır."
+msgid "Vault guards in goblin-wrought silver. Shoving, stubborn and well paid; what they carry is rarely ordinary."
+msgstr "Goblin işi gümüş zırhlı kasa muhafızları. İtip kakarlar, inatçıdırlar ve iyi para alırlar; taşıdıkları şey nadiren sıradandır."
 
-msgid "Hexers burn stolen shard-dust between their palms and blast anything that comes near the salvage."
-msgstr "Goblin büyücüler çalınmış kırık tozunu avuçlarında yakar ve ganimete yaklaşan her şeyi savurur."
+msgid "Goblin magic needs no wand. Hexers walk with the tellers and the guards and blast debtors off their feet with bare hands."
+msgstr "Goblin büyüsü asa istemez. Büyücüler veznedarlar ve muhafızlarla birlikte dolaşır, borçluları çıplak elleriyle savurduğu büyüyle yere serer."
 
-msgid "Spiders swollen on the shard-dust that drifts down through the Raven Woods. Each nest is spun around a fallen splinter."
-msgstr "Kuzgun Ormanı'na savrulan kırık tozuyla şişmiş örümcekler. Her yuva düşmüş bir kıymığın çevresine örülür."
+msgid "Giant spiders of the Raven Woods, bred from an ancient brood-mother. They hunt in packs."
+msgstr "Kuzgun Ormanı'nın dev örümcekleri, kadim bir yuva anasının soyundan. Sürüler halinde avlanırlar."
 
-msgid "Deserters who broke their oath to the Vigil and now rob the caravan roads. Some still remember how to cast."
-msgstr "Nöbet'e verdikleri yemini bozup kervan yollarını soyan firariler. Bazıları büyü yapmayı hâlâ hatırlıyor."
+msgid "Wizards turned bounty hunters, roaming the roads in gangs. Some cast from range."
+msgstr "Ödül avcısına dönmüş büyücüler; yollarda çeteler halinde dolaşırlar. Bazıları uzaktan büyü yapar."
 
 msgid "Hulking forest trolls with crude clubs. Slow to anger, slower to fall."
 msgstr "Kaba sopalı iri orman trolleri. Geç öfkelenir, daha da geç devrilirler."
@@ -931,23 +931,23 @@ msgstr "Kaba sopalı iri orman trolleri. Geç öfkelenir, daha da geç devrilirl
 msgid "The largest trolls, grey-skinned and thick-hided, guarding the high moors."
 msgstr "Yüksek bozkırları koruyan, gri tenli ve kalın derili en büyük troller."
 
-msgid "Empty mail that marches out of the Morhal mist, still keeping a watch no one remembers. Its cold numbs the body; hard dawn light burns the mist out of it."
-msgstr "Morhal sisinden çıkıp kimsenin hatırlamadığı bir nöbeti sürdüren boş zırhlar. Soğukları bedeni uyuşturur; içlerindeki sisi sert tan ışığı yakar."
+msgid "Soul-sucking wardens of Morhal. Their cold drains your will; only the Light of Ithrel truly drives them off."
+msgstr "Morhal'ın ruh emen gardiyanları. Soğukları iradeni tüketir; onları gerçekten ancak bir Ithrel Işığı kovar."
 
-msgid "Little gale-sprites that ride the drafts of old cellars and toss intruders into the air."
-msgstr "Eski mahzenlerin hava akımlarına binen ve davetsiz gelenleri havaya savuran küçük yel cinleri."
+msgid "Electric-blue pests that lift wizards off their feet and hurl them about."
+msgstr "Büyücüleri yerden kaldırıp oraya buraya fırlatan elektrik mavisi baş belaları."
 
-msgid "Sentries of a garrison walled in long ago. The men are gone; the armour never stood down."
-msgstr "Uzun zaman önce duvar arkasında bırakılmış garnizonun nöbetçileri. İnsanlar gitti; zırhlar nöbetten hiç çıkmadı."
+msgid "Suits of armour enchanted to defend the castle's sealed wing."
+msgstr "Kalenin mühürlü kanadını korumak için büyülenmiş zırhlar."
 
-msgid "The last castellan of the vaults, still giving orders to empty mail. Its shield turns aside blows from the front."
-msgstr "Mahzenlerin son kale beyi; boş zırhlara hâlâ emir veriyor. Kalkanı önden gelen darbeleri savuşturur."
+msgid "A cursed suit that commands the others. Its shield turns aside blows from the front."
+msgstr "Diğerlerine komuta eden lanetli bir zırh. Kalkanı önden gelen darbeleri savuşturur."
 
-msgid "A salt-fed briar that split the vault floor. Flame only steams it; frost and force crack its stems and bare the heart."
-msgstr "Mahzen zeminini yarmış, tuzla beslenen bir diken. Alev onu yalnızca buharlaştırır; ayaz ve kuvvet saplarını çatlatıp kalbini açığa çıkarır."
+msgid "A creeping plant that strangles whatever struggles. Burn its vines to reach the heart."
+msgstr "Çırpınan her şeyi boğan sürüngen bir bitki. Kalbine ulaşmak için sarmaşıklarını yak."
 
-msgid "A brass colossus built to turn the great Tidewheel, gone mad in the dark. Flood its joints at the sluice wheel and break its three plates."
-msgstr "Büyük Gelgit Çarkı'nı döndürmek için yapılmış, karanlıkta aklını yitirmiş pirinç dev. Savak çarkıyla eklemlerini su bas ve üç plakasını kır."
+msgid "A three-headed hound bound to guard the sealed wing's stone hatch. The sleep chime lulls it."
+msgstr "Mühürlü kanadın taş kapağını korumaya bağlanmış üç başlı bir tazı. Uyku çanı onu uyutur."
 
 msgid "Lean, long-legged hunters of the Blackweb Caverns. Their emerald venom burns for seconds after the bite."
 msgstr "Karaağ Mağaraları'nın ince, uzun bacaklı avcıları. Zümrüt zehirleri ısırıktan sonra saniyelerce yakar."
@@ -964,8 +964,8 @@ msgstr "Sersemletme"
 msgid "Force (Repel)"
 msgstr "Kuvvet (İtme)"
 
-msgid "Dawnbreak"
-msgstr "Tan Işığı"
+msgid "Light of Ithrel"
+msgstr "Ithrel Işığı"
 
 msgid "Arcane"
 msgstr "Gizem"
@@ -976,11 +976,11 @@ msgstr "Sınav Salonu"
 msgid "the castle's east terrace, south of the road"
 msgstr "kalenin doğu terası, yolun güneyi"
 
-msgid "The Brine Vaults"
-msgstr "Tuz Mahzenleri"
+msgid "The Sealed Wing"
+msgstr "Mühürlü Kanat"
 
-msgid "Kaf Castle, under the east wing"
-msgstr "Kaf Kalesi, doğu kanadının altı"
+msgid "Kaf Castle, the sealed east wing"
+msgstr "Kaf Kalesi, mühürlü doğu kanadı"
 
 msgid "Troll"
 msgstr "Trol"
@@ -991,23 +991,23 @@ msgstr "Ölümsüz"
 msgid "Ashbound"
 msgstr "Kül Yeminli"
 
-msgid "Mistguard"
-msgstr "Sis Muhafızı"
+msgid "Pallid"
+msgstr "Solgun"
 
 msgid "Beast"
 msgstr "Canavar"
 
-msgid "Galeling"
-msgstr "Yelcik"
+msgid "Fidgetling"
+msgstr "Kıpırcık"
 
 msgid "Plant"
 msgstr "Bitki"
 
-msgid "Hollow sentry"
-msgstr "Kof nöbetçi"
+msgid "Enchanted armour"
+msgstr "Büyülü zırh"
 
-msgid "Construct"
-msgstr "Yapı"
+msgid "Hound"
+msgstr "Tazı"
 
 msgid "Spider"
 msgstr "Örümcek"
@@ -1015,8 +1015,8 @@ msgstr "Örümcek"
 msgid "Goblin"
 msgstr "Goblin"
 
-msgid "Hollow Spinner"
-msgstr "Oyuk Eğiricisi"
+msgid "Black Widow"
+msgstr "Kara Dul"
 
 msgid "Bandit Chief"
 msgstr "Haydutbaşı"
@@ -1081,11 +1081,11 @@ msgstr "Buza hapsoldun: büyü yapamaz ve hareket edemezsin."
 msgid "Losing health over time."
 msgstr "Zamanla can kaybediyorsun."
 
-msgid "Numbed"
-msgstr "Uyuşukluk"
+msgid "Despair"
+msgstr "Umutsuzluk"
 
-msgid "The mist's cold: no natural health recovery."
-msgstr "Sisin soğuğu: doğal can yenilenmesi yok."
+msgid "A Pallid's cold: no natural health recovery."
+msgstr "Bir Solgun'un soğuğu: doğal can yenilenmesi yok."
 
 msgid "Spider venom: damage over time."
 msgstr "Örümcek zehri: zamanla hasar."
@@ -1168,8 +1168,8 @@ msgstr "Hareket ve ganimet"
 msgid "Movement speed"
 msgstr "Hareket hızı"
 
-msgid "Skiff speed"
-msgstr "Kayık hızı"
+msgid "Broom speed"
+msgstr "Süpürge hızı"
 
 msgid "Experience"
 msgstr "Tecrübe"
@@ -1396,8 +1396,8 @@ msgstr "%s kapının yanında değil."
 msgid "%s is dead."
 msgstr "%s ölü."
 
-msgid "%s is on a skiff."
-msgstr "%s kayıkta."
+msgid "%s is on a broom."
+msgstr "%s süpürgede."
 
 msgid "%s is in a duel."
 msgstr "%s düelloda."
@@ -1519,8 +1519,8 @@ msgstr "uzakta"
 msgid "dead"
 msgstr "ölü"
 
-msgid "on a skiff"
-msgstr "kayıkta"
+msgid "on a broom"
+msgstr "süpürgede"
 
 msgid "duelling"
 msgstr "düelloda"
@@ -1670,7 +1670,7 @@ msgid "You came as a helper: no final chest today."
 msgstr "Yardımcı olarak katıldın: bugün son sandık yok."
 
 msgid "(%d enchantments)"
-msgstr "(%d tılsım)"
+msgstr "(%d efsun)"
 
 msgid "In your chest: %s"
 msgstr "Sandığında: %s"
@@ -1723,8 +1723,8 @@ msgstr "+%s Oril"
 msgid "Run it again from the Dungeon Guide (%s)."
 msgstr "Tekrar oynamak için Zindan Rehberi'ni aç (%s)."
 
-msgid "Emberway"
-msgstr "Köz Yolu"
+msgid "Hearthway"
+msgstr "Ocak Yolu"
 
 msgid "Destinations"
 msgstr "Varış Noktaları"
@@ -1732,8 +1732,8 @@ msgstr "Varış Noktaları"
 msgid "Buy %d"
 msgstr "%d Satın Al"
 
-msgid "Waystake"
-msgstr "Yol Kazığı"
+msgid "Old Boot (Waylink)"
+msgstr "Eski Çizme (Göç Nesnesi)"
 
 msgid "%s Oril - carries your party anywhere"
 msgstr "%s Oril - grubunu her yere taşır"
@@ -1741,17 +1741,17 @@ msgstr "%s Oril - grubunu her yere taşır"
 msgid "You stand at the hearth of %s"
 msgstr "%s ocağının başındasın"
 
-msgid "Waycoal: %d lump"
-msgstr "Yol Kömürü: %d parça"
+msgid "Hearth Dust: %d pinch"
+msgstr "Ocak Tozu: %d tutam"
 
-msgid "Waycoal: %d lumps"
-msgstr "Yol Kömürü: %d parça"
+msgid "Hearth Dust: %d pinches"
+msgstr "Ocak Tozu: %d tutam"
 
-msgid "%s Oril a lump, one per journey"
-msgstr "Parçası %s Oril, her yolculuğa bir parça"
+msgid "%s Oril a pinch, one per journey"
+msgstr "Tutamı %s Oril, her yolculuğa bir tutam"
 
-msgid "1 lump of Waycoal"
-msgstr "1 parça Yol Kömürü"
+msgid "1 pinch of Hearth Dust"
+msgstr "1 tutam Ocak Tozu"
 
 msgid "Requires level %d (you are %d)"
 msgstr "Seviye %d gerekir (sen %d seviyesindesin)"
@@ -1771,7 +1771,7 @@ msgstr "Yeterli Oril yok."
 msgid "%s bought."
 msgstr "%s satın alındı."
 
-msgid "The hearth keeper shakes his head."
+msgid "The fireplace keeper shakes his head."
 msgstr "Ocak bekçisi başını iki yana sallıyor."
 
 msgid "Progress is saved when you leave."
@@ -1861,8 +1861,11 @@ msgstr "Yalnızca grup lideri başlatabilir."
 msgid "They are in your party."
 msgstr "Bu oyuncu senin grubunda."
 
-msgid "Drive the stake in and choose where it leads. For ten seconds your party may take hold; then everyone holding on is carried there together."
-msgstr "Kazığı yere çak ve nereye götüreceğini seç. On saniye boyunca grubun ona tutunabilir; sonra tutunan herkes birlikte oraya taşınır."
+msgid "Waylink"
+msgstr "Göç Nesnesi"
+
+msgid "Set the boot down and choose where it goes. For ten seconds your party may grab hold; then everyone holding on is carried there together."
+msgstr "Çizmeyi yere koy ve nereye gideceğini seç. On saniye boyunca grubun ona tutunabilir; sonra tutunan herkes birlikte oraya taşınır."
 
 msgid "Set down"
 msgstr "Yere Koy"
@@ -1909,8 +1912,8 @@ msgstr "%s itibarı"
 msgid "Choose Your First Spell"
 msgstr "İlk Büyünü Seç"
 
-msgid "Every Sworn starts with one spell of their own. Pick it now - every level after this earns a skill point to learn or train more (V)."
-msgstr "Her Yeminli kendine ait bir büyüyle başlar. Şimdi seç - bundan sonraki her seviye, yeni büyü öğrenmek ya da geliştirmek için bir beceri puanı kazandırır (V)."
+msgid "Every wizard starts with one spell of their own. Pick it now - every level after this earns a skill point to learn or train more (V)."
+msgstr "Her büyücü kendine ait bir büyüyle başlar. Şimdi seç - bundan sonraki her seviye, yeni büyü öğrenmek ya da geliştirmek için bir beceri puanı kazandırır (V)."
 
 msgid "Learn"
 msgstr "Öğren"
@@ -2002,8 +2005,8 @@ msgstr "Kanama %d x %d"
 msgid "Burn %d x %d"
 msgstr "Yanma %d x %d"
 
-msgid "Hushing Gale %s s"
-msgstr "Susturan Yel %s sn"
+msgid "Disarm %s s"
+msgstr "Silahsızlandırma %s sn"
 
 msgid "Special"
 msgstr "Özel"
@@ -2047,8 +2050,8 @@ msgstr "Orvell"
 msgid "Northern Moors"
 msgstr "Kuzey Bozkırı"
 
-msgid "Ombrek's Lookout"
-msgstr "Ombrek'in Gözcü Kulübesi"
+msgid "Borin's Hut"
+msgstr "Borin'in Kulübesi"
 
 msgid "Greenhouses"
 msgstr "Seralar"
@@ -2080,8 +2083,8 @@ msgstr "İmleç"
 msgid "Waypoint"
 msgstr "Hedef noktası"
 
-msgid "turning stairs"
-msgstr "dönen merdivenler"
+msgid "moving stairs"
+msgstr "hareketli merdivenler"
 
 msgid "%s floor"
 msgstr "%s Kat"
@@ -2101,7 +2104,7 @@ msgstr "Eller"
 msgid "Feet"
 msgstr "Ayaklar"
 
-msgid "Rod"
+msgid "Wand"
 msgstr "Asa"
 
 msgid "Focus"
@@ -2116,8 +2119,8 @@ msgstr "Yüzük I"
 msgid "Ring II"
 msgstr "Yüzük II"
 
-msgid "Skiff"
-msgstr "Kayık"
+msgid "Broom"
+msgstr "Süpürge"
 
 msgid "Wait five seconds after combat."
 msgstr "Savaştan sonra beş saniye bekle."
@@ -2128,8 +2131,8 @@ msgstr "Önce büyüyü bitir."
 msgid "You are defeated."
 msgstr "Yenildin."
 
-msgid "Dismount before changing your skiff."
-msgstr "Kayığını değiştirmeden önce in."
+msgid "Dismount before changing your broom."
+msgstr "Süpürgeni değiştirmeden önce in."
 
 msgid "Your level is too low for that item."
 msgstr "Bu eşya için seviyen çok düşük."
@@ -2155,7 +2158,7 @@ msgstr "Bu yığın dolu."
 msgid "Missing refinement material."
 msgstr "Yükseltme malzemesi eksik."
 
-msgid "Equip a rod first."
+msgid "Equip a wand first."
 msgstr "Önce bir asa kuşan."
 
 msgid "Already fully refined."
@@ -2165,22 +2168,22 @@ msgid "Refined!"
 msgstr "Yükseltildi!"
 
 msgid "The enchantment holds!"
-msgstr "Tılsım tuttu!"
+msgstr "Efsun tuttu!"
 
 msgid "The weave slipped - the scroll is spent."
-msgstr "Tılsım tutmadı - parşömen harcandı."
+msgstr "Efsun tutmadı - parşömen harcandı."
 
 msgid "You have no such scroll."
 msgstr "Bu parşömenden sende yok."
 
 msgid "This item cannot hold more enchantments."
-msgstr "Bu eşya daha fazla tılsım taşıyamaz."
+msgstr "Bu eşya daha fazla efsun taşıyamaz."
 
 msgid "There is nothing to reweave yet."
-msgstr "Henüz değiştirilecek bir tılsım yok."
+msgstr "Henüz değiştirilecek bir efsun yok."
 
 msgid "That item cannot be enchanted."
-msgstr "Bu eşyaya tılsım basılamaz."
+msgstr "Bu eşyaya efsun basılamaz."
 
 msgid "Equip an item in that slot first."
 msgstr "Önce o yuvaya bir eşya kuşan."
@@ -2276,7 +2279,7 @@ msgid "%s: replace %s"
 msgstr "%s: %s yerine tak"
 
 msgid "%d enchantments"
-msgstr "%d tılsımlı"
+msgstr "%d efsunlu"
 
 msgid "This item is %s. It cannot be bought back once sold."
 msgstr "Bu eşya %s. Sattıktan sonra geri alınamaz."
@@ -2317,14 +2320,14 @@ msgstr "Sayfa %s  ·  %d/%d"
 msgid "Page %s  ·  opens soon"
 msgstr "Sayfa %s  ·  yakında açılacak"
 
-msgid "One-Handed Rod"
+msgid "One-Handed Wand"
 msgstr "Tek El Asa"
 
 msgid "Body Armour"
 msgstr "Zırh"
 
-msgid "Windskiff"
-msgstr "Yel kayığı"
+msgid "Broom mount"
+msgstr "Süpürge bineği"
 
 msgid "Consumable"
 msgstr "Tüketilebilir"
@@ -2875,8 +2878,8 @@ msgstr "Kale Avlusu"
 msgid "Boathouse"
 msgstr "Kayıkhane"
 
-msgid "Orvell Landing"
-msgstr "Orvell İskelesi"
+msgid "Orvell Station"
+msgstr "Orvell İstasyonu"
 
 msgid "Mountain Pass"
 msgstr "Dağ Geçidi"
@@ -2884,23 +2887,23 @@ msgstr "Dağ Geçidi"
 msgid "Hunting grounds  ·  Lv %d-%d"
 msgstr "Av bölgesi  ·  Sv %d-%d"
 
-msgid "Commander of the Vigil"
-msgstr "Nöbet Komutanı"
+msgid "Master of Kaf Castle"
+msgstr "Kaf Kalesi'nin Üstadı"
 
-msgid "Starsmith"
-msgstr "Yıldız Demircisi"
+msgid "Wandmaker"
+msgstr "Asa Ustası"
 
-msgid "Caravan Factor of the Red Lantern"
-msgstr "Kızıl Fener Hanı'nın Kervan Kâhyası"
+msgid "Landlady of the Red Lantern"
+msgstr "Kızıl Fener Hanı'nın sahibi"
 
-msgid "Pathwarden"
-msgstr "Yol Gözcüsü"
+msgid "Forest Keeper"
+msgstr "Orman Bekçisi"
 
-msgid "Keeper of the Rolls"
-msgstr "Kayıt Bekçisi"
+msgid "Librarian"
+msgstr "Kütüphaneci"
 
-msgid "Sergeant of the Sky Patrol"
-msgstr "Gök Devriyesi Çavuşu"
+msgid "Flight & Duelling Master"
+msgstr "Uçuş ve Düello Ustası"
 
 msgid "Open the workshop"
 msgstr "Atölyeyi aç"
@@ -2930,28 +2933,28 @@ msgid "new quest"
 msgstr "yeni görev"
 
 msgid "Kestrin"
-msgstr "Demirci Kestrin"
+msgstr "Asacı Kestrin"
 
 msgid "Upgrade"
 msgstr "Yükseltme"
 
 msgid "Enchant"
-msgstr "Tılsım"
+msgstr "Efsun"
 
 msgid "Right-click an item in your bag or drag it here"
 msgstr "Çantandaki bir eşyaya sağ tıkla ya da buraya sürükle"
 
 msgid "Drag the item you want to upgrade or enchant here, or right-click it in your bag."
-msgstr "Yükseltmek ya da tılsımlamak istediğin eşyayı buraya sürükle ya da çantanda sağ tıkla."
+msgstr "Yükseltmek ya da efsunlamak istediğin eşyayı buraya sürükle ya da çantanda sağ tıkla."
 
 msgid "Take it off the anvil"
 msgstr "Örsten kaldır"
 
-msgid "Takes rods, cloaks, skiffs and accessories from +0 to +9. Every step needs materials and Oril; the chance falls with each level, and from +%d a failure drops the item one level."
-msgstr "Asa, cüppe, kayık ve takıları +0'dan +9'a çıkarır. Her adım malzeme ve Oril ister; şans her seviyede düşer, +%d'ten sonra başarısızlık eşyayı bir seviye indirir."
+msgid "Takes wands, cloaks, brooms and accessories from +0 to +9. Every step needs materials and Oril; the chance falls with each level, and from +%d a failure drops the item one level."
+msgstr "Asa, cüppe, süpürge ve takıları +0'dan +9'a çıkarır. Her adım malzeme ve Oril ister; şans her seviyede düşer, +%d'ten sonra başarısızlık eşyayı bir seviye indirir."
 
 msgid "An item holds up to %d enchantments. An Imbue rune adds a new one (the more it has, the lower the chance); a Reweave rune rerolls them all."
-msgstr "Eşyaya en çok %d tılsım basılır. Tılsım Rünü yeni bir tılsım ekler (tılsım arttıkça şans düşer), Tılsım Değiştirme Rünü hepsini yeniden atar."
+msgstr "Eşyaya en çok %d efsun basılır. Efsun Rünü yeni bir efsun ekler (efsun arttıkça şans düşer), Efsun Değiştirme Rünü hepsini yeniden atar."
 
 msgid "Worn items must be taken off first  ·  the item stays locked in the bag while on the anvil"
 msgstr "Takılı eşyalar önce çıkarılmalı  ·  örsteyken eşya çantada kilitli kalır"
@@ -2987,10 +2990,10 @@ msgid "%s  ·  you have %d, need %d"
 msgstr "%s  ·  elinde %d, gereken %d"
 
 msgid "Cannot be enchanted"
-msgstr "Tılsım basılamaz"
+msgstr "Efsun basılamaz"
 
 msgid "Imbue"
-msgstr "Tılsım Bas"
+msgstr "Efsun Bas"
 
 msgid "Slots full  ·  you have %d"
 msgstr "Yuvalar dolu  ·  elinde %d"
@@ -2999,16 +3002,16 @@ msgid "Chance %d%%  ·  you have %d"
 msgstr "Şans %%%d  ·  elinde %d"
 
 msgid "Reweave"
-msgstr "Tılsım Değiştir"
+msgstr "Efsun Değiştir"
 
 msgid "No enchantments  ·  you have %d"
-msgstr "Tılsım yok  ·  elinde %d"
+msgstr "Efsun yok  ·  elinde %d"
 
 msgid "Rerolls %d  ·  you have %d"
-msgstr "%d tılsımı yeniden atar  ·  elinde %d"
+msgstr "%d efsunu yeniden atar  ·  elinde %d"
 
 msgid "Empty enchantment slot"
-msgstr "Boş tılsım yuvası"
+msgstr "Boş efsun yuvası"
 
 msgid "Grade %d/5"
 msgstr "Derece %d/5"
@@ -3031,11 +3034,11 @@ msgstr "Avludaki çeşme alanına gir - ışıltı korunan bölgeyi gösterir."
 msgid "Provoke a pack"
 msgstr "Bir sürüyü kışkırt"
 
-msgid "Hit a Black Weaver or a Saltwight outside the safe zone and survive the pack's answer."
-msgstr "Güvenli bölgenin dışında bir Kara Ağcı'ya ya da bir Tuz Hortlağı'na vur ve sürünün karşılığından sağ çık."
+msgid "Hit a Black Weaver or a Drowned One outside the safe zone and survive the pack's answer."
+msgstr "Güvenli bölgenin dışında bir Kara Ağcı'ya ya da bir Boğulmuş Ölü'ye vur ve sürünün karşılığından sağ çık."
 
-msgid "Skiff controls"
-msgstr "Kayık kontrolleri"
+msgid "Broom controls"
+msgstr "Süpürge kontrolleri"
 
 msgid "Shift to mount, Space to rise, then land on level ground and Shift to dismount."
 msgstr "Binmek için Shift, yükselmek için Boşluk; sonra düz zemine kon ve inmek için Shift."
@@ -3044,7 +3047,7 @@ msgid "Enter the castle"
 msgstr "Şatoya gir"
 
 msgid "Dismount at the entrance and press F in the doorway to enter Kaf Castle."
-msgstr "Girişte kayıktan in ve Kaf Kalesi'ne girmek için kapıda F'ye bas."
+msgstr "Girişte süpürgeden in ve Kaf Kalesi'ne girmek için kapıda F'ye bas."
 
 msgid "Getting started"
 msgstr "Başlarken"
@@ -3061,8 +3064,8 @@ msgstr "Sıradaki"
 msgid "Later"
 msgstr "Sonra"
 
-msgid "\nCONTROLS\nWASD move · Right-drag camera · Wheel zoom\nLMB attack · 1–4 / Q / E spells · F1–F4 potions · Tab target\nShift mount · Space rise · Ctrl descend\nF talk · Z loot · I bag · O forge · M map\nJ guide · Esc menu & settings · Enter chat (!text shouts)\n\nEQUIPMENT\nSelect to compare. Right-click, double-click, or drag to equip. Changes require five seconds out of combat. Dismount to change skiffs."
-msgstr "\nKONTROLLER\nWASD hareket · Sağ sürükle kamera · Tekerlek yakınlaştır\nSol tık saldır · 1–4 / Q / E büyüler · F1–F4 iksirler · Tab hedef\nShift bin · Boşluk yüksel · Ctrl alçal\nF konuş · Z ganimet · I çanta · O demirci · M harita\nJ rehber · Esc menü ve ayarlar · Enter sohbet (!metin bağırır)\n\nEKİPMAN\nKarşılaştırmak için seç. Kuşanmak için sağ tıkla, çift tıkla ya da sürükle. Değişiklik için savaştan beş saniye uzak kalmalısın. Kayık değiştirmek için in."
+msgid "\nCONTROLS\nWASD move · Right-drag camera · Wheel zoom\nLMB attack · 1–4 / Q / E spells · F1–F4 potions · Tab target\nShift mount · Space rise · Ctrl descend\nF talk · Z loot · I bag · O forge · M map\nJ guide · Esc menu & settings · Enter chat (!text shouts)\n\nEQUIPMENT\nSelect to compare. Right-click, double-click, or drag to equip. Changes require five seconds out of combat. Dismount to change brooms."
+msgstr "\nKONTROLLER\nWASD hareket · Sağ sürükle kamera · Tekerlek yakınlaştır\nSol tık saldır · 1–4 / Q / E büyüler · F1–F4 iksirler · Tab hedef\nShift bin · Boşluk yüksel · Ctrl alçal\nF konuş · Z ganimet · I çanta · O demirci · M harita\nJ rehber · Esc menü ve ayarlar · Enter sohbet (!metin bağırır)\n\nEKİPMAN\nKarşılaştırmak için seç. Kuşanmak için sağ tıkla, çift tıkla ya da sürükle. Değişiklik için savaştan beş saniye uzak kalmalısın. Süpürge değiştirmek için in."
 
 msgid "Training complete"
 msgstr "Eğitim tamamlandı"
@@ -3091,8 +3094,8 @@ msgstr "Sağa git"
 msgid "Jump / rise"
 msgstr "Zıpla / yüksel"
 
-msgid "Descend (skiff)"
-msgstr "Alçal (kayık)"
+msgid "Descend (broom)"
+msgstr "Alçal (süpürge)"
 
 msgid "Basic attack (hold to repeat)"
 msgstr "Temel saldırı (basılı tut, tekrarlar)"
@@ -3100,8 +3103,8 @@ msgstr "Temel saldırı (basılı tut, tekrarlar)"
 msgid "also %s"
 msgstr "ayrıca %s"
 
-msgid "Mount / dismount skiff"
-msgstr "Kayığa bin / in"
+msgid "Mount / dismount broom"
+msgstr "Süpürgeye bin / in"
 
 msgid "Next target"
 msgstr "Sonraki hedef"
@@ -3295,28 +3298,28 @@ msgstr "Yolculuk ediliyor..."
 msgid "Loading %s..."
 msgstr "%s yükleniyor..."
 
-msgid "Start a chat line with ! to shout to everyone in the realm."
-msgstr "Diyardaki herkese seslenmek için sohbet satırını ! ile başlat."
+msgid "Start a chat line with ! to shout to every wizard in the realm."
+msgstr "Diyardaki tüm büyücülere seslenmek için sohbet satırını ! ile başlat."
 
 msgid "Drag a potion from your bag onto F1-F4 to drink it with one key."
 msgstr "Tek tuşla içmek için çantandan bir iksiri F1-F4'e sürükle."
 
-msgid "Shardglass Ward reflects projectiles back at their caster."
-msgstr "Kırıkcam Kalkanı mermileri atana geri yansıtır."
+msgid "Ward Shield reflects projectiles back at their caster."
+msgstr "Koruma Kalkanı mermileri atana geri yansıtır."
 
-msgid "Saltwights are dry as tinder: Flame Wave burns them for double damage."
-msgstr "Tuz Hortlakları kav gibi kurudur: Alev Dalgası onları iki kat hasarla yakar."
+msgid "Drowned Ones fear fire: Flame Wave burns them for double damage."
+msgstr "Boğulmuş Ölüler ateşten korkar: Alev Dalgası onları iki kat hasarla yakar."
 
 msgid "Hold the right mouse button to turn the camera; the wheel zooms."
 msgstr "Kamerayı döndürmek için farenin sağ tuşunu basılı tut; tekerlek yakınlaştırır."
 
-msgid "Land on level ground before you dismount your skiff."
-msgstr "Kayıktan inmeden önce düz bir zemine kon."
+msgid "Land on level ground before you dismount your broom."
+msgstr "Süpürgeden inmeden önce düz bir zemine kon."
 
 msgid "Dark Shards summon waves of creatures - bring friends."
 msgstr "Kara Kırıklar yaratık dalgaları çağırır - arkadaşlarını getir."
 
-msgid "Kestrin can refine your rod. Higher tiers glow brighter."
+msgid "Kestrin can refine your wand. Higher tiers glow brighter."
 msgstr "Kestrin asanı yükseltebilir. Yüksek seviyeler daha parlak ışıldar."
 
 msgid "Press M for the map of the valley, Esc for the menu."
@@ -3400,8 +3403,8 @@ msgstr "Süre doldu - bekçiler düştü ama tüm yaratıklar temizlenmedi."
 msgid "Time is up - the run is over."
 msgstr "Süre doldu - zindan sona erdi."
 
-msgid "A mist chill sweeps the halls - nobody recovers for a while."
-msgstr "Sis ayazı salonları sarıyor - bir süre kimse iyileşemez."
+msgid "A Pallid's chill sweeps the halls - nobody recovers for a while."
+msgstr "Bir Solgun'un soğuğu salonları sarıyor - bir süre kimse iyileşemez."
 
 msgid "The guardian of this place flies into a rage - finish it now!"
 msgstr "Buranın bekçisi öfkeden kudurdu - hemen bitirin!"
@@ -3415,62 +3418,62 @@ msgstr "Grubun canları tükendi - bu zindanda madalya yok."
 msgid "Elite Bodyguard"
 msgstr "Elit Koruma"
 
-msgid "Commander Teral Venn"
-msgstr "Komutan Teral Venn"
+msgid "Master Teral Venn"
+msgstr "Üstat Teral Venn"
 
-msgid "So you are the new recruit. Beneath the lake lies Kaf's shard of the World-Star Ithrel; the Vigil has stood watch over it since the castle's first stone."
-msgstr "Demek yeni acemi sensin. Gölün dibinde Dünya Yıldızı Ithrel'in Kaf'taki kırığı yatar; Nöbet, kalenin ilk taşından beri onu bekliyor."
+msgid "Ah, a new apprentice! Beneath the lake lies Kaf's shard of the World-Star Ithrel - this castle was raised to guard it."
+msgstr "Ah, yeni bir çırak! Gölün dibinde Dünya Yıldızı Ithrel'in Kaf'taki kırığı yatar; bu kale onu korumak için kuruldu."
 
-msgid "Black Weavers infest the Raven Woods to the west. Saltwights haunt its edge, past Ombrek's lookout."
-msgstr "Batıdaki Kuzgun Ormanı Kara Ağcılarla dolu. Ombrek'in gözcü kulübesinin ötesinde, ormanın kıyısında Tuz Hortlakları dolaşıyor."
+msgid "Black Weavers infest the Raven Woods to the west. Drowned Ones haunt its edge, past Borin's hut."
+msgstr "Batıdaki Kuzgun Ormanı Kara Ağcılarla dolu. Borin'in kulübesinin ötesinde, ormanın kıyısında Boğulmuş Ölüler dolaşıyor."
 
-msgid "Someone - the old records say the Ash Priest - drags darkened shards out of the Void. They fall in the western forests, from the Forest Edge past Ombrek's lookout to Bandit Woods in the north-west. Close by, you will see their green light."
-msgstr "Biri, eski kayıtlara göre Kül Rahibi, kararmış kırıkları Boşluk'tan çekiyor. Ombrek'in gözcü kulübesinin ötesindeki Orman Kıyısı'ndan kuzeybatıdaki Haydut Ormanı'na kadar batı ormanlarına düşüyorlar. Yakındaysan yeşil ışıklarını görürsün."
+msgid "Someone - the old records say the Ash Priest - drags darkened shards out of the Void. They fall in the western forests, from the Forest Edge past Borin's hut to Bandit Woods in the north-west. Close by, you will see their green light."
+msgstr "Biri, eski kayıtlara göre Kül Rahibi, kararmış kırıkları Boşluk'tan çekiyor. Borin'in kulübesinin ötesindeki Orman Kıyısı'ndan kuzeybatıdaki Haydut Ormanı'na kadar batı ormanlarına düşüyorlar. Yakındaysan yeşil ışıklarını görürsün."
 
 msgid "From level 5 the Trial Hall is open: it stands on the east terrace, south of the castle road. Press F at its glowing door."
 msgstr "Sınav Salonu 5. seviyeden itibaren açık: doğu terasında, kale yolunun güneyinde duruyor. Parlayan kapısında F'ye bas."
 
-msgid "A rod is only as good as its maker... and the Oril behind it!"
+msgid "A wand is only as good as its maker... and the Oril behind it!"
 msgstr "Bir asa ancak ustası kadar iyidir... bir de arkasındaki Oril kadar!"
 
-msgid "My forge is here on Orvell square, but press O anywhere to open my workshop. Bring Forge Cinder, Deepvein Ore, Starfall Filings."
-msgstr "Ocağım burada, Orvell meydanında; ama atölyemi açmak için her yerde O'ya basabilirsin. Demirci Közü, Derin Damar Cevheri, Yıldız Talaşı getir."
+msgid "My forge is here on Orvell square, but press O anywhere to open my workshop. Bring Velkar Ash, Dragon Sinew, Night Steed Hair."
+msgstr "Ocağım burada, Orvell meydanında; ama atölyemi açmak için her yerde O'ya basabilirsin. Velkar Külü, Ejder Siniri, Gece Atı Kılı getir."
 
 msgid "+4 glows blue, +7 crackles gold, +9 burns with starfire!"
 msgstr "+4 mavi parlar, +7 altın çatırdar, +9 yıldız ateşiyle yanar!"
 
 msgid "Bessa Tull"
-msgstr "Kâhya Bessa Tull"
+msgstr "Hancı Bessa Tull"
 
-msgid "You made it off the road in one piece. Rest here - the village square is safe."
-msgstr "Yoldan sağ salim gelmişsin. Burada dinlen - köy meydanı güvenlidir."
+msgid "Welcome to Orvell, dearie! Rest here - the village square is safe."
+msgstr "Orvell'e hoş geldin, canım! Burada dinlen - köy meydanı güvenlidir."
 
 msgid "Buy Healing Draughts before heading to the Raven Woods. Trust me."
 msgstr "Kuzgun Ormanı'na gitmeden önce Şifa İksiri al. Bana güven."
 
-msgid "Ombrek"
-msgstr "Ombrek"
+msgid "Borin"
+msgstr "Borin"
 
-msgid "Nobody walks the Raven Woods alone on my watch. Take a torch and a second pair of eyes."
-msgstr "Benim nöbetimde kimse Kuzgun Ormanı'na tek başına girmez. Bir meşale ve ikinci bir çift göz al."
+msgid "Don't go into that forest alone, friend... brave, though!"
+msgstr "O ormana tek başına girme dostum... ama cesursun, orası kesin!"
 
-msgid "Saltwights are dry as tinder - Flame Wave goes through them like a grass fire. Starnail pins them in place."
-msgstr "Tuz Hortlakları kav gibi kurudur - Alev Dalgası onları kuru ot gibi yakar. Yıldız Çivisi yerlerine çiviler."
+msgid "Drowned Ones fear fire - burn 'em with Flame Wave. Stun Bolt stuns 'em cold."
+msgstr "Boğulmuş Ölüler ateşten korkar - Alev Dalgası ile yak onları. Şok Oku de anında sersemletir."
 
 msgid "Archivist Emrel Sav"
 msgstr "Arşivci Emrel Sav"
 
-msgid "The rolls are inside, past the great doors. Mind the dust; it is older than you."
-msgstr "Kayıtlar içeride, büyük kapıların ardında. Tozlara dikkat et; senden yaşlıdır."
+msgid "The library is inside, past the great doors. Mind the books."
+msgstr "Kütüphane içeride, büyük kapıların ötesinde. Kitaplara dikkat et."
 
-msgid "The Long Table is through the entrance hall. The drill rooms are across from it."
-msgstr "Uzun Sofra giriş salonundan geçince. Talim odaları tam karşısında."
+msgid "The Feast Hall is through the entrance hall. The study halls are across the hall."
+msgstr "Şölen Salonu giriş salonundan geçince. Çalışma salonları karşı tarafta."
 
-msgid "Sergeant Kaelen Rook"
-msgstr "Çavuş Kaelen Rook"
+msgid "Flight Master Kaelen Rook"
+msgstr "Uçuş Ustası Kaelen Rook"
 
-msgid "Listen close: Starnail interrupts, Flame Wave burns, and Hushing Gale weakens attacks."
-msgstr "İyi dinle: Yıldız Çivisi büyüyü keser, Alev Dalgası yakar, Susturan Yel saldırıları zayıflatır."
+msgid "Welcome! Stun Bolt interrupts, Flame Wave burns, and Disarm weakens attacks."
+msgstr "Hoş geldin! Şok Oku büyüyü keser, Alev Dalgası yakar, Silahsızlandırma saldırıları zayıflatır."
 
 msgid "Practise in the training yard beside the landing pad, then pull a pack together. Watch the boss's warning circle."
 msgstr "İniş pistinin yanındaki talim alanında çalış, sonra bir sürüyü topla. Patronun uyarı çemberine dikkat et."
@@ -3481,47 +3484,47 @@ msgstr "Eğitim kuklaları kale kapısının doğusundaki talim alanında duruyo
 msgid "Reflected!"
 msgstr "Yansıtıldı!"
 
-msgid "Skiff landing"
-msgstr "Kayık iniş alanı"
+msgid "Broom landing"
+msgstr "Süpürge iniş alanı"
 
 msgid "Press F at the door"
 msgstr "Kapıda F'ye bas"
 
-msgid "Ember Pavilion"
-msgstr "Köz Köşkü"
+msgid "Hearth Pavilion"
+msgstr "Ocak Köşkü"
 
 msgid "Kestrin's Forge"
 msgstr "Kestrin'in Körüğü"
 
-msgid "Emberway (%s)"
-msgstr "Köz Yolu (%s)"
+msgid "Hearthway (%s)"
+msgstr "Ocak Yolu (%s)"
 
 msgid "%s (to %s)"
 msgstr "%s (%s yönüne)"
 
-msgid "%s added to your Emberway."
-msgstr "%s Köz Yolu Ağına eklendi."
+msgid "%s added to your Hearthway."
+msgstr "%s Ocak Yolu Ağına eklendi."
 
-msgid "Press %s - Let go of the Waystake (to %s)"
-msgstr "%s'ye bas - Yol Kazığı'nı bırak (%s yönüne)"
+msgid "Press %s - Let go of the Waylink (to %s)"
+msgstr "%s'ye bas - Göç Nesnesi'ni bırak (%s yönüne)"
 
-msgid "Press %s - Grab hold of the Waystake (to %s)"
-msgstr "%s'ye bas - Yol Kazığı'na tutun (%s yönüne)"
+msgid "Press %s - Grab hold of the Waylink (to %s)"
+msgstr "%s'ye bas - Göç Nesnesi'ne tutun (%s yönüne)"
 
 msgid "Press %s - %s"
 msgstr "%s'ye bas - %s"
 
-msgid "Mounted - the castle door is closed to skiff flight. Dismount to enter."
-msgstr "Binekliyken şato kapısı kayığa kapalı. Girmek için in."
+msgid "Mounted - the castle door is closed to broom flight. Dismount to enter."
+msgstr "Binekliyken şato kapısı süpürgeye kapalı. Girmek için in."
 
 msgid "No flying inside the castle!"
 msgstr "Şatonun içinde uçmak yasak!"
 
-msgid "The skiff cannot fly inside the castle - it stays stowed until you are outside."
-msgstr "Kayık şatonun içinde uçamaz - dışarı çıkana kadar kaldırılır."
+msgid "The broom cannot fly inside the castle - it stays stowed until you are outside."
+msgstr "Süpürge şatonun içinde uçamaz - dışarı çıkana kadar kaldırılır."
 
-msgid "Dismount before entering - the skiff cannot fly inside the castle."
-msgstr "Girmeden önce in - kayık şatonun içinde uçamaz."
+msgid "Dismount before entering - the broom cannot fly inside the castle."
+msgstr "Girmeden önce in - süpürge şatonun içinde uçamaz."
 
 msgid "Map transfers are unavailable: the synced map-transfer API is missing from this build."
 msgstr "Harita geçişleri kullanılamıyor: bu sürümde harita geçiş arayüzü eksik."
@@ -3595,11 +3598,11 @@ msgstr "Zindan Katı"
 msgid "Kaf Castle - %s"
 msgstr "Kaf Kalesi - %s"
 
-msgid "   |   Skiff landing pad"
-msgstr "   |   Kayık iniş alanı"
+msgid "   |   Broom landing pad"
+msgstr "   |   Süpürge iniş alanı"
 
-msgid "The skiff cannot fly inside the castle - dismount on the landing pad first."
-msgstr "Kayık şatonun içinde uçamaz - önce iniş alanında in."
+msgid "The broom cannot fly inside the castle - dismount on the landing pad first."
+msgstr "Süpürge şatonun içinde uçamaz - önce iniş alanında in."
 
 msgid "There is no doorway here."
 msgstr "Burada bir kapı yok."
@@ -3631,23 +3634,23 @@ msgstr "Girmek için yeterince tecrübeli değilsin."
 msgid "You have entered this place enough times today - come back tomorrow."
 msgstr "Bugün buraya yeterince girdin - yarın tekrar gel."
 
-msgid "You have no Waystake."
-msgstr "Yol Kazığın yok."
+msgid "You have no Waylink boot."
+msgstr "Göç Nesnesi çizmen yok."
 
-msgid "Your Waystake is already waiting - grab hold of it."
-msgstr "Yol Kazığı'nın zaten bekliyor - ona tutun."
+msgid "Your Waylink is already waiting - grab hold of it."
+msgstr "Göç Nesnesi'nin zaten bekliyor - ona tutun."
 
-msgid "That Waystake has already gone."
-msgstr "O Yol Kazığı çoktan gitti."
+msgid "That Waylink has already gone."
+msgstr "O Göç Nesnesi çoktan gitti."
 
-msgid "That Waystake is not yours - only its owner's party may hold on."
-msgstr "O Yol Kazığı senin değil - yalnızca sahibinin grubu tutunabilir."
+msgid "That Waylink is not yours - only its owner's party may hold on."
+msgstr "O Göç Nesnesi senin değil - yalnızca sahibinin grubu tutunabilir."
 
-msgid "A Waystake will not work in here."
-msgstr "Burada Yol Kazığı çalışmaz."
+msgid "A Waylink will not work in here."
+msgstr "Burada Göç Nesnesi çalışmaz."
 
-msgid "You have no Waycoal - buy a lump at the hearth."
-msgstr "Yol Kömürün yok - ocaktan bir parça satın al."
+msgid "You have no Hearth Dust - buy a pinch at the fireplace."
+msgstr "Ocak Yolu Tozun yok - şömineden bir tutam satın al."
 
 msgid "You have never visited that fireplace."
 msgstr "O şömineyi hiç ziyaret etmedin."
@@ -3667,14 +3670,14 @@ msgstr "Geçiş reddedildi (%s)."
 msgid "%s\n< click to talk >"
 msgstr "%s\n< konuşmak için tıkla >"
 
-msgid "%s set down a Waystake to %s - hold on to it! (F)"
-msgstr "%s, %s yönüne bir Yol Kazığı koydu - ona tutun! (F)"
+msgid "%s set down a Waylink to %s - hold on to it! (F)"
+msgstr "%s, %s yönüne bir Göç Nesnesi koydu - ona tutun! (F)"
 
-msgid "The Waystake went cold - nobody was holding on. It is back in your bag."
-msgstr "Yol Kazığı söndü - kimse tutunmuyordu. Çantana geri döndü."
+msgid "The Waylink fizzled - nobody was holding on. The boot is back in your bag."
+msgstr "Göç Nesnesi söndü - kimse tutunmuyordu. Çizme çantana geri döndü."
 
-msgid "Waystake to %s\n%d"
-msgstr "%s yönüne Yol Kazığı\n%d"
+msgid "Waylink to %s\n%d"
+msgstr "%s yönüne Göç Nesnesi\n%d"
 
 msgid "Training Dummy\n%d / %d"
 msgstr "Eğitim Kuklası\n%d / %d"
@@ -3727,8 +3730,8 @@ msgstr "YUVA 1 / 2"
 msgid "[ Velkar ]"
 msgstr "[ Velkar ]"
 
-msgid "Character Name:"
-msgstr "Karakter Adı:"
+msgid "Wizard Name:"
+msgstr "Büyücü Adı:"
 
 msgid "Type your name..."
 msgstr "Adınızı yazın..."
@@ -3745,8 +3748,8 @@ msgstr "Ilvane"
 msgid "Torvan"
 msgstr "Torvan"
 
-msgid "Create Character"
-msgstr "Karakteri Oluştur"
+msgid "Create Wizard"
+msgstr "Büyücüyü Oluştur"
 
 msgid "EXP: 0 / 200"
 msgstr "EXP: 0 / 200"
@@ -3757,64 +3760,64 @@ msgstr "Demirci"
 msgid "Press Enter to chat..."
 msgstr "Sohbet için Enter'a bas..."
 
-msgid "Thornbark Rod"
-msgstr "Dikenkabuk Asa"
+msgid "Hawthorn Wand"
+msgstr "Alıç Asa"
 
-msgid "Rough thornbark bound with salt-cured cord. It favours patient, steady casting."
-msgstr "Tuzla sertleşmiş iple sarılmış kaba dikenli kabuk. Sabırlı, istikrarlı büyülere yatkındır."
+msgid "10-inch Hawthorn wood with unicorn hair core. Highly suited for healing and curses."
+msgstr "25 santim alıç ağacı, tek boynuz kılı özlü. İyileştirme ve lanetler için çok uygun."
 
-msgid "Starcore Rod"
-msgstr "Yıldız Özlü Asa"
+msgid "Ithrel Wand Replica"
+msgstr "Ithrel Asası Replikası"
 
-msgid "A bar of shard-iron quenched in Lake Lunra. Loud, unstable and ruinously strong."
-msgstr "Lunra Gölü'nde su verilmiş bir kırık demiri çubuğu. Gürültülü, kararsız ve yıkıcı derecede güçlü."
+msgid "15-inch starwood with night steed hair core. Unlocks immense raw destructive power."
+msgstr "38 santim yıldızağacı, gece atı kılı özlü. Muazzam ham yıkım gücünü açığa çıkarır."
 
-msgid "Ashwood Rod"
-msgstr "Dişbudak Asa"
+msgid "Ashwood Twig"
+msgstr "Dişbudak Çubuk"
 
-msgid "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first rod."
+msgid "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first wand."
 msgstr "Düğümlü soluk dişbudak, sapı kenevir iple sarılmış. Her büyü ilk asayla başlar."
 
-msgid "Runebound Walnut Rod"
+msgid "Runebound Walnut Wand"
 msgstr "Rünlü Ceviz Asa"
 
 msgid "Polished walnut banded in brass; its pale runes steady the aim."
 msgstr "Pirinç kuşaklı cilalı ceviz; soluk rünleri nişanı sabitler."
 
-msgid "Silverthorn Rod"
+msgid "Silverthorn Wand"
 msgstr "Gümüşdiken Asa"
 
-msgid "Black ebony crowned with silver thorns around an emerald crystal."
-msgstr "Gümüş dikenlerle taçlanmış kara abanoz; ortasında zümrüt bir kristal."
+msgid "Black ebony gripped by a silver thorn vine, an emerald set in its pommel."
+msgstr "Gümüş dikenli bir sarmaşığın kavradığı kara abanoz; topuzunda bir zümrüt."
 
-msgid "Emberwing Rod"
+msgid "Emberwing Wand"
 msgstr "Korkanat Asa"
 
-msgid "Crimson lacquer under a gold crown of flame; its crystal burns like a live ember."
-msgstr "Altın bir alev tacının altında kızıl cila; kristali canlı bir kor gibi yanar."
+msgid "Crimson lacquer and gold feathers around a glowing amber heart; its tip holds a live ember."
+msgstr "Parlayan kehribar bir kalbin çevresinde kızıl cila ve altın tüyler; ucunda canlı bir kor taşır."
 
 msgid "Moonveil Sceptre"
 msgstr "Ayörtü Asası"
 
-msgid "Moonwood threaded with starlight, a silver crescent holding a star crystal."
-msgstr "Yıldız ışığıyla örülmüş ay ağacı; gümüş bir hilal bir yıldız kristalini tutuyor."
+msgid "Moonwood threaded with starlight behind a mithril crescent, crowned with a star crystal."
+msgstr "Mitril bir hilalin ardında yıldız ışığıyla örülmüş ay ağacı, tepesinde bir yıldız kristali."
 
-msgid "Recruit Robe"
-msgstr "Acemi Cüppesi"
+msgid "Apprentice Robe"
+msgstr "Çırak Cüppesi"
 
-msgid "Sturdy woollen robes issued to every new recruit of the Vigil."
-msgstr "Nöbet'in her yeni acemisine verilen sağlam yün cüppe."
+msgid "Sturdy woolen apprentice robes tailored with silk house linings."
+msgstr "İpek hane astarlı sağlam yün çırak cüppesi."
 
 msgid "Warden's Battle Cloak"
 msgstr "Muhafız Savaş Cübbesi"
 
-msgid "Heavy storm-cured hide, stitched for long watches on the wall."
-msgstr "Surlardaki uzun nöbetler için dikilmiş, fırtınada sertleşmiş ağır deri pelerin."
+msgid "Enchanted heavy dragonhide battle cloak."
+msgstr "Büyülü ağır ejderha derisi savaş pelerini."
 
 msgid "Woolen Traveller's Cloak"
 msgstr "Yün Yolcu Pelerini"
 
-msgid "Undyed homespun wool with a stitched hem and a crude rod patch. Warm, plain and honest."
+msgid "Undyed homespun wool with a stitched hem and a crude wand patch. Warm, plain and honest."
 msgstr "Boyanmamış, ev yapımı yün; dikişli etek ve kaba bir asa yaması. Sıcak, sade ve dürüst."
 
 msgid "Runed Mantle"
@@ -3833,7 +3836,7 @@ msgid "Velkar Regalia"
 msgstr "Velkar Kaftanı"
 
 msgid "Crimson brocade alive with woven flame, a golden velkar spread across the shoulders."
-msgstr "Dokuma alevlerle canlanan kızıl brokar; omuzlarına yayılmış altın bir velkar."
+msgstr "Dokuma alevlerle canlanan kızıl brokar; omuzlarına yayılmış altın bir anka."
 
 msgid "Moonveil Mantle"
 msgstr "Ayörtü Kaftanı"
@@ -3841,47 +3844,47 @@ msgstr "Ayörtü Kaftanı"
 msgid "Silver-blue silk scattered with stars and crescent moons; it shimmers like a night sky."
 msgstr "Yıldızlar ve hilallerle bezeli gümüş-mavi ipek; gece göğü gibi ışıldar."
 
-msgid "Reedrunner"
-msgstr "Sazkoşan"
+msgid "Windcutter 2000"
+msgstr "Yelkıran 2000"
 
-msgid "Lake reed bundled over a bent ashwood frame, with woven mat sails. The patrol's favourite over open water."
-msgstr "Eğri dişbudak bir iskelete sarılmış göl sazı, örme hasır yelkenler. Devriyenin açık su üstünde en sevdiği tekne."
+msgid "Sleek mahogany handle with tail twigs of select birch. Fly across Kaf Valley with speed."
+msgstr "Zarif maun sap, seçme huş kuyruk dalları. Kaf Vadisi'nin üzerinden hızla uç."
 
-msgid "Stormkeel"
-msgstr "Fırtına Omurgası"
+msgid "Skysplitter"
+msgstr "Gökyaran"
 
-msgid "Storm-seasoned oak plated in shard-iron, with a ram at the bow. It hums in a crosswind and never slows for it."
-msgstr "Kırık demiriyle kaplanmış, fırtınada kurutulmuş meşe; pruvasında bir mahmuz. Yan rüzgârda uğuldar ama asla yavaşlamaz."
+msgid "Ash handle with aerodynamic ash finish and goblin-forged ironwork. Supreme speed."
+msgstr "Aerodinamik dişbudak cilalı dişbudak sap ve cin dövmesi demir işçiliği. Üstün hız."
 
-msgid "Ashwood Skiff"
-msgstr "Dişbudak Kayığı"
+msgid "Ashwood Sweeper"
+msgstr "Dişbudak Süpürge"
 
-msgid "A patrol-issue skiff of unvarnished ash with a patched canvas vane on either side. Every rider starts somewhere."
-msgstr "Cilasız dişbudaktan devriye kayığı; iki yanında yamalı birer keten yelken. Her binici bir yerden başlar."
+msgid "A humble apprentice broom of unvarnished ash, its birch twigs tied with hemp cord. Every flyer starts somewhere."
+msgstr "Cilasız dişbudaktan mütevazı bir çırak süpürgesi; huş dalları kenevir iple bağlı. Her uçucu bir yerden başlar."
 
-msgid "Brassbound Walnut"
-msgstr "Pirinç Kuşaklı Ceviz"
+msgid "Runebound Walnut"
+msgstr "Rünlü Ceviz"
 
-msgid "A polished walnut hull bound in brass, its deep blue sails trimmed to steady the flight."
-msgstr "Pirinç kuşaklı cilalı ceviz gövde; koyu mavi yelkenleri uçuşu dengeler."
+msgid "Polished walnut bound in brass bands whose blue runes steady the flight."
+msgstr "Mavi rünleri uçuşu dengeleyen pirinç kuşaklı cilalı ceviz."
 
-msgid "Silverthorn Cutter"
-msgstr "Gümüşdiken Kotrası"
+msgid "Silverthorn Racer"
+msgstr "Gümüşdiken Yarışçı"
 
-msgid "Black-lacquered ebony with silver fittings and a bladed prow, cut narrow for speed."
-msgstr "Gümüş bağlantılı, pruvası bıçak gibi siyah cilalı abanoz; hız için dar kesilmiş."
+msgid "Black-lacquered ebony with silver fittings and emerald runes, its tail trimmed into a racer's dart."
+msgstr "Gümüş bağlantılı, zümrüt rünlü siyah cilalı abanoz; kuyruğu yarışçı oku gibi budanmış."
 
-msgid "Emberwing Galley"
-msgstr "Korkanat Kadırgası"
+msgid "Emberwing"
+msgstr "Korkanat"
 
-msgid "Crimson lacquer and gold fittings under two fan sails that smoulder like live embers."
-msgstr "Kızıl cila ve altın bağlantılar; iki yelpaze yelkeni canlı korlar gibi için için yanar."
+msgid "Crimson lacquer and gold filigree crowned by a velkar head; its feathered tail smoulders like live embers."
+msgstr "Bir anka başıyla taçlanmış kızıl cila ve altın telkari; tüylü kuyruğu canlı korlar gibi için için yanar."
 
-msgid "Moonveil Sloop"
-msgstr "Ayörtü Şalopası"
+msgid "Moonveil Seraph"
+msgstr "Ayörtü Serafı"
 
-msgid "Pale moonwood threaded with starlight, a crystal at the prow and sails spun from moonlight itself."
-msgstr "Yıldız ışığıyla örülmüş soluk ay ağacı; pruvada kristal, ay ışığından eğrilmiş yelkenler."
+msgid "Pale moonwood threaded with starlight, a crystal tip and bristles spun from moonlight itself."
+msgstr "Yıldız ışığıyla örülmüş soluk ay ağacı; kristal uç ve ay ışığından eğrilmiş kıllar."
 
 msgid "Healing Draught"
 msgstr "Şifa İksiri"
@@ -3895,62 +3898,62 @@ msgstr "Mana İksiri"
 msgid "Refreshing cerulean elixir. Restores 120 Mana instantly."
 msgstr "Ferahlatıcı gök mavisi iksir. Anında 120 Mana yeniler."
 
-msgid "Forge Cinder"
-msgstr "Demirci Közü"
+msgid "Velkar Ash"
+msgstr "Velkar Külü"
 
-msgid "Cinders raked from a forge that has never gone cold. Used to refine rods from +0 to +4 at Kestrin."
-msgstr "Hiç soğumamış bir ocaktan alınmış közler. Kestrin'de asaları +0'dan +4'e yükseltmek için kullanılır."
+msgid "Smoldering fiery ash gathered from a burning day. Used to refine wands from +0 to +4 at Kestrin."
+msgstr "Yanan bir günden toplanmış için için yanan ateşli kül. Kestrin'de asaları +0'dan +4'e yükseltmek için kullanılır."
 
-msgid "Deepvein Ore"
-msgstr "Derin Damar Cevheri"
+msgid "Dragon Sinew"
+msgstr "Ejder Siniri"
 
-msgid "Dark ore cut from the veins under the Stone Circle. Needed to refine rods to +5 - +7."
-msgstr "Taş Halka'nın altındaki damarlardan kesilmiş koyu cevher. Asaları +5 - +7'ye yükseltmek için gerekir."
+msgid "Vibrant magical core tissue from a mountain drake. Needed to refine wands to +5 - +7."
+msgstr "Bir dağ ejderinden alınmış canlı büyülü öz dokusu. Asaları +5 - +7'ye yükseltmek için gerekir."
 
-msgid "Starfall Filings"
-msgstr "Yıldız Talaşı"
+msgid "Night Steed Hair"
+msgstr "Gece Atı Kılı"
 
-msgid "Bright filings from a fallen shard, too sharp to hold bare-handed. Required for legendary +8 and +9 rod work."
-msgstr "Düşmüş bir kırıktan alınmış, çıplak elle tutulamayacak kadar keskin parlak talaş. Efsanevi +8 ve +9 asa işleri için gerekir."
+msgid "Spectral, near-invisible hair of the rare night steeds. Required for legendary +8 and +9 wand transmutations."
+msgstr "Nadir gece atlarının hayalet gibi, neredeyse görünmez kılı. Efsanevi +8 ve +9 asa dönüşümleri için gerekir."
 
-msgid "Keystone Ingot"
-msgstr "Kilit Külçesi"
+msgid "Starwood Core"
+msgstr "Yıldızağacı Özü"
 
 msgid "A catalyst for masterwork refinement."
 msgstr "Ustalık işi yükseltme için bir katalizör."
 
 msgid "Rune of Imbuing"
-msgstr "Tılsım Rünü"
+msgstr "Efsun Runu"
 
-msgid "A scroll that weaves one new enchantment into a rod, robe or skiff at Kestrin's. The more an item already holds, the likelier the weave slips."
-msgstr "Kestrin'de bir asaya, cüppeye ya da kayığa yeni bir tılsım basan parşömen. Eşyada ne kadar çok tılsım varsa tutmama ihtimali o kadar artar."
+msgid "A scroll that weaves one new enchantment into a wand, robe or broom at Kestrin's. The more an item already holds, the likelier the weave slips."
+msgstr "Kestrin'de bir asaya, cüppeye ya da süpürgeye yeni bir efsun basan parşömen. Eşyada ne kadar çok efsun varsa tutmama ihtimali o kadar artar."
 
 msgid "Rune of Reweaving"
-msgstr "Tılsım Değiştirme Rünü"
+msgstr "Efsun Değiştirme Rünü"
 
-msgid "Unravels every enchantment on a rod, robe or skiff and weaves the same number anew at Kestrin's."
-msgstr "Kestrin'de bir asa, cüppe ya da kayıktaki tüm tılsımları çözer ve aynı sayıda yenisini basar."
+msgid "Unravels every enchantment on a wand, robe or broom and weaves the same number anew at Kestrin's."
+msgstr "Kestrin'de bir asa, cüppe ya da süpürgedeki tüm efsunları çözer ve aynı sayıda yenisini basar."
 
-msgid "Recruit Hat"
-msgstr "Acemi Şapkası"
+msgid "Apprentice Hat"
+msgstr "Çırak Şapkası"
 
-msgid "Enchanted recruit gear."
-msgstr "Büyülü acemi ekipmanı."
+msgid "Enchanted apprentice gear."
+msgstr "Büyülü çırak ekipmanı."
 
-msgid "Recruit Gloves"
-msgstr "Acemi Eldivenleri"
+msgid "Apprentice Gloves"
+msgstr "Çırak Eldivenleri"
 
-msgid "Recruit Boots"
-msgstr "Acemi Çizmeleri"
+msgid "Apprentice Boots"
+msgstr "Çırak Çizmeleri"
 
-msgid "Recruit Focus"
-msgstr "Acemi Odağı"
+msgid "Apprentice Focus"
+msgstr "Çırak Odağı"
 
-msgid "Recruit Pendant"
-msgstr "Acemi Kolyesi"
+msgid "Apprentice Pendant"
+msgstr "Çırak Kolyesi"
 
-msgid "Recruit Ring"
-msgstr "Acemi Yüzüğü"
+msgid "Apprentice Ring"
+msgstr "Çırak Yüzüğü"
 
 msgid "Adept Ring"
 msgstr "Usta Yüzüğü"
@@ -3979,8 +3982,8 @@ msgstr "Altın tüylerle taçlanmış kızıl brokar, ucu bir kor gibi için iç
 msgid "Moonveil Hat"
 msgstr "Ayörtü Şapka"
 
-msgid "Silver-blue silk scattered with stars, a silver crescent at its peak."
-msgstr "Yıldızlarla bezeli gümüş-mavi ipek, tepesinde gümüş bir hilal."
+msgid "Silver-blue silk scattered with stars, a mithril crescent at its peak."
+msgstr "Yıldızlarla bezeli gümüş-mavi ipek, tepesinde mitril bir hilal."
 
 msgid "Runebound Gloves"
 msgstr "Rünlü Eldivenler"
@@ -3997,14 +4000,14 @@ msgstr "Gümüş dikenli sarmaşıklar ve küçük zümrütlerle bağlanmış ab
 msgid "Emberwing Gloves"
 msgstr "Korkanat Eldivenler"
 
-msgid "Crimson salamander hide edged in gold filigree; the fingertips glow like coals."
-msgstr "Altın telkari kenarlı kızıl semender derisi; parmak uçları kor gibi parlar."
+msgid "Crimson dragonhide edged in gold filigree; the fingertips glow like coals."
+msgstr "Altın telkari kenarlı kızıl ejderha derisi; parmak uçları kor gibi parlar."
 
 msgid "Moonveil Gloves"
 msgstr "Ayörtü Eldivenler"
 
-msgid "Moonlit silk gloves threaded with starlight and silver crescents."
-msgstr "Yıldız ışığı ve gümüş hilallerle örülmüş ay ışıklı ipek eldivenler."
+msgid "Moonlit silk gloves threaded with starlight and mithril crescents."
+msgstr "Yıldız ışığı ve mitril hilallerle örülmüş ay ışıklı ipek eldivenler."
 
 msgid "Runebound Boots"
 msgstr "Rünlü Çizmeler"
@@ -4022,7 +4025,7 @@ msgid "Emberwing Boots"
 msgstr "Korkanat Çizmeler"
 
 msgid "Lacquered crimson boots with golden velkar wings at the heel."
-msgstr "Topuklarında altın velkar kanatları olan cilalı kızıl çizmeler."
+msgstr "Topuklarında altın anka kanatları olan cilalı kızıl çizmeler."
 
 msgid "Moonveil Boots"
 msgstr "Ayörtü Çizmeler"
@@ -4046,13 +4049,13 @@ msgid "Emberwing Focus"
 msgstr "Korkanat Odak"
 
 msgid "A glowing amber heart cradled in golden velkar feathers, warm as a hearth."
-msgstr "Altın velkar tüyleri arasında duran, ocak kadar sıcak parlayan kehribar bir kalp."
+msgstr "Altın anka tüyleri arasında duran, ocak kadar sıcak parlayan kehribar bir kalp."
 
 msgid "Moonveil Focus"
 msgstr "Ayörtü Odak"
 
-msgid "A star crystal suspended inside a silver crescent, shining like the night sky."
-msgstr "Gümüş bir hilalin içinde asılı, gece göğü gibi parlayan bir yıldız kristali."
+msgid "A star crystal suspended inside a mithril crescent, shining like the night sky."
+msgstr "Mitril bir hilalin içinde asılı, gece göğü gibi parlayan bir yıldız kristali."
 
 msgid "Runebound Pendant"
 msgstr "Rünlü Kolye"
@@ -4070,13 +4073,13 @@ msgid "Emberwing Pendant"
 msgstr "Korkanat Kolye"
 
 msgid "A golden velkar spreading its wings around a burning amber stone."
-msgstr "Yanan bir kehribar taşın çevresinde kanatlarını açmış altın bir velkar."
+msgstr "Yanan bir kehribar taşın çevresinde kanatlarını açmış altın bir anka."
 
 msgid "Moonveil Pendant"
 msgstr "Ayörtü Kolye"
 
-msgid "A silver crescent moon cradling a radiant star crystal."
-msgstr "Parlak bir yıldız kristalini kucaklayan gümüş bir hilal."
+msgid "A mithril crescent moon cradling a radiant star crystal."
+msgstr "Parlak bir yıldız kristalini kucaklayan mitril bir hilal."
 
 msgid "Runebound Ring"
 msgstr "Rünlü Yüzük"
@@ -4099,8 +4102,8 @@ msgstr "Velkar biçiminde altın bir halka, gagasında kor gibi parlayan bir keh
 msgid "Moonveil Ring"
 msgstr "Ayörtü Yüzük"
 
-msgid "A silver band set with a star crystal that shimmers like moonlight."
-msgstr "Ay ışığı gibi ışıldayan bir yıldız kristali kakılmış gümüş halka."
+msgid "A mithril band set with a star crystal that shimmers like moonlight."
+msgstr "Ay ışığı gibi ışıldayan bir yıldız kristali kakılmış mitril halka."
 
 msgid "Weaver Silk"
 msgstr "Ağcı İpeği"
@@ -4111,23 +4114,23 @@ msgstr "Karaağ Mağaraları'nda eğrilmiş, inci gibi parlak ve halat kadar sa�
 msgid "Weaver Venom"
 msgstr "Ağcı Zehri"
 
-msgid "Green venom drawn from a Venomfang's glands - worth a fortune to the Still Room."
-msgstr "Bir Zehirdiş'in bezlerinden alınmış yeşil zehir - İmbik Odası bunun için servet öder."
+msgid "Emerald venom milked from a Venomfang's glands - worth a fortune to potioneers."
+msgstr "Bir Zehirdiş'in bezlerinden sağılmış zümrüt zehir - iksirciler için bir servet değerinde."
 
-msgid "Silk Queen's Seal"
-msgstr "İpek Kraliçesi Mührü"
+msgid "Web Mother's Seal"
+msgstr "Ağ Ana Mührü"
 
 msgid "An obsidian seal wrapped in old silk. It answers the sealed web gate deep in the Egg Caverns, where the brood's queen waits."
 msgstr "Eski ipeğe sarılı obsidyen bir mühür. Kuluçkanın kraliçesinin beklediği Yumurta Mağaraları'nın derinliklerindeki mühürlü ağ kapısını açar."
 
-msgid "Waycoal"
-msgstr "Yol Kömürü"
+msgid "Hearth Dust"
+msgstr "Ocak Tozu"
 
-msgid "A lump burned in an Emberway hearth carries you to any hearth you have lit. Sold at every Emberway hearth."
-msgstr "Köz Yolu ocağında yakılan bir parça, seni daha önce yaktığın herhangi bir ocağa taşır. Her Köz Yolu ocağında satılır."
+msgid "A pinch thrown into a Hearthway fireplace carries you to any hearth you have visited. Sold at every Hearthway fireplace."
+msgstr "Ocak Yolu şöminesine atılan bir tutam seni ziyaret ettiğin herhangi bir ocağa taşır. Her Ocak Yolu şöminesinde satılır."
 
-msgid "An iron stake forged with a travel-knot. Right-click to drive it into the ground and choose where it leads: for ten seconds your party may take hold, then everyone holding on is carried there together."
-msgstr "Yol düğümüyle dövülmüş demir kazık. Yere çakmak ve nereye götüreceğini seçmek için sağ tıkla: on saniye boyunca grubun ona tutunabilir, sonra tutunan herkes birlikte oraya taşınır."
+msgid "A battered boot enchanted as a Waylink. Right-click to set it down and choose where it goes: for ten seconds your party may grab hold, then everyone holding on is carried there together."
+msgstr "Göç Nesnesi olarak büyülenmiş hırpalanmış bir çizme. Yere koymak ve nereye gideceğini seçmek için sağ tıkla: on saniye boyunca grubun ona tutunabilir, sonra tutunan herkes birlikte oraya taşınır."
 
 msgid "Dungeon Seal"
 msgstr "Zindan Mührü"
@@ -4141,14 +4144,14 @@ msgstr "Sınav Salonu Anahtarı"
 msgid "An iron key to the Trial Hall. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals."
 msgstr "Sınav Salonu'nun demir anahtarı. Grup lideri Çok Zor (1 anahtar) ve Efsanevi (3 anahtar) zorlukları açmak için kapıda harcar. Zor zindanlardan düşer, Mühür karşılığı satılır."
 
-msgid "Brine Vault Key"
-msgstr "Tuz Mahzeni Anahtarı"
+msgid "Sealed Wing Key"
+msgstr "Mühürlü Kanat Anahtarı"
 
-msgid "A brass key cut for the flood door of the Brine Vaults. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals."
-msgstr "Tuz Mahzenleri'nin savak kapısı için kesilmiş pirinç anahtar. Grup lideri Çok Zor (1 anahtar) ve Efsanevi (3 anahtar) zorlukları açmak için kapıda harcar. Zor zindanlardan düşer, Mühür karşılığı satılır."
+msgid "A brass key that fits the door of the sealed wing. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals."
+msgstr "Mühürlü kanadın kapısına uyan pirinç anahtar. Grup lideri Çok Zor (1 anahtar) ve Efsanevi (3 anahtar) zorlukları açmak için kapıda harcar. Zor zindanlardan düşer, Mühür karşılığı satılır."
 
-msgid "Saltwight"
-msgstr "Tuz Hortlağı"
+msgid "Drowned One"
+msgstr "Boğulmuş Ölü"
 
 msgid "Black Weaver"
 msgstr "Kara Ağcı"
@@ -4159,8 +4162,8 @@ msgstr "Zehirdiş Ağcı"
 msgid "Broodguard"
 msgstr "Yuva Bekçisi"
 
-msgid "Oathless Bandit"
-msgstr "Yeminsiz Haydut"
+msgid "Dark Bandit"
+msgstr "Kara Haydut"
 
 msgid "Forest Troll"
 msgstr "Orman Trolü"
@@ -4168,32 +4171,32 @@ msgstr "Orman Trolü"
 msgid "Mountain Troll"
 msgstr "Dağ Trolü"
 
-msgid "Hollow Sentry"
-msgstr "Kof Nöbetçi"
+msgid "Enchanted Armour"
+msgstr "Büyülü Zırh"
 
-msgid "Hollow Castellan"
-msgstr "Kof Kale Beyi"
+msgid "Cursed Armour Commander"
+msgstr "Lanetli Zırh Komutanı"
 
-msgid "Brinebriar"
-msgstr "Tuz Dikeni"
+msgid "Strangling Vine"
+msgstr "Boğan Sarmaşık"
 
-msgid "Briar Stem"
-msgstr "Diken Sapı"
+msgid "Snare Vine"
+msgstr "Sarmaşık Filizi"
 
-msgid "Wheelwarden"
-msgstr "Çark Bekçisi"
+msgid "Threehead"
+msgstr "Üçbaş"
 
-msgid "Wheelwarden's Plate"
-msgstr "Çark Bekçisi'nin Plakası"
+msgid "Threehead's Head"
+msgstr "Üçbaş'ın Başı"
 
-msgid "Brine Warden of Lunra"
-msgstr "Lunra'nın Tuz Bekçisi"
+msgid "Drowned Warden of Lunra"
+msgstr "Lunra'nın Ölü Bekçisi"
 
-msgid "Goblin Scavenger"
-msgstr "Goblin Yağmacı"
+msgid "Goblin Teller"
+msgstr "Goblin Sarraf"
 
-msgid "Goblin Bruiser"
-msgstr "Goblin Kabadayı"
+msgid "Goblin Vault Guard"
+msgstr "Goblin Hazine Bekçisi"
 
 msgid "Goblin Hexer"
 msgstr "Goblin Büyücü"
@@ -4240,7 +4243,7 @@ msgstr "Sisli Kıyı"
 msgid "Greenhouse Meadow"
 msgstr "Sera Çayırı"
 
-msgid "Field Outskirts"
+msgid "Pitch Outskirts"
 msgstr "Meydan Eteği"
 
 msgid "Eastern Road"
@@ -4249,7 +4252,7 @@ msgstr "Doğu Yolu"
 msgid "Orvell Road"
 msgstr "Orvell Yolu"
 
-msgid "Field Woods"
+msgid "Pitch Woods"
 msgstr "Meydan Korusu"
 
 msgid "Lakeside Glade"
@@ -4279,8 +4282,8 @@ msgstr "Doğu Bozkırı"
 msgid "Orvell Heights"
 msgstr "Orvell Sırtları"
 
-msgid "Landing Mist"
-msgstr "İskele Sisi"
+msgid "Station Mist"
+msgstr "İstasyon Sisi"
 
 msgid "Fog Barrens"
 msgstr "Sisli Çorak"
@@ -4291,8 +4294,8 @@ msgstr "Boz Bataklık"
 msgid "Stone Circle Summit"
 msgstr "Taş Halka Tepesi"
 
-msgid "Marshal's Barrow"
-msgstr "Komutan Höyüğü"
+msgid "Warden's Barrow"
+msgstr "Bekçinin Höyüğü"
 
 msgid "Webbed Galleries"
 msgstr "Ağlı Dehlizler"
@@ -4303,26 +4306,26 @@ msgstr "Yumurta Mağaraları"
 msgid "Grak, Mountain Troll Chieftain"
 msgstr "Grak, Dağ Trollerinin Reisi"
 
-msgid "The Morhal Marshal"
-msgstr "Morhal Komutanı"
+msgid "The Morhal Warden"
+msgstr "Morhal Bekçisi"
 
 msgid "The Trial Warden"
 msgstr "Sınav Bekçisi"
 
-msgid "The Hollow Castellan"
-msgstr "Kof Kale Beyi"
+msgid "The Cursed Armour Commander"
+msgstr "Lanetli Zırh Komutanı"
 
 msgid "Brood Guardian"
 msgstr "Kuluçka Muhafızı"
 
-msgid "Silk Queen"
-msgstr "İpek Kraliçesi"
+msgid "Web Mother"
+msgstr "Ağ Ana"
 
 msgid "Webbound Seal Stone"
 msgstr "Ağ Mühür Taşı"
 
-msgid "The Silk Queen's Lair"
-msgstr "İpek Kraliçesi'nin Yuvası"
+msgid "The Web Mother's Lair"
+msgstr "Ağ Ana'nın Yuvası"
 
 msgid "Castle Entrance"
 msgstr "Kale Girişi"
@@ -4333,29 +4336,29 @@ msgstr "Arazi"
 msgid "the Trial Hall"
 msgstr "Sınav Salonu"
 
-msgid "the Brine Vaults"
-msgstr "Tuz Mahzenleri"
+msgid "the Sealed Wing"
+msgstr "Mühürlü Kanat"
 
-msgid "the Silk Queen's Lair"
-msgstr "İpek Kraliçesi'nin Yuvası"
+msgid "the Web Mother's Lair"
+msgstr "Ağ Ana'nın Yuvası"
 
 msgid "Basic Cast"
 msgstr "Temel Büyü"
 
-msgid "Quick rod flick releasing a sparkling bolt of magic."
+msgid "Quick wand flick releasing a sparkling bolt of magic."
 msgstr "Pırıltılı bir büyü oku salan hızlı bir asa hareketi."
 
-msgid "Starnail"
-msgstr "Yıldız Çivisi"
+msgid "Stun Bolt"
+msgstr "Şok Oku"
 
-msgid "Drives a splinter of starlight into the target: high damage and a 1.8-second stun, longer as the skill grows."
-msgstr "Hedefe bir yıldız kıymığı saplar: yüksek hasar ve 1,8 saniye sersemletme; beceri arttıkça süresi uzar."
+msgid "Stunning spell. Hits target, deals high damage and stuns it for 1.8 seconds, longer as the skill grows."
+msgstr "Sersemletme büyüsü. Hedefe çarpar, yüksek hasar verir ve onu 1,8 saniye sersemletir; beceri geliştikçe süre uzar."
 
 msgid "Flame Wave"
 msgstr "Alev Dalgası"
 
-msgid "Roaring cone of magical fire. Blast damage to everything in the cone, then burns over 3 seconds. Extra damage against Saltwights."
-msgstr "Kükreyen büyülü bir ateş konisi. Konideki her şeye patlama hasarı verir, sonra 3 saniye boyunca yakar. Tuz Hortlaklarına ek hasar."
+msgid "Roaring cone of magical fire. Blast damage to everything in the cone, then burns over 3 seconds. Extra damage against Drowned Ones."
+msgstr "Kükreyen büyülü bir ateş konisi. Konideki her şeye patlama hasarı verir, sonra 3 saniye boyunca yakar. Boğulmuş Ölülere ek hasar."
 
 msgid "Shockwave"
 msgstr "Sarsıntı"
@@ -4363,14 +4366,14 @@ msgstr "Sarsıntı"
 msgid "Detonates a violent concussive shockwave. Heavy AOE damage; enemies in the blast are thrown through the air and lie stunned for a moment where they land."
 msgstr "Şiddetli bir sarsıntı dalgası patlatır. Ağır alan hasarı verir; patlamadaki düşmanlar havaya savrulur ve düştükleri yerde bir an sersemlemiş kalır."
 
-msgid "Hushing Gale"
-msgstr "Susturan Yel"
+msgid "Disarm"
+msgstr "Silahsızlandırma"
 
-msgid "A hard, silencing gust. Knocks back the target, interrupts casting and reduces its attack power by 35% for 5 seconds."
-msgstr "Sert ve susturucu bir yel. Hedefi geri iter, büyüsünü keser ve 5 saniye boyunca saldırı gücünü %35 düşürür."
+msgid "Disarming charm. Knocks back the target, interrupts casting and reduces its attack power by 35% for 5 seconds."
+msgstr "Silahsızlandırma tılsımı. Hedefi geri iter, büyüsünü keser ve 5 saniye boyunca saldırı gücünü %35 düşürür."
 
-msgid "A wall of shard-glass raised on the rod. Projectiles glance back at their caster; all other damage is reduced by 60%."
-msgstr "Asanın ucunda yükselen bir kırık camı duvarı. Mermiler atana geri seker; diğer tüm hasar %60 azalır."
+msgid "Shimmering forcefield. Projectiles that strike it are reflected at their caster; all other damage is reduced by 60%."
+msgstr "Işıldayan bir güç kalkanı. Ona çarpan mermiler atana geri yansıtılır; diğer tüm hasarlar %60 azalır."
 
 msgid "Starfall"
 msgstr "Yıldız Düşüşü"
@@ -4378,8 +4381,8 @@ msgstr "Yıldız Düşüşü"
 msgid "Ultimate star sorcery. Calls down a falling star that bursts into a violet ring of starlight, scorching everything in a wide blast radius; its shards leave every enemy hit bleeding for 4 seconds."
 msgstr "Nihai yıldız büyüsü. Gökten bir yıldız indirir; yıldız, mor bir yıldız ışığı halkasına dönüşerek patlar ve geniş bir alandaki her şeyi kavurur; parçaları isabet ettiği her düşmanı 4 saniye boyunca kanatır."
 
-msgid "Tears open a fan of hard dawn light across a wide cone. Mistguards take triple damage and the light breaks their attack, the numbing strike included; everything it passes through is slowed by 40% for 3 seconds. Requires level 40."
-msgstr "Geniş bir koni boyunca sert bir tan ışığı yelpazesi açar. Sis Muhafızları üç kat hasar alır ve ışık, uyuşturan darbe dahil saldırılarını bozar; içinden geçtiği her şey 3 saniye boyunca %40 yavaşlar. 40. seviye gerekir."
+msgid "Calls down a star-hawk of silver light that dives through a wide cone. Pallids take triple damage and the star-hawk breaks a Pallid's attack, soul-drain included; everything it passes through is slowed by 40% for 3 seconds. Requires level 40."
+msgstr "Geniş bir koni boyunca dalan, gümüş ışıktan bir yıldız şahini çağırır. Solgunlar üç kat hasar alır ve şahin bir Solgun'un saldırısını, ruh emme dahil, bozar; içinden geçtiği her şey 3 saniye boyunca %40 yavaşlar. 40. seviye gerekir."
 
 msgid "Frost Grip"
 msgstr "Buz Kıskacı"
@@ -4405,8 +4408,8 @@ msgstr "Öfke"
 msgid "Creatures below 30% health hit 50% harder and move faster."
 msgstr "Canı %30'un altına düşen yaratıklar %50 daha sert vurur ve hızlanır."
 
-msgid "Death Oath"
-msgstr "Ölüm Yemini"
+msgid "Ward Shield Horribilis"
+msgstr "Koruma Kalkanı Horribilis"
 
 msgid "A creature that dies strengthens the creatures around it (+15% health and damage, up to 5 times)."
 msgstr "Ölen yaratık çevresindekileri güçlendirir (+%15 can ve hasar, en fazla 5 kez)."
@@ -4417,11 +4420,11 @@ msgstr "Patlayan Ölüler"
 msgid "Slain creatures burst two seconds after death - step out of the ring."
 msgstr "Ölen yaratıklar iki saniye sonra patlar - halkadan çık."
 
-msgid "Mist Chill"
-msgstr "Sis Ayazı"
+msgid "Pallid's Chill"
+msgstr "Solgun Soğuğu"
 
-msgid "Every 45 seconds a cold mist stops everyone's regeneration for 6 seconds."
-msgstr "Her 45 saniyede bir soğuk bir sis herkesin yenilenmesini 6 saniye durdurur."
+msgid "Every 45 seconds a deathly cold stops everyone's regeneration for 6 seconds."
+msgstr "45 saniyede bir ölümcül bir soğuk herkesin yenilenmesini 6 saniye durdurur."
 
 msgid "Storm Rain"
 msgstr "Fırtına Yağmuru"
@@ -4471,50 +4474,50 @@ msgstr "Muhafız düştü. Sınavı bitirmek için salonda kalan tüm yaratıkla
 msgid "The trial is complete. Claim your reward - the way out opens behind the arena."
 msgstr "Sınav tamamlandı. Ödülünü al - çıkış yolu arenanın arkasında açıldı."
 
-msgid "Cold air pushes up from the vaults... something small is riding it."
-msgstr "Mahzenlerden soğuk bir hava yükseliyor... üstünde küçük bir şey süzülüyor."
+msgid "The castle's sealed wing is out of bounds... something is buzzing."
+msgstr "Kalenin mühürlü kanadı yasak bölge... bir şey vızıldıyor."
 
 msgid "The gallery door creaks open."
 msgstr "Galeri kapısı gıcırdayarak açılıyor."
 
-msgid "The Hollow Castellan raises its shield - strike from behind!"
-msgstr "Kof Kale Beyi kalkanını kaldırıyor - arkadan vur!"
+msgid "The Cursed Armour Commander raises its shield - strike from behind!"
+msgstr "Lanetli Zırh Komutanı kalkanını kaldırıyor - arkadan vur!"
 
-msgid "Empty armour steps off its stands!"
-msgstr "Boş zırhlar kaidelerinden iniyor!"
+msgid "Armours step down from the walls!"
+msgstr "Zırhlar duvarlardan iniyor!"
 
-msgid "More sentries take up their posts!"
-msgstr "Daha fazla nöbetçi yerini alıyor!"
+msgid "More armours awaken!"
+msgstr "Daha fazla zırh uyanıyor!"
 
-msgid "The Castellan falls. Iron is turning somewhere below..."
-msgstr "Kale Beyi düştü. Aşağıda bir yerde demir dönüyor..."
+msgid "The commander falls. A damp stair leads down."
+msgstr "Komutan düştü. Nemli bir merdiven aşağı iniyor."
 
-msgid "Brinebriar! Salt feeds it - frost and force crack its stems!"
-msgstr "Tuz Dikeni! Tuz onu besliyor - ayaz ve kuvvet saplarını çatlatır!"
+msgid "Strangling Vine! Burn its vines - Flame Wave!"
+msgstr "Boğan Sarmaşık! Sarmaşıklarını yak - Alev Dalgası!"
 
-msgid "Galelings burst out of the briar's roots!"
-msgstr "Dikenin köklerinden yelcikler fışkırıyor!"
+msgid "Fidgetlings pour out of the Snare's roots!"
+msgstr "Kapan'ın köklerinden kıpırcıklar fışkırıyor!"
 
-msgid "The Brinebriar cracks apart. A damp stair leads down."
-msgstr "Tuz Dikeni çatlayıp dağılıyor. Nemli bir merdiven aşağı iniyor."
+msgid "The Snare withers. Music drifts from below..."
+msgstr "Kapan soluyor. Aşağıdan müzik sesi geliyor..."
 
-msgid "Galelings swarm the stair!"
-msgstr "Yelcikler merdiveni sarıyor!"
+msgid "Fidgetlings swarm the stair!"
+msgstr "Kıpırcıklar merdiveni sarıyor!"
 
-msgid "The Wheelwarden wakes! Turn the sluice wheel to flood its joints."
-msgstr "Çark Bekçisi uyandı! Eklemlerini su basması için savak çarkını çevir."
+msgid "Threehead wakes! Ring the sleep chime to lull it."
+msgstr "Üçbaş uyandı! Onu uyutmak için uyku çanını çal."
 
-msgid "Galelings stream out of the Wheelwarden's vents!"
-msgstr "Çark Bekçisi'nin menfezlerinden yelcikler fışkırıyor!"
+msgid "Fidgetlings stream out from under Threehead's paws!"
+msgstr "Üçbaş'ın patilerinin altından kıpırcıklar fışkırıyor!"
 
-msgid "The Wheelwarden grinds to a halt. Clear every creature left in the vaults to raise the flood gate."
-msgstr "Çark Bekçisi durdu. Savak kapısını kaldırmak için mahzenlerde kalan her yaratığı temizle."
+msgid "Threehead collapses. Clear every creature left in the corridor to open the stone hatch."
+msgstr "Üçbaş yığıldı. Taş kapağı açmak için koridorda kalan her yaratığı temizle."
 
-msgid "The vaults are still. The flood gate rises - claim your reward."
-msgstr "Mahzenler sessiz. Savak kapısı yükseliyor - ödülünü al."
+msgid "The corridor is silent. The stone hatch swings open - claim your reward."
+msgstr "Koridor sessiz. Taş kapak açılıyor - ödülünü al."
 
-msgid "A surge of brine bursts down the stair - brace yourself!"
-msgstr "Merdivenden bir tuzlu su dalgası boşanıyor - hazırlan!"
+msgid "Threehead's sleeping breath rolls down the stair - brace yourself!"
+msgstr "Üçbaş'ın uyku nefesi merdivenden aşağı yuvarlanıyor - hazırlan!"
 
 msgid "Silk trembles down the tunnel - something knows you are here."
 msgstr "Tünel boyunca ipek titriyor - bir şey burada olduğunu biliyor."
@@ -4534,8 +4537,8 @@ msgstr "Muhafız yavrularını çağırıyor!"
 msgid "The guardian falls. The Queen's lair lies open below."
 msgstr "Muhafız düştü. Kraliçe'nin ini aşağıda açık duruyor."
 
-msgid "The Silk Queen rises from her nest!"
-msgstr "İpek Kraliçesi yuvasından doğruluyor!"
+msgid "The Web Mother rises from her nest!"
+msgstr "Ağ Ana yuvasından doğruluyor!"
 
 msgid "Thick webs cover the nest floor - they will slow you!"
 msgstr "Yuvanın zemini kalın ağlarla kaplı - seni yavaşlatacak!"
@@ -4558,38 +4561,38 @@ msgstr "Yuva sessizleşti. Hazinesi yuvada bekliyor."
 msgid "Orvell Square"
 msgstr "Orvell Meydanı"
 
-msgid "The Long Table"
-msgstr "Uzun Sofra"
+msgid "The Feast Hall"
+msgstr "Şölen Salonu"
 
 msgid "Blackweb Camp"
 msgstr "Karaağ Kampı"
 
-msgid "the Quartermaster's Loft"
-msgstr "Levazım Çatısı"
+msgid "the Wishing Room"
+msgstr "Dilek Odası"
 
-msgid "Climb down the Old Shaft"
-msgstr "Eski Kuyudan aşağı in"
+msgid "Step into the Twinned Cabinet"
+msgstr "İkiz Dolaba gir"
 
 msgid "the Egg Caverns"
 msgstr "Yumurta Mağaraları"
 
-msgid "the Dry Cistern"
-msgstr "Kuru Sarnıç"
+msgid "the Stone Raven"
+msgstr "Taş Kuzgun Heykeli"
 
-msgid "Lift the cistern grate and climb down"
-msgstr "Sarnıç ızgarasını kaldır ve aşağı in"
+msgid "Press the Stone Raven's eye - the wall slides open!"
+msgstr "Taş Kuzgun'un gözüne bas - duvar kayarak açılıyor!"
 
-msgid "the chandler's cellar, Orvell"
-msgstr "Mumcunun Mahzeni, Orvell"
+msgid "the sweetshop cellar, Orvell"
+msgstr "Şekercinin Mahzeni, Orvell"
 
 msgid "Climb down the cellar hatch"
 msgstr "Mahzen kapağından aşağı in"
 
-msgid "The First Watch"
-msgstr "İlk Nöbet"
+msgid "Apprentice Days"
+msgstr "Çıraklık Günleri"
 
-msgid "Take your oath at Kaf Castle, the Vigil's fortress over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your patrol skiff."
-msgstr "Düşen Dünya Yıldızı Ithrel'in kırığı üstündeki Nöbet kalesi Kaf'ta yeminini et: pelerinin, ilk büyülerin, devriye kayığın."
+msgid "Settle in at Kaf Castle, raised over the shard of the fallen World-Star Ithrel: your cloak, your first spells, your first broom."
+msgstr "Düşen Dünya Yıldızı Ithrel'in kırığı üstüne kurulmuş Kaf Kalesi'ne yerleş: pelerinin, ilk büyülerin, ilk süpürgen."
 
 msgid "The Forest Edge"
 msgstr "Orman Kıyısı"
@@ -4600,7 +4603,7 @@ msgstr "Kararmış kırıklar Kuzgun Ormanı'na düşüyor ve yaratıklar azgın
 msgid "Roads to Orvell"
 msgstr "Orvell Yolları"
 
-msgid "Bandits prowl the roads; the village needs a rod it can trust."
+msgid "Bandits prowl the roads; the village needs a wand it can trust."
 msgstr "Haydutlar yollarda kol geziyor; köyün güvenebileceği bir asaya ihtiyacı var."
 
 msgid "Crypts and Trolls"
@@ -4612,8 +4615,8 @@ msgstr "Mahzenlerde ölüler kıpırdıyor, troller oyuklarından iniyor ve kay�
 msgid "Barrows and Webs"
 msgstr "Höyükler ve Ağlar"
 
-msgid "The dead rise in the barrows; deep in the caverns the Silk Queen broods on a shard the Ash Priest gave her."
-msgstr "Höyüklerde ölüler kalkıyor; mağaraların derininde İpek Kraliçesi, Kül Rahibi'nin verdiği bir kırığın üstünde kuluçkaya yatmış."
+msgid "The dead rise in the barrows; deep in the caverns the Web Mother broods on a shard the Ash Priest gave her."
+msgstr "Höyüklerde ölüler kalkıyor; mağaraların derininde Ağ Ana, Kül Rahibi'nin verdiği bir kırığın üstünde kuluçkaya yatmış."
 
 msgid "The Moors"
 msgstr "Bozkırlar"
@@ -4621,8 +4624,8 @@ msgstr "Bozkırlar"
 msgid "Trolls and the Ash Priest's Ashbound hold the moors above Orvell."
 msgstr "Orvell'in üstündeki bozkırları troller ve Kül Rahibi'nin Kül Yeminlileri tutuyor."
 
-msgid "Under the east wing the first Vigil drowned its own mistake: vaults of brine, a garrison walled in, and a great engine still turning."
-msgstr "Doğu kanadının altında ilk Nöbet kendi hatasını boğdu: tuzlu su dolu mahzenler, duvar arkasında kalmış bir garnizon ve hâlâ dönen büyük bir makine."
+msgid "The castle's sealed wing hides a piece of an old gate to another realm - and something guards it."
+msgstr "Kalenin mühürlü kanadı, başka bir diyara açılan eski bir kapının parçasını saklıyor ve onu bir şey koruyor."
 
 msgid "Stone and Storm"
 msgstr "Taş ve Fırtına"
@@ -4633,17 +4636,17 @@ msgstr "Dağ trolleri Taş Halka Tepesi'ndeki bir Kara Kırık'ın çevresinde G
 msgid "The Long Mist"
 msgstr "Uzun Sis"
 
-msgid "The mist of Morhal rolls in from the shore and the Mistguards with it; only Dawnbreak will hold them back."
-msgstr "Morhal'in sisi kıyıdan iniyor, Sis Muhafızları da onunla geliyor; onları yalnızca Tan Işığı durdurabilir."
+msgid "The mist of Morhal rolls in from the shore and the Pallids with it; only the Light of Ithrel will hold them back."
+msgstr "Morhal'in sisi kıyıdan iniyor, Solgunlar da onunla geliyor; onları yalnızca Ithrel Işığı durdurabilir."
 
-msgid "Sworn In"
-msgstr "Yemin Günü"
+msgid "First Day"
+msgstr "İlk Gün"
 
-msgid "Speak with Commander Teral Venn by the fountain"
-msgstr "Çeşmenin yanında Komutan Teral Venn ile konuş"
+msgid "Speak with Master Teral Venn by the fountain"
+msgstr "Çeşmenin yanında Üstat Teral Venn ile konuş"
 
-msgid "Commander Teral Venn waits beside the courtyard fountain (the bobbing gold arrow). Walk up and click him or press F to talk."
-msgstr "Komutan Teral Venn avludaki çeşmenin yanında bekliyor (inip kalkan altın ok). Yanına git, konuşmak için ona tıkla ya da F'ye bas."
+msgid "Master Teral Venn waits beside the courtyard fountain (the bobbing gold arrow). Walk up and click him or press F to talk."
+msgstr "Üstat Teral Venn avludaki çeşmenin yanında bekliyor (inip kalkan altın ok). Yanına git, konuşmak için ona tıkla ya da F'ye bas."
 
 msgid "Dressed for the Grounds"
 msgstr "Kale Bahçesine Hazırlık"
@@ -4651,17 +4654,17 @@ msgstr "Kale Bahçesine Hazırlık"
 msgid "Wear the Woolen Traveller's Cloak"
 msgstr "Yün Yolcu Pelerinini giy"
 
-msgid "Open your bag with I and right-click the cloak Commander Teral Venn gave you. It costs a little speed and buys a lot of armour."
-msgstr "I ile çantanı aç ve Komutan Teral Venn'in verdiği pelerine sağ tıkla. Biraz hıza mal olur ama çok savunma kazandırır."
+msgid "Open your bag with I and right-click the cloak Master Teral Venn gave you. It costs a little speed and buys a lot of armour."
+msgstr "I ile çantanı aç ve Üstat Teral Venn'in verdiği pelerine sağ tıkla. Biraz hıza mal olur ama çok savunma kazandırır."
 
-msgid "Rod Drills"
+msgid "Wand Drills"
 msgstr "Asa Talimi"
 
 msgid "Hit a training dummy 5 times"
 msgstr "Bir eğitim kuklasına 5 kez vur"
 
-msgid "Three training dummies stand in the fenced training yard east of the castle doors, beside the skiff landing pad - they never hit back. Left-click to cast; spells hurt nothing on protected ground."
-msgstr "Kale kapısının doğusunda, kayık iniş pistinin yanındaki çitli talim alanında üç eğitim kuklası duruyor - asla karşılık vermezler. Büyü için sol tıkla; korunan bölgede büyüler kimseye zarar vermez."
+msgid "Three training dummies stand in the fenced training yard east of the castle doors, beside the broom landing pad - they never hit back. Left-click to cast; spells hurt nothing on protected ground."
+msgstr "Kale kapısının doğusunda, süpürge iniş pistinin yanındaki çitli talim alanında üç eğitim kuklası duruyor - asla karşılık vermezler. Büyü için sol tıkla; korunan bölgede büyüler kimseye zarar vermez."
 
 msgid "Spiders at the Gate"
 msgstr "Kapıdaki Ağcılar"
@@ -4669,23 +4672,23 @@ msgstr "Kapıdaki Ağcılar"
 msgid "Defeat 6 Black Weavers"
 msgstr "6 Kara Ağcı alt et"
 
-msgid "Leave the courtyard for the Village Outskirts or the Field Outskirts. Hit one spider and its pack answers - keep moving."
-msgstr "Avludan çıkıp Köy Eteği'ne ya da Meydan Eteği'ne git. Bir örümceğe vurursan sürüsü karşılık verir - hareket etmeye devam et."
+msgid "Leave the courtyard for the Village Outskirts or the Pitch Outskirts. Hit one spider and its pack answers - keep moving."
+msgstr "Avludan çıkıp Köy Eteği'ne ya da Saha Eteği'ne git. Bir örümceğe vurursan sürüsü karşılık verir - hareket etmeye devam et."
 
 msgid "Restless Dead"
 msgstr "Huzursuz Ölüler"
 
-msgid "Defeat 6 Saltwights"
-msgstr "6 Tuz Hortlağı alt et"
+msgid "Defeat 6 Drowned Ones"
+msgstr "6 Boğulmuş Ölü alt et"
 
-msgid "Saltwights stalk the Forest Edge past Ombrek's lookout. Fire (Flame Wave) hurts them twice as much."
-msgstr "Tuz Hortlakları Ombrek'in gözcü kulübesinin ötesinde, Orman Kıyısı'nda dolaşıyor. Ateş (Alev Dalgası) onlara iki kat zarar verir."
+msgid "Drowned Ones stalk the Forest Edge past Borin's hut. Fire (Flame Wave) hurts them twice as much."
+msgstr "Boğulmuş Ölüler Borin'in kulübesinin ötesinde, Orman Kıyısı'nda dolaşıyor. Ateş (Alev Dalgası) onlara iki kat zarar verir."
 
-msgid "Report to Ombrek at his lookout"
-msgstr "Gözcü kulübesinde Ombrek'e rapor ver"
+msgid "Report to Borin at his hut"
+msgstr "Kulübesinde Borin'e rapor ver"
 
-msgid "Ombrek, the Vigil's pathwarden, keeps watch from his lookout west of the castle."
-msgstr "Nöbet'in yol gözcüsü Ombrek, kalenin batısındaki gözcü kulübesinden ormanı gözlüyor."
+msgid "Borin Ashgrove, the forest warden, keeps watch from his hut west of the castle."
+msgstr "Orman bekçisi Borin Ashgrove, şatonun batısındaki kulübesinden ormanı gözlüyor."
 
 msgid "Thinning the Brood"
 msgstr "Yuvayı Seyreltmek"
@@ -4705,47 +4708,47 @@ msgstr "Kaf Kalesi'ne gir"
 msgid "Walk up the castle approach and press F in the doorway to go inside."
 msgstr "Şato yolundan yukarı yürü ve içeri girmek için kapıda F'ye bas."
 
-msgid "Your First Skiff"
-msgstr "İlk Kayığın"
+msgid "Your First Broom"
+msgstr "İlk Süpürgen"
 
-msgid "Collect your skiff from Sergeant Kaelen Rook"
-msgstr "Kayığını Çavuş Kaelen Rook'tan al"
+msgid "Collect your broom from Flight Master Kaelen Rook"
+msgstr "Süpürgeni Uçuş Ustası Kaelen Rook'tan al"
 
-msgid "At level 5 every recruit is issued a patrol skiff. Sergeant Kaelen Rook waits at the castle approach."
-msgstr "5. seviyede her acemiye bir devriye kayığı verilir. Çavuş Kaelen Rook kale yolunda bekliyor."
+msgid "At level 5 every apprentice gets a broom. Flight Master Kaelen Rook waits at the castle approach."
+msgstr "5. seviyede her çırak bir süpürge alır. Uçuş Ustası Kaelen Rook şato yolunda bekliyor."
 
-msgid "First Patrol"
-msgstr "İlk Devriye"
+msgid "Skyring Tryouts"
+msgstr "Gökhalka Seçmeleri"
 
-msgid "Fly your skiff to the Patrol Field"
-msgstr "Kayığınla Devriye Meydanı'na uç"
+msgid "Fly to the Skyring Pitch on your broom"
+msgstr "Süpürgenle Gökhalka Meydanı'na uç"
 
-msgid "Equip the skiff, press Shift to mount, Space to rise and Ctrl to descend. Land on level ground and press Shift to dismount."
-msgstr "Kayığı kuşan; binmek için Shift, yükselmek için Boşluk, alçalmak için Ctrl'ye bas. Düz zemine kon ve inmek için Shift'e bas."
+msgid "Equip the broom, press Shift to mount, Space to rise and Ctrl to descend. Land on level ground and press Shift to dismount."
+msgstr "Süpürgeyi kuşan; binmek için Shift, yükselmek için Boşluk, alçalmak için Ctrl'ye bas. Düz zemine kon ve inmek için Shift'e bas."
 
 msgid "Ash and Bone"
 msgstr "Kül ve Kemik"
 
-msgid "Defeat 12 Saltwights"
-msgstr "12 Tuz Hortlağı alt et"
+msgid "Defeat 12 Drowned Ones"
+msgstr "12 Boğulmuş Ölü alt et"
 
-msgid "The Saltwights gather again at the Forest Edge and in Greenhouse Meadow."
-msgstr "Tuz Hortlakları Orman Kıyısı'nda ve Sera Çayırı'nda yeniden toplanıyor."
+msgid "The Drowned Ones gather again at the Forest Edge and in Greenhouse Meadow."
+msgstr "Boğulmuş Ölüler Orman Kıyısı'nda ve Sera Çayırı'nda yeniden toplanıyor."
 
 msgid "Fly to Orvell and speak with Kestrin"
 msgstr "Orvell'e uç ve Kestrin'le konuş"
 
-msgid "Kestrin keeps his forge on the west side of Orvell square, east of the castle along the road. Mount your skiff and fly there - he can make a rod stronger, at a price."
-msgstr "Kestrin'in ocağı Orvell meydanının batı yüzünde, kaleden yol boyunca doğuda. Kayığına bin ve oraya uç - bedeli karşılığında bir asayı güçlendirebilir."
+msgid "Kestrin keeps his forge on the west side of Orvell square, east of the castle along the road. Mount your broom and fly there - he can make a wand stronger, at a price."
+msgstr "Kestrin'in ocağı Orvell meydanının batı yüzünde, kaleden yol boyunca doğuda. Süpürgene bin ve oraya uç - bedeli karşılığında bir asayı güçlendirebilir."
 
-msgid "A Stronger Rod"
+msgid "A Stronger Wand"
 msgstr "Daha Güçlü Bir Asa"
 
-msgid "Refine your rod once at Kestrin"
+msgid "Refine your wand once at Kestrin"
 msgstr "Kestrin'de asanı bir kez yükselt"
 
-msgid "Press O to open Kestrin's workshop, drag your rod onto the anvil and refine it with Forge Cinder and Oril."
-msgstr "Kestrin'in atölyesini açmak için O'ya bas, asanı örsün üzerine sürükle ve Demirci Közü ile Oril kullanarak yükselt."
+msgid "Press O to open Kestrin's workshop, drag your wand onto the anvil and refine it with Velkar Ash and Oril."
+msgstr "Kestrin'in atölyesini açmak için O'ya bas, asanı örsün üzerine sürükle ve Velkar Külü ile Oril kullanarak yükselt."
 
 msgid "The Eastern Road"
 msgstr "Doğu Yolu"
@@ -4760,19 +4763,19 @@ msgid "Woven Magic"
 msgstr "Dokunmuş Büyü"
 
 msgid "Enchant an item at Kestrin"
-msgstr "Kestrin'de bir eşyaya tılsım bas"
+msgstr "Kestrin'de bir eşyaya efsun bas"
 
 msgid "Put any piece of gear on the anvil and use an Imbue Scroll. A failed weave still spends the scroll."
-msgstr "Herhangi bir ekipmanı örse koy ve bir Tılsım Parşömeni kullan. Tutmayan tılsım da parşömeni harcar."
+msgstr "Herhangi bir ekipmanı örse koy ve bir Efsun Parşömeni kullan. Tutmayan efsun da parşömeni harcar."
 
 msgid "The Long Road Home"
 msgstr "Uzun Dönüş Yolu"
 
-msgid "Defeat 14 Saltwights"
-msgstr "14 Tuz Hortlağı alt et"
+msgid "Defeat 14 Drowned Ones"
+msgstr "14 Boğulmuş Ölü alt et"
 
-msgid "Saltwights wander onto the Eastern Road at dusk. Keep the road open."
-msgstr "Tuz Hortlakları alacakaranlıkta Doğu Yolu'na sapıyor. Yolu açık tut."
+msgid "Drowned Ones wander onto the Eastern Road at dusk. Keep the road open."
+msgstr "Boğulmuş Ölüler alacakaranlıkta Doğu Yolu'na sapıyor. Yolu açık tut."
 
 msgid "Defeat 16 Black Weavers"
 msgstr "16 Kara Ağcı alt et"
@@ -4786,8 +4789,8 @@ msgstr "Kara Kırığı Parçala"
 msgid "Help destroy a Dark Shard"
 msgstr "Bir Kara Kırık'ın yok edilmesine yardım et"
 
-msgid "The Ash Priest drags darkened star shards out of the Void and they fall in the western forests: at the Forest Edge past Ombrek's lookout, in the Weaver Thicket beyond it, in Bandit Woods to the north-west and in Crypt Hollow far to the west. Close by, a green light rises over the trees. Break one with others before its waves overrun you."
-msgstr "Kül Rahibi kararmış yıldız kırıklarını Boşluk'tan çekiyor ve bunlar batı ormanlarına düşüyor: Ombrek'in gözcü kulübesinin ötesindeki Orman Kıyısı'na, onun ötesindeki Ağcı Çalılığı'na, kuzeybatıdaki Haydut Ormanı'na ve çok batıdaki Mahzen Çukuru'na. Yakındaysan ağaçların üstünde yeşil bir ışık yükselir. Dalgaları seni ezmeden önce başkalarıyla birlikte birini kır."
+msgid "The Ash Priest drags darkened star shards out of the Void and they fall in the western forests: at the Forest Edge past Borin's hut, in the Weaver Thicket beyond it, in Bandit Woods to the north-west and in Crypt Hollow far to the west. Close by, a green light rises over the trees. Break one with others before its waves overrun you."
+msgstr "Kül Rahibi kararmış yıldız kırıklarını Boşluk'tan çekiyor ve bunlar batı ormanlarına düşüyor: Borin'in kulübesinin ötesindeki Orman Kıyısı'na, onun ötesindeki Ağcı Çalılığı'na, kuzeybatıdaki Haydut Ormanı'na ve çok batıdaki Mahzen Çukuru'na. Yakındaysan ağaçların üstünde yeşil bir ışık yükselir. Dalgaları seni ezmeden önce başkalarıyla birlikte birini kır."
 
 msgid "The Trial Hall"
 msgstr "Sınav Salonu"
@@ -4798,17 +4801,17 @@ msgstr "Sınav Salonu'nu tamamla"
 msgid "The Trial Hall stands on the castle's east terrace, south of the road. Press F at its glowing door, clear the corridor, then defeat the Trial Warden. Up to five can go in together."
 msgstr "Sınav Salonu kalenin doğu terasında, yolun güneyinde duruyor. Parlayan kapısında F'ye bas, koridoru temizle, sonra Sınav Bekçisi'ni yen. En fazla beş kişi birlikte girebilir."
 
-msgid "A Rod Worth Keeping"
+msgid "A Wand Worth Keeping"
 msgstr "Saklanmaya Değer Bir Asa"
 
-msgid "Equip the Runebound Walnut Rod"
+msgid "Equip the Runebound Walnut Wand"
 msgstr "Rünlü Ceviz Asayı kuşan"
 
-msgid "Your new rod rolls a far higher Attack and Magic Attack Value. Equip it from your bag."
+msgid "Your new wand rolls a far higher Attack and Magic Attack Value. Equip it from your bag."
 msgstr "Yeni asanın Saldırı ve Büyü Saldırı Değeri çok daha yüksek. Onu çantandan kuşan."
 
 msgid "Bandits on the Road"
-msgstr "Yoldaki Haydutlar"
+msgstr "Yoldaki Kara Haydutlar"
 
 msgid "Defeat 10 Bandits"
 msgstr "10 Haydut alt et"
@@ -4820,7 +4823,7 @@ msgid "The Red Lantern"
 msgstr "Kızıl Fener Hanı"
 
 msgid "Speak with Bessa Tull in Orvell"
-msgstr "Orvell'de Kâhya Bessa Tull ile konuş"
+msgstr "Orvell'de Hancı Bessa Tull ile konuş"
 
 msgid "Bessa Tull keeps the Red Lantern on the north side of Orvell square, a few steps from Kestrin's forge. She knows every rumour in the valley."
 msgstr "Bessa Tull, Kestrin'in ocağına birkaç adım mesafede, Orvell meydanının kuzeyindeki Kızıl Fener Hanı'nı işletiyor. Vadideki her söylentiyi bilir."
@@ -4828,14 +4831,14 @@ msgstr "Bessa Tull, Kestrin'in ocağına birkaç adım mesafede, Orvell meydanı
 msgid "Defeat 15 Black Weavers"
 msgstr "15 Kara Ağcı alt et"
 
-msgid "The woods behind the Patrol Field are thick with webs."
-msgstr "Devriye Meydanı'nın arkasındaki koru ağlarla dolu."
+msgid "The woods behind the Skyring Pitch are thick with webs."
+msgstr "Gökhalka Meydanı'nın arkasındaki koru ağlarla dolu."
 
-msgid "Defeat 15 Saltwights"
-msgstr "15 Tuz Hortlağı alt et"
+msgid "Defeat 15 Drowned Ones"
+msgstr "15 Boğulmuş Ölü alt et"
 
-msgid "Saltwights crawl out of Lake Lunra at the Lakeside Glade."
-msgstr "Tuz Hortlakları Göl Kıyısı Açıklığı'nda Lunra Gölü'nden sürünerek çıkıyor."
+msgid "Drowned Ones crawl out of Lake Lunra at the Lakeside Glade."
+msgstr "Boğulmuş Ölüler Göl Kıyısı Açıklığı'nda Lunra Gölü'nden sürünerek çıkıyor."
 
 msgid "Defeat 14 Bandits"
 msgstr "14 Haydut alt et"
@@ -4849,8 +4852,8 @@ msgstr "Lunra'yı Gözle"
 msgid "Visit the Lakeside Glade"
 msgstr "Göl Kıyısı Açıklığı'nı ziyaret et"
 
-msgid "Ombrek wants to know how far the Saltwights have spread along the shore."
-msgstr "Ombrek, Tuz Hortlaklarının kıyı boyunca ne kadar yayıldığını bilmek istiyor."
+msgid "Borin wants to know how far the Drowned Ones have spread along the shore."
+msgstr "Borin, Boğulmuş Ölülerin kıyı boyunca ne kadar yayıldığını bilmek istiyor."
 
 msgid "Webs in the Glade"
 msgstr "Açıklıktaki Ağlar"
@@ -4867,8 +4870,8 @@ msgstr "Yol İçin Çelik"
 msgid "Refine any item twice"
 msgstr "Herhangi bir eşyayı iki kez yükselt"
 
-msgid "Kestrin can refine cloaks, accessories and skiffs as well as rods."
-msgstr "Kestrin asaların yanı sıra pelerinleri, takıları ve kayıkları de yükseltebilir."
+msgid "Kestrin can refine cloaks, accessories and brooms as well as wands."
+msgstr "Kestrin asaların yanı sıra pelerinleri, takıları ve süpürgeleri de yükseltebilir."
 
 msgid "Breaking the Ring"
 msgstr "Halkayı Kırmak"
@@ -4879,11 +4882,11 @@ msgstr "18 Haydut alt et"
 msgid "Bessa has heard the bandits answer to a captain. Weaken them before he moves."
 msgstr "Bessa, haydutların bir kaptana bağlı olduğunu duymuş. O harekete geçmeden onları zayıflat."
 
-msgid "Defeat 18 Saltwights"
-msgstr "18 Tuz Hortlağı alt et"
+msgid "Defeat 18 Drowned Ones"
+msgstr "18 Boğulmuş Ölü alt et"
 
-msgid "Deeper in the forest the old crypt has split open. The Saltwights climb out of its ruin and pour across Crypt Hollow."
-msgstr "Ormanın derinlerinde eski mahzen yarılıp açıldı. Tuz Hortlakları harabesinden tırmanıp Mahzen Çukuru'na yayılıyor."
+msgid "Deeper in the forest the old crypt has split open. The Drowned Ones climb out of its ruin and pour across Crypt Hollow."
+msgstr "Ormanın derinlerinde eski mahzen yarılıp açıldı. Boğulmuş Ölüler harabesinden tırmanıp Mahzen Çukuru'na yayılıyor."
 
 msgid "Records of the Crypt"
 msgstr "Mahzen Kayıtları"
@@ -4903,11 +4906,11 @@ msgstr "Orman trolleri ağır ve yavaş vurur. Yere vuruşu gözle ve yolundan �
 msgid "Sealing the Crypt"
 msgstr "Mahzeni Mühürle"
 
-msgid "Defeat 20 Saltwights"
-msgstr "20 Tuz Hortlağı alt et"
+msgid "Defeat 20 Drowned Ones"
+msgstr "20 Boğulmuş Ölü alt et"
 
-msgid "Keep the Saltwights in Crypt Hollow from reaching the forest paths."
-msgstr "Mahzen Çukuru'ndaki Tuz Hortlaklarının orman yollarına ulaşmasını engelle."
+msgid "Keep the Drowned Ones in Crypt Hollow from reaching the forest paths."
+msgstr "Mahzen Çukuru'ndaki Boğulmuş Ölülerin orman yollarına ulaşmasını engelle."
 
 msgid "Defeat 16 Bandits"
 msgstr "16 Haydut alt et"
@@ -4933,8 +4936,8 @@ msgstr "Örümcek Korusu'nda daha büyük örümcekler avlanıyor; onları bir �
 msgid "The Southern Barrows"
 msgstr "Güney Höyükleri"
 
-msgid "Defeat 22 Saltwights"
-msgstr "22 Tuz Hortlağı alt et"
+msgid "Defeat 22 Drowned Ones"
+msgstr "22 Boğulmuş Ölü alt et"
 
 msgid "The barrows south of the lake have broken open."
 msgstr "Gölün güneyindeki höyükler yarılıp açıldı."
@@ -4972,8 +4975,8 @@ msgstr "Kaptanın adamları Sırt Yolu'ndan yukarı kaçtı. Peşlerine düş."
 msgid "Barrow Watch"
 msgstr "Höyük Nöbeti"
 
-msgid "Defeat 24 Saltwights"
-msgstr "24 Tuz Hortlağı alt et"
+msgid "Defeat 24 Drowned Ones"
+msgstr "24 Boğulmuş Ölü alt et"
 
 msgid "Hold the Southern Barrows while Archivist Emrel Sav searches her records."
 msgstr "Arşivci Emrel Sav kayıtlarını ararken Güney Höyükleri'ni tut."
@@ -4994,10 +4997,10 @@ msgid "Weaving for War"
 msgstr "Savaş İçin Dokuma"
 
 msgid "Enchant items twice"
-msgstr "Eşyalara iki kez tılsım bas"
+msgstr "Eşyalara iki kez efsun bas"
 
-msgid "Kestrin says no one should face the Hollow Spinner with bare robes."
-msgstr "Kestrin, kimsenin Oyuk Eğiricisi'nin karşısına tılsımsız cüppeyle çıkmaması gerektiğini söylüyor."
+msgid "Kestrin says no one should face the Black Widow with bare robes."
+msgstr "Kestrin, kimsenin Ana'nın karşısına efsunsuz cüppeyle çıkmaması gerektiğini söylüyor."
 
 msgid "Ridge Ambush"
 msgstr "Sırtta Pusu"
@@ -5008,8 +5011,8 @@ msgstr "22 Haydut alt et"
 msgid "The bandits ambush anyone who climbs the Ridge Path."
 msgstr "Haydutlar Sırt Yolu'na tırmanan herkese pusu kuruyor."
 
-msgid "The Hollow Spinner's Guard"
-msgstr "Oyuk Eğiricisi'nin Muhafızları"
+msgid "The Black Widow's Guard"
+msgstr "Kara Dul'un Muhafızları"
 
 msgid "Defeat 26 Black Weavers"
 msgstr "26 Kara Ağcı alt et"
@@ -5020,26 +5023,26 @@ msgstr "Örümcek Çukuru'na giden yolu koruyan örümcekleri temizle."
 msgid "Find Spider Hollow"
 msgstr "Örümcek Çukuru'nu bul"
 
-msgid "The Hollow Spinner nests in Spider Hollow in the far south-west, beyond the Spider Woods. In the slope west of the hollow a cave mouth leads down to the Blackweb Caverns."
-msgstr "Oyuk Eğiricisi, uzak güneybatıda, Ağcı Ormanı'nın ötesindeki Örümcek Oyuğu'nda yuvalanıyor. Oyuğun batısındaki yamaçta bir mağara ağzı Karaağ Mağaraları'na iner."
+msgid "The Black Widow nests in Spider Hollow in the far south-west, beyond the Spider Woods. In the slope west of the hollow a cave mouth leads down to the Blackweb Caverns."
+msgstr "Kara Dul, uzak güneybatıda, Ağcı Ormanı'nın ötesindeki Örümcek Oyuğu'nda yuvalanıyor. Oyuğun batısındaki yamaçta bir mağara ağzı Karaağ Mağaraları'na iner."
 
-msgid "The Hollow Spinner"
-msgstr "Oyuk Eğiricisi"
+msgid "The Black Widow"
+msgstr "Kara Dul"
 
-msgid "Defeat the Hollow Spinner"
-msgstr "Oyuk Eğiricisi'ni alt et"
+msgid "Defeat the Black Widow"
+msgstr "Kara Dul'u alt et"
 
-msgid "Bring a party. The Hollow Spinner's bite poisons and her brood answers her call."
-msgstr "Bir grup getir. Oyuk Eğiricisi'nin ısırığı zehirler ve kuluçkası çağrısına karşılık verir."
+msgid "Bring a party. The Black Widow's bite poisons and her brood answers her call."
+msgstr "Bir grup getir. Ana'nın ısırığı zehirler ve kuluçkası çağrısına karşılık verir."
 
 msgid "Gate of Bones"
 msgstr "Kemik Kapı"
 
-msgid "Defeat 26 Saltwights"
-msgstr "26 Tuz Hortlağı alt et"
+msgid "Defeat 26 Drowned Ones"
+msgstr "26 Boğulmuş Ölü alt et"
 
-msgid "With the Hollow Spinner gone, Archivist Emrel Sav can finally seal the Crypt Gate."
-msgstr "Oyuk Eğiricisi gittiğine göre Arşivci Emrel Sav sonunda Mahzen Kapısı'nı mühürleyebilir."
+msgid "With the Black Widow gone, Archivist Emrel Sav can finally seal the Crypt Gate."
+msgstr "Ana gittiğine göre Arşivci Emrel Sav sonunda Mahzen Kapısı'nı mühürleyebilir."
 
 msgid "The Forge's Fire"
 msgstr "Körüğün Ateşi"
@@ -5059,11 +5062,11 @@ msgstr "Orman trolleri Batı Bozkırı'na tırmandı."
 msgid "Moorland Orders"
 msgstr "Bozkır Buyrukları"
 
-msgid "Speak with Sergeant Kaelen Rook"
-msgstr "Çavuş Kaelen Rook ile konuş"
+msgid "Speak with Flight Master Kaelen Rook"
+msgstr "Uçuş Ustası Kaelen Rook ile konuş"
 
-msgid "Kaelen Rook is organising the patrols that go up to the moors."
-msgstr "Kaelen Rook bozkırlara çıkan devriyeleri örgütlüyor."
+msgid "Kaelen Rook is organising the apprentices who go up to the moors."
+msgstr "Kaelen Rook bozkırlara çıkan çırakları örgütlüyor."
 
 msgid "Trolls on the Heath"
 msgstr "Fundalıktaki Troller"
@@ -5098,8 +5101,8 @@ msgstr "Yayla Bozkırı"
 msgid "Reach the Highland Moor"
 msgstr "Yayla Bozkırı'na ulaş"
 
-msgid "Mountain trolls have been seen on the Highland Moor, north of the Patrol Field."
-msgstr "Devriye Meydanı'nın kuzeyindeki Yayla Bozkırı'nda dağ trolleri görülmüş."
+msgid "Mountain trolls have been seen on the Highland Moor, north of the pitch."
+msgstr "Sahanın kuzeyindeki Yayla Bozkırı'nda dağ trolleri görülmüş."
 
 msgid "Mountain Trolls"
 msgstr "Dağ Trolleri"
@@ -5119,76 +5122,79 @@ msgstr "10 Dağ Trolü alt et"
 msgid "Every troll you fell is one less marching on the castle."
 msgstr "Devirdiğin her trol, şatoya yürüyen bir trol eksik demek."
 
-msgid "Below the Waterline"
-msgstr "Su Çizgisinin Altında"
+msgid "Out of Bounds"
+msgstr "Yasak Bölge"
 
-msgid "Speak with Archivist Emrel Sav about the vaults"
-msgstr "Mahzenler hakkında Arşivci Emrel Sav ile konuş"
+msgid "Speak with Archivist Emrel Sav about the sealed wing"
+msgstr "Üçüncü kat hakkında Arşivci Emrel Sav ile konuş"
 
-msgid "Archivist Emrel Sav has found the old order: the vaults under the east wing were flooded and walled up with their garrison inside. The wall has cracked."
-msgstr "Arşivci Emrel Sav eski emri buldu: doğu kanadının altındaki mahzenler, garnizonları içerideyken su basılıp duvarlandı. Duvar çatladı."
+msgid "Archivist Emrel Sav has found a note: the sealed wing hides a piece of an old gate to another realm - and it is guarded."
+msgstr "Arşivci Emrel Sav bir not buldu: mühürlü kanat, başka bir diyara açılan eski bir kapının parçasını saklıyor ve korunuyor."
 
-msgid "Drafts in the Vaults"
-msgstr "Mahzendeki Yeller"
+msgid "Pests of the Sealed Wing"
+msgstr "Mühürlü Kanadın Belaları"
 
-msgid "Defeat 8 Galelings"
-msgstr "8 Yelcik alt et"
+msgid "Defeat 8 Fidgetlings"
+msgstr "8 Kıpırcık alt et"
 
-msgid "Enter the Brine Vaults from the castle. Galelings ride the cold drafts and throw you off your feet."
-msgstr "Kaleden Tuz Mahzenleri'ne gir. Yelcikler soğuk hava akımlarına biner ve seni yerden savurur."
+msgid "Enter the Sealed Wing from the castle. The fidgetlings swarm and lift you off your feet."
+msgstr "Şatodan Mühürlü Kanat'a gir. Kıpırcıklar sürüyle saldırır ve seni yerden kaldırır."
 
-msgid "Empty Posts"
-msgstr "Boş Nöbet Yerleri"
+msgid "Living Armour"
+msgstr "Yaşayan Zırh"
 
-msgid "Defeat 6 Hollow Sentries"
-msgstr "6 Kof Nöbetçi alt et"
+msgid "Defeat 6 Suits of Armour"
+msgstr "6 Zırh alt et"
 
-msgid "Armour with no one inside still walks its rounds. Force spells shake it apart."
-msgstr "İçi boş zırhlar hâlâ devriye geziyor. Kuvvet büyüleri onları parçalara ayırır."
+msgid "Enchanted suits of armour guard the corridor. Force spells shake them apart."
+msgstr "Koridoru büyülü zırhlar koruyor. Kuvvet büyüleri onları parçalara ayırır."
 
-msgid "Defeat the Hollow Castellan"
-msgstr "Kof Kale Beyi'ni alt et"
+msgid "The Cursed Commander"
+msgstr "Lanetli Komutan"
 
-msgid "The last castellan of the vaults still holds the deep cellar."
-msgstr "Mahzenlerin son kale beyi hâlâ derin kileri tutuyor."
+msgid "Defeat the Cursed Commander"
+msgstr "Lanetli Komutan'ı alt et"
 
-msgid "Cut down the Brinebriar"
-msgstr "Tuz Dikeni'ni kes"
+msgid "The commander of the armour stands at the corridor's first gate."
+msgstr "Zırhların komutanı koridorun ilk kapısında duruyor."
 
-msgid "Flame only steams it. Frost and force crack the stems; then strike the heart."
-msgstr "Alev onu yalnızca buharlaştırır. Ayaz ve kuvvet sapları çatlatır; sonra kalbine vur."
+msgid "Burn the root of the Strangling Vine"
+msgstr "Boğan Sarmaşıkın kökünü yak"
 
-msgid "More Galelings"
-msgstr "Yine Yelcikler"
+msgid "Fire is the answer. Burn the vines, then the root."
+msgstr "Çözüm ateş. Önce sarmaşıkları, sonra kökü yak."
 
-msgid "Defeat 10 Galelings"
-msgstr "10 Yelcik alt et"
+msgid "More Fidgetlings"
+msgstr "Yine Kıpırcıklar"
 
-msgid "The galelings on the stair below are worse than the first lot."
-msgstr "Aşağıdaki merdivendeki yelcikler ilk gruptan da beter."
+msgid "Defeat 10 Fidgetlings"
+msgstr "10 Kıpırcık alt et"
 
-msgid "Defeat the Wheelwarden"
-msgstr "Çark Bekçisi'ni alt et"
+msgid "The fidgetlings on the stairs beyond the snare are worse than the first lot."
+msgstr "Kapanın ötesindeki merdivendeki kıpırcıklar ilk gruptan da beter."
 
-msgid "Turn the sluice wheel to flood its joints, then break its plates while it is seized."
-msgstr "Eklemlerini su basması için savak çarkını çevir, sonra kilitliyken plakalarını kır."
+msgid "Defeat Threehead"
+msgstr "Üçbaş'ı alt et"
 
-msgid "The Vaults Drained"
-msgstr "Mahzenler Boşaldı"
+msgid "Ring the sleep chime to lull the heads, then strike while they doze."
+msgstr "Başları uyutmak için uyku çanını çal, sonra onlar uyuklarken vur."
 
-msgid "Complete the Brine Vaults"
-msgstr "Tuz Mahzenleri'ni tamamla"
+msgid "The Corridor Cleared"
+msgstr "Kanat Temizlendi"
 
-msgid "Run the vaults from the first drafts to the flood gate in one go."
-msgstr "Mahzenleri ilk yel akımından savak kapısına kadar tek seferde geç."
+msgid "Complete the Sealed Wing"
+msgstr "Mühürlü Kanat'ı tamamla"
 
-msgid "A Rod for the Storm"
+msgid "Run the corridor from the fidgetlings to the stone hatch in one go."
+msgstr "Koridoru kıpırcıklardan taş kapağa kadar tek seferde geç."
+
+msgid "A Wand for the Storm"
 msgstr "Fırtına İçin Bir Asa"
 
 msgid "Speak with Kestrin"
 msgstr "Kestrin ile konuş"
 
-msgid "Kestrin has finished a rod worthy of what comes next."
+msgid "Kestrin has finished a wand worthy of what comes next."
 msgstr "Kestrin, sırada olanlara layık bir asayı bitirdi."
 
 msgid "Defeat 12 Mountain Trolls"
@@ -5221,14 +5227,14 @@ msgstr "28 Haydut alt et"
 msgid "The Ashbound ride the storm clouds over the moor."
 msgstr "Kül Yeminliler bozkırın üzerindeki fırtına bulutlarına biniyor."
 
-msgid "Ember Weave"
-msgstr "Köz Dokuması"
+msgid "Velkar Weave"
+msgstr "Velkar Dokuması"
 
 msgid "Enchant items three times"
-msgstr "Eşyalara üç kez tılsım bas"
+msgstr "Eşyalara üç kez efsun bas"
 
-msgid "Velkar Regalia deserves its weave. Make the most of it."
-msgstr "Velkar Kaftanı tılsımını hak eder. En iyisini çıkar."
+msgid "A Velkar Regalia deserves its weave. Make the most of it."
+msgstr "Bir Velkar Kaftanı efsunu hak eder. En iyisini çıkar."
 
 msgid "Climb to the Stone Circle Summit"
 msgstr "Taş Çember Zirvesi'ne tırman"
@@ -5272,44 +5278,44 @@ msgstr "Grak gitti ama Kül Rahibi kırıkları düşürmeye devam ediyor. Batı
 msgid "Masterwork"
 msgstr "Ustalık İşi"
 
-msgid "Mistguards are coming. Kestrin wants every piece you own at its best."
-msgstr "Sis Muhafızları geliyor. Kestrin sahip olduğun her parçanın en iyi halinde olmasını istiyor."
+msgid "Pallids are coming. Kestrin wants every piece you own at its best."
+msgstr "Solgunlar geliyor. Kestrin sahip olduğun her parçanın en iyi halinde olmasını istiyor."
 
-msgid "Speak with Commander Teral Venn about Dawnbreak"
-msgstr "Tan Işığı hakkında Komutan Teral Venn ile konuş"
+msgid "Speak with Master Teral Venn about the Light of Ithrel"
+msgstr "Ithrel Işığı hakkında Üstat Teral Venn ile konuş"
 
-msgid "Commander Teral Venn says the Mistguards give ground to nothing but Dawnbreak, a fan of hard light drawn from the World-Star. Learn it in your spell book (V) - it opens at level 40."
-msgstr "Komutan Teral Venn, Sis Muhafızlarının Dünya Yıldızı'ndan çekilen sert bir ışık yelpazesi olan Tan Işığı'ndan başka hiçbir şeye geri adım atmadığını söylüyor. Onu büyü kitabından (V) öğren; 40. seviyede açılır."
+msgid "Master Teral Venn says Pallids fear nothing but the Light of Ithrel, a guardian spirit drawn from the World-Star's light. Learn it in your spell book (V) - it opens at level 40."
+msgstr "Üstat Teral Venn, Solgunların Dünya Yıldızı'nın ışığından doğan koruyucu ruh Ithrel Işığı'ndan başka hiçbir şeyden korkmadığını söylüyor. Onu büyü kitabından (V) öğren; 40. seviyede açılır."
 
 msgid "The Misty Shore"
 msgstr "Sisli Kıyı"
 
-msgid "Defeat 10 Mistguards"
-msgstr "10 Sis Muhafızı alt et"
+msgid "Defeat 10 Pallids"
+msgstr "10 Solgun alt et"
 
-msgid "Mistguards march in from the Misty Shore. Their aura stops your health from recovering."
-msgstr "Sis Muhafızları Sisli Kıyı'dan yürüyüp geliyor. Auraları canının yenilenmesini durdurur."
+msgid "Pallids drift in from the Misty Shore. Their aura stops your health from recovering."
+msgstr "Solgunlar Sisli Kıyı'dan süzülüyor. Auraları canının yenilenmesini durdurur."
 
-msgid "Defeat 12 Mistguards"
-msgstr "12 Sis Muhafızı alt et"
+msgid "Defeat 12 Pallids"
+msgstr "12 Solgun alt et"
 
-msgid "The old landing is lost in the mist."
-msgstr "Eski iskele sisin içinde kayboldu."
+msgid "The old station is lost in the mist."
+msgstr "Eski istasyon sisin içinde kayboldu."
 
-msgid "Cold Quay"
-msgstr "Soğuk Rıhtım"
+msgid "Cold Platform"
+msgstr "Soğuk Peron"
 
-msgid "Defeat 12 more Mistguards"
-msgstr "12 Sis Muhafızı daha alt et"
+msgid "Defeat 12 more Pallids"
+msgstr "12 Solgun daha alt et"
 
-msgid "Hold the quay until the mist lifts."
-msgstr "Sis kalkana dek rıhtımı tut."
+msgid "Hold the platform until the mist lifts."
+msgstr "Sis kalkana kadar peronu tut."
 
 msgid "Shoreline Vigil"
 msgstr "Kıyı Nöbeti"
 
-msgid "Defeat 14 Mistguards"
-msgstr "14 Sis Muhafızı alt et"
+msgid "Defeat 14 Pallids"
+msgstr "14 Solgun alt et"
 
 msgid "Keep the Misty Shore clear for the boats."
 msgstr "Sisli Kıyı'yı kayıklar için temiz tut."
@@ -5317,8 +5323,8 @@ msgstr "Sisli Kıyı'yı kayıklar için temiz tut."
 msgid "Warmth Against the Cold"
 msgstr "Soğuğa Karşı Sıcaklık"
 
-msgid "Kestrin has a theory about weaves that hold off the numbing cold."
-msgstr "Kestrin'in uyuşturan soğuğa direnen tılsımlar hakkında bir teorisi var."
+msgid "Kestrin has a theory about weaves that resist despair."
+msgstr "Kestrin'in umutsuzluğa direnen efsunlar hakkında bir teorisi var."
 
 msgid "South of the castle the Fog Barrens have swallowed the road."
 msgstr "Şatonun güneyinde Sis Çorakları yolu yuttu."
@@ -5335,8 +5341,8 @@ msgstr "Diğerleri takip edebilsin diye sisin sınırını işaretle."
 msgid "Shades of the Barrens"
 msgstr "Çoraktaki Gölgeler"
 
-msgid "Defeat 16 Mistguards"
-msgstr "16 Sis Muhafızı alt et"
+msgid "Defeat 16 Pallids"
+msgstr "16 Solgun alt et"
 
 msgid "The deeper you go, the colder it gets."
 msgstr "Derine indikçe hava soğuyor."
@@ -5344,11 +5350,11 @@ msgstr "Derine indikçe hava soğuyor."
 msgid "Lights in the Fog"
 msgstr "Sisteki Işıklar"
 
-msgid "Defeat 16 more Mistguards"
-msgstr "16 Sis Muhafızı daha alt et"
+msgid "Defeat 16 more Pallids"
+msgstr "16 Solgun daha alt et"
 
-msgid "Every Dawnbreak you cast lights the way for someone else."
-msgstr "Yaptığın her Tan Işığı bir başkasının yolunu aydınlatır."
+msgid "Every Light of Ithrel you cast lights the way for someone else."
+msgstr "Yaptığın her Ithrel Işığı bir başkasının yolunu aydınlatır."
 
 msgid "The Grey Marsh is where the mist begins."
 msgstr "Sis Boz Bataklık'ta başlıyor."
@@ -5359,20 +5365,20 @@ msgstr "Son Cila"
 msgid "Kestrin wants one more look at your gear before the end."
 msgstr "Kestrin sondan önce ekipmanına bir kez daha bakmak istiyor."
 
-msgid "Marsh Sentries"
-msgstr "Bataklık Nöbetçileri"
+msgid "Marsh Wardens"
+msgstr "Bataklık Bekçileri"
 
-msgid "Defeat 18 Mistguards"
-msgstr "18 Sis Muhafızı alt et"
+msgid "Defeat 18 Pallids"
+msgstr "18 Solgun alt et"
 
-msgid "Mistguards circle a barrow at the far end of the marsh."
-msgstr "Sis Muhafızları bataklığın uzak ucundaki bir höyüğün etrafında dönüyor."
+msgid "Pallids circle a barrow at the far end of the marsh."
+msgstr "Solgunlar bataklığın uzak ucundaki bir höyüğün etrafında dönüyor."
 
 msgid "Breaking the Circle"
 msgstr "Çemberi Kırmak"
 
-msgid "Defeat 18 more Mistguards"
-msgstr "18 Sis Muhafızı daha alt et"
+msgid "Defeat 18 more Pallids"
+msgstr "18 Solgun daha alt et"
 
 msgid "Break their circle and the barrow is exposed."
 msgstr "Çemberlerini kır, höyük açığa çıksın."
@@ -5380,23 +5386,23 @@ msgstr "Çemberlerini kır, höyük açığa çıksın."
 msgid "The Cold Heart"
 msgstr "Soğuk Yürek"
 
-msgid "Defeat 20 Mistguards"
-msgstr "20 Sis Muhafızı alt et"
+msgid "Defeat 20 Pallids"
+msgstr "20 Solgun alt et"
 
 msgid "Something at the heart of the marsh calls them."
 msgstr "Bataklığın kalbindeki bir şey onları çağırıyor."
 
-msgid "Find the Marshal's Barrow"
-msgstr "Komutan Höyüğü'nü bul"
+msgid "Find Warden's Barrow"
+msgstr "Muhafız Höyüğü'nü bul"
 
-msgid "The Morhal Marshal keeps his last post in a barrow in the marsh."
-msgstr "Morhal Komutanı son nöbetini bataklıktaki bir höyükte tutuyor."
+msgid "The Morhal Warden sleeps in a barrow in the marsh."
+msgstr "Morhal Bekçisi bataklıktaki bir höyükte uyuyor."
 
 msgid "Before the Storm"
 msgstr "Fırtınadan Önce"
 
-msgid "Defeat 22 Mistguards"
-msgstr "22 Sis Muhafızı alt et"
+msgid "Defeat 22 Pallids"
+msgstr "22 Solgun alt et"
 
 msgid "Clear the way to the barrow for your party."
 msgstr "Grubun için höyüğe giden yolu aç."
@@ -5404,29 +5410,29 @@ msgstr "Grubun için höyüğe giden yolu aç."
 msgid "Final Preparations"
 msgstr "Son Hazırlıklar"
 
-msgid "Speak with Commander Teral Venn"
-msgstr "Komutan Teral Venn ile konuş"
+msgid "Speak with Master Teral Venn"
+msgstr "Üstat Teral Venn ile konuş"
 
-msgid "Commander Teral Venn has one last piece of advice before you face the Morhal Marshal, the first commander of the Vigil the mist ever took."
-msgstr "Sisin aldığı ilk Nöbet komutanı olan Morhal Komutanı'nın karşısına çıkmadan önce Komutan Teral Venn'in sana son bir öğüdü var."
+msgid "Master Teral Venn has one last piece of advice before you face the Warden of Morhal, the jailer the Ash Priest turned to his side."
+msgstr "Morhal Bekçisi'nin, yani Kül Rahibi'nin kendi tarafına çektiği o gardiyanın karşısına çıkmadan önce Üstat Teral Venn'in sana son bir öğüdü var."
 
-msgid "Defeat the Morhal Marshal"
-msgstr "Morhal Komutanı'nı alt et"
+msgid "Defeat the Morhal Warden"
+msgstr "Morhal Bekçisi'ni alt et"
 
-msgid "Gather your strongest friends. The Marshal's cold stops the blood."
-msgstr "En güçlü dostlarını topla. Komutan'ın soğuğu kanı durdurur."
+msgid "Gather your strongest friends. The Warden drains hope itself."
+msgstr "En güçlü arkadaşlarını topla. Gardiyan umudun kendisini tüketir."
 
-msgid "The Watch Relieved"
-msgstr "Nöbet Devri"
+msgid "Graduation"
+msgstr "Mezuniyet"
 
-msgid "Report your victory to Commander Teral Venn"
-msgstr "Zaferini Komutan Teral Venn'e bildir"
+msgid "Report your victory to Master Teral Venn"
+msgstr "Zaferini Üstat Teral Venn'e bildir"
 
-msgid "The valley is safe - for now. The Ash Priest has fled through a rift into another realm. Commander Teral Venn is waiting to congratulate you."
-msgstr "Vadi şimdilik güvende. Kül Rahibi bir yarıktan başka bir diyara kaçtı. Komutan Teral Venn seni tebrik etmek için bekliyor."
+msgid "The valley is safe - for now. The Ash Priest has fled through a rift into another realm. Master Teral Venn is waiting to congratulate you."
+msgstr "Vadi şimdilik güvende. Kül Rahibi bir yarıktan başka bir diyara kaçtı. Üstat Teral Venn seni tebrik etmek için bekliyor."
 
-msgid "Patrol Field"
-msgstr "Devriye Meydanı"
+msgid "Skyring Pitch"
+msgstr "Gökhalka Meydanı"
 
 msgid "Spell Power"
 msgstr "Büyü Gücü"
@@ -5554,8 +5560,8 @@ msgstr "Kalfa"
 msgid "Sentinel"
 msgstr "Gözcü"
 
-msgid "Watch Captain"
-msgstr "Nöbet Başı"
+msgid "House Captain"
+msgstr "Hane Başı"
 
 msgid "Champion"
 msgstr "Şampiyon"
@@ -5566,38 +5572,38 @@ msgstr "Efsane"
 msgid "Ember Heart: +15% Flame Wave damage"
 msgstr "Kor Yürek: +%15 Alev Dalgası hasarı"
 
-msgid "We keep the fire through the dark."
-msgstr "Karanlık boyunca ateşi biz tutarız."
+msgid "From my ashes I rise again."
+msgstr "Küllerimden yine doğarım."
 
-msgid "Venom: +20% Starfall and Hushing Gale damage"
-msgstr "Zehir: +%20 Yıldız Düşüşü ve Susturan Yel hasarı"
+msgid "Venom: +20% Starfall and Disarm damage"
+msgstr "Zehir: +%20 Yıldız Düşüşü ve Silahsızlandırma hasarı"
 
-msgid "Patience is the sharpest sting."
-msgstr "En keskin iğne sabırdır."
+msgid "Knowledge runs deeper than venom."
+msgstr "Bilgi zehirden derindir."
 
 msgid "Swiftness: -20% Spell Cooldowns & +25% Max Mana Pool"
 msgstr "Çeviklik: -%20 Büyü Bekleme Süresi ve +%25 Maks. Mana"
 
-msgid "First to see, first to warn."
-msgstr "İlk gören, ilk uyaran."
+msgid "We arrive before the wind."
+msgstr "Rüzgârdan önce varırız."
 
 msgid "Tenacity: +25% Max Health"
 msgstr "Azim: +%25 Maks. Can"
 
-msgid "No step back from the wall."
-msgstr "Surdan bir adım geri yok."
+msgid "Together we hold."
+msgstr "Sürüyle güçlüyüz."
 
 msgid "Entrance Hall"
 msgstr "Giriş Holü"
 
-msgid "Long Table"
-msgstr "Uzun Sofra"
+msgid "Feast Hall"
+msgstr "Şölen Salonu"
 
 msgid "Duel Hall"
 msgstr "Düello Salonu"
 
-msgid "Tidewheel Stair"
-msgstr "Gelgit Merdiveni"
+msgid "Grand Staircase"
+msgstr "Ulu Merdiven"
 
 msgid "Service Stair"
 msgstr "Servis Merdiveni"
@@ -5605,32 +5611,32 @@ msgstr "Servis Merdiveni"
 msgid "East Corridor"
 msgstr "Doğu Koridoru"
 
-msgid "Assay Hall"
-msgstr "Ayar Salonu"
+msgid "Transmutation Hall"
+msgstr "Dönüşüm Salonu"
 
-msgid "Muster Hall"
-msgstr "Toplanma Salonu"
+msgid "Warding Hall"
+msgstr "Koruma Salonu"
 
-msgid "Weaving Loft"
-msgstr "Dokuma Çatısı"
+msgid "Enchanting Hall"
+msgstr "Efsun Salonu"
 
 msgid "Upper Corridor"
 msgstr "Üst Koridor"
 
-msgid "Nisera Quarters"
-msgstr "Nisera Koğuşu"
+msgid "Velkar House"
+msgstr "Velkar Hanesi"
 
-msgid "Quartermaster's Loft"
-msgstr "Levazım Çatısı"
+msgid "Wishing Room"
+msgstr "Dilek Odası"
 
-msgid "Hall of Rolls"
-msgstr "Kayıt Salonu"
+msgid "Library"
+msgstr "Kütüphane"
 
-msgid "Torvan Quarters"
-msgstr "Torvan Koğuşu"
+msgid "Ilvane House"
+msgstr "Ilvane Hanesi"
 
-msgid "Signal Loft"
-msgstr "İşaret Çatısı"
+msgid "Rookery"
+msgstr "Kuşhane"
 
 msgid "Dungeon Stair"
 msgstr "Zindan Merdiveni"
@@ -5644,17 +5650,17 @@ msgstr "Batı Zindanı"
 msgid "Dungeon East"
 msgstr "Doğu Zindanı"
 
-msgid "Still Room"
-msgstr "İmbik Odası"
+msgid "Alchemy Cellar"
+msgstr "Simya Mahzeni"
 
-msgid "Ilvane Quarters"
-msgstr "Ilvane Koğuşu"
+msgid "Nisera House"
+msgstr "Nisera Hanesi"
 
 msgid "Kitchens"
 msgstr "Mutfaklar"
 
-msgid "Velkar Quarters"
-msgstr "Velkar Koğuşu"
+msgid "Torvan House"
+msgstr "Torvan Hanesi"
 
 msgid "[%s] %s  ·  %s\n%d mana · %s s cooldown\n%s\nDrag onto another slot to swap"
 msgstr "[%s] %s  ·  %s\n%d mana · %s sn bekleme\n%s\nYer değiştirmek için başka bir yuvaya sürükle"
@@ -5684,7 +5690,7 @@ msgid "%s: a wave of creatures answers its call! (Wave %d/%d)"
 msgstr "%s: çağrısına bir yaratık dalgası karşılık veriyor! (Dalga %d/%d)"
 
 msgid "The enchantments were rewoven."
-msgstr "Tılsımlar yeniden atıldı."
+msgstr "Efsunlar yeniden atıldı."
 
 msgid "%s declined your party invitation."
 msgstr "%s grup davetini reddetti."
@@ -5746,14 +5752,17 @@ msgstr "Unvanların"
 msgid "None yet"
 msgstr "Henüz yok"
 
-msgid "Seized!"
-msgstr "Kilitlendi!"
+msgid "Asleep!"
+msgstr "Uykuda!"
 
-msgid "Turning the sluice wheel"
-msgstr "Savak çarkı çevriliyor"
+msgid "Ringing the sleep chime"
+msgstr "Uyku çanı çalınıyor"
 
-msgid "The Wheelwarden's %s plate cracks! Its gears scream!"
-msgstr "Çark Bekçisi'nin %s plakası çatladı! Dişlileri çığlık atıyor!"
+msgid "Threehead's %s head slumps! Threehead howls in fury!"
+msgstr "Üçbaş'ın %s başı yığılıp kaldı! Üçbaş öfkeyle uluyor!"
+
+msgid "The chime lulls Threehead to sleep! Its heads take more damage."
+msgstr "Çan Üçbaş'ı uyuttu! Başları artık daha fazla hasar alıyor."
 
 msgid "left"
 msgstr "sol"
@@ -5824,8 +5833,8 @@ msgstr "Kullanıcı adı veya şifre hatalı."
 msgid "Not logged in."
 msgstr "Oturum açık değil. Lütfen yeniden giriş yap."
 
-msgid "Unknown Watch."
-msgstr "Bilinmeyen Nöbet."
+msgid "Unknown house."
+msgstr "Bilinmeyen hane."
 
 msgid "Maximum 2 characters per account."
 msgstr "Bir hesapta en fazla 2 karakter olabilir."
@@ -5929,8 +5938,8 @@ msgstr "Arayüz yazıları. Lisansı bu sayfanın sonunda."
 msgid "Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes, hair and animations"
 msgstr "Modular Character Outfits, Universal Base Characters ve Universal Animation Library: kahramanın bedeni, kıyafetleri, saçı ve animasyonları"
 
-msgid "The robed Sworn and the rod"
-msgstr "Cüppeli Yeminli ve asa"
+msgid "The robed wizard and the wand"
+msgstr "Cüppeli büyücü ve asa"
 
 msgid "Boulder, hessian and wood textures"
 msgstr "Kaya, çuval bezi ve ahşap dokuları"
@@ -5992,7 +6001,7 @@ msgstr "Zayıfladı"
 msgid "Your spells deal less damage."
 msgstr "Büyülerin daha az hasar verir."
 
-msgid "Kestrin - forge the rod higher"
+msgid "Kestrin - forge the wand higher"
 msgstr "Kestrin - asanı daha da güçlendir"
 
 msgid "Quests - every open quest and reward"
@@ -6028,6 +6037,8 @@ msgstr "%s  ·  Sv %d  ·  %s"
 msgid "Finish this run before starting another."
 msgstr "Yenisine başlamadan önce bu koşuyu bitir."
 
+
+
 msgid "Leaving protected ground - combat is possible"
 msgstr "Korunan bölgeden çıkıyorsun - savaş mümkün"
 
@@ -6052,11 +6063,11 @@ msgstr "Buraya inilemez: düz zemine yakın alçal (%s)"
 msgid "Landing here: OK (%s to dismount)"
 msgstr "Buraya inilebilir (%s ile in)"
 
-msgid "Tidewheel stair: gates closed"
-msgstr "Gelgit merdiveni: kapılar kapalı"
+msgid "Magical staircase: gates closed"
+msgstr "Büyülü merdiven: kapılar kapalı"
 
-msgid "Tidewheel stair: turning"
-msgstr "Gelgit merdiveni: dönüyor"
+msgid "Magical staircase: moving"
+msgstr "Büyülü merdiven: hareket ediyor"
 
 msgid "New look saved - it is kept as you enter the world."
 msgstr "Yeni görünüm kaydedildi - dünyaya girdiğinde kalıcı olur."
@@ -6258,6 +6269,3 @@ msgstr "Diyar dolu: beklemen gerekebilir"
 
 msgid "The realm is having problems"
 msgstr "Diyarda sorun var"
-
-msgid "The Wheelwarden"
-msgstr "Çark Bekçisi"

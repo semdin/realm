@@ -731,7 +731,7 @@ func rock_ceiling_at(x: float, z: float) -> float:
 # --------------------------------------------------------------- dressing
 
 ## Where a way out of the copy stands: a pool of light turning on the floor,
-## the Waystake's aura standing over it and lights lifting off it. One for
+## the Waylink's aura standing over it and lights lifting off it. One for
 ## every portal of this map (maps.json), at its trigger and nearly as wide.
 func _portal_sigils() -> void:
 	var maps: Variant = RealmContent.table("maps")

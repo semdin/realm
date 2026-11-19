@@ -72,17 +72,15 @@
     "label_height": 2.3
   },
   "pallid": {
-    "anim_set": "knight",
-    "walk_speed": 0.539,
-    "run_speed": 6.12,
+    "anim_set": "wraith",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
     "hover_height": 0.0,
-    "model": "res://assets/models/monsters/armour_guard.glb",
+    "model": "res://assets/models/monsters/pallid.glb",
     "scale": 1.0,
-    "boss_model": "res://assets/models/monsters/armour_commander.glb",
-    "boss_scale": 1.25,
-    "label_height": 2.9,
-    "albedo": "res://assets/models/monsters/mistguard_albedo.jpg",
-    "boss_albedo": "res://assets/models/monsters/mist_marshal_albedo.jpg"
+    "boss_model": "res://assets/models/monsters/pallid_warden.glb",
+    "boss_scale": 1.0,
+    "label_height": 3.4
   },
   "strangling_vine": {
     "anim_set": "snare",
@@ -109,21 +107,17 @@
       0.92
     ]
   },
-  "wheelwarden": {
-    "anim_set": "knight",
-    "walk_speed": 1.553,
-    "run_speed": 17.6,
+  "threehead": {
+    "anim_set": "hound",
+    "walk_speed": 0.0,
+    "run_speed": 0.0,
     "hover_height": 0.0,
-    "model": "res://assets/models/monsters/armour_commander.glb",
-    "scale": 2.2,
-    "label_height": 3.15,
-    "rig": "wheelwarden_boss",
-    "boss_model": "res://assets/models/monsters/armour_commander.glb",
-    "boss_scale": 2.2,
-    "albedo": "res://assets/models/monsters/wheelwarden_albedo.jpg",
-    "boss_albedo": "res://assets/models/monsters/wheelwarden_albedo.jpg"
+    "model": "res://assets/models/monsters/threehead.glb",
+    "scale": 1.0,
+    "label_height": 8.4,
+    "rig": "threehead_boss"
   },
-  "wheelwarden_plate": {
+  "threehead_head": {
     "anim_set": "generic",
     "walk_speed": 0.0,
     "run_speed": 0.0,

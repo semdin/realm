@@ -1,13 +1,13 @@
-//! `realm_netcheck --boss wheelwarden|snare --characters <dir>
-//!  [--server <castle>]`: a multi-part boss of the Brine Vaults. Needs the
+//! `realm_netcheck --boss threehead|snare --characters <dir>
+//!  [--server <castle>]`: a multi-part boss of the Sealed Wing. Needs the
 //! coordinator, castle_interior and dng_sealed_wing (started with
 //! `--dev-dungeon-start <step> --dev-dungeon-scale 0.05`) sharing `<dir>`.
 //!
-//! A level 34 character starts Normal at the Brine Vaults' gate, walks down
+//! A level 34 character starts Normal at the Sealed Wing's gate, walks down
 //! to the boss and:
-//! - wheelwarden: works the sluice wheel until the Wheelwarden is seized, then
-//!   breaks its plates one by one; the body falls with its last plate;
-//! - snare: the heart cannot be hurt while a stem stands; the stems fall,
+//! - threehead: rings the sleep chime until Threehead sleeps, then brings
+//!   its heads down one by one; the body falls with its last head;
+//! - snare: the heart cannot be hurt while a vine stands; the vines fall,
 //!   then the heart.
 //!
 //! No prediction correction allowed.
@@ -74,7 +74,7 @@ fn messages(s: &Session) -> Vec<String> {
 }
 
 pub fn run(args: &[String]) -> AnyResult<()> {
-    let which = arg(args, "--boss", "wheelwarden");
+    let which = arg(args, "--boss", "threehead");
     let keys = PathBuf::from(arg(args, "--keys", "keys"));
     let secret: [u8; 32] = std::fs::read(keys.join("ticket.key"))?
         .try_into()
@@ -98,7 +98,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let (body_kind, part_kind) = if which == "snare" {
         (kind_of("strangling_vine"), kind_of("snare_vine"))
     } else {
-        (kind_of("wheelwarden"), kind_of("wheelwarden_plate"))
+        (kind_of("threehead"), kind_of("threehead_head"))
     };
     {
         let mut s = Session::dev(&castle, "castle_interior", character, &key, args)?;
@@ -111,7 +111,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         &mut s,
         Vec3::new(65.1, 230.5, -10.0),
         0.8,
-        "the Brine Vaults' door",
+        "the Sealed Wing's door",
     )?;
     s.net.send_control(&ClientMsg::DungeonStart {
         portal: "fc_entry".to_owned(),
@@ -130,16 +130,11 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     // Down the corridor to the boss (the steps before it are done, their
     // gates open).
     let (line, stand) = if which == "snare" {
-        (-70.0, Vec3::new(0.0, 1200.5, -70.0))
+        (-114.0, Vec3::new(0.0, 1200.5, -114.0))
     } else {
         (-172.0, Vec3::new(18.0, 1200.5, -172.0))
     };
-    let way: &[f32] = if which == "snare" {
-        &[-20.0, -60.0]
-    } else {
-        &[-20.0, -60.0, -100.0]
-    };
-    for &z in way {
+    for z in [-20.0_f32, -60.0, -100.0] {
         walk(
             &mut d,
             origin + Vec3::new(0.0, 1200.5, z),
@@ -147,7 +142,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             "the corridor",
         )?;
     }
-    // Wheelwarden's stair: stand in the breath's band until it pushes.
+    // Threehead's stair: stand in the breath's band until it pushes.
     if which != "snare" {
         walk(
             &mut d,
@@ -159,8 +154,8 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         if !run_until(&mut d, 15.0, idle, |s| (s.pos() - before).length() > 1.5)? {
             return fail(format!("the breath never pushed: {:?}", messages(&d)));
         }
-        if !messages(&d).iter().any(|m| m.contains("surge of brine")) {
-            return fail("the surge came unannounced");
+        if !messages(&d).iter().any(|m| m.contains("breath")) {
+            return fail("the breath came unannounced");
         }
         println!(
             "[boss] the breath pushed it {:.1} m",
@@ -184,7 +179,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
                 .collect::<Vec<_>>()
         })
     };
-    // Wheelwarden: stand by the chime until it sleeps.
+    // Threehead: stand by the chime until it sleeps.
     if which != "snare" {
         let mut slept = false;
         run_until(&mut d, 40.0, idle, |s| {
@@ -194,12 +189,9 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             slept
         })?;
         if !slept {
-            return fail(format!(
-                "the Wheelwarden was never seized: {:?}",
-                messages(&d)
-            ));
+            return fail(format!("Threehead never slept: {:?}", messages(&d)));
         }
-        println!("[boss] the sluice wheel seized it");
+        println!("[boss] the chime rang it to sleep");
     }
     // Bring the parts down, then the body.
     let mut next_cast = 0_u32;
@@ -247,7 +239,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     let wanted: &[&str] = if which == "snare" {
         &["heart is exposed"]
     } else {
-        &["plate cracks", "gears scream"]
+        &["head slumps", "howls in fury"]
     };
     for w in wanted {
         if !said.iter().any(|m| m.contains(w)) {

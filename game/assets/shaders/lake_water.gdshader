@@ -1,5 +1,5 @@
 shader_type spatial;
-// Lake Lunra surface for the 2 km grounds (water line y = 0).
+// Black Lake surface for the 2 km grounds (water line y = 0).
 //
 // The depth of the water under each point is known in advance: the build writes
 // the lake bed into `depth_map` (red = metres below the surface / depth_scale,

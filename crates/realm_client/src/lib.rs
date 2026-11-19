@@ -334,7 +334,7 @@ struct RealmSession {
     next_op: u32,
     /// Way-finding's view of the loaded map (way.rs), built on first use.
     way: way::WayCache,
-    /// The map's turning stairs for drawing: the same pure function of
+    /// The map's moving staircases for drawing: the same pure function of
     /// the tick the core collides with (a second copy, so drawing never
     /// touches the prediction's).
     stair_view: realm_sim::staircase::Staircases,
@@ -528,7 +528,7 @@ impl RealmSession {
                     event @ (ServerMsg::TravelResult { .. }
                     | ServerMsg::Departing { .. }
                     | ServerMsg::Arrived { .. }
-                    | ServerMsg::Waystake(_)
+                    | ServerMsg::Waylink(_)
                     | ServerMsg::Dungeon(_)),
                 ) => self.game_events.push(event),
                 NetEvent::Control(ServerMsg::Gate { id, tick, open }) => {
@@ -828,7 +828,7 @@ impl RealmSession {
         }
     }
 
-    /// Set a Waystake down for destination node `dest`.
+    /// Set a Waylink boot down for destination node `dest`.
     #[func]
     fn waylink_place(&mut self, dest: GString) {
         if let Some(net) = self.net.as_ref() {
@@ -836,7 +836,7 @@ impl RealmSession {
         }
     }
 
-    /// Hold on to (or let go of) Waystake `id`.
+    /// Hold on to (or let go of) Waylink `id`.
     #[func]
     fn waylink_hold(&mut self, id: i64, hold: bool) {
         if let Some(net) = self.net.as_ref() {
@@ -1301,7 +1301,7 @@ impl RealmSession {
                         }
                     }
                 }
-                ServerMsg::Waystake(w) => {
+                ServerMsg::Waylink(w) => {
                     d.set("kind", "waylink");
                     d.set("id", &i64::from(w.id).to_variant());
                     d.set("phase", &i64::from(w.phase).to_variant());
@@ -2258,7 +2258,7 @@ impl RealmSession {
         Some(mesh(vertices, indices))
     }
 
-    /// The turning stairs' solid boxes as they stand now, drawn where the
+    /// The moving staircases' solid boxes as they stand now, drawn where the
     /// player's own body is (the core's predicted tick less the part of a
     /// tick not yet run): [{`kind` ("deck", "rail", "gate"), `flight` (its
     /// index), `transform` (centre and rotation), `size` (full extents)};

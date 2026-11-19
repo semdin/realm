@@ -2,7 +2,7 @@ extends RefCounted
 
 ## The living dressing of the castle (the old game's castle_decor.gd): what
 ## the static glb cannot carry because it moves, glows or is a light.
-##   * Long Table: two rows of iron wheel chandeliers hung on chains over the
+##   * Feast Hall: two rows of iron wheel chandeliers hung on chains over the
 ##     tables, each with its warm light; the tables, the house banners on the
 ##     dais wall and the laid tableware (castle_feast.gd);
 ##   * Entrance Hall: two iron ring chandeliers, a torch per bay and two iron
@@ -10,8 +10,8 @@ extends RefCounted
 ##     hourglasses stood, castle_kit.gd LEFT_OUT);
 ##   * moonlight through the windows (a shadowed directional light);
 ##   * the rooms' light sources, authored in the glb as FX_<kind>_<n> empties
-##     (sconces, hearths, green braziers, lanterns, chandeliers; the tower
-##     loft's FX_owl perches stay empty);
+##     (sconces, hearths, green braziers, lanterns, chandeliers; the Rookery's
+##     FX_owl perches stay empty);
 ##   * the hero props (two suits of armour).
 ## Built at the low preset the old game picked for Intel iGPUs (the only
 ## preset of this renderer): no chandelier shadows, a 2-split
@@ -22,7 +22,7 @@ const CastleFeast = preload("res://maps/castle_interior/castle_feast.gd")
 const StaticMerge = preload("res://maps/castle_interior/static_merge.gd")
 const FLAME_SHADER := preload("res://assets/shaders/castle/candle_flame.gdshader")
 
-## Long Table chandeliers (layout space): a row over each side's tables
+## Feast Hall chandeliers (layout space): a row over each side's tables
 ## (castle_feast.gd HALL_TABLES), the wheel this high over the floor.
 const HALL_CHANDELIER_X := [-81.0, -67.0, -53.0, -39.0]
 const HALL_CHANDELIER_Z := [49.0, 63.0]
@@ -339,7 +339,7 @@ static func _brazier(root: Node3D, at: Vector3) -> void:
 # --------------------------------------------------------------- moonlight
 
 ## Cool moonlight from the south-west, low enough to come in through the long
-## south windows of the Long Table and the Entrance Hall's front lights;
+## south windows of the Feast Hall and the Entrance Hall's front lights;
 ## shadowed (an unshadowed moon floods the floors evenly).
 static func _moonlight(root: Node3D) -> void:
 	var moon := DirectionalLight3D.new()
@@ -365,7 +365,7 @@ static func _build_fx(scan_root: Node, root: Node3D) -> void:
 			continue
 		var kind := "_".join(parts.slice(1, parts.size() - 1))
 		if kind == "owl":
-			continue   # the tower loft's perches stay empty
+			continue   # the Rookery's perches stay empty
 		kinds[kind] = int(kinds.get(kind, 0)) + 1
 		var xf := n.global_transform
 		var scale := xf.basis.get_scale().x

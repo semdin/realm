@@ -283,20 +283,11 @@ msgstr "Tüm lisans metinlerini göster"
 msgid "Compiled into the game's extension; their licence texts are with the others below."
 msgstr "Oyunun eklentisine derlenmiştir; lisans metinleri aşağıda diğerleriyle birlikte yer alır."
 
-msgid "Commander Teral Venn waits beside the courtyard fountain (the bobbing gold arrow). Walk up and click him or press {key:interact} to talk."
-msgstr "Komutan Teral Venn avludaki çeşmenin yanında bekliyor (inip kalkan altın ok). Yanına git, konuşmak için ona tıkla ya da {key:interact} tuşuna bas."
-
-msgid "Open your bag with {key:inventory} and right-click the cloak Commander Teral Venn gave you. It costs a little speed and buys a lot of armour."
-msgstr "{key:inventory} ile çantanı aç ve Komutan Teral Venn'in verdiği pelerine sağ tıkla. Biraz hıza mal olur ama çok savunma kazandırır."
-
 msgid "Walk up the castle approach and press {key:interact} in the doorway to go inside."
 msgstr "Şato yolundan yukarı yürü ve içeri girmek için kapıda {key:interact} tuşuna bas."
 
-msgid "Equip the skiff, press {key:ride} to mount, {key:jump} to rise and {key:descend} to descend. Land on level ground and press {key:ride} to dismount."
-msgstr "Kayığı kuşan; binmek için {key:ride}, yükselmek için {key:jump}, alçalmak için {key:descend} tuşuna bas. Düz zemine kon ve inmek için {key:ride} tuşuna bas."
-
-msgid "Press {key:workshop} to open Kestrin's workshop, drag your rod onto the anvil and refine it with Forge Cinder and Oril."
-msgstr "Kestrin'in atölyesini açmak için {key:workshop} tuşuna bas, asanı örsün üzerine sürükle ve Demirci Közü ile Oril kullanarak yükselt."
+msgid "Equip the broom, press {key:ride} to mount, {key:jump} to rise and {key:descend} to descend. Land on level ground and press {key:ride} to dismount."
+msgstr "Süpürgeyi kuşan; binmek için {key:ride}, yükselmek için {key:jump}, alçalmak için {key:descend} tuşuna bas. Düz zemine kon ve inmek için {key:ride} tuşuna bas."
 
 msgid "The Trial Hall stands on the castle's east terrace, south of the road. Press {key:interact} at its glowing door, clear the corridor, then defeat the Trial Warden. Up to five can go in together."
 msgstr "Sınav Salonu kalenin doğu terasında, yolun güneyinde duruyor. Parlayan kapısında {key:interact} tuşuna bas, koridoru temizle, sonra Sınav Bekçisi'ni yen. En fazla beş kişi birlikte girebilir."
@@ -307,26 +298,21 @@ msgstr "Sınav Salonu 5. seviyeden itibaren açık: doğu terasında, kale yolun
 msgid "My forge is here on Orvell square, but press {key:workshop} anywhere to open my workshop. Bring Forge Cinder, Deepvein Ore, Starfall Filings."
 msgstr "Ocağım burada, Orvell meydanında; ama atölyemi açmak için her yerde {key:workshop} tuşuna basabilirsin. Demirci Közü, Derin Damar Cevheri, Yıldız Talaşı getir."
 
-msgid "Crimson brocade alive with woven flame, a golden firebird spread across the shoulders."
-msgstr "Dokuma alevlerle canlanan kızıl brokar; omuzlarına yayılmış altın bir ateşkuşu."
-
-msgid "Crimson lacquer and gold filigree crowned by a firebird head; its feathered tail smoulders like live embers."
-msgstr "Bir ateşkuşu başıyla taçlanmış kızıl cila ve altın telkari; tüylü kuyruğu canlı korlar gibi için için yanar."
-
-msgid "Lacquered crimson boots with golden firebird wings at the heel."
-msgstr "Topuklarında altın ateşkuşu kanatları olan cilalı kızıl çizmeler."
-
-msgid "A glowing amber heart cradled in golden firebird feathers, warm as a hearth."
-msgstr "Altın ateşkuşu tüyleri arasında duran, ocak kadar sıcak parlayan kehribar bir kalp."
-
-msgid "A golden firebird spreading its wings around a burning amber stone."
-msgstr "Yanan bir kehribar taşın çevresinde kanatlarını açmış altın bir ateşkuşu."
-
-msgid "A gold band shaped like a firebird, an ember-bright amber in its beak."
-msgstr "Ateşkuşu biçiminde altın bir halka, gagasında kor gibi parlayan bir kehribar."
-
 msgid "[%s] Quick slot\nDrag a potion here from your bag.\nDrag a slot onto another to swap, or off the bar to clear it."
 msgstr "[%s] Hızlı yuva\nÇantandan buraya bir iksir sürükle.\nYer değiştirmek için bir yuvayı diğerine sürükle, boşaltmak için çubuğun dışına çek."
 
-msgid "%s set down a Waystake to %s - hold on to it! (%s)"
-msgstr "%s, %s yönüne bir Yol Kazığı koydu - ona tutun! (%s)"
+msgid "Master Teral Venn waits beside the courtyard fountain (the bobbing gold arrow). Walk up and click him or press {key:interact} to talk."
+msgstr "Üstat Teral Venn avludaki çeşmenin yanında bekliyor (inip kalkan altın ok). Yanına git, konuşmak için ona tıkla ya da {key:interact} tuşuna bas."
+
+msgid "Open your bag with {key:inventory} and right-click the cloak Master Teral Venn gave you. It costs a little speed and buys a lot of armour."
+msgstr "{key:inventory} ile çantanı aç ve Üstat Teral Venn'in verdiği pelerine sağ tıkla. Biraz hıza mal olur ama çok savunma kazandırır."
+
+msgid "Press {key:workshop} to open Kestrin's workshop, drag your wand onto the anvil and refine it with Velkar Ash and Oril."
+msgstr "Kestrin'in atölyesini açmak için {key:workshop} tuşuna bas, asanı örsün üzerine sürükle ve Velkar Külü ile Oril kullanarak yükselt."
+
+msgid "My forge is here on Orvell square, but press {key:workshop} anywhere to open my workshop. Bring Velkar Ash, Dragon Sinew, Night Steed Hair."
+msgstr "Ocağım burada, Orvell meydanında; ama atölyemi açmak için her yerde {key:workshop} tuşuna basabilirsin. Velkar Külü, Ejder Siniri, Gece Atı Kılı getir."
+
+msgid "%s set down a Waylink to %s - hold on to it! (%s)"
+msgstr "%s, %s yönüne bir Göç Nesnesi koydu - ona tutun! (%s)"
+

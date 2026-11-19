@@ -4,7 +4,7 @@
 //! spends. Skill and attribute points are never stored: they follow from the
 //! level and what has been spent.
 //!
-//! The old game's rules (pack_exp_reward, exp_threshold, level_gap,
+//! The old game's `HPRules` (pack_exp_reward, exp_threshold, level_gap,
 //! attribute_points_available) and `authority._grant_exp`.
 
 use std::collections::BTreeMap;

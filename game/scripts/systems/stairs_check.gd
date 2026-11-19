@@ -1,6 +1,6 @@
 extends Node
 
-## `--check-stairs`: the castle's turning stairs as a player meets them,
+## `--check-stairs`: the castle's moving staircases as a player meets them,
 ## on castle_interior (build/logs/aup_stairs.sh; --map castle_interior
 ## --character 901201). Each step is captured into `--capture-dir` (default
 ## build/captures/stairs):

@@ -24,7 +24,7 @@ able to confirm yet; it is a question for the owner, not a statement of the term
 
 | Family | Tool | Open |
 | --- | --- | --- |
-| Ombrek, Saltwights, goblins, trolls, mistguards, loot chest and other single props | Tencent Hunyuan3D site (free login) | The site's agreement could not be read and archived here. Check worldwide commercial rights before launch |
+| Borin, Drowned Ones, goblins, trolls, pallids, loot chest and other single props | Tencent Hunyuan3D site (free login) | The site's agreement could not be read and archived here. Check worldwide commercial rights before launch |
 | Creature rigs, items, grounds props | Meshy (API through fal.ai and site) | Which plan each job ran on; the free plan's outputs are CC BY |
 | Spell-cast clips `animations/hero/cast_*.glb` | Hunyuan Motion through fal.ai | Terms of the model for commercial use, including territory limits |
 | Icons, portraits, crests, concept views | OpenAI image models, Google Nano Banana, ByteDance Seedream | `ui/LICENSES/AI_GENERATED_ICONS.md`; keep the invoices |

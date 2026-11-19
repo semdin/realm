@@ -1,23 +1,24 @@
 extends Node3D
 class_name WaylinkViews
 
-## Waystakes on the client, from the `waylink` game events the server sends to
+## Waylinks on the client, from the `waylink` game events the server sends to
 ## the owner and the owner's party (RealmSession.take_game_events):
-##   * the owner reaches down and sets the stake on the ground (its
-##     Waylink_Place clip; the stake appears as the hand comes down);
+##   * the owner reaches down and sets the boot on the ground (its
+##     Waylink_Place clip; the boot appears as the hand comes down);
 ##   * a soft blue aura (flipbook) and blue motes lifting off its reach mark it, with
 ##     a countdown over it;
-##   * everyone holding on kneels with a hand on the stake (the Place clip held)
+##   * everyone holding on kneels with a hand on the boot (the Place clip held)
 ##     on every viewer's screen; moving away lets go;
-##   * when it fires a blue-white whirlwind snaps the holders away; a Waystake
+##   * when it fires a blue-white whirlwind snaps the holders away; a Waylink
 ##     nobody holds just fades.
-## MapTravel asks `grab_candidate` which stake the local body could hold.
+## MapTravel asks `grab_candidate` which boot the local body could hold.
 
+const BOOT := "res://assets/models/travel/waylink_boot.glb"
 const WorldSign := preload("res://scripts/world/world_sign.gd")
 const BLUE := Color(0.5, 0.75, 1.0)
 ## The owner's hand reaches the ground this long into the Place clip.
 const DROP_DELAY := 0.9
-## A stake whose end the server's word never reached goes this long after its
+## A boot whose end the server's word never reached goes this long after its
 ## countdown (seconds).
 const STALE_AFTER := 3.0
 
@@ -25,7 +26,7 @@ const STALE_AFTER := 3.0
 var game: Node
 ## id -> {root, label, state, holders}
 var views: Dictionary = {}
-## How many stakes were drawn, fired and fizzled (checks).
+## How many boots were drawn, fired and fizzled (checks).
 var placed_seen := 0
 var fired_seen := 0
 var _letting_go := false
@@ -61,7 +62,7 @@ func on_event(event: Dictionary) -> void:
 					owner_body.waylink_place(at)
 				if owner != _me():
 					var who := String(event.get("owner_name", ""))
-					_notice(tr("%s set down a Waystake to %s - hold on to it! (%s)") % [who if who != "" else tr("A party member"),
+					_notice(tr("%s set down a Waylink to %s - hold on to it! (%s)") % [who if who != "" else tr("A party member"),
 						I18n.t(String(event.get("label", ""))), GameSettings.key_name("interact")])
 			var view: Dictionary = views[id]
 			view["state"] = event
@@ -80,7 +81,7 @@ func on_event(event: Dictionary) -> void:
 			_drop(id)
 		_:
 			if int(event.get("owner", 0)) == _me():
-				_notice(tr("The Waystake went cold - nobody was holding on. It is back in your bag."))
+				_notice(tr("The Waylink fizzled - nobody was holding on. The boot is back in your bag."))
 			var view: Dictionary = views.get(id, {})
 			if not view.is_empty():
 				_sync_holders(view, [], at)
@@ -116,59 +117,23 @@ func _notice(text: String) -> void:
 	if game != null and game.hud != null:
 		game.hud.show_notice(text, "info")
 
-## The Waystake: a forged iron stake with a knot of blue-grey cord at its head.
-static func _stake() -> Node3D:
-	var root := Node3D.new()
-	var iron := StandardMaterial3D.new()
-	iron.albedo_color = Color(0.2, 0.2, 0.22)
-	iron.metallic = 0.8
-	iron.roughness = 0.45
-	var cord := StandardMaterial3D.new()
-	cord.albedo_color = Color(0.32, 0.42, 0.52)
-	cord.roughness = 0.9
-	var shaft := MeshInstance3D.new()
-	var taper := CylinderMesh.new()
-	taper.top_radius = 0.05
-	taper.bottom_radius = 0.012
-	taper.height = 0.62
-	shaft.mesh = taper
-	shaft.material_override = iron
-	shaft.position.y = 0.26
-	root.add_child(shaft)
-	var cap := MeshInstance3D.new()
-	var head := CylinderMesh.new()
-	head.top_radius = 0.075
-	head.bottom_radius = 0.06
-	head.height = 0.05
-	cap.mesh = head
-	cap.material_override = iron
-	cap.position.y = 0.59
-	root.add_child(cap)
-	for k in 3:
-		var turn := MeshInstance3D.new()
-		var ring := TorusMesh.new()
-		ring.inner_radius = 0.04
-		ring.outer_radius = 0.066
-		turn.mesh = ring
-		turn.material_override = cord
-		turn.position.y = 0.5 - 0.035 * k
-		turn.rotation.z = 0.12 * (k - 1)
-		root.add_child(turn)
-	return root
-
 func _build(state: Dictionary) -> Dictionary:
 	var root := Node3D.new()
-	root.name = "Waystake%d" % int(state.get("id", 0))
+	root.name = "Waylink%d" % int(state.get("id", 0))
 	add_child(root)
 	root.global_position = state.get("pos", Vector3.ZERO)
-	var stake_holder := Node3D.new()
-	root.add_child(stake_holder)
-	stake_holder.add_child(_stake())
-	# The stake appears as the owner's hand comes down, with a little settle.
-	stake_holder.scale = Vector3(0.01, 0.01, 0.01)
+	var boot_holder := Node3D.new()
+	root.add_child(boot_holder)
+	if ResourceLoader.exists(BOOT):
+		var boot: Node3D = (load(BOOT) as PackedScene).instantiate()
+		boot.scale = Vector3.ONE * 1.25
+		boot.rotation = Vector3(0.0, randf() * TAU, deg_to_rad(-8.0))
+		boot_holder.add_child(boot)
+	# The boot appears as the owner's hand comes down, with a little settle.
+	boot_holder.scale = Vector3(0.01, 0.01, 0.01)
 	var tw := root.create_tween()
 	tw.tween_interval(DROP_DELAY)
-	tw.tween_property(stake_holder, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+	tw.tween_property(boot_holder, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	FlipbookFX.play(root, root.global_position, [
 		{"atlas": "waylink_aura_8x8_1k", "size": 2.0, "height": 0.85, "fps": 18.0, "loop": true, "delay": DROP_DELAY,
 			"fade_in": 0.6},
@@ -196,7 +161,7 @@ func _build(state: Dictionary) -> Dictionary:
 static func _hz() -> float:
 	return float(ClassDB.class_call_static("RealmInfo", "sim_hz"))
 
-## Seconds until Waystake `id` fires (0 when unknown or due).
+## Seconds until Waylink `id` fires (0 when unknown or due).
 func seconds_left(id: int) -> float:
 	var view: Dictionary = views.get(id, {})
 	var s := _session()
@@ -222,8 +187,8 @@ func _process(_delta: float) -> void:
 		if now >= 0.0 and now > float(state.get("fires_tick", 0)) + STALE_AFTER * _hz():
 			stale.append(id)
 			continue
-		(view["label"] as Label3D).text = tr("Waystake to %s\n%d") % [I18n.t(String(state.get("label", ""))), ceili(left)]
-		# Moving away from the stake lets go of it (one request per release).
+		(view["label"] as Label3D).text = tr("Waylink to %s\n%d") % [I18n.t(String(state.get("label", ""))), ceili(left)]
+		# Moving away from the boot lets go of it (one request per release).
 		var holders: Array = view.get("holders", [])
 		if holders.has(me) and not _letting_go:
 			var v: Vector3 = game.session.own_body().get("velocity", Vector3.ZERO)
@@ -235,7 +200,7 @@ func _process(_delta: float) -> void:
 		_sync_holders(view, [], view["state"].get("pos", Vector3.ZERO))
 		_drop(id)
 
-## The Waystake the local body at `pos` could hold (or is holding):
+## The Waylink the local body at `pos` could hold (or is holding):
 ## {id, holding, label} or {}.
 func grab_candidate(pos: Vector3) -> Dictionary:
 	var me := _me()

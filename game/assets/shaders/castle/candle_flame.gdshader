@@ -1,6 +1,6 @@
 shader_type spatial;
-// Flame card of a candle (MultiMesh or single, camera-facing, additive). Each
-// instance bobs on its own phase. A small teardrop drawn in the middle of the
+// Flame card of a candle (MultiMesh or single, camera-facing, additive). Same
+// bob as floating_candle.gdshader. A small teardrop drawn in the middle of the
 // card - blue at the wick, a white-hot core, a yellow body and an orange rim -
 // whose tip sways on its own breath, inside a faint warm halo that fills the
 // rest of the card.

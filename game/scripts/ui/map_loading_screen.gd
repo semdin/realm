@@ -2,7 +2,7 @@ extends CanvasLayer
 class_name MapLoadingScreen
 
 ## The loading screen of a map transfer (the castle door, a hearth to another
-## map, a Waystake): the dark frame, the realm's emblem, the gold bar, a tip and
+## map, a Waylink): the dark frame, the realm's emblem, the gold bar, a tip and
 ## the turning rune, so stepping through a door looks like part of the game
 ## rather than a black flash, and the bar says what is happening: leaving the
 ## old map, joining the new one, building it.
@@ -22,14 +22,14 @@ const FADE := 0.25
 const MIN_SHOW := 0.8
 # i18n-begin
 const TIPS := [
-	"Start a chat line with ! to shout to everyone in the realm.",
+	"Start a chat line with ! to shout to every wizard in the realm.",
 	"Drag a potion from your bag onto a quick slot to drink it with one key.",
-	"Shardglass Ward reflects projectiles back at their caster.",
-	"Saltwights are dry as tinder: Flame Wave burns them for double damage.",
+	"Ward Shield reflects projectiles back at their caster.",
+	"Drowned Ones fear fire: Flame Wave burns them for double damage.",
 	"Hold the right mouse button to turn the camera; the wheel zooms.",
-	"Land on level ground before you dismount your skiff.",
+	"Land on level ground before you dismount your broom.",
 	"Dark Shards summon waves of creatures - bring friends.",
-	"Kestrin can refine your rod. Higher tiers glow brighter.",
+	"Kestrin can refine your wand. Higher tiers glow brighter.",
 ]
 # i18n-end
 

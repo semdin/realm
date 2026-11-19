@@ -6,7 +6,7 @@ class_name ItemTooltip
 ## Every number here comes from the running game, never from a mock-up:
 ## `Items` (the content table) supplies `type`, `rarity` and the type-specific fields, the
 ## wand tier comes from the individual bag or equipment entry, and the upgrade multiplier
-## from the combat rules. If a field is absent for an item, its row is
+## from `HPRules.combat()`. If a field is absent for an item, its row is
 ## simply not built - the card never shows a placeholder dash.
 ##
 ## Style follows the reference: the name is tinted by rarity, the kind and rarity
@@ -15,9 +15,9 @@ class_name ItemTooltip
 
 # i18n-begin
 const KIND_LABEL := {
-	"weapon": "One-Handed Rod",
+	"weapon": "One-Handed Wand",
 	"armor": "Body Armour",
-	"mount": "Skiff mount",
+	"mount": "Broom mount",
 	"consumable": "Consumable",
 	"material": "Crafting material",
 }
@@ -83,7 +83,7 @@ func show_item(item_id: String, entry: Dictionary = {}) -> void:
 		_column.remove_child(child)
 		child.queue_free()
 
-	# Everything centred, one fact per line, no labels.
+	# Metin2 layout: everything centred, one fact per line, no labels.
 	var data: Dictionary = Items.item(item_id)
 	var tint: Color = RARITY_COLOUR.get(rarity_of(item_id), RARITY_COLOUR["common"])
 	var tier := int(entry.get("tier", 0))
@@ -119,7 +119,7 @@ func show_item(item_id: String, entry: Dictionary = {}) -> void:
 	show()
 
 const STAT_COLOUR := Color(0.93, 0.91, 0.86)
-## Enchantments read brighter than the base lines.
+## Enchantments read brighter than the base lines (Metin2's bonus lines).
 const ENCHANT_COLOUR := Color(0.78, 0.66, 1.0)
 
 func _add_line(text: String, colour: Color, size: int = UITheme.FS_SMALL, bold: bool = false) -> void:
@@ -272,7 +272,7 @@ func _add_kv(left: String, right: String, colour: Color) -> void:
 	h.add_child(r)
 
 
-## kind 2 = an enchantment line (violet).
+## kind 2 = an enchantment line (violet, the Metin2 bonus colour).
 func _add_stat_row(text: String, kind: int) -> void:
 	var l := Label.new()
 	l.text = text

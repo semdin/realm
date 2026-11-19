@@ -109,7 +109,7 @@ func _build() -> void:
 	], true))
 	add_child(FrontDoor.embers(self))
 	# The login column sits over the darkened left of the key art; the
-	# hero and the castle stay visible on the right.
+	# wizard and the castle stay visible on the right.
 	var column := VBoxContainer.new()
 	login_column = column
 	column.name = "LoginColumn"

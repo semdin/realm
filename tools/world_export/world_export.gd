@@ -1,25 +1,24 @@
 extends SceneTree
 
-## Godot side of the world compiler. Boots a world project's headless server
-## (it builds every map collision-only), adds one copy of each instanced
-## dungeon, then writes everything a body can stand on or bump into, per map,
-## for `realm_worldc`:
+## Godot side of the world compiler. Boots the old game's headless world
+## server (it builds every map collision-only, exactly as the live server
+## does), adds one copy of each instanced dungeon, then writes everything a
+## body can stand on or bump into, per map, for `realm_worldc`:
 ##
-##   godot --headless --path <world_project> -s <abs>/world_export.gd -- --out <abs dir> [--maps-script res://...]
+##   godot --headless --path ../server/world -s <abs>/world_export.gd -- --out <abs dir>
 ##
 ## Per map it writes <map>.json (shapes, transforms, terrain grids, water,
 ## triggers, staircase anchors) and <map>.bin (the large float arrays the
 ## JSON points into). Only bodies on a layer the player collides with are
 ## taken (the player's mask). Bodies a rule moves or switches (the castle's
 ## staircase decks and landing gates) are left out: the staircase rule in
-## realm_sim rebuilds them from the anchors. Nothing in the world project
+## realm_sim rebuilds them from the anchors. Nothing in the old project
 ## changes.
 
 const PLAYER_MASK := 39
-const DEFAULT_MAPS_SCRIPT := "res://addons/realm_sim/maps.gd"
-## Loaded at run time: naming the project's global classes here would compile
-## them before its autoloads exist.
-var Maps = null
+## Loaded at run time: naming the old project's global classes here would
+## compile them before its autoloads exist.
+var HPMaps = null
 var GroundsLake = null
 const SETTLE_FRAMES := 240
 
@@ -42,14 +41,9 @@ func _initialize() -> void:
 		quit(2)
 		return
 	DirAccess.make_dir_recursive_absolute(_out)
-	var maps_script := DEFAULT_MAPS_SCRIPT
-	var all_args := OS.get_cmdline_user_args()
-	var at := all_args.find("--maps-script")
-	if at >= 0 and at + 1 < all_args.size():
-		maps_script = all_args[at + 1]
-	Maps = load(maps_script)
+	HPMaps = load("res://addons/hpmmo_sim/maps.gd")
 	GroundsLake = load("res://scripts/world/grounds/grounds_lake.gd")
-	OS.set_environment("REALM_WORLD_PORT", "7799")
+	OS.set_environment("HPMMO_WORLD_PORT", "7799")
 	change_scene_to_file("res://server/world_server.tscn")
 
 func _process(_delta: float) -> bool:
@@ -69,8 +63,8 @@ func _add_instances() -> void:
 	var world := root.get_node_or_null("WorldServer/GameWorld")
 	if world == null:
 		world = _find_world()
-	for map_id in Maps.map_ids():
-		var info: Dictionary = Maps.map_info(String(map_id))
+	for map_id in HPMaps.map_ids():
+		var info: Dictionary = HPMaps.map_info(String(map_id))
 		if not bool(info.get("instanced", false)):
 			continue
 		var path := String(info.get("scene", ""))
@@ -83,7 +77,7 @@ func _add_instances() -> void:
 		if node.has_method("setup"):
 			node.call("setup", slot_id, true)
 		world.add_child(node)
-		_instances[String(map_id)] = Maps.instance_origin(slot_id)
+		_instances[String(map_id)] = HPMaps.instance_origin(slot_id)
 
 func _find_world() -> Node:
 	for node in root.find_children("*", "Node3D", true, false):
@@ -94,15 +88,15 @@ func _find_world() -> Node:
 ## Which map a world-space point belongs to, by the maps' y bands; instanced
 ## maps are also told apart by their slot's x offset.
 func _map_of(point: Vector3) -> String:
-	for map_id in Maps.map_ids():
-		var info: Dictionary = Maps.map_info(String(map_id))
+	for map_id in HPMaps.map_ids():
+		var info: Dictionary = HPMaps.map_info(String(map_id))
 		var y_min := float(info.get("y_min", -1e9))
 		var y_max := float(info.get("y_max", 1e9))
 		if point.y < y_min or point.y > y_max:
 			continue
 		if _instances.has(String(map_id)):
 			var origin: Vector3 = _instances[String(map_id)]
-			if absf(point.x - origin.x) > Maps.instance_stride(String(map_id)) * 0.5:
+			if absf(point.x - origin.x) > HPMaps.instance_stride(String(map_id)) * 0.5:
 				continue
 		return String(map_id)
 	return ""
@@ -261,7 +255,7 @@ func _write(map_id: String) -> void:
 		"map": map_id, "colliders": entry.colliders, "terrain": entry.terrain, "water": entry.water,
 		"triggers": entry.triggers, "staircases": entry.staircases, "skipped": entry.skipped.keys(),
 		"ruled": entry.ruled.keys(),
-		"source": "world project, exported %s" % Time.get_datetime_string_from_system(true),
+		"source": "old game server world, exported %s" % Time.get_datetime_string_from_system(true),
 	}
 	var json := FileAccess.open(_out.path_join(map_id + ".json"), FileAccess.WRITE)
 	json.store_string(JSON.stringify(doc))

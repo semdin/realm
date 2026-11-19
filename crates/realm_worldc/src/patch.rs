@@ -12,7 +12,7 @@
 //! `"remove": [{"note": "...", "min": [x, y, z], "max": [x, y, z]}]` takes
 //! out the export's colliders whose bounds lie wholly inside one of those
 //! world-space boxes: solids the old world had that the drawn map no longer
-//! has (the Long Table's old long tables and benches, moved). A removal is
+//! has (the Feast Hall's old long tables and benches, moved). A removal is
 //! for good on a built pack (`build` from the export applies it again).
 //!
 //! `build` adds them to the map's static colliders before the navmesh is

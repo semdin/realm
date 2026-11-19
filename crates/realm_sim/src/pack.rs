@@ -38,7 +38,7 @@ pub struct MapPack {
     pub dynamic: Vec<DynamicCollider>,
     /// Polygons creatures path on (empty until baked).
     pub nav: NavMesh,
-    /// Where each turning stair stands (its spec is in the content).
+    /// Where each moving staircase stands (its spec is in the content).
     pub staircases: Vec<StairAnchor>,
 }
 

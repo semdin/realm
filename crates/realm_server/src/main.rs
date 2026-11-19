@@ -25,7 +25,7 @@
 //!       (checks only) multiplies dungeon creatures' health and damage;
 //!       `--dev-dungeon-affixes a,b` gives every run those curses;
 //!       `--dev-dungeon-start <step>` starts every run at that step;
-//!       `--dev-cocoon-solo` lets the Silk Queen's cocoon wrap a lone player;
+//!       `--dev-cocoon-solo` lets the Web Mother's cocoon wrap a lone player;
 //!       `--dev-fail-saves <file>` makes every save fail while that file
 //!       exists (with `--characters`); `--dev-ga Name,Name` makes those
 //!       characters GAs on a map without a coordinator; `--dev-boss-respawn S`

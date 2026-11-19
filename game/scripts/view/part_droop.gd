@@ -2,7 +2,7 @@ extends SkeletonModifier3D
 class_name PartDroop
 
 ## A multi-part boss's fallen parts on its model (the old game's part_droop):
-## Wheelwarden's slumped head, the Brinebriar's withered vine. It runs after
+## Threehead's slumped head, the Strangling Vine's withered vine. It runs after
 ## the AnimationPlayer, so the clip keeps playing on everything else, and bends
 ## (about each bone's local X) and shrinks the bone chain of every part that is
 ## down, eased in so a part sags rather than snaps. Presentation only: which

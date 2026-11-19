@@ -9,7 +9,7 @@
 //! adds the completion share, oril and a personal chest for members with a
 //! daily reward right left (the others go in as helpers).
 //!
-//! The old game's `dungeon_*` rules, `dungeon_director` parameters and
+//! The old game's `HPRules.dungeon_*`, `dungeon_director` parameters and
 //! `player.record_dungeon_run`, with these faults fixed: a run that timed out
 //! records no clear (it unlocked harder difficulties and set best times
 //! without a full clear); the gate holds the party to `max_party`.
@@ -175,7 +175,7 @@ pub struct SpawnEntry {
     pub min_difficulty: usize,
     pub hatch: Option<Hatch>,
     pub chime: Option<[f32; 3]>,
-    /// Difficulty -> the sluice wheel's scale.
+    /// Difficulty -> the sleep chime's scale.
     pub chime_scale: BTreeMap<usize, f32>,
     /// Difficulty -> marks set on the creature.
     pub marks: BTreeMap<usize, Vec<String>>,

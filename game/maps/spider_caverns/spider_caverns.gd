@@ -15,7 +15,7 @@ extends Node3D
 ## stalagmite crags, dew webs, glowing mushrooms, drifting spores, bone heaps,
 ## egg clutches, venom pools under their mist (FlipbookFX), hanging cocoons,
 ## the explorers' camp, the stair up to the crypt and the two web gates of
-## the Silk Queen's Lair. The heights are read for placing it only.
+## the Web Mother's Lair. The heights are read for placing it only.
 ##
 ## Drawn solids the old game gave no collider and no creature is placed near
 ## (the crypt stair's steps, the gates' arches, the camp's tent) are recorded
@@ -647,7 +647,7 @@ func _build_crypt_stair() -> void:
 	_light(Vector3(top.x, top_y + 3.0, top.y) - Vector3(dir.x, 0, dir.y) * 2.0, Color(0.7, 0.78, 0.95), 2.2, 16.0)
 	_light(Vector3(foot.x, y0 + 2.5, foot.y), Color(1.0, 0.66, 0.38), 1.4, 10.0)
 
-## The web gates of the Silk Queen's Lair (maps.json portals with dressing
+## The web gates of the Web Mother's Lair (maps.json portals with dressing
 ## "web_gate"): an arch in the wall of the room, hung with cocoons, egg
 ## clutches at its feet and a violet glow; the dungeon gate window opens here.
 func _build_web_gates() -> void:

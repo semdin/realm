@@ -7,7 +7,7 @@ class_name LookEditor
 ## shape, eyes, nose, mouth, ears - one part's sliders at a time, so the panel
 ## keeps its height) (Looks: content/data/looks.json). A preset face
 ## sets every face slider at once; moving one after makes the face "Custom".
-## Every change emits `look_changed` so the podium hero is redrawn live
+## Every change emits `look_changed` so the podium wizard is redrawn live
 ## (HeroAppearance.apply_look); `confirmed` / `cancelled` close an edit of an
 ## existing character (the create card has its own buttons, so it hides them:
 ## set_edit_buttons(false)).
@@ -264,7 +264,7 @@ func _reset_part() -> void:
 	set_look(l, true)
 
 
-## The Save / Cancel row belongs to editing an existing hero.
+## The Save / Cancel row belongs to editing an existing wizard.
 func set_edit_buttons(on: bool) -> void:
 	_buttons.visible = on
 

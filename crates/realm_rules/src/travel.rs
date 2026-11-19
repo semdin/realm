@@ -1,15 +1,15 @@
-//! Travel (maps.json, travel.json): doors between maps, the Emberway
-//! (fireplaces linked by Waycoal), the Old Shafts and the secret
-//! passages (free twin links), the Waystake (an old boot that carries a
+//! Travel (maps.json, travel.json): doors between maps, the Hearthway
+//! (fireplaces linked by Hearth Dust), the Twinned Cabinets and the secret
+//! passages (free twin links), the Waylink (an old boot that carries a
 //! party), and which maps let a broom fly.
 //!
 //! A trip names where it ends (`Arrival`): the map and a `Landing` the
 //! destination map works out on its own ground (only it has that map's
 //! terrain). The map the traveller leaves decides whether it may go.
 //!
-//! The old game's `request_transfer`, `request_travel`, map travel
+//! The old game's `request_transfer`, `request_travel`, `HPMaps` travel
 //! helpers and its boot travel, with these faults fixed: every check reads
-//! the renamed data (`hearthway`, `waylink`), a Waystake rider must meet the
+//! the renamed data (`hearthway`, `waylink`), a Waylink rider must meet the
 //! destination's level as its owner must, and nothing is learned (every
 //! hearth is open; the destination's level is the only gate, as the old
 //! game had come to play).
@@ -61,7 +61,7 @@ impl Portal {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NodeKind {
-    Emberway,
+    Hearthway,
     Cabinet,
     Passage,
 }
@@ -134,7 +134,7 @@ pub enum Landing {
     /// A spawn point, member `slot` of `of` in a 1.4 m ring around it (a
     /// party entering a dungeon together).
     Ring { spawn: String, slot: u8, of: u8 },
-    /// A Waystake: an open spot found around the node with `seed`, rider
+    /// A Waylink: an open spot found around the node with `seed`, rider
     /// `slot` of `riders` in a small ring there.
     Scatter {
         node: String,
@@ -147,10 +147,10 @@ pub enum Landing {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TripKind {
     Door,
-    Emberway,
+    Hearthway,
     Cabinet,
     Passage,
-    Waystake,
+    Waylink,
 }
 
 impl TripKind {
@@ -158,10 +158,10 @@ impl TripKind {
     pub fn name(self) -> &'static str {
         match self {
             Self::Door => "door",
-            Self::Emberway => "hearthway",
+            Self::Hearthway => "hearthway",
             Self::Cabinet => "cabinet",
             Self::Passage => "passage",
-            Self::Waystake => "waylink",
+            Self::Waylink => "waylink",
         }
     }
 }
@@ -297,7 +297,7 @@ impl TravelRules {
         }
         for (id, n) in travel["nodes"].as_object().into_iter().flatten() {
             let kind = match n["kind"].as_str() {
-                Some("hearthway") => NodeKind::Emberway,
+                Some("hearthway") => NodeKind::Hearthway,
                 Some("cabinet") => NodeKind::Cabinet,
                 Some("passage") => NodeKind::Passage,
                 other => return Err(format!("travel.json node {id}: unknown kind {other:?}")),
@@ -350,7 +350,7 @@ impl TravelRules {
             if self
                 .nodes
                 .get(d)
-                .is_none_or(|n| n.kind != NodeKind::Emberway)
+                .is_none_or(|n| n.kind != NodeKind::Hearthway)
             {
                 return Err(format!("waylink destination {d} is not a hearth"));
             }
@@ -368,7 +368,7 @@ impl TravelRules {
     #[must_use]
     pub fn rules_of(&self, kind: NodeKind) -> NodeRules {
         match kind {
-            NodeKind::Emberway => self.hearthway,
+            NodeKind::Hearthway => self.hearthway,
             NodeKind::Cabinet => self.cabinet,
             NodeKind::Passage => self.passage,
         }
@@ -423,7 +423,7 @@ impl TravelRules {
             return Err("out_of_range");
         }
         let dest_id = match source.kind {
-            NodeKind::Emberway => to,
+            NodeKind::Hearthway => to,
             NodeKind::Cabinet | NodeKind::Passage => source.pair.as_deref().unwrap_or(""),
         };
         let dest = self
@@ -435,7 +435,7 @@ impl TravelRules {
             return Err("level_too_low");
         }
         let kind = match source.kind {
-            NodeKind::Emberway => TripKind::Emberway,
+            NodeKind::Hearthway => TripKind::Hearthway,
             NodeKind::Cabinet => TripKind::Cabinet,
             NodeKind::Passage => TripKind::Passage,
         };
@@ -450,7 +450,7 @@ impl TravelRules {
                 copy: 0,
             },
             label: dest.label.clone(),
-            cost: (source.kind == NodeKind::Emberway)
+            cost: (source.kind == NodeKind::Hearthway)
                 .then(|| (self.hearth_item.clone(), self.hearth_cost)),
             combat_lock_ms: rules.combat_lock_ms,
         })

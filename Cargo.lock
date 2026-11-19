@@ -1616,7 +1616,7 @@ name = "realm_content"
 version = "0.1.0"
 dependencies = [
  "realm_data",
- "sha2",
+ "serde_json",
 ]
 
 [[package]]
@@ -1639,6 +1639,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "toml",
  "zstd",
 ]
 

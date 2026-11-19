@@ -10,16 +10,16 @@ class_name CreatureView
 ## own clip pair, its windup stretched to end on the server's release tick and
 ## its strike over the recovery. It decides nothing.
 ##
-## A multi-part boss (creature_views.json `rig` wheelwarden_boss / snare_boss)
+## A multi-part boss (creature_views.json `rig` threehead_boss / snare_boss)
 ## wears its parts on its own model: its heads or vines are separate creatures
 ## on the wire (rig boss_part, drawn by nothing of their own: main.gd targets
 ## and hits them where the server holds them on the body). A part that is down
-## bends that head or vine on the model (PartDroop: Wheelwarden's head slumps,
-## the Brinebriar's vine withers and shrinks). Wheelwarden's stun is the
+## bends that head or vine on the model (PartDroop: Threehead's head slumps,
+## the Strangling Vine's vine withers and shrinks). Threehead's stun is the
 ## sleep the chime lulls it into: its Sleep clip, a slow pale haze drifting up
-## off each head still standing, "Seized!" over it, no stun stars.
+## off each head still standing, "Asleep!" over it, no stun stars.
 ##
-## A web thing (rig web_object: the Silk Queen's egg sacs and cocoons) has no
+## A web thing (rig web_object: the Web Mother's egg sacs and cocoons) has no
 ## clips: its death is the silk splitting open (SilkBurst, with the fluid
 ## inside it, creature_views.json `fluid`) while the model swells, slumps
 ## flat into the floor and is gone. `stretch` widens or heightens a model
@@ -57,6 +57,8 @@ const ANIM_SETS := {
 		"anticipation": "Cast_Anticipation", "attack": "Cast_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"wraith": {"idle": "Idle", "walk": "Float", "run": "Float",
 		"anticipation": "Reach_Anticipation", "attack": "Reach_Attack", "hit": "Hit", "stun": "Stun", "death": "Death"},
+	"hound": {"idle": "Idle", "walk": "Walk", "run": "Run",
+		"anticipation": "Bite_Anticipation", "attack": "Bite_Attack", "hit": "Hit", "stun": "Sleep", "death": "Death"},
 	"snare": {"idle": "Idle", "walk": "Idle", "run": "Idle",
 		"anticipation": "Lash_Anticipation", "attack": "Lash_Attack", "hit": "Hit", "stun": "Hit", "death": "Death"},
 	"knight": {"idle": "Idle", "walk": "Walk", "run": "Run",
@@ -85,9 +87,11 @@ const SPECIES_MASK := 0x1FFF
 ## The multi-part rigs: the bone chain each part key bends when the part is
 ## down (root first; as the old game bent them), how far it
 ## bends and the size it shrinks to, and whether the stun is a sleep.
+## (Threehead's bend is negative: a positive turn about this rig's neck X
+## lifts the head.)
 const MULTIPART := {
-	"wheelwarden_boss": {"chains": {"L": ["LeftArm", "LeftForeArm"], "M": ["Spine01", "Spine"], "R": ["RightArm", "RightForeArm"]},
-		"degrees": 22.0, "shrink": 1.0, "sleeps": true, "heads": {"L": "LeftHand", "M": "Head", "R": "RightHand"}},
+	"threehead_boss": {"chains": {"L": ["Neck.L", "Head.L"], "M": ["Neck.M", "Head.M"], "R": ["Neck.R", "Head.R"]},
+		"degrees": -35.0, "shrink": 1.0, "sleeps": true, "heads": {"L": "Head.L", "M": "Head.M", "R": "Head.R"}},
 	"snare_boss": {"chains": {"L": ["VineL1", "VineL2", "VineL3", "VineL4"], "R": ["VineR1", "VineR2", "VineR3", "VineR4"],
 		"T": ["VineT1", "VineT2", "VineT3", "VineT4"]}, "degrees": 16.0, "shrink": 0.82, "sleeps": false, "heads": {}},
 }
@@ -97,8 +101,8 @@ const PART_RIG := "boss_part"
 const WEB_RIG := "web_object"
 const SPLIT_SWELL := 0.08
 const SPLIT_SLUMP := 0.42
-## The brine mist off a flooded, seized joint.
-const SLEEP_TINT := Color(0.66, 0.92, 0.88)
+## The sleep haze off a sleeping head.
+const SLEEP_TINT := Color(0.78, 0.8, 1.0)
 ## The corpse lies this long after its death clip ends (a clip-less body:
 ## DISSOLVE_NO_CLIP after it fell), then burns away over DISSOLVE_SECONDS; a
 ## clip is waited for at most DEATH_CLIP_MAX.
@@ -157,7 +161,7 @@ var parts: Dictionary = {}
 var parts_down: Array = []
 var _droop: PartDroop = null
 var _skeleton: Skeleton3D = null
-## Wheelwarden asleep: the haze over each standing head (key -> GPUParticles3D).
+## Threehead asleep: the haze over each standing head (key -> GPUParticles3D).
 var asleep := false
 var _haze: Dictionary = {}
 ## Seen standing before it died (a web thing already dead when it came into
@@ -221,7 +225,6 @@ func setup(kind: int) -> bool:
 	if scene == null:
 		return false
 	model = scene.instantiate() as Node3D
-	_wear_skin()
 	_body_scale = float(view.get("boss_scale", 1.0)) if is_boss else float(view.get("scale", 1.0))
 	model.scale = Vector3.ONE * _body_scale
 	var stretch: Variant = view.get("stretch", null)
@@ -250,34 +253,6 @@ func setup(kind: int) -> bool:
 	# only a sleeping head's haze follows the model
 	set_process(false)
 	return true
-
-## Worn skins by path and source material.
-static var _skins: Dictionary = {}
-
-## A species sharing another's body wears its own painted skin
-## (creature_views.json `albedo`, a boss `boss_albedo`); one material per
-## skin and source, so a pack still batches.
-func _wear_skin() -> void:
-	var path := String(view.get("boss_albedo", "")) if is_boss else ""
-	if path == "":
-		path = String(view.get("albedo", ""))
-	if path == "" or not ResourceLoader.exists(path):
-		return
-	var skin := load(path) as Texture2D
-	for node in model.find_children("*", "MeshInstance3D", true, false):
-		var mesh := node as MeshInstance3D
-		if mesh.mesh == null:
-			continue
-		for i in mesh.mesh.get_surface_count():
-			var source := mesh.get_active_material(i) as BaseMaterial3D
-			if source == null:
-				continue
-			var key := "%s|%d" % [path, source.get_instance_id()]
-			if not _skins.has(key):
-				var worn := source.duplicate() as BaseMaterial3D
-				worn.albedo_texture = skin
-				_skins[key] = worn
-			mesh.set_surface_override_material(i, _skins[key])
 
 ## The part chains' modifier on the model's skeleton.
 func _build_droop() -> void:
@@ -336,7 +311,7 @@ func _split_open() -> void:
 	tween.tween_property(model, "visible", false, 0.0)
 
 ## Which parts are down (keys L / M / R / T): their chains bend on the model,
-## a seized joint that went down stops giving off its mist.
+## a sleeping head that went down stops breathing its haze.
 func set_parts_down(keys: Array) -> void:
 	if keys == parts_down:
 		return
@@ -394,7 +369,7 @@ func set_status(bits: int) -> void:
 		return
 	status = bits
 	if bool(multipart.get("sleeps", false)):
-		# The Wheelwarden's stun is the flood seizing it: its own look, not stars.
+		# Threehead's stun is the chime's sleep: its own look, not stars.
 		StatusFX.update(self, bits & ~StatusFX.STATUS_STUN)
 		_set_asleep(bits & StatusFX.STATUS_STUN != 0)
 		return
@@ -405,11 +380,11 @@ func _set_asleep(on: bool) -> void:
 		return
 	asleep = on
 	if on and not is_dead and DisplayServer.get_name() != "headless":
-		FloatingText.word(global_position + Vector3.UP * (head_height + 1.2), tr("Seized!"), SLEEP_TINT, 1.0, 0.0, -0.75)
+		FloatingText.word(global_position + Vector3.UP * (head_height + 1.2), tr("Asleep!"), SLEEP_TINT, 1.0, 0.0, -0.75)
 	_update_haze()
 
-## Slow brine motes drifting up off every standing plate's joint while it is
-## seized; they thin out as it frees itself or the plate goes down.
+## A haze of slow pale motes drifting up off every standing head while it
+## sleeps; it thins out as it wakes or the head goes down.
 func _update_haze() -> void:
 	var heads: Dictionary = multipart.get("heads", {})
 	for key: String in heads.keys():

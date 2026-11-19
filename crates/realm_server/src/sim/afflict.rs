@@ -286,7 +286,7 @@ impl Sim {
         }
     }
 
-    /// Mistguards that are fighting chill the players near them each
+    /// Pallids that are fighting chill the players near them each
     /// regeneration beat: a share of their attack power, and despair.
     pub(super) fn chill(&mut self) {
         let tick = self.tick;

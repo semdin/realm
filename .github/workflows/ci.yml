@@ -79,25 +79,13 @@ jobs:
         run: cargo run --release -p realm_simcheck | tee "simcheck-${{ matrix.os }}.txt"
 
       - name: Content check
-        # References and the content hash (appended to the fingerprint, so
-        # every platform must agree on it too).
-        run: cargo run --release -p realm_content -- check content/data | tee -a "simcheck-${{ matrix.os }}.txt"
+        # References, leftover franchise names, and the content hash (appended
+        # to the fingerprint, so every platform must agree on it too).
+        run: cargo run --release -p realm_content -- check content/rename_map.toml content/data | tee -a "simcheck-${{ matrix.os }}.txt"
 
-      - name: Reserved words
+      - name: No franchise-derived names left
         if: matrix.os == 'ubuntu-26.04'
-        # The excluded launcher files hold the old install's name: they must find
-        # it to move a player's install, mutex, window class and bundle id.
-        run: >-
-          cargo run --release -p realm_content -- scan
-          --list tools/content_guard/reserved.sha256
-          --exclude launcher/src/legacy_names.cpp
-          --exclude launcher/src/common.h
-          --exclude launcher/src/main.cpp
-          --exclude launcher/src/main_sdl.cpp
-          --exclude launcher/src/updater.cpp
-          --exclude launcher/packaging/windows/ThousandRealms.iss
-          --exclude tools/release/test_updater.py
-          game crates content/data tools launcher deploy README.md
+        run: cargo run --release -p realm_content -- scan content/rename_map.toml game crates content/data tools README.md
 
       - name: Map packs check
         # Every map: bodies rest on ground from each spawn point and keep to
@@ -152,7 +140,7 @@ jobs:
         # Two map servers and the coordinator sharing one character store: a
         # door each way, a hearth refused by level, a hearth on one map and to
         # the other, the broom (mount, climb, no landing in the air, get off),
-        # a Waystake, and a second login taking the character from the castle.
+        # a Waylink, and a second login taking the character from the castle.
         # The sheet must arrive whole every time, the prediction never
         # corrected.
         run: |
@@ -203,21 +191,21 @@ jobs:
           kill $(jobs -p) 2>/dev/null || true
           wait || true   # every server this step started is gone before the next step binds its ports
 
-      - name: The Brine Vaults' multi-part bosses
+      - name: The Sealed Wing's multi-part bosses
         if: matrix.os == 'ubuntu-26.04'
         # Runs started at the boss (--dev-dungeon-start): the stair breath
-        # pushes, the sluice wheel seizes the Wheelwarden, its plates fall one
-        # by one and the body with the last; the Brinebriar's heart is
-        # untouchable until its stems are gone. No correction.
+        # pushes, the sleep chime puts Threehead to sleep, its heads fall one
+        # by one and the body with the last; the Strangling Vine's heart is
+        # untouchable until its vines are gone. No correction.
         run: |
           mkdir -p build/bosscheck
           ./target/release/realm_coord > coord.log 2>&1 &
           sleep 1
           ./target/release/realm_server serve --map castle_interior --bind 127.0.0.1:7778 --coord 127.0.0.1:7900 --characters build/bosscheck > server_c.log 2>&1 &
-          ./target/release/realm_server serve --map dng_sealed_wing --bind 127.0.0.1:7780 --coord 127.0.0.1:7900 --characters build/bosscheck --dev-dungeon-scale 0.05 --dev-dungeon-start wheelwarden > server_w.log 2>&1 &
+          ./target/release/realm_server serve --map dng_sealed_wing --bind 127.0.0.1:7780 --coord 127.0.0.1:7900 --characters build/bosscheck --dev-dungeon-scale 0.05 --dev-dungeon-start threehead > server_w.log 2>&1 &
           WING=$!
           sleep 8
-          ./target/release/realm_netcheck --boss wheelwarden --server 127.0.0.1:7778 --characters build/bosscheck
+          ./target/release/realm_netcheck --boss threehead --server 127.0.0.1:7778 --characters build/bosscheck
           kill $WING || true
           wait $WING || true   # gone, its port free, before the next one binds it
           ./target/release/realm_server serve --map dng_sealed_wing --bind 127.0.0.1:7780 --coord 127.0.0.1:7900 --characters build/bosscheck --dev-dungeon-scale 0.05 --dev-dungeon-start snare > server_w2.log 2>&1 &
@@ -226,11 +214,11 @@ jobs:
           kill $(jobs -p) 2>/dev/null || true
           wait || true   # every server this step started is gone before the next step binds its ports
 
-      - name: The Silk Queen's Lair
+      - name: The Web Mother's Lair
         if: matrix.os == 'ubuntu-26.04'
         # Runs started at the step (--dev-dungeon-start): egg sacs left alone
         # hatch into weavers and the brood must fall before the gate parts;
-        # the Silk Queen spins the lone player into a cocoon
+        # the Web Mother spins the lone player into a cocoon
         # (--dev-cocoon-solo), wells up venom pools and falls. No death, no
         # correction.
         run: |

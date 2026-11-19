@@ -29,8 +29,8 @@ const TABS := ["general", "graphics", "audio", "controls", "account", "credits"]
 const ACTION_NAMES := {
 	"move_forward": "Move forward", "move_backward": "Move backward",
 	"move_left": "Move left", "move_right": "Move right",
-	"jump": "Jump / rise", "descend": "Descend (skiff)", "basic_attack": "Basic attack (hold to repeat)",
-	"ride": "Mount / dismount skiff",
+	"jump": "Jump / rise", "descend": "Descend (broom)", "basic_attack": "Basic attack (hold to repeat)",
+	"ride": "Mount / dismount broom",
 	"target_cycle": "Next target", "pickup_loot": "Pick up loot", "interact": "Talk / interact",
 	"chat": "Chat", "inventory": "Bag", "character": "Character", "quest_log": "Quests",
 	"workshop": "Kestrin's forge", "dungeon_guide": "Dungeon Guide", "skills": "Skills",

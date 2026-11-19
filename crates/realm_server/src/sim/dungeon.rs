@@ -102,7 +102,7 @@ pub(super) struct Hazard {
     pub push: Option<(Vec3, f32)>,
 }
 
-/// The sluice wheel is rung from this close.
+/// The sleep chime is rung from this close.
 const CHIME_RADIUS: f32 = 2.6;
 
 pub(super) struct RunMember {
@@ -146,14 +146,14 @@ pub(super) struct Run {
     pub chime: Option<Chime>,
     /// Per dungeon hazard (the breath): when it next blows.
     pub breath_next: Vec<u32>,
-    /// The Silk Queen's cocoons: (wrapped player, cocoon, deadline, health
+    /// The Web Mother's cocoons: (wrapped player, cocoon, deadline, health
     /// share lost if it is not broken in time).
     pub cocoons: Vec<(Entity, Entity, u32, f32)>,
     /// When a step last spoke (its line stands a while before any nag).
     pub said_at: u32,
 }
 
-/// The sluice wheel by a sleeping guardian (Wheelwarden).
+/// The sleep chime by a sleeping guardian (Threehead).
 pub(super) struct Chime {
     pub at: Vec3,
     pub scale: f32,
@@ -878,7 +878,7 @@ impl Sim {
         for g in &step.close {
             self.set_gate(i, g, false);
         }
-        // The Silk Queen's floor: venom pools, webs.
+        // The Web Mother's floor: venom pools, webs.
         for pool in &step.pools {
             self.lay_pool(i, pool);
         }
@@ -908,7 +908,7 @@ impl Sim {
         self.add_hazard(i, "pool", at, pool.radius, 0, until, share);
     }
 
-    /// The Silk Queen spins a living player into a cocoon: held fast until
+    /// The Web Mother spins a living player into a cocoon: held fast until
     /// the cocoon breaks, the share of its health lost if it holds out.
     /// Only with two or more standing (one alone could never get free).
     fn wrap_in_cocoon(&mut self, i: usize, s: usize, c: &realm_rules::dungeons::Cocoon) {
@@ -1206,7 +1206,7 @@ impl Sim {
                 // A run's boss keeps to the run's leash, as in the old
                 // dungeon director: its room is gated and a wipe sends it
                 // home. The template's arena radius is the open world's
-                // (18 m left the Silk Queen resetting while a cocoon held
+                // (18 m left the Web Mother resetting while a cocoon held
                 // her lone foe at the front of the nest).
                 arena_radius: 0.0,
             }
@@ -1541,7 +1541,7 @@ impl Sim {
                         if !said {
                             self.say(
                                 i,
-                                "The Wheelwarden is frenzied - the sluice holds it only briefly!",
+                                "Threehead is frenzied - the chime holds it only briefly!",
                             );
                         }
                     }
@@ -1606,22 +1606,25 @@ impl Sim {
             if first {
                 self.say(
                     i,
-                    &format!("The Wheelwarden's {side} plate cracks! Its gears scream!"),
+                    &format!("Threehead's {side} head slumps! Threehead howls in fury!"),
                 );
             } else {
-                self.say(i, &format!("The Wheelwarden's {side} plate cracks!"));
+                self.say(i, &format!("Threehead's {side} head slumps!"));
             }
             if standing == 0 {
                 self.mob_died(body, killer);
             }
         } else if standing == 0 {
-            self.say(i, "The stems are gone - the Brinebriar's heart is exposed!");
+            self.say(i, "The vines are gone - the Snare's heart is exposed!");
         } else {
-            self.say(i, &format!("A stem cracks apart! {standing} left."));
+            self.say(
+                i,
+                &format!("A vine shrivels in the flames! {standing} left."),
+            );
         }
     }
 
-    /// The sluice wheel: a living player standing by it rings it; a fight
+    /// The sleep chime: a living player standing by it rings it; a fight
     /// breaks the ringing off; rung through, the guardian sleeps.
     fn chime_tick(&mut self, i: usize) {
         let tick = self.tick;
@@ -1700,7 +1703,7 @@ impl Sim {
                         c.start = tick;
                         c.end = tick + length;
                     }
-                    self.say(i, &format!("{name} begins to turn the sluice wheel..."));
+                    self.say(i, &format!("{name} begins to ring the sleep chime..."));
                 }
             }
             Some(e) => {
@@ -1712,7 +1715,7 @@ impl Sim {
                     if let Some(c) = self.runs[i].as_mut().and_then(|r| r.chime.as_mut()) {
                         c.ringer = None;
                     }
-                    self.say(i, "The sluice wheel slips back!");
+                    self.say(i, "The music breaks off!");
                     return;
                 }
                 if tick < end {
@@ -1729,13 +1732,13 @@ impl Sim {
                 }
                 self.say(
                     i,
-                    "Brine floods the Wheelwarden's joints! Its plates take more damage.",
+                    "The chime lulls Threehead to sleep! Its heads take more damage.",
                 );
             }
         }
     }
 
-    /// The dungeon's own hazards (the Brine Vaults' breath down the stair):
+    /// The dungeon's own hazards (the Sealed Wing's breath down the stair):
     /// while their stretch of the run is on and someone stands in the band,
     /// a warned push every so often.
     fn breath_tick(&mut self, i: usize, def: &realm_rules::dungeons::DungeonDef) {
@@ -2150,7 +2153,7 @@ impl Sim {
                 }
                 self.say(
                     i,
-                    "A mist chill sweeps the halls - nobody recovers for a while.",
+                    "A Pallid's chill sweeps the halls - nobody recovers for a while.",
                 );
             }
         }
@@ -2321,7 +2324,7 @@ impl Sim {
             return;
         };
         // Elites under the bleeding curse, and creatures the run marked
-        // (the Silk Queen on Legendary).
+        // (the Web Mother on Legendary).
         let marked = self.runs[i].as_ref().is_some_and(|r| {
             r.mobs
                 .iter()

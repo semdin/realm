@@ -3,7 +3,7 @@
 //! coordinator, sharing the character store `<dir>`.
 //!
 //! A new character joins the grounds and leaves; its record then gets a
-//! broom, Waycoal and a Waystake (as play would give them). Then it
+//! broom, Hearth Dust and a Waylink boot (as play would give them). Then it
 //! must:
 //! 1. walk into the castle door and arrive in the castle, through a ticket
 //!    the coordinator signed, with the same bag, oril, level and health;
@@ -12,8 +12,8 @@
 //!    Pavilion to Orvell Square on the same map (one dust spent);
 //! 4. mount the broom, climb, be refused a landing in the air, descend and
 //!    get off;
-//! 5. set a Waystake down and be carried by it when it fires;
-//! 6. hearth from the Pavilion to the Long Table in the castle;
+//! 5. set a Waylink boot down and be carried by it when it fires;
+//! 6. hearth from the Pavilion to the Feast Hall in the castle;
 //! 7. log in again on the grounds while it plays in the castle: the castle
 //!    must let it go (its connection ends) and the grounds login must get
 //!    the newest sheet.
@@ -137,7 +137,7 @@ impl Session {
                     | ServerMsg::Departing { .. }
                     | ServerMsg::Travel { .. }
                     | ServerMsg::Arrived { .. }
-                    | ServerMsg::Waystake(_)
+                    | ServerMsg::Waylink(_)
                     | ServerMsg::Dungeon(_)
                     | ServerMsg::Chest { .. }
                     | ServerMsg::LootResult { .. }
@@ -464,7 +464,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     println!("[travel] 2 ok: back on the grounds at the castle approach");
 
     // 3. Hearths: a refusal by level, a trip on this map.
-    walk(&mut s, node("hearth_pavilion"), 3.0, "the Ember Pavilion")?;
+    walk(&mut s, node("hearth_pavilion"), 3.0, "the Hearth Pavilion")?;
     s.net.send_control(&ClientMsg::Travel {
         from: "hearth_pavilion".to_owned(),
         to: "hearth_blackweb_camp".to_owned(),
@@ -555,7 +555,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     s.events.clear();
     println!("[travel] 4 ok: mounted, climbed, refused a landing in the air, came down, got off");
 
-    // 5. A Waystake, alone: it fires after its countdown.
+    // 5. A Waylink, alone: it fires after its countdown.
     s.net
         .send_control(&ClientMsg::WaylinkPlace("hearth_pavilion".to_owned()));
     let pavilion = node("hearth_pavilion");
@@ -564,24 +564,24 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             .iter()
             .any(|m| matches!(m, ServerMsg::Arrived { kind } if kind == "waylink"))
     })? {
-        return fail(format!("the Waystake never carried: {:?}", s.events));
+        return fail(format!("the Waylink never carried: {:?}", s.events));
     }
     run_until(&mut s, 0.5, idle, |_| false)?;
     if !near(s.pos(), pavilion, 33.0) || s.count("waylink_boot") != 0 {
         return fail(format!(
-            "the Waystake set down at {:?} (boots left {})",
+            "the Waylink set down at {:?} (boots left {})",
             s.pos(),
             s.count("waylink_boot")
         ));
     }
     s.events.clear();
     println!(
-        "[travel] 5 ok: the Waystake carried it near the Pavilion ({:?})",
+        "[travel] 5 ok: the Waylink carried it near the Pavilion ({:?})",
         s.pos()
     );
 
     // 6. A hearth to another map.
-    walk(&mut s, pavilion, 3.0, "the Ember Pavilion again")?;
+    walk(&mut s, pavilion, 3.0, "the Hearth Pavilion again")?;
     let before = s.sheet.clone().unwrap_or_default();
     s.net.send_control(&ClientMsg::Travel {
         from: "hearth_pavilion".to_owned(),
@@ -596,9 +596,9 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         &[("hearth_dust", 1)],
     )?;
     if !near(castle.pos(), node("hearth_feast_hall"), 5.0) {
-        return fail(format!("the Long Table arrival at {:?}", castle.pos()));
+        return fail(format!("the Feast Hall arrival at {:?}", castle.pos()));
     }
-    println!("[travel] 6 ok: Pavilion -> Long Table across maps");
+    println!("[travel] 6 ok: Pavilion -> Feast Hall across maps");
 
     // 7. A second login elsewhere takes the character over.
     run_until(&mut castle, 0.5, idle, |_| false)?;
@@ -617,6 +617,6 @@ pub fn run(args: &[String]) -> AnyResult<()> {
     if corrections > 0 {
         return fail(format!("{corrections} prediction corrections"));
     }
-    println!("[travel] ok: doors, hearths, broom, Waystake, a handover; no corrections");
+    println!("[travel] ok: doors, hearths, broom, Waylink, a handover; no corrections");
     Ok(())
 }

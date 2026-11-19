@@ -63,10 +63,10 @@ var _outward: Array[Vector3] = []
 var _riding := 0.0
 var _wind := 0.0
 var _time := 0.0
-## Another hero's cloak is simulated only near the camera and on screen
+## Another wizard's cloak is simulated only near the camera and on screen
 ## (switching on inside SIM_NEAR, off past SIM_FAR, so it does not flicker at
 ## one distance); otherwise it hangs in its rest drape. Nine spring chains
-## with a dozen colliders each cost ~0.25 ms a hero (perf_probe, 8 bots:
+## with a dozen colliders each cost ~0.25 ms a wizard (perf_probe, 8 bots:
 ## 2.1 ms a frame); the own cloak is always simulated.
 const SIM_NEAR := 22.0
 const SIM_FAR := 28.0

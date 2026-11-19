@@ -1,9 +1,9 @@
 {
   "wand_hawthorn": {
     "id": "wand_hawthorn",
-    "name": "Thornbark Rod",
+    "name": "Hawthorn Wand",
     "type": "weapon",
-    "desc": "Rough thornbark bound with salt-cured cord. It favours patient, steady casting.",
+    "desc": "10-inch Hawthorn wood with unicorn hair core. Highly suited for healing and curses.",
     "rarity": "uncommon",
     "stat_tier": 2,
     "attack_value": [
@@ -16,7 +16,6 @@
     ],
     "attack_speed": 6,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_hawthorn.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -24,9 +23,9 @@
   },
   "wand_ithrel_replica": {
     "id": "wand_ithrel_replica",
-    "name": "Starcore Rod",
+    "name": "Ithrel Wand Replica",
     "type": "weapon",
-    "desc": "A bar of shard-iron quenched in Lake Lunra. Loud, unstable and ruinously strong.",
+    "desc": "15-inch starwood with night steed hair core. Unlocks immense raw destructive power.",
     "rarity": "legendary",
     "stat_tier": 5,
     "attack_value": [
@@ -39,7 +38,6 @@
     ],
     "attack_speed": 12,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_ithrel_replica.gltf",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -47,9 +45,9 @@
   },
   "wand_ashwood": {
     "id": "wand_ashwood",
-    "name": "Ashwood Rod",
+    "name": "Ashwood Twig",
     "type": "weapon",
-    "desc": "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first rod.",
+    "desc": "Knotted pale ash, its handle bound in hemp twine. Every spell starts with a first wand.",
     "rarity": "common",
     "attack_value": [
       14,
@@ -63,7 +61,7 @@
     "item_tier": 1,
     "required_level": 1,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_ashwood.gltf",
+    "model": "res://assets/models/props/wands/wand_ashwood.glb",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -71,7 +69,7 @@
   },
   "wand_runebound": {
     "id": "wand_runebound",
-    "name": "Runebound Walnut Rod",
+    "name": "Runebound Walnut Wand",
     "type": "weapon",
     "desc": "Polished walnut banded in brass; its pale runes steady the aim.",
     "rarity": "uncommon",
@@ -87,7 +85,7 @@
     "item_tier": 2,
     "required_level": 10,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_runebound.gltf",
+    "model": "res://assets/models/props/wands/wand_runebound.glb",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -95,9 +93,9 @@
   },
   "wand_silverthorn": {
     "id": "wand_silverthorn",
-    "name": "Silverthorn Rod",
+    "name": "Silverthorn Wand",
     "type": "weapon",
-    "desc": "Black ebony crowned with silver thorns around an emerald crystal.",
+    "desc": "Black ebony gripped by a silver thorn vine, an emerald set in its pommel.",
     "rarity": "rare",
     "attack_value": [
       42,
@@ -111,7 +109,7 @@
     "item_tier": 3,
     "required_level": 20,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_silverthorn.gltf",
+    "model": "res://assets/models/props/wands/wand_silverthorn.glb",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -119,9 +117,9 @@
   },
   "wand_emberwing": {
     "id": "wand_emberwing",
-    "name": "Emberwing Rod",
+    "name": "Emberwing Wand",
     "type": "weapon",
-    "desc": "Crimson lacquer under a gold crown of flame; its crystal burns like a live ember.",
+    "desc": "Crimson lacquer and gold feathers around a glowing amber heart; its tip holds a live ember.",
     "rarity": "epic",
     "attack_value": [
       62,
@@ -135,7 +133,7 @@
     "item_tier": 4,
     "required_level": 35,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_emberwing.gltf",
+    "model": "res://assets/models/props/wands/wand_emberwing.glb",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -145,7 +143,7 @@
     "id": "wand_moonveil",
     "name": "Moonveil Sceptre",
     "type": "weapon",
-    "desc": "Moonwood threaded with starlight, a silver crescent holding a star crystal.",
+    "desc": "Moonwood threaded with starlight behind a mithril crescent, crowned with a star crystal.",
     "rarity": "legendary",
     "attack_value": [
       88,
@@ -159,7 +157,7 @@
     "item_tier": 5,
     "required_level": 50,
     "upgrade_tier": 0,
-    "model": "res://assets/models/props/wands/wand_moonveil.gltf",
+    "model": "res://assets/models/props/wands/wand_moonveil.glb",
     "icon": "wand",
     "slots": [
       "main_hand"
@@ -167,9 +165,9 @@
   },
   "robe_apprentice": {
     "id": "robe_apprentice",
-    "name": "Recruit Robe",
+    "name": "Apprentice Robe",
     "type": "armor",
-    "desc": "Sturdy woollen robes issued to every new recruit of the Vigil.",
+    "desc": "Sturdy woolen apprentice robes tailored with silk house linings.",
     "rarity": "common",
     "stat_tier": 1,
     "armor": 18,
@@ -183,7 +181,7 @@
     "id": "robe_wardens_battle_cloak",
     "name": "Warden's Battle Cloak",
     "type": "armor",
-    "desc": "Heavy storm-cured hide, stitched for long watches on the wall.",
+    "desc": "Enchanted heavy dragonhide battle cloak.",
     "rarity": "epic",
     "stat_tier": 4,
     "armor": 78,
@@ -197,7 +195,7 @@
     "id": "cloak_wool",
     "name": "Woolen Traveller's Cloak",
     "type": "armor",
-    "desc": "Undyed homespun wool with a stitched hem and a crude rod patch. Warm, plain and honest.",
+    "desc": "Undyed homespun wool with a stitched hem and a crude wand patch. Warm, plain and honest.",
     "rarity": "common",
     "armor": 18,
     "move_speed": -5,
@@ -245,7 +243,7 @@
     "id": "cloak_phoenix",
     "name": "Velkar Regalia",
     "type": "armor",
-    "desc": "Crimson brocade alive with woven flame, a golden firebird spread across the shoulders.",
+    "desc": "Crimson brocade alive with woven flame, a golden velkar spread across the shoulders.",
     "rarity": "epic",
     "armor": 78,
     "move_speed": -5,
@@ -275,14 +273,11 @@
   },
   "broom_windcutter_2000": {
     "id": "broom_windcutter_2000",
-    "name": "Reedrunner",
+    "name": "Windcutter 2000",
     "type": "mount",
-    "desc": "Lake reed bundled over a bent ashwood frame, with woven mat sails. The patrol's favourite over open water.",
+    "desc": "Sleek mahogany handle with tail twigs of select birch. Fly across Kaf Valley with speed.",
     "rarity": "rare",
-    "item_tier": 2,
-    "required_level": 15,
-    "mount_speed": 14.0,
-    "model": "res://assets/models/props/skiffs/skiff_reed.gltf",
+    "mount_speed": 13.0,
     "icon": "broom",
     "slots": [
       "broom"
@@ -290,14 +285,11 @@
   },
   "broom_skysplitter": {
     "id": "broom_skysplitter",
-    "name": "Stormkeel",
+    "name": "Skysplitter",
     "type": "mount",
-    "desc": "Storm-seasoned oak plated in shard-iron, with a ram at the bow. It hums in a crosswind and never slows for it.",
+    "desc": "Ash handle with aerodynamic ash finish and goblin-forged ironwork. Supreme speed.",
     "rarity": "legendary",
-    "item_tier": 5,
-    "required_level": 45,
     "mount_speed": 18.0,
-    "model": "res://assets/models/props/skiffs/skiff_storm.gltf",
     "icon": "broom",
     "slots": [
       "broom"
@@ -305,14 +297,14 @@
   },
   "broom_ashwood": {
     "id": "broom_ashwood",
-    "name": "Ashwood Skiff",
+    "name": "Ashwood Sweeper",
     "type": "mount",
-    "desc": "A patrol-issue skiff of unvarnished ash with a patched canvas vane on either side. Every rider starts somewhere.",
+    "desc": "A humble apprentice broom of unvarnished ash, its birch twigs tied with hemp cord. Every flyer starts somewhere.",
     "rarity": "common",
     "item_tier": 1,
     "required_level": 1,
     "mount_speed": 12.0,
-    "model": "res://assets/models/props/skiffs/skiff_ashwood.gltf",
+    "model": "res://assets/models/props/brooms/broom_ashwood.glb",
     "icon": "broom",
     "slots": [
       "broom"
@@ -320,14 +312,14 @@
   },
   "broom_runebound": {
     "id": "broom_runebound",
-    "name": "Brassbound Walnut",
+    "name": "Runebound Walnut",
     "type": "mount",
-    "desc": "A polished walnut hull bound in brass, its deep blue sails trimmed to steady the flight.",
+    "desc": "Polished walnut bound in brass bands whose blue runes steady the flight.",
     "rarity": "uncommon",
     "item_tier": 2,
     "required_level": 10,
     "mount_speed": 13.5,
-    "model": "res://assets/models/props/skiffs/skiff_runebound.gltf",
+    "model": "res://assets/models/props/brooms/broom_runebound.glb",
     "icon": "broom",
     "slots": [
       "broom"
@@ -335,14 +327,14 @@
   },
   "broom_silverthorn": {
     "id": "broom_silverthorn",
-    "name": "Silverthorn Cutter",
+    "name": "Silverthorn Racer",
     "type": "mount",
-    "desc": "Black-lacquered ebony with silver fittings and a bladed prow, cut narrow for speed.",
+    "desc": "Black-lacquered ebony with silver fittings and emerald runes, its tail trimmed into a racer's dart.",
     "rarity": "rare",
     "item_tier": 3,
     "required_level": 20,
     "mount_speed": 15.0,
-    "model": "res://assets/models/props/skiffs/skiff_silverthorn.gltf",
+    "model": "res://assets/models/props/brooms/broom_silverthorn.glb",
     "icon": "broom",
     "slots": [
       "broom"
@@ -350,14 +342,14 @@
   },
   "broom_emberwing": {
     "id": "broom_emberwing",
-    "name": "Emberwing Galley",
+    "name": "Emberwing",
     "type": "mount",
-    "desc": "Crimson lacquer and gold fittings under two fan sails that smoulder like live embers.",
+    "desc": "Crimson lacquer and gold filigree crowned by a velkar head; its feathered tail smoulders like live embers.",
     "rarity": "epic",
     "item_tier": 4,
     "required_level": 35,
     "mount_speed": 17.0,
-    "model": "res://assets/models/props/skiffs/skiff_emberwing.gltf",
+    "model": "res://assets/models/props/brooms/broom_emberwing.glb",
     "icon": "broom",
     "slots": [
       "broom"
@@ -365,14 +357,14 @@
   },
   "broom_moonveil": {
     "id": "broom_moonveil",
-    "name": "Moonveil Sloop",
+    "name": "Moonveil Seraph",
     "type": "mount",
-    "desc": "Pale moonwood threaded with starlight, a crystal at the prow and sails spun from moonlight itself.",
+    "desc": "Pale moonwood threaded with starlight, a crystal tip and bristles spun from moonlight itself.",
     "rarity": "legendary",
     "item_tier": 5,
     "required_level": 50,
     "mount_speed": 18.5,
-    "model": "res://assets/models/props/skiffs/skiff_moonveil.gltf",
+    "model": "res://assets/models/props/brooms/broom_moonveil.glb",
     "icon": "broom",
     "slots": [
       "broom"
@@ -400,34 +392,34 @@
   },
   "mat_phoenix_ash": {
     "id": "mat_phoenix_ash",
-    "name": "Forge Cinder",
+    "name": "Velkar Ash",
     "type": "material",
-    "desc": "Cinders raked from a forge that has never gone cold. Used to refine rods from +0 to +4 at Kestrin.",
+    "desc": "Smoldering fiery ash gathered from a burning day. Used to refine wands from +0 to +4 at Kestrin.",
     "rarity": "uncommon",
     "icon": "ash",
     "slots": []
   },
   "mat_dragon_heartstring": {
     "id": "mat_dragon_heartstring",
-    "name": "Deepvein Ore",
+    "name": "Dragon Sinew",
     "type": "material",
-    "desc": "Dark ore cut from the veins under the Stone Circle. Needed to refine rods to +5 - +7.",
+    "desc": "Vibrant magical core tissue from a mountain drake. Needed to refine wands to +5 - +7.",
     "rarity": "rare",
-    "icon": "ore",
+    "icon": "heartstring",
     "slots": []
   },
   "mat_night_steed_hair": {
     "id": "mat_night_steed_hair",
-    "name": "Starfall Filings",
+    "name": "Night Steed Hair",
     "type": "material",
-    "desc": "Bright filings from a fallen shard, too sharp to hold bare-handed. Required for legendary +8 and +9 rod work.",
+    "desc": "Spectral, near-invisible hair of the rare night steeds. Required for legendary +8 and +9 wand transmutations.",
     "rarity": "epic",
     "icon": "hair",
     "slots": []
   },
   "mat_elder_core": {
     "id": "mat_elder_core",
-    "name": "Keystone Ingot",
+    "name": "Starwood Core",
     "type": "material",
     "rarity": "legendary",
     "slots": [],
@@ -437,7 +429,7 @@
     "id": "scroll_imbue",
     "name": "Rune of Imbuing",
     "type": "material",
-    "desc": "A scroll that weaves one new enchantment into a rod, robe or skiff at Kestrin's. The more an item already holds, the likelier the weave slips.",
+    "desc": "A scroll that weaves one new enchantment into a wand, robe or broom at Kestrin's. The more an item already holds, the likelier the weave slips.",
     "rarity": "rare",
     "icon": "scroll",
     "slots": []
@@ -446,14 +438,14 @@
     "id": "scroll_reweave",
     "name": "Rune of Reweaving",
     "type": "material",
-    "desc": "Unravels every enchantment on a rod, robe or skiff and weaves the same number anew at Kestrin's.",
+    "desc": "Unravels every enchantment on a wand, robe or broom and weaves the same number anew at Kestrin's.",
     "rarity": "rare",
     "icon": "scroll",
     "slots": []
   },
   "hat_apprentice": {
     "id": "hat_apprentice",
-    "name": "Recruit Hat",
+    "name": "Apprentice Hat",
     "type": "accessory",
     "slots": [
       "head"
@@ -463,11 +455,11 @@
     "required_level": 1,
     "bonus_mana": 20,
     "armor": 6,
-    "desc": "Enchanted recruit gear."
+    "desc": "Enchanted apprentice gear."
   },
   "gloves_apprentice": {
     "id": "gloves_apprentice",
-    "name": "Recruit Gloves",
+    "name": "Apprentice Gloves",
     "type": "accessory",
     "slots": [
       "hands"
@@ -477,11 +469,11 @@
     "required_level": 1,
     "armor": 5,
     "attack_speed": 3,
-    "desc": "Enchanted recruit gear."
+    "desc": "Enchanted apprentice gear."
   },
   "boots_apprentice": {
     "id": "boots_apprentice",
-    "name": "Recruit Boots",
+    "name": "Apprentice Boots",
     "type": "accessory",
     "slots": [
       "feet"
@@ -491,11 +483,11 @@
     "required_level": 1,
     "armor": 5,
     "move_speed": 4,
-    "desc": "Enchanted recruit gear."
+    "desc": "Enchanted apprentice gear."
   },
   "focus_apprentice": {
     "id": "focus_apprentice",
-    "name": "Recruit Focus",
+    "name": "Apprentice Focus",
     "type": "accessory",
     "slots": [
       "off_hand"
@@ -505,11 +497,11 @@
     "required_level": 1,
     "bonus_mana": 25,
     "spell_power": 3,
-    "desc": "Enchanted recruit gear."
+    "desc": "Enchanted apprentice gear."
   },
   "pendant_apprentice": {
     "id": "pendant_apprentice",
-    "name": "Recruit Pendant",
+    "name": "Apprentice Pendant",
     "type": "accessory",
     "slots": [
       "neck"
@@ -519,11 +511,11 @@
     "required_level": 1,
     "bonus_hp": 25,
     "hp_regen": 1,
-    "desc": "Enchanted recruit gear."
+    "desc": "Enchanted apprentice gear."
   },
   "ring_apprentice": {
     "id": "ring_apprentice",
-    "name": "Recruit Ring",
+    "name": "Apprentice Ring",
     "type": "accessory",
     "slots": [
       "ring_left",
@@ -534,7 +526,7 @@
     "required_level": 1,
     "bonus_mana": 10,
     "mana_regen": 1,
-    "desc": "Enchanted recruit gear."
+    "desc": "Enchanted apprentice gear."
   },
   "ring_adept": {
     "id": "ring_adept",
@@ -599,7 +591,7 @@
     "id": "hat_moonveil",
     "name": "Moonveil Hat",
     "type": "accessory",
-    "desc": "Silver-blue silk scattered with stars, a silver crescent at its peak.",
+    "desc": "Silver-blue silk scattered with stars, a mithril crescent at its peak.",
     "rarity": "legendary",
     "bonus_mana": 130,
     "armor": 35,
@@ -644,7 +636,7 @@
     "id": "gloves_emberwing",
     "name": "Emberwing Gloves",
     "type": "accessory",
-    "desc": "Crimson salamander hide edged in gold filigree; the fingertips glow like coals.",
+    "desc": "Crimson dragonhide edged in gold filigree; the fingertips glow like coals.",
     "rarity": "epic",
     "armor": 22,
     "attack_speed": 6,
@@ -659,7 +651,7 @@
     "id": "gloves_moonveil",
     "name": "Moonveil Gloves",
     "type": "accessory",
-    "desc": "Moonlit silk gloves threaded with starlight and silver crescents.",
+    "desc": "Moonlit silk gloves threaded with starlight and mithril crescents.",
     "rarity": "legendary",
     "armor": 30,
     "attack_speed": 8,
@@ -704,7 +696,7 @@
     "id": "boots_emberwing",
     "name": "Emberwing Boots",
     "type": "accessory",
-    "desc": "Lacquered crimson boots with golden firebird wings at the heel.",
+    "desc": "Lacquered crimson boots with golden velkar wings at the heel.",
     "rarity": "epic",
     "armor": 22,
     "move_speed": 10,
@@ -764,7 +756,7 @@
     "id": "focus_emberwing",
     "name": "Emberwing Focus",
     "type": "accessory",
-    "desc": "A glowing amber heart cradled in golden firebird feathers, warm as a hearth.",
+    "desc": "A glowing amber heart cradled in golden velkar feathers, warm as a hearth.",
     "rarity": "epic",
     "bonus_mana": 115,
     "spell_power": 9,
@@ -779,7 +771,7 @@
     "id": "focus_moonveil",
     "name": "Moonveil Focus",
     "type": "accessory",
-    "desc": "A star crystal suspended inside a silver crescent, shining like the night sky.",
+    "desc": "A star crystal suspended inside a mithril crescent, shining like the night sky.",
     "rarity": "legendary",
     "bonus_mana": 155,
     "spell_power": 12,
@@ -824,7 +816,7 @@
     "id": "pendant_emberwing",
     "name": "Emberwing Pendant",
     "type": "accessory",
-    "desc": "A golden firebird spreading its wings around a burning amber stone.",
+    "desc": "A golden velkar spreading its wings around a burning amber stone.",
     "rarity": "epic",
     "bonus_hp": 120,
     "hp_regen": 2,
@@ -839,7 +831,7 @@
     "id": "pendant_moonveil",
     "name": "Moonveil Pendant",
     "type": "accessory",
-    "desc": "A silver crescent moon cradling a radiant star crystal.",
+    "desc": "A mithril crescent moon cradling a radiant star crystal.",
     "rarity": "legendary",
     "bonus_hp": 165,
     "hp_regen": 3,
@@ -886,7 +878,7 @@
     "id": "ring_emberwing",
     "name": "Emberwing Ring",
     "type": "accessory",
-    "desc": "A gold band shaped like a firebird, an ember-bright amber in its beak.",
+    "desc": "A gold band shaped like a velkar, an ember-bright amber in its beak.",
     "rarity": "epic",
     "bonus_mana": 46,
     "mana_regen": 2,
@@ -902,7 +894,7 @@
     "id": "ring_moonveil",
     "name": "Moonveil Ring",
     "type": "accessory",
-    "desc": "A silver band set with a star crystal that shimmers like moonlight.",
+    "desc": "A mithril band set with a star crystal that shimmers like moonlight.",
     "rarity": "legendary",
     "bonus_mana": 62,
     "mana_regen": 3,
@@ -927,14 +919,14 @@
     "id": "mat_weaver_venom",
     "name": "Weaver Venom",
     "type": "material",
-    "desc": "Green venom drawn from a Venomfang's glands - worth a fortune to the Still Room.",
+    "desc": "Emerald venom milked from a Venomfang's glands - worth a fortune to potioneers.",
     "rarity": "rare",
     "icon": "mat_weaver_venom",
     "slots": []
   },
   "queen_seal": {
     "id": "queen_seal",
-    "name": "Silk Queen's Seal",
+    "name": "Web Mother's Seal",
     "type": "material",
     "desc": "An obsidian seal wrapped in old silk. It answers the sealed web gate deep in the Egg Caverns, where the brood's queen waits.",
     "rarity": "epic",
@@ -943,9 +935,9 @@
   },
   "hearth_dust": {
     "id": "hearth_dust",
-    "name": "Waycoal",
+    "name": "Hearth Dust",
     "type": "material",
-    "desc": "A lump burned in an Emberway hearth carries you to any hearth you have lit. Sold at every Emberway hearth.",
+    "desc": "A pinch thrown into a Hearthway fireplace carries you to any hearth you have visited. Sold at every Hearthway fireplace.",
     "rarity": "uncommon",
     "icon": "hearth_dust",
     "slots": [],
@@ -953,9 +945,9 @@
   },
   "waylink_boot": {
     "id": "waylink_boot",
-    "name": "Waystake",
+    "name": "Old Boot (Waylink)",
     "type": "material",
-    "desc": "An iron stake forged with a travel-knot. Right-click to drive it into the ground and choose where it leads: for ten seconds your party may take hold, then everyone holding on is carried there together.",
+    "desc": "A battered boot enchanted as a Waylink. Right-click to set it down and choose where it goes: for ten seconds your party may grab hold, then everyone holding on is carried there together.",
     "rarity": "rare",
     "icon": "waylink_boot",
     "slots": [],
@@ -981,9 +973,9 @@
   },
   "key_sealed_wing": {
     "id": "key_sealed_wing",
-    "name": "Brine Vault Key",
+    "name": "Sealed Wing Key",
     "type": "material",
-    "desc": "A brass key cut for the flood door of the Brine Vaults. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals.",
+    "desc": "A brass key that fits the door of the sealed wing. The party leader spends keys at the gate to open its Very Hard (1 key) and Legendary (3 keys) runs. Found in Hard runs, sold for seals.",
     "rarity": "epic",
     "icon": "key_sealed_wing",
     "slots": []

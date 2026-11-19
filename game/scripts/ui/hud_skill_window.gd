@@ -5,7 +5,7 @@ class_name HudSkillWindow
 ## cards, each with the framed icon and its level plate ("1".."9", "M" for
 ## Master), the name, the grade, a ten-step progress row (the last step is the
 ## Master gem) and the "+" that spends a point. Spells that do not train
-## (Dawnbreak) sit in the same book, marked special. Every level the
+## (Light of Ithrel) sit in the same book, marked special. Every level the
 ## character gains is one skill point; "+" spends it, up to level 10 (Master).
 ## Cards drag onto the action bar to set the hotkeys.
 ##
@@ -504,7 +504,7 @@ func _control_lines(spell_id: String, lv: int) -> Array:
 	if not burn.is_empty():
 		out.append(tr("Burn %d x %d") % [int(burn.get("damage", 0)), int(burn.get("ticks", 0))])
 	if int(spell.get("weaken_ms", 0)) > 0:
-		out.append(tr("Hushing Gale %s s") % I18n.num(float(spell.weaken_ms) * effect / 1000.0))
+		out.append(tr("Disarm %s s") % I18n.num(float(spell.weaken_ms) * effect / 1000.0))
 	return out
 
 

@@ -1,7 +1,7 @@
 extends Control
 class_name LootWindow
 
-## The small chest window: right-clicking a chest on the
+## The small chest window (Knight Online style): right-clicking a chest on the
 ## ground opens its slots here. Click a slot to take that item, or "Take all".
 ##
 ## The window only ever shows what the server says the chest holds: the

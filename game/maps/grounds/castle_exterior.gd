@@ -35,7 +35,7 @@ const HALLS := [
 	["EastWing", 38.0, 36.0, 40.0, 16.0, 20.0, 9.0, "x"],
 	["NorthRange", 0.0, -30.0, 96.0, 18.0, 26.0, 10.0, "x"],
 	["WestRange", -56.0, 4.0, 16.0, 52.0, 22.0, 9.0, "z"],
-	["Hall of Rolls", 40.0, 0.0, 26.0, 18.0, 24.0, 10.0, "x"],
+	["Library", 40.0, 0.0, 26.0, 18.0, 24.0, 10.0, "x"],
 ]
 ## [name, x, z, radius, height, cap height (0: a flat top with a banner), windows per ring]
 const TOWERS := [

@@ -1,0 +1,151 @@
+# Old game id -> realm id. The Phase 1 content converter passes every id it
+# copies from the old game through this map, so no franchise-derived name
+# reaches the new code, data, database or protocol. Player-visible names were
+# already replaced on 2026-11-08 (Kaf name bible); this map finishes the job
+# for the internal ids that were left as they were then.
+#
+# New ids are the snake_case form of the approved English display name.
+# `token` replaces whole `_`-separated segments inside derived ids (encounters,
+# keys, prefixes, asset paths), longest match first; `text` replaces phrases in
+# player-visible strings; every other kind is an exact id match.
+
+[house]
+Gryffindor = "velkar"
+Slytherin = "nisera"
+Ravenclaw = "ilvane"
+Hufflepuff = "torvan"
+
+[spell]
+stupefy = "stun_bolt"
+incendio = "flame_wave"
+bombarda = "shockwave"
+expelliarmus = "disarm"
+protego = "ward_shield"
+glacius = "frost_grip"
+avada_arcana = "stella_ruina"
+patronum = "light_of_ithrel"
+
+[element]
+patronus = "ithrel_light"
+
+[mob]
+inferi = "drowned_one"
+inferi_warden = "drowned_warden"
+acromantula = "black_weaver"
+acromantula_venomfang = "venomfang_weaver"
+acromantula_broodguard = "broodguard"
+darksnatcher = "dark_bandit"
+dementor = "pallid"
+fluffy = "threehead"
+fluffy_head = "threehead_head"
+
+[mob_family]
+dementor = "pallid"
+dark_wizard = "ashbound"
+
+# Gear bonuses against a creature family (combat.json `bonus_types`).
+[bonus]
+vs_dark_wizard = "vs_ashbound"
+
+[item]
+wand_elder = "wand_ithrel_replica"
+robe_auror = "robe_wardens_battle_cloak"
+broom_nimbus2000 = "broom_windcutter_2000"
+broom_firebolt = "broom_skysplitter"
+mat_thestral_hair = "mat_night_steed_hair"
+mat_acromantula_venom = "mat_weaver_venom"
+floo_powder = "hearth_dust"
+portkey_boot = "waylink_boot"
+
+[currency]
+galleons = "oril"
+
+[dungeon]
+forbidden_corridor = "sealed_wing"
+
+[travel]
+floo = "hearthway"
+portkey = "waylink"
+floo_courtyard = "hearth_pavilion"
+floo_hogsmeade = "hearth_orvell_square"
+floo_hagrid = "hearth_borins_hut"
+floo_great_hall = "hearth_feast_hall"
+floo_caverns_camp = "hearth_blackweb_camp"
+passage_hogsmeade = "passage_orvell"
+cabinet_requirement = "cabinet_wishing_room"
+witch_statue = "stone_raven"
+
+[zone]
+hogsmeade = "orvell"
+hogsmeade_road = "orvell_road"
+hogsmeade_heights = "orvell_heights"
+hogsmeade_square = "orvell_square"
+quidditch_pitch = "skyring_pitch"
+hogwarts = "kaf_castle"
+
+[npc]
+hagrid = "borin"
+ollivander = "kestrin"
+
+[rule]
+galleon_bonus = "oril_bonus"
+galleons_per_level = "oril_per_level"
+mana_per_second_slytherin = "mana_per_second_nisera"
+dementor_kiss = "pallid_drain"
+
+[token]
+inferius_warden = "drowned_warden"
+inferius = "drowned_one"
+cornish_pixie = "fidgetling"
+devils_snare = "strangling_vine"
+great_hall = "feast_hall"
+acromantula_venomfang = "venomfang_weaver"
+acromantula_broodguard = "broodguard"
+acromantula = "black_weaver"
+inferi_warden = "drowned_warden"
+inferi = "drowned_one"
+fluffy_head = "threehead_head"
+fluffy = "threehead"
+darksnatcher = "dark_bandit"
+snatcher = "bandit"
+dementor = "pallid"
+forbidden_corridor = "sealed_wing"
+hogsmeade = "orvell"
+hogwarts = "kaf_castle"
+quidditch = "skyring"
+floo_powder = "hearth_dust"
+floo = "hearth"
+portkey = "waylink"
+galleon = "oril"
+thestral = "night_steed"
+auror = "warden"
+hagrid = "borin"
+ollivander = "kestrin"
+metin = "dark_shard"
+nimbus = "windcutter"
+firebolt = "skysplitter"
+gryffindor = "velkar"
+slytherin = "nisera"
+ravenclaw = "ilvane"
+hufflepuff = "torvan"
+dark_wizard = "ashbound"
+
+# Player-visible phrases. Great Hall -> Feast Hall, Vanishing Cabinet ->
+# Twinned Cabinet and One-Eyed Witch -> Stone Raven approved 2026-11-13.
+[text]
+"The Great Hall" = "The Feast Hall"
+"Great Hall" = "Feast Hall"
+"Vanishing Cabinet" = "Twinned Cabinet"
+"One-Eyed Witch" = "Stone Raven"
+"Room of Requirement" = "Wishing Room"
+# The first chapter, the Ash Priest's followers and the falling-star spell
+# (2026-11-16): school years, dark wizards and Latin spell names are the
+# franchise's; the realm has apprentices, the Ashbound and Starfall.
+"First-Year Orientation" = "First Day"
+"First Year" = "Apprentice Days"
+"Dark Wizards" = "the Ashbound Host"
+"Dark wizards" = "The Ashbound"
+"dark wizards" = "the Ashbound"
+"Dark wizard" = "Ashbound"
+"dark wizard" = "Ash Priest"
+"Stella Ruina" = "Starfall"

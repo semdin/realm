@@ -1,6 +1,6 @@
 extends RefCounted
 
-## Ombrek's pumpkins: the meshes of assets/models/grounds/pumpkin.glb, drawn
+## Borin's pumpkins: the meshes of assets/models/grounds/pumpkin.glb, drawn
 ## many times by MultiMeshes. Modelled and baked in Blender (art/pumpkin/
 ## pumpkin_work.blend): ten rounded lobes over deep grooves, a crown dimple and
 ## a ridged, bent stem; the mottled skin, its darkened grooves and the green

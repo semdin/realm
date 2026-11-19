@@ -1,12 +1,12 @@
 //! `realm_netcheck --lair eggs|queen --characters <dir> [--server <caverns>]`:
-//! the Silk Queen's Lair. Needs the coordinator, spider_caverns and
+//! the Web Mother's Lair. Needs the coordinator, spider_caverns and
 //! dng_spider_lair (started with `--dev-dungeon-start <step>
 //! --dev-dungeon-scale 0.05 --dev-cocoon-solo`) sharing `<dir>`.
 //!
 //! A level 30 character starts Normal at the camp's web gate and:
 //! - eggs: walks into the egg cavern and leaves the sacs be: they must
 //!   split open into weavers, which it then clears;
-//! - queen: fights the Silk Queen: she must spin it into a cocoon (it is
+//! - queen: fights the Web Mother: she must spin it into a cocoon (it is
 //!   held fast, then freed or hurt when the cocoon holds out) and well up
 //!   venom pools, and fall.
 //!
@@ -278,7 +278,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
         let (down, held, healed) =
             fight(&mut d, origin, &nest, None, 300, |s| said(s, "curls up"))?;
         if !down {
-            return fail(format!("the Silk Queen still stands: {:?}", messages(&d)));
+            return fail(format!("the Web Mother still stands: {:?}", messages(&d)));
         }
         for w in ["into a cocoon", "Venom wells up"] {
             if !said(&d, w) {
@@ -305,7 +305,7 @@ pub fn run(args: &[String]) -> AnyResult<()> {
             return fail("no venom pool welled up");
         }
         println!(
-            "[lair] ok: the Silk Queen wrapped it in a cocoon, welled up {pools} pools and fell"
+            "[lair] ok: the Web Mother wrapped it in a cocoon, welled up {pools} pools and fell"
         );
     }
     println!("[lair] {:?}", messages(&d));

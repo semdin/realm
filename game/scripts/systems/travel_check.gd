@@ -13,7 +13,7 @@ extends Node
 ##   exit          holds the prompt, presses F
 ##   exit_wait     the loading screen again; the scene is rebuilt
 ##   grounds       (after the reload) back on the grounds
-##   to_hearth     walks to the Ember Pavilion until its prompt shows
+##   to_hearth     walks to the Hearth Pavilion until its prompt shows
 ##   hearth        F opens the Hearth window
 ##   window        holds the window, presses Orvell Square's Travel
 ##   hearth_trip   the flames, the fade, the arrival at Orvell Square
@@ -22,11 +22,11 @@ extends Node
 ##   descend       Ctrl until the body is near the ground
 ##   dismount      Shift: waits for the body to stand (a "no landing" refusal
 ##                 sends it back to descend)
-##   waylink_pick  the Waystake picker (what a right-click on the Waystake in the
-##                 bag opens): Set down for the Ember Pavilion
-##   waylink_placed  the stake, its aura and countdown
-##   waylink_hold  F grabs hold (the body kneels); the Waystake fires
-##   waylink_arrived  set down near the Ember Pavilion
+##   waylink_pick  the Waylink picker (what a right-click on the Old Boot in the
+##                 bag opens): Set down for the Hearth Pavilion
+##   waylink_placed  the boot, its aura and countdown
+##   waylink_hold  F grabs hold (the body kneels); the Waylink fires
+##   waylink_arrived  set down near the Hearth Pavilion
 ##
 ## Every step holds HOLD seconds on screen and saves a PNG of the key moments
 ## into `--capture-dir` (default build/captures/travel). A map change rebuilds
@@ -236,7 +236,7 @@ func _process(delta: float) -> void:
 		"to_hearth":
 			var hearth: Node3D = travel.nodes.roots.get(HOME_HEARTH)
 			if hearth == null:
-				_fail("no Ember Pavilion on the grounds")
+				_fail("no Hearth Pavilion on the grounds")
 				return
 			var at := travel.nodes.mouth(HOME_HEARTH) + TravelData.facing(TravelData.node(HOME_HEARTH)) * 1.2
 			var left := _walk_to(at.x, at.z)
@@ -318,8 +318,8 @@ func _process(delta: float) -> void:
 			elif _held > 3.0:
 				_go("descend")   # refused (no landing) or lost: lower, then again
 		"waylink_pick":
-			# what a right-click on the Waystake in the bag does
-			# (inventory_arcane.gd): the HUD's Waystake picker
+			# what a right-click on the Old Boot in the bag does
+			# (inventory_arcane.gd): the HUD's Waylink picker
 			var picker: HudWaylink = game.hud.waylink
 			if not _sent:
 				_sent = true
@@ -329,7 +329,7 @@ func _process(delta: float) -> void:
 				_capture("waylink_picker")
 				var place: Button = picker.buttons.get(HOME_HEARTH)
 				if place == null or place.disabled:
-					_fail("the Waystake picker cannot set down for the Ember Pavilion")
+					_fail("the Waylink picker cannot set down for the Hearth Pavilion")
 					return
 				place.pressed.emit()
 				_go("waylink_placed")
@@ -362,7 +362,7 @@ func _process(delta: float) -> void:
 			if travel.fade_alpha() < 0.05 and _held > HOLD:
 				var home: Dictionary = TravelData.node(HOME_HEARTH)
 				var pos: Array = home.get("pos", [0, 0, 0])
-				_seen("waylink_arrived", "%s, %.0f m from the Ember Pavilion" % [str(me.snapped(Vector3(0.1, 0.1, 0.1))),
+				_seen("waylink_arrived", "%s, %.0f m from the Hearth Pavilion" % [str(me.snapped(Vector3(0.1, 0.1, 0.1))),
 					Vector2(me.x - float(pos[0]), me.z - float(pos[2])).length()])
 				_capture("waylink_arrival")
 				_go("done")

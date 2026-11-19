@@ -123,7 +123,7 @@ pub struct CreatureDef {
     /// Element -> reduction (1 = immune, negative = weak).
     pub resist: BTreeMap<String, f32>,
     pub displace_resist: f32,
-    /// A hit drains mana before health (the mistguards).
+    /// A hit drains mana before health (the pallids).
     pub mana_first: bool,
 }
 
@@ -407,7 +407,7 @@ impl CombatRules {
     }
 
     /// A character's level of `spell`: 0 = not learned; spells that are not
-    /// skills (the basic attack, the Dawnbreak) are always 1.
+    /// skills (the basic attack, the Light of Ithrel) are always 1.
     #[must_use]
     pub fn skill_level(&self, sheet: &CharacterSheet, spell: &str) -> u8 {
         if !self.skill_upgradeable(spell) {

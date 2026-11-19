@@ -5,7 +5,7 @@
 //! come from the level band below the creature, some with enchantment
 //! bonuses.
 //!
-//! The old game's `mob_loot` / `roll_loot` and
+//! The old game's `HPRules.mob_loot` / `roll_loot` and
 //! `authority._roll_drops`.
 
 use std::collections::BTreeMap;

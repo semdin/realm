@@ -1,6 +1,6 @@
 extends Control
 
-## Kestrin's workshop (O, anywhere) - the blacksmith. It works on ONE
+## Kestrin's workshop (O, anywhere) - the Metin2 blacksmith. It works on ONE
 ## item put on its anvil: drag a wand, cloak, broom or accessory from the bag
 ## onto the slot, or right-click it in the bag while the workshop is open. The
 ## anvil header shows the item; below it two tabs:
@@ -146,7 +146,7 @@ func _build() -> void:
 	body.add_child(_foot)
 
 ## The anvil: the slot, the item's name and kind, and the button that takes
-## it off again.
+## it off again (Metin2's Cancel).
 func _build_anvil(body: VBoxContainer) -> void:
 	_anvil_card = PanelContainer.new()
 	_anvil_card.name = "Anvil"
@@ -224,7 +224,7 @@ func _build_intro(page: VBoxContainer) -> void:
 	top.custom_minimum_size = Vector2(0, 4)
 	page.add_child(top)
 	page.add_child(_howto("mat_phoenix_ash", tr("Upgrade"),
-			tr("Takes rods, cloaks, skiffs and accessories from +0 to +9. Every step needs materials and Oril; the chance falls with each level, and from +%d a failure drops the item one level.")
+			tr("Takes wands, cloaks, brooms and accessories from +0 to +9. Every step needs materials and Oril; the chance falls with each level, and from +%d a failure drops the item one level.")
 			% _downgrade_from()))
 	page.add_child(_howto(String(_enchant_rules().get("imbue_scroll", "scroll_imbue")), tr("Enchant"),
 			tr("An item holds up to %d enchantments. An Imbue rune adds a new one (the more it has, the lower the chance); a Reweave rune rerolls them all.")

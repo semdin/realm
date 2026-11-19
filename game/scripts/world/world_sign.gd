@@ -4,7 +4,7 @@ extends Label3D
 ## re-import for it.)
 
 ## A label standing in the world (a building's name over its door, a landing
-## pad, a Waystake, a chest): its own world size near by; farther out it grows
+## pad, a Waylink, a chest): its own world size near by; farther out it grows
 ## just enough that its letters never drop below `min_em_px` on screen (world
 ## labels used to shrink to 1-2 px specks), and from `reach` metres of where
 ## it was placed it fades out over FADE metres instead of hanging on as a

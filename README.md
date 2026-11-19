@@ -2,15 +2,16 @@
 
 The next core of Thousand Realms: one repository for the shared game rules,
 the Rust servers, the Godot client extension and the tools. The plan and its
-phases are in `../plans/rebuild-plan.html`.
+phases are in `../plans/rebuild-plan.html`; the live game keeps running from
+`hpmmo-client` and `hpmmo-server` until the switch-over (Phase 8).
 
 | Path | What it is |
 | --- | --- |
-| `crates/realm_sim` | Game rules (fixed 30 Hz step): movement (walk, jump, stairs, slopes, swimming, skiff) over a collision world, navigation queries, the castle's turning stairs (a pure function of the tick). Bit-identical on every platform. No Godot types. |
+| `crates/realm_sim` | Game rules (fixed 30 Hz step): movement (walk, jump, stairs, slopes, swimming, broom) over a collision world, navigation queries, the castle's moving staircases (a pure function of the tick). Bit-identical on every platform. No Godot types. |
 | `crates/realm_proto` | Wire format: bit packing, input batches, snapshots (owner's body lossless, other entities delta-coded), and the control channel (`control`: the join stream kept open for framed, reliable messages both ways). |
 | `crates/realm_rules` | Game rules beyond movement: the character sheet (what is saved, sent to its owner and changed by the server), items, looks, and the typed content they read. Grows with each Phase 5 slice. |
-| `crates/realm_data` | Content loading, typed ids and cross-reference checks, content hash. |
-| `crates/realm_content` | `check` (cross references and the content hash), `scan` (fails on any reserved term in text files or file names, against the hashed list in `tools/content_guard/reserved.sha256`; CI runs it) and `hash-list` (writes that list from a word file). |
+| `crates/realm_data` | Content loading, rename map, typed ids and cross-reference checks, content hash. |
+| `crates/realm_content` | `import` (old game data -> `content/data` through the rename map), `check`, `art` (copies art from the old client into `game/` with everything it references, renaming paths and the names inside models; fails on any franchise-derived word left) and `scan` (the same check over any text files: scripts moved by hand, catalogues; CI runs it). |
 | `crates/realm_simcheck` | Scripted movement on a fixed test world + wire round trips + crowd bandwidth; CI compares its output across platforms. |
 | `crates/realm_server` | Map server (one process per map and channel): QUIC join with signed tickets, 30 Hz ECS simulation (players, creatures with sleep and AI levels of detail, bolts), interest grid, prioritized delta snapshots; `keygen`, `serve`, `selfcheck`. Loads one compiled map pack; creatures follow navigation-mesh paths. |
 | `crates/realm_worldc` | World compiler: Godot export -> map packs (colliders, terrain, water, moving geometry, navigation mesh baked with rerecast); `check` walks bodies from every spawn point, tests paths and samples every creature pack's area the way the server places creatures (walkable ground, never a roof or a prop). |
@@ -19,15 +20,16 @@ phases are in `../plans/rebuild-plan.html`.
 | `crates/realm_client` | GDExtension the Godot client loads: `RealmSession` (joins, steps the 30 Hz prediction, reports own body, others, stats and the map as meshes). |
 | `crates/realm_netem` | UDP proxy that adds delay, jitter and loss in both directions. |
 | `crates/realm_netcheck` | One scripted player through `ClientCore`; fails on any correction (Phase 4 exit). |
-| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`; a boss wears its authored boss body sized by `boss_overrides`), Dark Shards and training dummies their own views (`stone_view.gd`: idle glow, waves, shatter, fall-in; `dummy_view.gd`); the map's boss and stone notices show on the notice band; the game's windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map's NPCs (`content/data/npcs.json`, `scripts/view/npc_view.gd`) stand on the ground under their place, and the quest log the server keeps shows on the dialogue card, the tracker, the quest log (J) and the quest scroll (`scripts/systems/quest_manager.gd`); every map draws itself (`maps/<map>/<map>.tscn`: the grounds on Terrain3D with the lake, courtyard, Orvell and the far-tree impostors; the castle interior's Gothic build, feast and turning stairs on the client core's own staircase poses; the caverns and the three dungeons), lit by the day-night on GMT+3 (`scripts/world/day_night.gd`) under one quality preset (`scripts/world/quality_preset.gd`, Settings > Graphics); `--placeholder-world` draws the pack's grey collision geometry instead. Drawn solids without a collider get boxes from `world/patches/<map>.json` (`realm_worldc patch`). Art is in LFS. |
+| `game/` | The new Godot client (Mobile renderer). Players are the real hero (`scripts/view/hero_view.gd`), creatures their real models (`creature_view.gd`, from `content/data/creature_views.json`; a boss wears its authored boss body sized by `boss_overrides`), Dark Shards and training dummies their own views (`stone_view.gd`: idle glow, waves, shatter, fall-in; `dummy_view.gd`); the map's boss and stone notices show on the notice band; the old game's approved windows (Arcane frame, Turkish by default: `scripts/ui`, `locale/tr.po`) read the sheet through `scripts/view/player_sheet.gd`, the inventory (I) first; the map's NPCs (`content/data/npcs.json`, `scripts/view/npc_view.gd`) stand on the ground under their place, and the quest log the server keeps shows on the dialogue card, the tracker, the quest log (J) and the quest scroll (`scripts/systems/quest_manager.gd`); every map draws itself with the old game's art (`maps/<map>/<map>.tscn`: the grounds on Terrain3D with the lake, courtyard, Orvell and the far-tree impostors; the castle interior's Gothic build, feast and moving staircases on the client core's own staircase poses; the caverns and the three dungeons), lit by the day-night on GMT+3 (`scripts/world/day_night.gd`) under one quality preset (`scripts/world/quality_preset.gd`, Settings > Graphics); `--placeholder-world` draws the pack's grey collision geometry instead. Drawn solids the old world never gave colliders get boxes from `world/patches/<map>.json` (`realm_worldc patch`). Art is in LFS. |
 | `crates/realm_coord` | The coordinator: who is online on which map (every character's seat: on one map or in transit), the parties, shouts and party lines across maps, and the handoff between maps (a seat reserved on the destination, the old map's save landed before the sheet moves, a ticket signed with keys/ticket.key). Map servers link to it with `--coord` and keys/coord.key; players never do. Without it a map server still runs alone (local chat, trips on its own map). |
-| `crates/realm_login` | The login service: accounts (argon2id), sessions, each account's two characters (name and house rules), and the ticket a client joins its map with (signed with keys/ticket.key; the map's address from the coordinator's `GET /admin/maps`). Writes new characters into the map servers' `--characters` folder. |
+| `crates/realm_login` | The login service: accounts (argon2id), sessions, each account's two characters (the old name and house rules), and the ticket a client joins its map with (signed with keys/ticket.key; the map's address from the coordinator's `GET /admin/maps`). Writes new characters into the map servers' `--characters` folder. |
 | `crates/realm_persist` | The persistence service: the only writer of the realm's PostgreSQL (REALM_DATABASE_URL; schema migrations at start). Map servers run with `--persist <addr>` instead of `--characters <dir>`; a save is answered once committed and never goes back in time (an older revision is refused). |
 | `launcher/` | The launcher (C++; Windows GDI+, Linux/macOS SDL3): installs and updates the game from this repository's GitHub Releases (signed manifests, chunked delta updates), shows the realm's state from `https://api.agsilvery.com/api/status`, starts the game. Its background is drawn from noise (`assets/make_background.py`). Released by `.github/workflows/client-release.yml` (manual dispatch) with the game. |
 | `crates/realm_http` | The one-request-per-connection JSON HTTP the coordinator's admin surface and the login service share. |
 | `crates/realm_perfgate` | Checks a reference-machine performance report against `perf/budgets.toml`. |
 | `world/maps/*.realmmap` | Compiled map packs (zstd + postcard), one per map. |
-| `tools/world_export` | Godot script that exports a world project's collision world for `realm_worldc`. |
+| `tools/world_export` | Godot script that exports the old game's collision world for `realm_worldc`. |
+| `content/rename_map.toml` | Old game id -> new id (no franchise-derived id reaches the new core). |
 | `content/data/` | The game's content (12 JSON files, imported 2026-11-13). Keys starting with `_` are author notes. |
 | `perf/budgets.toml` | Client budgets on the reference machine (low preset). |
 | `tools/gdext_smoke` | Smallest Godot project that loads `realm_client`. |
@@ -55,12 +57,12 @@ bash tools/ops/host_rehearsal.sh                      # the host on an empty dat
 cargo run --release -p realm_server -- serve --map grounds --bind 127.0.0.1:7777 --coord 127.0.0.1:7900   # a map server linked to it
 cargo run --release -p realm_netcheck -- --social       # two players on two maps: invite, party, party line, shout, local stays local
 cargo run --release -p realm_netcheck -- --duel         # two players on one map: challenge, accept, fight to 1 health, result
-cargo run --release -p realm_netcheck -- --travel --characters build/travelcheck   # grounds (7777) + castle_interior (7778) with --coord and --characters build/travelcheck: doors both ways, hearths, skiff, Waystake, a takeover; the sheet whole every time
+cargo run --release -p realm_netcheck -- --travel --characters build/travelcheck   # grounds (7777) + castle_interior (7778) with --coord and --characters build/travelcheck: doors both ways, hearths, broom, Waylink, a takeover; the sheet whole every time
 cargo run --release -p realm_netcheck -- --dungeon --characters build/dungeoncheck   # grounds (7777) + dng_trial (7779, --dev-dungeon-scale 0.05) with --coord and --characters build/dungeoncheck: gate, solo Normal run to a medal, rewards, chest, record, out
 cargo run --release -p realm_netcheck -- --dungeon --quick --characters build/dungeoncheck   # the same servers, ~30 s: gate, launch, countdown, first wave, second gate, out (while working on dungeons)
 cargo run --release -p realm_netcheck -- --metrics --admin 127.0.0.1:8082 --token <t> --server 127.0.0.1:7777 --persist-addr 127.0.0.1:7970   # the coordinator's metrics JSON, Prometheus text and /panel: the grounds' numbers, a join, its save counted (<1 min)
 cargo run --release -p realm_bots -- --count 500 --seconds 120 --ramp 50   # each bot learns --skill shockwave=3 and opens with it
-cargo run -p realm_content -- check content/data
+cargo run -p realm_content -- check content/rename_map.toml content/data
 cargo run --release -p realm_worldc -- check world/maps content/data
 cargo run --release -p realm_netem -- --listen 127.0.0.1:7800 --server 127.0.0.1:7777 --delay-ms 100 --loss 0.02
 cargo run --release -p realm_netcheck -- --server 127.0.0.1:7800 --map castle_interior --seconds 60
@@ -93,7 +95,7 @@ reach can draw a thrown one, casters throw bolts. Abilities stun, throw, web,
 poison and despair players (`sim/afflict.rs`); the holds travel in the owner's
 snapshot as a `Restraint` in the player's own input ticks, so prediction
 replays them exactly; a life counter in the same snapshot marks deaths and
-respawns. The client draws a telegraph as a projected ground mark
+respawns. The client draws a telegraph as the old game's projected ground mark
 filling toward its release tick against `RealmSession.server_tick()`.
 A pack's boss (`boss_overrides`) cycles its template's attack patterns and
 keeps to its arena; a commander enrages when a pack mate falls; world bosses
@@ -124,17 +126,17 @@ godot --path game -- --server 127.0.0.1:7777 --map grounds
 godot --headless --path game -- --check 15        # joins, walks, prints, exits non-zero on a correction
 godot --headless --path game -- --check 30 --check-target stone_dark   # fights a Dark Shard first (its waves)
 godot --headless --path game -- --check 180 --character 9 --check-rise here   # loots chests, spends a status point, rises where it fell
-godot --headless --path game -- --check-quests --character 11   # the first chapter: talks to Commander Teral Venn, wears the cloak, hits a dummy; claims q001-q003
+godot --headless --path game -- --check-quests --character 11   # the first chapter: talks to Master Teral Venn, wears the cloak, hits a dummy; claims q001-q003
 godot --headless --path game -- --check-workshop --character 900002   # O opens Kestrin's workshop: refines, imbues and reweaves the wand (prepared character)
 godot --headless --path game -- --check-social --character 900107   # with realm_coord, the map server --coord 127.0.0.1:7900 and realm_netcheck --social-partner: local line + bubble, /invite, party frame, party line and shout, /leave
 godot --headless --path game -- --social-guest "Wanderer 107" --character 900108   # a second client that says a local line and invites; the check then takes --check-invite-from "Wanderer 108" (card, player menu, accept)
-godot --path game -- --check-travel --character 900201   # with realm_coord and the grounds (7777) + castle_interior (7778) servers --coord 127.0.0.1:7900 --characters build/travelcheck and `make_prepared_character.py build/travelcheck 900201 --travel-kit`: castle door and back (loading screen, scene rebuilt per map), Hearth window to Orvell Square, skiff mount/dismount, a Waystake; PNGs in build/captures/travel
-godot --path game -- --check-skills --character 900801   # with build/logs/aup_skills.sh (level 12, Starnail 9): V opens the skill window, "+" raises Starnail to Master and learns Shockwave, a bar click learns Disarm; levels, points and the taskbar badge follow the sheet; PNGs in build/captures/skills
+godot --path game -- --check-travel --character 900201   # with realm_coord and the grounds (7777) + castle_interior (7778) servers --coord 127.0.0.1:7900 --characters build/travelcheck and `make_prepared_character.py build/travelcheck 900201 --travel-kit`: castle door and back (loading screen, scene rebuilt per map), Hearth window to Orvell Square, broom mount/dismount, a Waylink; PNGs in build/captures/travel
+godot --path game -- --check-skills --character 900801   # with build/logs/aup_skills.sh (level 12, Stun Bolt 9): V opens the skill window, "+" raises Stun Bolt to Master and learns Shockwave, a bar click learns Disarm; levels, points and the taskbar badge follow the sheet; PNGs in build/captures/skills
 godot --path game -- --check-others --character 900811   # with build/logs/aup_others.sh: starts a second client (--others-guest, character 900812), sees its nameplate (name, level, house, title), wand, mantle and look, then its new look and empty hand after the partner changes; PNGs in build/captures/others
 godot --path game -- --check-map --character 900901   # with build/logs/aup_map.sh: the minimap, the world map (M) and its markers, a click sets a waypoint, its footprints, the walk along the route until it clears, the zone banner, the dungeon guide's "Show the way to the gate"; `aup_map.sh castle|caverns` + `--map castle_interior|spider_caverns` surveys that map; PNGs in build/captures/map
-godot --path game -- --check-audio --character 901001   # with build/logs/aup_audio.sh (level 12, skiff, Waycoal, in the courtyard): zone music and ambience bed, no steps standing / steps walking, the drowned ones' alert, grunts and death cries and the tension mix rising and falling, the Ember Pavilion trip's sound and Orvell's music cross-fading in, the skiff's wind following speed; prints the audio layer's per-frame cost
-godot --path game -- --check-castle --map castle_interior --character 901301 --server 127.0.0.1:7831   # with build/logs/kup_castle.sh: the castle drawn (game/maps/castle_interior) where the server's floors and walls are - feet on the drawn floor at spawn and after a short walk, five fixed views (Entrance Hall, Long Table, stairwell, Brine Vaults door, corridor) probed against session.pick and captured to build/captures/castle with their frame times, memory; add --placeholder-world for the same probes over the grey pack
-godot --path game -- --server 127.0.0.1:8701 --check-controls --character 922101   # with build/logs/w22_stack.sh (travel kit at the castle approach): leaves and re-enters protected ground (no entry sound), the basic attack held on a dummy by Ctrl and by the left button (cadence, none after release), Ctrl on the skiff casts nothing, Z and the key under Escape take loot, the zoom limits, damage numbers near and far, Kestrin's Forge's sign at 50-300 m (fade); PNGs via --capture-dir
+godot --path game -- --check-audio --character 901001   # with build/logs/aup_audio.sh (level 12, broom, Hearth Dust, in the courtyard): zone music and ambience bed, no steps standing / steps walking, the drowned ones' alert, grunts and death cries and the tension mix rising and falling, the Hearth Pavilion trip's sound and Orvell's music cross-fading in, the broom's wind following speed; prints the audio layer's per-frame cost
+godot --path game -- --check-castle --map castle_interior --character 901301 --server 127.0.0.1:7831   # with build/logs/kup_castle.sh: the castle drawn (game/maps/castle_interior) where the server's floors and walls are - feet on the drawn floor at spawn and after a short walk, five fixed views (Entrance Hall, Feast Hall, stairwell, Sealed Wing door, corridor) probed against session.pick and captured to build/captures/castle with their frame times, memory; add --placeholder-world for the same probes over the grey pack
+godot --path game -- --server 127.0.0.1:8701 --check-controls --character 922101   # with build/logs/w22_stack.sh (travel kit at the castle approach): leaves and re-enters protected ground (no entry sound), the basic attack held on a dummy by Ctrl and by the left button (cadence, none after release), Ctrl on the broom casts nothing, Z and the key under Escape take loot, the zoom limits, damage numbers near and far, Kestrin's Forge's sign at 50-300 m (fade); PNGs via --capture-dir
 godot --path game -- --server 127.0.0.1:8701 --check-dungeon --check-dungeon-replay --character 922301   # with W22_TRIAL_ARGS="--dev-dungeon-start done" build/logs/w22_stack.sh start: the run ends at once; no window, the notice line and chat lines, K's guide with "Run it again", pressed: the launch (<40 s)
 godot --path game -- --character 7                 # the same dev character every run
 godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-distance 4 --cam-side 100
@@ -142,12 +144,16 @@ godot --path game --write-movie frames/f.png --fixed-fps 30 -- --check 6 --cam-d
 
 Art lives in Git LFS on the game's own LFS server (`.lfsconfig`); a fresh
 clone needs `git lfs pull`, then `godot --headless --path game --import` once
-(also after adding a script with a new `class_name`). 
-
-Rebuilding the map packs: export the world project's collision world headless (one `<map id>.json` and `.bin` per map), then compile.
+(also after adding a script with a new `class_name`). Moving more art over:
 
 ```bash
-godot --headless --path <world_project> -s "$(pwd -W)/tools/world_export/world_export.gd" -- --out "$(pwd -W)/build/world_export"
+cargo run --release -p realm_content -- art content/rename_map.toml ../client game res://assets/models/monsters/troll_forest.glb
+```
+
+Rebuilding the map packs from the old game (until the old scenes move in, Phase 6): export its collision world headless, then compile.
+
+```bash
+godot --headless --path ../server/world -s "$(pwd -W)/tools/world_export/world_export.gd" -- --out "$(pwd -W)/build/world_export"
 cargo run --release -p realm_worldc -- build build/world_export world/maps content/data
 ```
 

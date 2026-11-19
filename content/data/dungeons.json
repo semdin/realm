@@ -1,5 +1,5 @@
 {
-  "_comment": "Scripted dungeon runs (v2). A run starts when the first player enters a copy of `map` and walks `steps` in order: each step waits for its trigger, then acts. Positions are local to the copy (the instance offset is added). Triggers: enter | cleared:<step id> (every creature that step spawned is dead) | area:<z_below> (a player stands deeper than local z) | hp_below:<step id>:<fraction> (a creature that step spawned is alive below that share of its hit points). A step with `optional: true` is a side slot: it is not part of the chain (the run never waits for it) and fires on its own trigger; its creatures count toward the clear like any other. Actions: spawn (creatures, optional boss_key/template; `assist` narrows how far they answer a fight, so a side room is not pulled by the corridor), open / close (gate ids), message (shown to the copy), chest (loot table at a point), complete. A spawn entry has no fixed level: `role` (roles block) and an optional extra `lvl` offset put it above the run's level, and the role picks its party HP scaling and clear share (`forces`). A spawn entry may carry `chime` (local point; Wheelwarden's lullaby pedestal). Run level: ref = round(group.ref_max_weight x highest + (1 - ref_max_weight) x average party level), clamped to the dungeon's level_min..level_max, plus the difficulty's level_offset; it is fixed when the run opens. Creature stats follow that level (bosses scale their boss_overrides numbers from the override's stat_level), then the difficulty's hp/damage and the party HP scaling. `key`: the item the leader spends to open a difficulty that asks for keys. Wipe: while a step's closed gates hold a living boss and no living player is past its area, the gates open (respawned players walk back; crossing again seals them). hazards: periodic shoves of every player inside a local z band (and x band, when given) while the run is between from_step and until_step. first_clear_title: granted to everyone in the copy when the run completes. par_s: the gold-medal time of a full clear; medals multiply it. The clock starts when the start gate opens and stops when the run completes; deaths add the difficulty's death_penalty_s and spend its party lives. Spider lair extras: a spawn entry's `hatch` {after_s, into: [entries]} breaks it open into those creatures if it still stands then; a step's `cocoon` {mob, hold_s, hp_share} wraps a random player (stunned until the cocoon is broken, the share of their health lost if it is not); a step's `pools` [{at, radius, duration_s, hp_share_s}] are venom pools that hurt every second. `min_difficulty` on a step or a spawn entry keeps it out of runs below that difficulty (extra waves, twins); a spawn entry's `chime_scale` {difficulty: x} slows Wheelwarden's sleep chime and `marks` {difficulty: [meta]} sets creature marks such as curse_bleed; a pool with `kind` web is a sticky web patch.",
+  "_comment": "Scripted dungeon runs (v2). A run starts when the first player enters a copy of `map` and walks `steps` in order: each step waits for its trigger, then acts. Positions are local to the copy (the instance offset is added). Triggers: enter | cleared:<step id> (every creature that step spawned is dead) | area:<z_below> (a player stands deeper than local z) | hp_below:<step id>:<fraction> (a creature that step spawned is alive below that share of its hit points). A step with `optional: true` is a side slot: it is not part of the chain (the run never waits for it) and fires on its own trigger; its creatures count toward the clear like any other. Actions: spawn (creatures, optional boss_key/template; `assist` narrows how far they answer a fight, so a side room is not pulled by the corridor), open / close (gate ids), message (shown to the copy), chest (loot table at a point), complete. A spawn entry has no fixed level: `role` (roles block) and an optional extra `lvl` offset put it above the run's level, and the role picks its party HP scaling and clear share (`forces`). A spawn entry may carry `chime` (local point; Threehead's lullaby pedestal). Run level: ref = round(group.ref_max_weight x highest + (1 - ref_max_weight) x average party level), clamped to the dungeon's level_min..level_max, plus the difficulty's level_offset; it is fixed when the run opens. Creature stats follow that level (bosses scale their boss_overrides numbers from the override's stat_level), then the difficulty's hp/damage and the party HP scaling. `key`: the item the leader spends to open a difficulty that asks for keys. Wipe: while a step's closed gates hold a living boss and no living player is past its area, the gates open (respawned players walk back; crossing again seals them). hazards: periodic shoves of every player inside a local z band (and x band, when given) while the run is between from_step and until_step. first_clear_title: granted to everyone in the copy when the run completes. par_s: the gold-medal time of a full clear; medals multiply it. The clock starts when the start gate opens and stops when the run completes; deaths add the difficulty's death_penalty_s and spend its party lives. Spider lair extras: a spawn entry's `hatch` {after_s, into: [entries]} breaks it open into those creatures if it still stands then; a step's `cocoon` {mob, hold_s, hp_share} wraps a random player (stunned until the cocoon is broken, the share of their health lost if it is not); a step's `pools` [{at, radius, duration_s, hp_share_s}] are venom pools that hurt every second. `min_difficulty` on a step or a spawn entry keeps it out of runs below that difficulty (extra waves, twins); a spawn entry's `chime_scale` {difficulty: x} slows Threehead's sleep chime and `marks` {difficulty: [meta]} sets creature marks such as curse_bleed; a pool with `kind` web is a sticky web patch.",
   "difficulty": {
     "_comment": "Per difficulty: creature level_offset / hp / damage, mobs (x every spawn group's count), weekly affix count, minimum party size and the level above the dungeon's level_min it asks for, death time penalty and party lives (-1 = none), reward scales (exp_budget = share of the player's own level threshold the completion pays from, kill_exp = x on every creature's own open-world experience, gold, drop, bonus_count [min, max] efsun on the final chest item, tier_up chance), daily_rewards (-1 = unlimited), unlock_after (the difficulty a character must have cleared), keys the leader spends to open the gate, par_mult on the dungeon's par_s, seals (Zindan Muhru) per run. unlock_medal: the medal (bronze < silver < gold) the unlock_after clear must have earned. telegraph: multiplier on every telegraphed windup (shorter is harder); hazard_mult: on a dungeon hazard's period; boss_enrage_s: a boss still fighting after this many seconds enrages (0 = never).",
     "easy": {
@@ -271,16 +271,6 @@
         "item": "potion_mana",
         "amount": 10,
         "seals": 3
-      },
-      {
-        "item": "broom_windcutter_2000",
-        "amount": 1,
-        "seals": 30
-      },
-      {
-        "item": "broom_skysplitter",
-        "amount": 1,
-        "seals": 250
       }
     ]
   },
@@ -305,7 +295,7 @@
         "speed": 1.15
       },
       "bolster": {
-        "display": "Death Oath",
+        "display": "Ward Shield Horribilis",
         "desc": "A creature that dies strengthens the creatures around it (+15% health and damage, up to 5 times).",
         "radius": 15.0,
         "hp": 0.15,
@@ -320,8 +310,8 @@
         "hp_share": 0.12
       },
       "chill": {
-        "display": "Mist Chill",
-        "desc": "Every 45 seconds a cold mist stops everyone's regeneration for 6 seconds.",
+        "display": "Pallid's Chill",
+        "desc": "Every 45 seconds a deathly cold stops everyone's regeneration for 6 seconds.",
         "every_s": 45.0,
         "despair_s": 6.0
       },
@@ -744,7 +734,7 @@
     },
     "sealed_wing": {
       "map": "dng_sealed_wing",
-      "display": "The Brine Vaults",
+      "display": "The Sealed Wing",
       "level_min": 30,
       "level_max": 100,
       "par_s": 1500,
@@ -752,7 +742,7 @@
         {
           "id": "corridor",
           "on": "enter",
-          "message": "Cold air pushes up from the vaults... something small is riding it.",
+          "message": "The castle's sealed wing is out of bounds... something is buzzing.",
           "spawn": [
             {
               "mob": "fidgetling",
@@ -934,12 +924,112 @@
           "message": "The gallery door creaks open."
         },
         {
-          "id": "snare",
+          "id": "commander",
           "on": "area:-66",
           "close": [
             "gate_a"
           ],
-          "message": "Brinebriar! Salt feeds it - frost and force crack its stems!",
+          "message": "The Cursed Armour Commander raises its shield - strike from behind!",
+          "spawn": [
+            {
+              "mob": "armour_commander",
+              "role": "miniboss",
+              "at": [
+                0.0,
+                1200.5,
+                -86.0
+              ],
+              "boss_key": "cursed_commander",
+              "template": "boss_knight"
+            }
+          ]
+        },
+        {
+          "id": "wall_70",
+          "on": "hp_below:commander:0.7",
+          "message": "Armours step down from the walls!",
+          "spawn": [
+            {
+              "mob": "armour_guard",
+              "role": "elite",
+              "at": [
+                -12.0,
+                1200.5,
+                -76.0
+              ]
+            },
+            {
+              "mob": "armour_guard",
+              "role": "elite",
+              "at": [
+                12.0,
+                1200.5,
+                -76.0
+              ]
+            },
+            {
+              "mob": "armour_guard",
+              "role": "elite",
+              "at": [
+                0.0,
+                1200.5,
+                -70.0
+              ],
+              "min_difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "wall_40",
+          "on": "hp_below:commander:0.4",
+          "message": "More armours awaken!",
+          "spawn": [
+            {
+              "mob": "armour_guard",
+              "role": "elite",
+              "at": [
+                -12.0,
+                1200.5,
+                -94.0
+              ]
+            },
+            {
+              "mob": "armour_guard",
+              "role": "elite",
+              "at": [
+                12.0,
+                1200.5,
+                -94.0
+              ]
+            },
+            {
+              "mob": "armour_guard",
+              "role": "elite",
+              "at": [
+                0.0,
+                1200.5,
+                -96.0
+              ],
+              "min_difficulty": "hard"
+            }
+          ]
+        },
+        {
+          "id": "gallery_done",
+          "on": "cleared:commander",
+          "open": [
+            "gate_a",
+            "gate_b"
+          ],
+          "message": "The commander falls. A damp stair leads down."
+        },
+        {
+          "id": "snare",
+          "on": "area:-110",
+          "close": [
+            "gate_b"
+          ],
+          "message": "Strangling Vine! Burn its vines - Flame Wave!",
           "spawn": [
             {
               "mob": "strangling_vine",
@@ -947,7 +1037,7 @@
               "at": [
                 0.0,
                 1200.5,
-                -84.0
+                -128.0
               ],
               "lvl": 1,
               "boss_key": "snare_root",
@@ -959,7 +1049,7 @@
           "id": "snare_swarm",
           "on": "hp_below:snare:0.5",
           "min_difficulty": "hard",
-          "message": "Galelings burst out of the briar's roots!",
+          "message": "Fidgetlings pour out of the Snare's roots!",
           "spawn": [
             {
               "mob": "fidgetling",
@@ -969,7 +1059,7 @@
               "at": [
                 -10.0,
                 1200.5,
-                -86.0
+                -130.0
               ]
             },
             {
@@ -980,124 +1070,24 @@
               "at": [
                 10.0,
                 1200.5,
-                -86.0
+                -130.0
               ]
-            }
-          ]
-        },
-        {
-          "id": "gallery_done",
-          "on": "cleared:snare",
-          "open": [
-            "gate_a",
-            "gate_b"
-          ],
-          "message": "The Brinebriar cracks apart. A damp stair leads down."
-        },
-        {
-          "id": "commander",
-          "on": "area:-110",
-          "close": [
-            "gate_b"
-          ],
-          "message": "The Hollow Castellan raises its shield - strike from behind!",
-          "spawn": [
-            {
-              "mob": "armour_commander",
-              "role": "miniboss",
-              "at": [
-                0.0,
-                1200.5,
-                -128.0
-              ],
-              "boss_key": "cursed_commander",
-              "template": "boss_knight"
-            }
-          ]
-        },
-        {
-          "id": "wall_70",
-          "on": "hp_below:commander:0.7",
-          "message": "Empty armour steps off its stands!",
-          "spawn": [
-            {
-              "mob": "armour_guard",
-              "role": "elite",
-              "at": [
-                -12.0,
-                1200.5,
-                -118.0
-              ]
-            },
-            {
-              "mob": "armour_guard",
-              "role": "elite",
-              "at": [
-                12.0,
-                1200.5,
-                -118.0
-              ]
-            },
-            {
-              "mob": "armour_guard",
-              "role": "elite",
-              "at": [
-                0.0,
-                1200.5,
-                -112.0
-              ],
-              "min_difficulty": "hard"
-            }
-          ]
-        },
-        {
-          "id": "wall_40",
-          "on": "hp_below:commander:0.4",
-          "message": "More sentries take up their posts!",
-          "spawn": [
-            {
-              "mob": "armour_guard",
-              "role": "elite",
-              "at": [
-                -12.0,
-                1200.5,
-                -136.0
-              ]
-            },
-            {
-              "mob": "armour_guard",
-              "role": "elite",
-              "at": [
-                12.0,
-                1200.5,
-                -136.0
-              ]
-            },
-            {
-              "mob": "armour_guard",
-              "role": "elite",
-              "at": [
-                0.0,
-                1200.5,
-                -138.0
-              ],
-              "min_difficulty": "hard"
             }
           ]
         },
         {
           "id": "cellar_done",
-          "on": "cleared:commander",
+          "on": "cleared:snare",
           "open": [
             "gate_b",
             "gate_c"
           ],
-          "message": "The Castellan falls. Iron is turning somewhere below..."
+          "message": "The Snare withers. Music drifts from below..."
         },
         {
           "id": "stairs",
           "on": "area:-144",
-          "message": "Galelings swarm the stair!",
+          "message": "Fidgetlings swarm the stair!",
           "spawn": [
             {
               "mob": "fidgetling",
@@ -1114,15 +1104,15 @@
           ]
         },
         {
-          "id": "wheelwarden",
+          "id": "threehead",
           "on": "area:-168",
           "close": [
             "gate_c"
           ],
-          "message": "The Wheelwarden wakes! Turn the sluice wheel to flood its joints.",
+          "message": "Threehead wakes! Ring the sleep chime to lull it.",
           "spawn": [
             {
-              "mob": "wheelwarden",
+              "mob": "threehead",
               "role": "boss",
               "at": [
                 0.0,
@@ -1130,7 +1120,7 @@
                 -196.0
               ],
               "lvl": 1,
-              "boss_key": "wheelwarden",
+              "boss_key": "threehead",
               "template": "boss_hound",
               "chime": [
                 18.0,
@@ -1145,9 +1135,9 @@
           ]
         },
         {
-          "id": "wheelwarden_pixies",
-          "on": "hp_below:wheelwarden:0.6",
-          "message": "Galelings stream out of the Wheelwarden's vents!",
+          "id": "threehead_pixies",
+          "on": "hp_below:threehead:0.6",
+          "message": "Fidgetlings stream out from under Threehead's paws!",
           "spawn": [
             {
               "mob": "fidgetling",
@@ -1174,14 +1164,14 @@
           ]
         },
         {
-          "id": "wheelwarden_down",
-          "on": "cleared:wheelwarden",
+          "id": "threehead_down",
+          "on": "cleared:threehead",
           "open": [
             "gate_a",
             "gate_b",
             "gate_c"
           ],
-          "message": "The Wheelwarden grinds to a halt. Clear every creature left in the vaults to raise the flood gate."
+          "message": "Threehead collapses. Clear every creature left in the corridor to open the stone hatch."
         },
         {
           "id": "done",
@@ -1190,7 +1180,7 @@
             "gate_d"
           ],
           "complete": true,
-          "message": "The vaults are still. The flood gate rises - claim your reward.",
+          "message": "The corridor is silent. The stone hatch swings open - claim your reward.",
           "chest": {
             "table": "dungeon_corridor",
             "at": [
@@ -1203,7 +1193,7 @@
       ],
       "first_clear_title": {
         "id": "fc_explorer",
-        "name": "Vault Diver"
+        "name": "Sealed Wing Explorer"
       },
       "hazards": [
         {
@@ -1225,15 +1215,15 @@
           "every_s": 7.0,
           "warn_s": 1.5,
           "from_step": "cellar_done",
-          "until_step": "wheelwarden",
-          "message": "A surge of brine bursts down the stair - brace yourself!"
+          "until_step": "threehead",
+          "message": "Threehead's sleeping breath rolls down the stair - brace yourself!"
         }
       ],
       "key": "key_sealed_wing"
     },
     "spider_lair": {
       "map": "dng_spider_lair",
-      "display": "The Silk Queen's Lair",
+      "display": "The Web Mother's Lair",
       "level_min": 24,
       "level_max": 70,
       "par_s": 1320,
@@ -1649,7 +1639,7 @@
           "close": [
             "gate_b"
           ],
-          "message": "The Silk Queen rises from her nest!",
+          "message": "The Web Mother rises from her nest!",
           "spawn": [
             {
               "mob": "black_weaver",

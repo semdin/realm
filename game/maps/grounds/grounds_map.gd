@@ -2,8 +2,8 @@ extends Node3D
 
 ## The grounds drawn with the old game's approved art (Phase 6.1): the
 ## Terrain3D ground and its forest, the lake, the castle shell, the courtyard,
-## the precinct (Trial Hall, Ember Pavilion, training yard, cave mouth), the
-## sites (Orvell and its roads, Ombrek's hut, greenhouses, boathouse, station,
+## the precinct (Trial Hall, Hearth Pavilion, training yard, cave mouth), the
+## sites (Orvell and its roads, Borin's hut, greenhouses, boathouse, station,
 ## the skyring pitch, the stone circle, the camp, the crypt, the hollow), road
 ## lamps, the broom landing and the far horizon. The sky, the sun, the fog's
 ## colour and the ambient follow the hour and the rain (DayNight); the quality
@@ -244,7 +244,7 @@ func _broom_landing() -> void:
 	pad.add_child(ring)
 	var label: Label3D = Mats.WorldSign.new()   # readable from afar, faded past 80 m
 	label.call("setup", 80.0, 15.0)
-	label.text = I18n.upper(I18n.t("Skiff landing"))
+	label.text = I18n.upper(I18n.t("Broom landing"))
 	label.font = UITheme.world_font(UITheme.W_DECO)
 	label.font_size = 30
 	label.outline_size = 8

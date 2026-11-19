@@ -46,7 +46,7 @@ const SERVICE_LINES := [
 	"Too many failed logins. Try again in a few minutes.",
 	"Invalid username or password.",
 	"Not logged in.",
-	"Unknown Watch.",
+	"Unknown house.",
 	"Maximum 2 characters per account.",
 	"Character name already taken.",
 	"No such character.",

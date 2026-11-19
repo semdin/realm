@@ -1,7 +1,7 @@
 extends RefCounted
 
-## The Long Table's tables and the laid tables of the castle: gold plates and
-## goblets, bread, fruit and roasts on the Long Table's tables and the high
+## The Feast Hall's tables and the laid tables of the castle: gold plates and
+## goblets, bread, fruit and roasts on the Feast Hall's tables and the high
 ## table, vegetables, fish and tools on the kitchen work tables. NVIDIA
 ## SimReady scans (CC BY 4.0, res://assets/models/feast/LICENSE.txt)
 ## decimated onto one atlas; feast.glb holds every dressing piece as one mesh:
@@ -37,7 +37,7 @@ const KITCHEN_BARE := 2
 
 ## The hall tables, layout space: [x, z, yaw degrees] of each table's centre
 ## (yaw turns the table's length off +x; north of the aisle +30, south -30).
-## The castle check's Long Table probe (-60, 50) stands in a gap.
+## The castle check's Feast Hall probe (-60, 50) stands in a gap.
 const HALL_TABLES := [
 	[-81.0, 49.0, 30.0], [-67.0, 49.0, 30.0], [-53.0, 49.0, 30.0], [-39.0, 49.0, 30.0],
 	[-81.0, 63.0, -30.0], [-67.0, 63.0, -30.0], [-53.0, 63.0, -30.0],

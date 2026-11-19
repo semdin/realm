@@ -37,6 +37,7 @@ use std::time::Instant;
 
 use realm_data::Content;
 use realm_data::maps::{read_pack, write_pack};
+use realm_data::rename::{RenameMap, RenameReport, Renamer};
 use realm_sim::input::MoveInput;
 use realm_sim::movement::{self, Body, MoveParams};
 use realm_sim::nav::NavQuery;
@@ -215,6 +216,17 @@ fn shape(item: &Value, bin: &[u8], what: &str) -> Result<PackShape, String> {
     })
 }
 
+/// The rename map next to the content folder (`content/rename_map.toml`):
+/// the export still uses the old game's names.
+fn renamer(content_dir: &Path) -> Result<Renamer, String> {
+    let path = content_dir
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("rename_map.toml");
+    let text = std::fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))?;
+    RenameMap::parse(&text)?.compile()
+}
+
 /// Adds the patch boxes to the built packs that have a patch, and bakes
 /// their navmesh again.
 /// `only`: the maps to patch (none: every map).
@@ -256,22 +268,30 @@ fn patch_packs(maps_dir: &Path, content_dir: &Path, only: &[String]) -> Result<(
 
 fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
     let infos = map_infos(content_dir)?;
+    let renamer = renamer(content_dir)?;
+    let mut report = RenameReport::default();
+    // Export file stem (old id) by the realm map id it renames to.
+    let mut stems: BTreeMap<String, String> = BTreeMap::new();
+    for entry in std::fs::read_dir(export).map_err(|e| format!("{}: {e}", export.display()))? {
+        let path = entry.map_err(|e| e.to_string())?.path();
+        if path.extension().and_then(|e| e.to_str()) == Some("json")
+            && let Some(stem) = path.file_stem().and_then(|s| s.to_str())
+        {
+            stems.insert(renamer.rename_str(stem, &mut report), stem.to_owned());
+        }
+    }
     std::fs::create_dir_all(maps_dir).map_err(|e| e.to_string())?;
     for (map, info) in &infos {
-        // The export names its files after the map ids.
-        let json_path = export.join(format!("{map}.json"));
-        if !json_path.is_file() {
-            return Err(format!(
-                "{map}: no export for this map in {}",
-                export.display()
-            ));
-        }
+        let stem = stems
+            .get(map)
+            .ok_or_else(|| format!("{map}: no export for this map in {}", export.display()))?;
+        let json_path = export.join(format!("{stem}.json"));
         let text = std::fs::read_to_string(&json_path)
             .map_err(|e| format!("{}: {e}", json_path.display()))?;
         let doc: Value =
             serde_json::from_str(&text).map_err(|e| format!("{}: {e}", json_path.display()))?;
-        let bin = std::fs::read(export.join(format!("{map}.bin")))
-            .map_err(|e| format!("{map}.bin: {e}"))?;
+        let bin = std::fs::read(export.join(format!("{stem}.bin")))
+            .map_err(|e| format!("{stem}.bin: {e}"))?;
 
         let mut colliders = Vec::new();
         let mut dynamic = Vec::new();
@@ -289,9 +309,9 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
                 rotation,
                 shape: shape(item, &bin, path)?,
             };
-            // A dungeon gate (a `Gate_<id>` portcullis) opens and closes with
-            // the run: kept out of the static world, named `gate:<id>` for the
-            // dungeon rules.
+            // A dungeon gate (the old greybox's `Gate_<id>` portcullis) opens
+            // and closes with the run: kept out of the static world, named
+            // `gate:<id>` for the dungeon rules.
             let gate = path
                 .rsplit('/')
                 .next()
@@ -303,7 +323,7 @@ fn build(export: &Path, maps_dir: &Path, content_dir: &Path) -> Result<(), Strin
                 });
             } else if item["kind"].as_str() == Some("dynamic") {
                 dynamic.push(DynamicCollider {
-                    source: path.to_owned(),
+                    source: renamer.rename_str(path, &mut report),
                     collider,
                 });
             } else {
@@ -766,7 +786,7 @@ fn check(maps_dir: &Path, content_dir: &Path) -> Result<(), String> {
         let path: PathBuf = maps_dir.join(format!("{map}.realmmap"));
         let pack = read_pack(&path)?;
         let mut world = pack.world().map_err(|e| format!("{map}: {e}"))?;
-        // Turning stairs run as in the game: placed every tick, carrying
+        // Moving staircases run as in the game: placed every tick, carrying
         // bodies on their decks.
         let mut stairs = realm_data::staircases(&content, &pack)?;
         let mut tick = 0_u32;

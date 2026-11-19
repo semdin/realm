@@ -11,7 +11,7 @@ class_name DungeonHazards
 ##   * sticky (Sticky Ground) and pool (the Queen's venom, or a web when it
 ##     takes no health) are held patches that burn steady until `until_tick`,
 ##     then cool away;
-##   * breath (Wheelwarden's sleeping breath down the Brine Vaults' stair) is a
+##   * breath (Threehead's sleeping breath down the Sealed Wing's stair) is a
 ##     band (`half`: half extents x, z round `center`) that fills like a ring
 ##     from `start_tick` and goes off (the push) on `release_tick`.
 ## Any mark with a non-zero `half` is a band of that size, not a disc.

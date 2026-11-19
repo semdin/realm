@@ -91,7 +91,7 @@ const POPS := {
 	STATUS_BURN: ["Burning", Color(1.0, 0.55, 0.2)],
 	STATUS_POISON: ["Poisoned", Color(0.55, 1.0, 0.35)],
 	STATUS_KNOCKED: ["Knocked back!", Color(1.0, 0.95, 0.82)],
-	STATUS_WEAK: ["Hushed", Color(0.8, 0.7, 1.0)],
+	STATUS_WEAK: ["Disarmed", Color(0.8, 0.7, 1.0)],
 }
 # i18n-end
 

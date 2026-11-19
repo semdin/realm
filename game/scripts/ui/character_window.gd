@@ -7,7 +7,7 @@ class_name CharacterWindow
 ## between
 ##   Status      - health and mana gauges, the six core numbers, the purse;
 ##   Attributes  - the four status-point attributes, what a point gives, the
-##                 total so far, and the "+" that spends one (two per
+##                 total so far, and the "+" that spends one (Metin2: two per
 ##                 level, up to the cap in one attribute);
 ##   Properties  - the secondary stats in four groups, zeros dimmed.
 ##
@@ -27,7 +27,7 @@ const GROUPS := [
 	["Attack", [["attack_speed", "Attack speed"], ["cast_speed", "Casting speed"], ["pierce", "Piercing hit"], ["life_steal", "Life drain"]]],
 	["Defence", [["melee_res", "Melee resist"], ["projectile_res", "Projectile resist"], ["spell_res", "Spell resist"], ["block", "Block"], ["reflect", "Reflect"]]],
 	["Regeneration", [["hp_regen", "Health regen"], ["mana_regen", "Mana regen"]]],
-	["Movement and loot", [["move_speed", "Movement speed"], ["broom", "Skiff speed"], ["exp_bonus", "Experience"], ["gold_bonus", "Oril found"]]],
+	["Movement and loot", [["move_speed", "Movement speed"], ["broom", "Broom speed"], ["exp_bonus", "Experience"], ["gold_bonus", "Oril found"]]],
 ]
 # i18n-end
 ## Properties key -> derived stat (RealmSession.derived_stats).

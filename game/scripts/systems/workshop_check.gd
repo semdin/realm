@@ -162,7 +162,7 @@ func _process(delta: float) -> void:
 				_sent = true
 				return
 			if workshop.target_uid != _wand_uid:
-				_verdict("the rod did not land on the anvil")
+				_verdict("the wand did not land on the anvil")
 				return
 			if _held >= HOLD:
 				_go("refine")

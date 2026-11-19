@@ -10,6 +10,7 @@
 
 pub mod catalog;
 pub mod maps;
+pub mod rename;
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -87,7 +88,7 @@ impl Content {
     }
 }
 
-/// The turning stairs a map's pack anchors, built from the content's
+/// The moving staircases a map's pack anchors, built from the content's
 /// `staircases` specs.
 pub fn staircases(
     content: &Content,

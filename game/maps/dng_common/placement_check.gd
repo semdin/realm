@@ -84,10 +84,13 @@ const ALLOW := [
 	# floor on purpose (a spire 0.5 m, a small clump 0.2 m, each tipped up to
 	# 0.08 / 0.15 rad): a flat-footed rock clump on the uneven cave floor
 	["spider_caverns", "seats", "unit", "Crags_", "stalagmite clumps planted into the floor (_crags)", "sunk"],
-	# castle_interior.gd _dress_portals: the Brine Vaults' door stands in the
-	# east corridor's wall, the back of its frame over the wall's
+	# dng_sealed_wing.gd _dress_hall: the hound's trapdoor (0.69 m of frame
+	# and door at 1.35x) is set 0.3 m into the hall's floor, a lip showing
+	["dng_sealed_wing", "seats", "unit", "(fc_trapdoor.glb)", "the trapdoor is set into the floor", "sunk"],
+	# castle_interior.gd _dress_portals: the Sealed Wing's door stands in the
+	# third-floor corridor's wall, the back of its frame over the wall's
 	# 0.55 m skirting, which runs on behind it
-	["castle_interior", "seats", "unit", "(fc_door.glb)", "the Brine Vaults' door set into the corridor wall, over its skirting", "sunk"],
+	["castle_interior", "seats", "unit", "(fc_door.glb)", "the Sealed Wing's door set into the corridor wall, over its skirting", "sunk"],
 	["grounds", "seats", "unit", "(boar.glb)",
 		"the gate boars' pedestals stand against the balustrade's piers (the pier's top is over the pedestal's corner)"],
 	# the crooked storybook house's chimney: its collider (village_kit.json,

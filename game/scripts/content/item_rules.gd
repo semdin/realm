@@ -61,7 +61,7 @@ static func wand_multiplier(tier: int) -> float:
 		return 1.0
 	return float((tiers[clampi(tier, 0, tiers.size() - 1)] as Dictionary).get("multiplier", 1.0))
 
-## The item a Waystake is (travel.json waylink.item).
+## The item a Waylink is (travel.json waylink.item).
 static func waylink_item() -> String:
 	if _travel.is_empty():
 		var loaded: Variant = RealmContent.table("travel")

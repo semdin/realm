@@ -5,6 +5,6 @@ International licence (CC BY 4.0): https://creativecommons.org/licenses/by/4.0/
 
 Changes: the models were decimated, their normal maps re-baked, their textures
 shrunk into one shared atlas, and they were arranged into table settings for the
-castle's Long Table and kitchens. The gold plates, platters and goblets are
+castle's Feast Hall and kitchens. The gold plates, platters and goblets are
 original geometry made for this project. The full list of packages used is in
 assets/credits/credits.json (see also assets/ASSET_CREDITS.md).
