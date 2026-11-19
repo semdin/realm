@@ -40,6 +40,10 @@ Sources: `art/skiffs/icons/`.
 * `icon_status_mounted.png`, `icon_ui_mount.png` - the Ashwood Skiff.
 * `icon_menu_mount.png` - a skiff on a ribbon of amber wind, full bleed, 256 px.
 
+* `icon_wand_{ashwood,hawthorn,runebound,silverthorn,emberwing,ithrel_replica,moonveil}.png`
+  - the seven rods (`tools/art/rod_art.py`), from our own renders in the same way.
+  Sources: `art/skiffs/rod_icons/`.
+
 ## 2026-10-16 additions (fal.ai) - enchantment scrolls
 
 Tool: fal.ai `google/nano-banana-2.1` (1K, 1:1), text prompt only (no input image).
@@ -139,8 +143,6 @@ Cut-out icons, 512 px:
 * `icon_mat_dragon_heartstring.png` - Deepvein Ore: a lump of dark ore split by a bright vein.
 * `icon_mat_night_steed_hair.png` - Starfall Filings: silver filings in a leather-lined dish.
 * `icon_mat_elder_core.png` - Keystone Ingot: a wedge-shaped ingot of dark star-metal.
-* `icon_wand_hawthorn.png` - Thornbark Rod: a thorny bark rod wrapped in salt-cured cord.
-* `icon_wand_ithrel_replica.png` - Starcore Rod: a forged iron bar with glowing seams.
 * `icon_status_despair.png` - Numbed: frost creeping over a clenched hand.
 * `icon_ui_kestrin.png` - a smith's hammer on a glowing bar across an anvil.
 

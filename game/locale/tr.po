@@ -3979,8 +3979,8 @@ msgstr "Altın tüylerle taçlanmış kızıl brokar, ucu bir kor gibi için iç
 msgid "Moonveil Hat"
 msgstr "Ayörtü Şapka"
 
-msgid "Silver-blue silk scattered with stars, a mithril crescent at its peak."
-msgstr "Yıldızlarla bezeli gümüş-mavi ipek, tepesinde mitril bir hilal."
+msgid "Silver-blue silk scattered with stars, a silver crescent at its peak."
+msgstr "Yıldızlarla bezeli gümüş-mavi ipek, tepesinde gümüş bir hilal."
 
 msgid "Runebound Gloves"
 msgstr "Rünlü Eldivenler"
@@ -4003,8 +4003,8 @@ msgstr "Altın telkari kenarlı kızıl semender derisi; parmak uçları kor gib
 msgid "Moonveil Gloves"
 msgstr "Ayörtü Eldivenler"
 
-msgid "Moonlit silk gloves threaded with starlight and mithril crescents."
-msgstr "Yıldız ışığı ve mitril hilallerle örülmüş ay ışıklı ipek eldivenler."
+msgid "Moonlit silk gloves threaded with starlight and silver crescents."
+msgstr "Yıldız ışığı ve gümüş hilallerle örülmüş ay ışıklı ipek eldivenler."
 
 msgid "Runebound Boots"
 msgstr "Rünlü Çizmeler"
@@ -4051,8 +4051,8 @@ msgstr "Altın velkar tüyleri arasında duran, ocak kadar sıcak parlayan kehri
 msgid "Moonveil Focus"
 msgstr "Ayörtü Odak"
 
-msgid "A star crystal suspended inside a mithril crescent, shining like the night sky."
-msgstr "Mitril bir hilalin içinde asılı, gece göğü gibi parlayan bir yıldız kristali."
+msgid "A star crystal suspended inside a silver crescent, shining like the night sky."
+msgstr "Gümüş bir hilalin içinde asılı, gece göğü gibi parlayan bir yıldız kristali."
 
 msgid "Runebound Pendant"
 msgstr "Rünlü Kolye"
@@ -4075,8 +4075,8 @@ msgstr "Yanan bir kehribar taşın çevresinde kanatlarını açmış altın bir
 msgid "Moonveil Pendant"
 msgstr "Ayörtü Kolye"
 
-msgid "A mithril crescent moon cradling a radiant star crystal."
-msgstr "Parlak bir yıldız kristalini kucaklayan mitril bir hilal."
+msgid "A silver crescent moon cradling a radiant star crystal."
+msgstr "Parlak bir yıldız kristalini kucaklayan gümüş bir hilal."
 
 msgid "Runebound Ring"
 msgstr "Rünlü Yüzük"
@@ -4099,8 +4099,8 @@ msgstr "Velkar biçiminde altın bir halka, gagasında kor gibi parlayan bir keh
 msgid "Moonveil Ring"
 msgstr "Ayörtü Yüzük"
 
-msgid "A mithril band set with a star crystal that shimmers like moonlight."
-msgstr "Ay ışığı gibi ışıldayan bir yıldız kristali kakılmış mitril halka."
+msgid "A silver band set with a star crystal that shimmers like moonlight."
+msgstr "Ay ışığı gibi ışıldayan bir yıldız kristali kakılmış gümüş halka."
 
 msgid "Weaver Silk"
 msgstr "Ağcı İpeği"
