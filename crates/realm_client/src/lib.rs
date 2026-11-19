@@ -946,6 +946,18 @@ impl RealmSession {
         }
     }
 
+    /// How far along the line from `from` to `to` the map's solids let it
+    /// run: 1 when nothing is in the way (the camera's walls).
+    #[func]
+    fn line_free(&self, from: Vector3, to: Vector3) -> f32 {
+        let Some(core) = self.core.as_ref() else {
+            return 1.0;
+        };
+        let a = realm_sim::Vec3::new(from.x, from.y, from.z);
+        let b = realm_sim::Vec3::new(to.x, to.y, to.z);
+        core.world().line_hit(a, b).unwrap_or(1.0)
+    }
+
     /// What a ray from `origin` along `dir` meets within `reach`: `entity`
     /// (the nearest creature or other player whose body it passes through, 0
     /// = none), `point` (where it meets that body or the world).

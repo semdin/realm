@@ -301,6 +301,26 @@ const DrawnMapCheckScript := "res://maps/dng_common/drawn_map_check.gd"
 const LightCheckScript := "res://scripts/systems/light_check.gd"
 const PolishCheckScript := "res://scripts/systems/polish_check.gd"
 const ControlsCheckScript := "res://scripts/systems/controls_check.gd"
+## Under a roof the lens stays on the hero's side of the walls: it comes in at
+## once and goes back out gently. The open grounds keep the free camera.
+const CAM_WALL_MARGIN := 0.35
+const CAM_WALL_NEAREST := 1.0
+const CAM_COME_IN := 40.0
+const CAM_GO_OUT := 10.0
+var _cam_room := -1.0
+
+func _camera_room(from: Vector3, offset: Vector3, delta: float) -> float:
+	var want := offset.length()
+	if map_name == "grounds":
+		_cam_room = -1.0
+		return want
+	var free: float = session.line_free(from, from + offset) * want
+	var target := clampf(free - CAM_WALL_MARGIN, minf(CAM_WALL_NEAREST, want), want)
+	if _cam_room < 0.0:
+		_cam_room = target
+	_cam_room = move_toward(_cam_room, target, delta * (CAM_COME_IN if target < _cam_room else CAM_GO_OUT))
+	return minf(_cam_room, want)
+
 ## Another player on the target card (the old game's colours).
 const PLAYER_TINT := Color(0.62, 0.84, 1.0)
 const PLAYER_BAR := Color(0.24, 0.62, 0.30)
@@ -2983,7 +3003,7 @@ func _process(delta: float) -> void:
 	var look_height := lerpf(CAM_NEAR_LOOK, 1.5, clampf((cam_distance - CAM_NEAR) / (CAM_LOOK_BLEND - CAM_NEAR), 0.0, 1.0))
 	var look_at_point := me + Vector3(0, look_height, 0)
 	var offset := Vector3(0, 0, cam_distance).rotated(Vector3.RIGHT, cam_pitch).rotated(Vector3.UP, cam_yaw + cam_side)
-	camera.position = look_at_point + offset
+	camera.position = look_at_point + offset.normalized() * _camera_room(look_at_point, offset, delta)
 	camera.look_at(look_at_point)
 
 	others = session.remote()
