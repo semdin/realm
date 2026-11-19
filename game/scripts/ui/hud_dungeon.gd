@@ -126,10 +126,17 @@ func _ready() -> void:
 	detail_col.add_child(_curses)
 
 	view.add_child(section(tr("Party at the gate")))
+	# It scrolls: on a small screen the button below stays inside the window.
+	var roster := ScrollContainer.new()
+	roster.name = "PartyRoster"
+	roster.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	roster.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	roster.custom_minimum_size = Vector2(0, 68)
+	view.add_child(roster)
 	_members = VBoxContainer.new()
 	_members.add_theme_constant_override("separation", 3)
-	_members.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	view.add_child(_members)
+	_members.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	roster.add_child(_members)
 	verdict = HudKit.label("", 14, HudKit.TEXT, HudKit.bold(), 3)
 	verdict.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	verdict.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
