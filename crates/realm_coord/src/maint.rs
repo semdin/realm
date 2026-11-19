@@ -270,11 +270,10 @@ impl Book {
         }
     }
 
-    /// A map that links mid-cycle hears where the cycle stands.
+    /// A map that links hears where the cycle stands, ONLINE too: a coordinator
+    /// that restarted has no cycle, and a map still closed by the old one
+    /// would stay frozen while logins are open again.
     pub fn tell_maintenance(&self, link: u64) {
-        if self.maint.state == State::Online {
-            return;
-        }
         self.to_link(
             link,
             CoordMsg::Maintenance {

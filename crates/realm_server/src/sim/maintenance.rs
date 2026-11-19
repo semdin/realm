@@ -48,6 +48,10 @@ impl Sim {
     pub(super) fn maintenance_told(&mut self, state: String, reason: String, seconds: u32) {
         let tick = self.tick;
         let m = &mut self.maintenance;
+        // Every link hears the state; nothing to do or tell when it is no news.
+        if state == "ONLINE" && m.state.is_empty() {
+            return;
+        }
         m.frozen = matches!(
             state.as_str(),
             "SAVING" | "DISCONNECTING" | "MAINTENANCE" | "FAILED"
