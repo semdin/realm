@@ -70,6 +70,8 @@ var _shop_view: VBoxContainer
 var _tab_seals: Label
 var _seals: Label
 var _shop_grid: GridContainer
+## The wares scroll when the screen is too short for all of them.
+var _shop_scroll: ScrollContainer
 ## Buy buttons by shop row (the check presses one).
 var buy_buttons: Array = []
 ## The purchase waiting for its answer (op id, -1 none) and the last answer
@@ -210,11 +212,19 @@ func _build_shop() -> VBoxContainer:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.custom_minimum_size.x = 200
 	words.add_child(hint)
+	_shop_scroll = ScrollContainer.new()
+	_shop_scroll.name = "Wares"
+	_shop_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# what the window has left over goes to the list too
+	_shop_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	view.add_child(_shop_scroll)
 	_shop_grid = GridContainer.new()
 	_shop_grid.columns = 2
+	_shop_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_shop_grid.add_theme_constant_override("h_separation", 6)
 	_shop_grid.add_theme_constant_override("v_separation", 6)
-	view.add_child(_shop_grid)
+	_shop_scroll.add_child(_shop_grid)
+	get_viewport().size_changed.connect(_fit_wares)
 	var wares := DungeonData.shop()
 	for i in wares.size():
 		var entry: Dictionary = wares[i]
@@ -265,6 +275,21 @@ func show_page(id: String) -> void:
 	for p: String in page_tabs:
 		(page_tabs[p] as Workshop.TabChip).selected = p == id
 	_refresh_shop()
+	_fit_wares()
+	# again once the window is laid out (wrapped lines measure at their real width)
+	_fit_wares.call_deferred()
+
+## Every ware shows when the screen has room; on a short screen (nine cards at
+## 720p ran past the window) the list keeps what fits above the action bar and
+## scrolls the rest. HudWindow sizes the card to its content, up to the screen
+## less 140 px.
+func _fit_wares() -> void:
+	if _shop_scroll == null or card == null or not _shop_view.visible:
+		return
+	var all := _shop_grid.get_combined_minimum_size().y
+	var room := get_viewport().get_visible_rect().size.y - 140.0
+	var others := card._content_margin.get_combined_minimum_size().y - _shop_scroll.custom_minimum_size.y
+	_shop_scroll.custom_minimum_size.y = maxf(minf(all, room - others), minf(all, 120.0))
 
 ## Dungeon Seals in the bag.
 func seal_count() -> int:
