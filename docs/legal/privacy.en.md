@@ -7,7 +7,7 @@ This policy explains what Thousand Realms ("the game") stores about you, why, fo
 ## What we store
 
 - **Account:** your username, a one-way hash of your password (Argon2id), a one-way hash of your recovery code, when the account was created, your last login, when you changed your password, and which version of the terms you accepted and when, including your confirmation that you are 16 or older. We cannot read your password or recovery code.
-- **Characters:** name, Watch, level, appearance, items, gold, quests, skills, position and other progress, with creation and update times.
+- **Characters:** name, house, level, appearance, items, gold, quests, skills, position and other progress, with creation and update times.
 - **Dungeon boards:** the fastest runs of the week show character names and levels to other players.
 - **Moderation:** bans and chat limits on your account with their reason, the players you have blocked, and a history of moderation actions.
 - **Reports:** when a player reports someone, we keep the names of both, the category, what the reporter wrote, the map, and the recent chat lines around that moment.
@@ -39,7 +39,7 @@ We do not sell your data and do not use it for advertising.
 
 ## Who can see it
 
-Other players see your character name, Watch, level, appearance, equipment and chat. Our hosting provider runs the servers that hold the data. GitHub hosts the game's downloads and the public support page, and itch.io hosts the launcher where it is offered there. Data may be processed outside your country, including where these providers operate. We may disclose data if the law requires it.
+Other players see your character name, house, level, appearance, equipment and chat. Our hosting provider runs the servers that hold the data. GitHub hosts the game's downloads and the public support page, and itch.io hosts the launcher where it is offered there. Data may be processed outside your country, including where these providers operate. We may disclose data if the law requires it.
 
 ## How long we keep it
 

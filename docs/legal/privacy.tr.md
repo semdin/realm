@@ -7,7 +7,7 @@ Bu politika, Thousand Realms'in ("oyun") hakkınızda neleri, neden ve ne kadar 
 ## Neleri saklıyoruz
 
 - **Hesap:** kullanıcı adınız, şifrenizin tek yönlü özeti (Argon2id), kurtarma kodunuzun tek yönlü özeti, hesabın oluşturulma zamanı, son girişiniz, şifre değiştirme zamanınız ve kabul ettiğiniz koşulların sürümü ile zamanı (16 yaşında veya daha büyük olduğunuza dair onayınız dahil). Şifrenizi veya kurtarma kodunuzu okuyamayız.
-- **Karakterler:** ad, Nöbet, seviye, görünüm, eşyalar, altın, görevler, yetenekler, konum ve diğer ilerleme bilgileri ile oluşturulma ve güncellenme zamanları.
+- **Karakterler:** ad, bina, seviye, görünüm, eşyalar, altın, görevler, yetenekler, konum ve diğer ilerleme bilgileri ile oluşturulma ve güncellenme zamanları.
 - **Zindan tabloları:** haftanın en hızlı koşuları, karakter adlarını ve seviyelerini diğer oyunculara gösterir.
 - **Moderasyon:** hesabınıza uygulanan yasaklar ve sohbet kısıtlamaları ile nedenleri, engellediğiniz oyuncular ve moderasyon işlemlerinin geçmişi.
 - **Bildirimler:** bir oyuncu başka birini bildirdiğinde iki tarafın adlarını, kategoriyi, bildirenin yazdıklarını, haritayı ve o andaki son sohbet satırlarını saklarız.
@@ -39,7 +39,7 @@ Verilerinizi satmıyor, reklam için kullanmıyoruz.
 
 ## Kimler görebilir
 
-Diğer oyuncular karakter adınızı, Nöbet'inizi, seviyenizi, görünümünüzü, ekipmanınızı ve sohbetinizi görür. Verilerin bulunduğu sunucuları barındırma sağlayıcımız çalıştırır. GitHub, oyunun indirmelerini ve herkese açık destek sayfasını barındırır; başlatıcı itch.io'da sunulduğunda onu itch.io barındırır. Veriler, bu sağlayıcıların faaliyet gösterdiği yerler dahil ülkeniz dışında işlenebilir. Yasa gerektirirse verileri açıklayabiliriz.
+Diğer oyuncular karakter adınızı, binanızı, seviyenizi, görünümünüzü, ekipmanınızı ve sohbetinizi görür. Verilerin bulunduğu sunucuları barındırma sağlayıcımız çalıştırır. GitHub, oyunun indirmelerini ve herkese açık destek sayfasını barındırır; başlatıcı itch.io'da sunulduğunda onu itch.io barındırır. Veriler, bu sağlayıcıların faaliyet gösterdiği yerler dahil ülkeniz dışında işlenebilir. Yasa gerektirirse verileri açıklayabiliriz.
 
 ## Ne kadar saklıyoruz
 
