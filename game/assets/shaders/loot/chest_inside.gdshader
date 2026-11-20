@@ -7,8 +7,9 @@ render_mode blend_mix, depth_draw_opaque, cull_disabled, diffuse_burley, specula
 // the lid is up (ChestView sets `inside_glow`), the light of what lies inside
 // welling up from the floor in the chest's own colour and breathing on the
 // grain. The UVs are the split script's planar ones (2 per metre).
-instance uniform vec4 inside_tint : source_color = vec4(1.0, 0.78, 0.36, 1.0);
-instance uniform float inside_glow = 0.0;
+// Fixed slots, clear of chest_rim's (0-7) on the same meshes.
+instance uniform vec4 inside_tint : source_color, instance_index(14) = vec4(1.0, 0.78, 0.36, 1.0);
+instance uniform float inside_glow : instance_index(15) = 0.0;
 uniform sampler2D noise : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform vec3 wood : source_color = vec3(0.1, 0.055, 0.03);
 // The model's heights (Blender metres, mesh space): the cavity floor and the rim.
