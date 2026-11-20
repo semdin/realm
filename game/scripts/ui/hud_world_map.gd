@@ -242,9 +242,11 @@ class MapView extends Control:
 	## Screen rects labels keep off this frame: marker icons, the player's
 	## arrow, the waypoint's pin, the storey title.
 	var _blocked: Array[Rect2] = []
-	## Labels drawn / skipped for want of room last frame (the check reads them).
+	## Labels drawn / skipped for want of room last frame, and where the drawn
+	## ones stand (the checks read them).
 	var labels_drawn := 0
 	var labels_skipped := 0
+	var label_rects: Array[Rect2] = []
 
 	func _init() -> void:
 		clip_contents = true
@@ -356,14 +358,17 @@ class MapView extends Control:
 	## round `at`, best first: Vector3(dx, dy, align) - the baseline at
 	## at + (dx, dy), the text's left edge (align 0), centre (0.5) or right
 	## edge (1) on that point. Labels go down in `rank` order (lower first); a
-	## `required` one is drawn at its least-crowded spot when none is free,
-	## any other is left out.
+	## `required` one with none of its spots free looks up to three lines
+	## farther out (`_farther`) and takes the spot that covers no other label,
+	## keeps off the first spots of the place names still to come (`claims`)
+	## and covers the fewest markers; any other is left out.
 	func _label(txt: String, at: Vector2, spots: Array, fs: int, colour: Color, font: Font, outline: Color,
-			outline_px: int, rank: int, required := false) -> void:
+			outline_px: int, rank: int, required := false, claims := false) -> void:
 		if txt == "" or not Rect2(Vector2.ZERO, size).has_point(at):
 			return
 		_labels.append({"txt": txt, "at": at, "spots": spots, "fs": fs, "colour": colour, "font": font,
-			"outline": outline, "outline_px": outline_px, "rank": rank, "required": required, "i": _labels.size()})
+			"outline": outline, "outline_px": outline_px, "rank": rank, "required": required, "claims": claims,
+			"i": _labels.size()})
 
 	## Below, above, right and left of a marker `radius` pixels round
 	## (`first` "above" puts above ahead of below).
@@ -388,12 +393,33 @@ class MapView extends Control:
 			spots.append(Vector3(line, dy, 0.0))
 		return spots
 
+	## `spots` moved a line of `line` pixels up and down, then two, then three:
+	## where a crowded required label stacks clear of its neighbours.
+	static func _farther(spots: Array, line: float) -> Array:
+		var out := []
+		for rows in [1, 2, 3]:
+			for spot: Vector3 in spots:
+				out.append(Vector3(spot.x, spot.y - line * rows, spot.z))
+				out.append(Vector3(spot.x, spot.y + line * rows, spot.z))
+		return out
+
 	static func _overlap(r: Rect2, others: Array) -> float:
 		var area := 0.0
 		for o: Rect2 in others:
 			var i := r.intersection(o)
 			area += i.get_area()
 		return area
+
+	## The box label `l` takes at `spot` (as `_label` reads spots), kept inside
+	## `frame`: never cut at an edge.
+	static func _spot_rect(l: Dictionary, spot: Vector3, frame: Rect2) -> Rect2:
+		var pad := float(l["outline_px"]) * 0.5
+		var base: Vector2 = l["at"] + Vector2(spot.x, spot.y)
+		var r := Rect2(base.x - float(l["w"]) * spot.z - pad, base.y - float(l["ascent"]) - pad,
+			float(l["w"]) + pad * 2.0, float(l["height"]) + pad * 2.0)
+		r.position.x = clampf(r.position.x, frame.position.x, maxf(frame.position.x, frame.end.x - r.size.x))
+		r.position.y = clampf(r.position.y, frame.position.y, maxf(frame.position.y, frame.end.y - r.size.y))
+		return r
 
 	## Lay the queued labels out and draw them.
 	func _place_labels() -> void:
@@ -402,37 +428,51 @@ class MapView extends Control:
 		var blocked: Array = _blocked
 		_labels.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 			return int(a["rank"]) < int(b["rank"]) if int(a["rank"]) != int(b["rank"]) else int(a["i"]) < int(b["i"]))
-		labels_drawn = 0
-		labels_skipped = 0
+		# the place names' first spots (on their point, nudged up or down): a
+		# required label moved out of its own spots keeps off them when it can
+		var claimed: Array = []
 		for l: Dictionary in _labels:
 			var font: Font = l["font"]
 			var fs: int = l["fs"]
-			var txt: String = l["txt"]
-			var pad := float(l["outline_px"]) * 0.5
-			var w := font.get_string_size(txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-			var ascent := font.get_ascent(fs)
-			var height := ascent + font.get_descent(fs)
+			l["w"] = font.get_string_size(String(l["txt"]), HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			l["ascent"] = font.get_ascent(fs)
+			l["height"] = font.get_ascent(fs) + font.get_descent(fs)
+			if bool(l["claims"]):
+				for spot: Vector3 in (l["spots"] as Array).slice(0, 3):
+					claimed.append(_spot_rect(l, spot, frame))
+		labels_drawn = 0
+		labels_skipped = 0
+		label_rects.clear()
+		for l: Dictionary in _labels:
 			var best := Rect2()
 			var best_cost := INF
-			for spot: Vector3 in l["spots"]:
-				var base: Vector2 = l["at"] + Vector2(spot.x, spot.y)
-				var r := Rect2(base.x - w * spot.z - pad, base.y - ascent - pad, w + pad * 2.0, height + pad * 2.0)
-				# kept inside the frame: never cut at an edge
-				r.position.x = clampf(r.position.x, frame.position.x, maxf(frame.position.x, frame.end.x - r.size.x))
-				r.position.y = clampf(r.position.y, frame.position.y, maxf(frame.position.y, frame.end.y - r.size.y))
-				var cost := _overlap(r, placed) * 4.0 + _overlap(r, blocked)
+			var on_text := 0.0
+			var spots: Array = l["spots"]
+			var near := spots.size()
+			var tried := 0
+			while tried < spots.size():
+				var r := _spot_rect(l, spots[tried], frame)
+				tried += 1
+				# text on text is never worth a free marker
+				var text := _overlap(r, placed)
+				var cost := text * 1000.0 + _overlap(r, blocked) + (_overlap(r, claimed) * 100.0 if tried > near else 0.0)
 				if cost < best_cost:
 					best_cost = cost
 					best = r
+					on_text = text
 				if cost <= 0.0:
 					break
+				if tried == near and on_text > 0.0 and bool(l["required"]):
+					spots = spots + _farther(spots, float(l["height"]) + float(l["outline_px"]))
 			if best_cost > 0.0 and not bool(l["required"]):
 				labels_skipped += 1
 				continue
 			placed.append(best.grow(1.0))
-			var p := Vector2(best.position.x + pad, best.position.y + pad + ascent)
-			draw_string_outline(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, int(l["outline_px"]), l["outline"])
-			draw_string(font, p, txt, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, l["colour"])
+			label_rects.append(best)
+			var pad := float(l["outline_px"]) * 0.5
+			var p := Vector2(best.position.x + pad, best.position.y + pad + float(l["ascent"]))
+			draw_string_outline(l["font"], p, String(l["txt"]), HORIZONTAL_ALIGNMENT_LEFT, -1, l["fs"], int(l["outline_px"]), l["outline"])
+			draw_string(l["font"], p, String(l["txt"]), HORIZONTAL_ALIGNMENT_LEFT, -1, l["fs"], l["colour"])
 			labels_drawn += 1
 
 	func _draw() -> void:
@@ -469,8 +509,9 @@ class MapView extends Control:
 					var fs := int(clampf(15.0 * float(spec[2]) * (0.75 + zoom * 0.6), 11.0, 30.0))
 					# the big regions claim their room after the quests and gates,
 					# the small landmarks after the people
+					var big := float(spec[2]) >= 1.0
 					_label(I18n.t(String(spec[0])), world_to_screen(spec[1]), _centred(fs), fs, Color(0.22, 0.13, 0.06), deco,
-						Color(0.98, 0.94, 0.84, 0.85), 5, 15 if float(spec[2]) >= 1.0 else 40)
+						Color(0.98, 0.94, 0.84, 0.85), 5, 15 if big else 40, false, big)
 			"castle":
 				var offset: Vector3 = host.way.game.session.copy_offset()
 				for room: Array in MapPlaces.CASTLE_ROOMS:
@@ -479,13 +520,13 @@ class MapView extends Control:
 					var c := Vector2((float(room[2]) + float(room[3])) * 0.5, (float(room[4]) + float(room[5])) * 0.5)
 					var fs := int(clampf(6.0 + zoom * 2.2, 10.0, 22.0))
 					_label(I18n.t(String(room[0])), world_to_screen(c + Vector2(offset.x, offset.z)) + Vector2(0, fs * 0.35),
-						_centred(fs), fs, INK, deco, Color(0.95, 0.88, 0.72, 0.7), 3, 55)
+						_centred(fs), fs, INK, deco, Color(0.95, 0.88, 0.72, 0.7), 3, 55, false, true)
 			"caverns":
 				for region: Dictionary in MapPlaces.hunting_regions(host.way.map_name):
 					var c: Array = region.get("center", [0.0, 0.0])
 					var fs := int(clampf(10.0 + zoom * 3.0, 11.0, 20.0))
 					_label(I18n.t(String(region.get("display", ""))), world_to_screen(Vector2(float(c[0]), float(c[1]))),
-						_centred(fs), fs, HudKit.GOLD_HI, HudKit.bold(), Color(0, 0, 0, 0.9), 5, 55)
+						_centred(fs), fs, HudKit.GOLD_HI, HudKit.bold(), Color(0, 0, 0, 0.9), 5, 55, false, true)
 
 	## Doors, gates, travel objects, NPCs, quest targets.
 	func _draw_markers() -> void:
