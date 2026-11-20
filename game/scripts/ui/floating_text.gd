@@ -12,16 +12,19 @@ class_name FloatingText
 ## figures, so a figure scales and slides smoothly and a total that grows does
 ## not jitter.
 ##
-## The look, loudest first: a critical hit is warm gold, larger, with a short
-## scale pop; a normal hit of the player's is a calm warm white; a blow taken
-## is a muted red beside the hero, healing a soft green on its other side; what
-## other people do, damage over time and misses are small and quiet. The edge
-## is a thin dark line in a soft shade, no plate behind the figures.
+## The look, loudest first: a critical hit is deep gold, larger, slams in with
+## a shake over a short flare of light; a normal hit of the player's is a warm
+## white that pops in; a blow taken is a muted red beside the hero, healing a
+## soft green on its other side; what other people do, damage over time and
+## misses are small and quiet. Every figure is lit from above (`SHADER`: pale
+## at the top of the digits, deeper at their foot), with a crisp dark edge and
+## a hard shadow under it, and shrinks a little as it fades.
 ##
-## A figure stands beside the body it belongs to (past the body's width on
-## screen, alternating sides) and rises from there, so it does not cover what
-## is being fought; one whose rise would run into the body's nameplate starts
-## lower and ends under the plate. A new figure takes a row whose whole path is
+## A blow on the player stands beside it (past its width on screen) and rises
+## from there; one whose rise would run into its nameplate starts lower and
+## ends under the plate. A blow on any other body (`OVER`) stands over that
+## body's nameplate, near its middle, so a far foe's figure is on the foe and
+## not halfway to the camera. A new figure takes a row whose whole path is
 ## clear of every figure already up while both are plainly seen: an older one
 ## slows as its rise eases out while the new one sets off fast, so being clear
 ## of where the older one is now is not enough. Quick repeats on one body add
@@ -36,7 +39,7 @@ enum Style { HIT, FINISHER, CRIT, TAKEN, TAKEN_CRIT, HEAL, ALLY, ALLY_CRIT, ALLY
 
 ## A plain hit's letters at a 900 px window and interface scale 1 (canvas
 ## pixels); the window's height scales them within UNIT_MIN..UNIT_MAX.
-const BASE_PX := 27.5
+const BASE_PX := 22.0
 const REF_HEIGHT := 900.0
 const UNIT_MIN := 0.85
 const UNIT_MAX := 2.4
@@ -80,7 +83,7 @@ const FAN_REST := 0.7
 ## From this far away figures shrink, to FAR_SCALE at FAR_DISTANCE.
 const NEAR_DISTANCE := 14.0
 const FAR_DISTANCE := 50.0
-const FAR_SCALE := 0.8
+const FAR_SCALE := 0.72
 ## Past this nobody needs the figure: the player's own, anyone else's.
 const OWN_REACH := 90.0
 const OTHER_REACH := 46.0
@@ -90,14 +93,57 @@ const HUD_FADE := 44.0
 ## A merged figure's little bump.
 const BUMP_TIME := 0.12
 const BUMP_SIZE := 0.1
-## The edge: the widths are outline sizes at SHAPE_PX.
-const EDGE_WIDTH := 4
-const SHADE_NEAR := 8
-const SHADE_FAR := 14
+## A critical hit shakes side to side as it lands (px at unit 1), and every
+## figure ends its fade this much smaller.
+const SHAKE_TIME := 0.2
+const SHAKE_RATE := 70.0
+const SHAKE_PX := 3.0
+const FADE_SHRINK := 0.84
+## The edge: the widths are outline sizes at SHAPE_PX; the hard shadow sits
+## DROP under the figure (at SHAPE_PX).
+const EDGE_WIDTH := 5
+const SHADE_NEAR := 9
+const SHADE_FAR := 15
 const SHADE_DROP := 1.2
+const DROP := 2.6
+## `side` for a figure over its body's nameplate (`figure`), and how far over
+## the anchor a plate counts for it (metres).
+const OVER := 3
+const PLATE_AT := 0.01
+## Over a plate a figure rises this share of its style's rise (it starts high
+## already), fanned this share of its width to either side.
+const OVER_RISE := 0.6
+const OVER_FAN := 0.7
+## A critical hit's flare: how long it flashes and how wide it stands round
+## the figure.
+const FLARE_TIME := 0.3
+const FLARE_WIDE := 1.9
+const FLARE_TALL := 1.55
+## The light over the figures: the share of a glyph's height (at SHAPE_PX)
+## the digits stand over the baseline.
+const FIGURE_TOP := 0.7
+const SHADER := """shader_type canvas_item;
+// Lit from above: a bright fill turns pale at the top of the digits and
+// deeper at their foot; the dark edge and shadows keep their colour.
+uniform float top_y;
+uniform float foot_y;
+varying float local_y;
+void vertex() {
+	local_y = VERTEX.y;
+}
+void fragment() {
+	float lit = smoothstep(0.22, 0.42, dot(COLOR.rgb, vec3(0.299, 0.587, 0.114)));
+	float t = clamp((local_y - top_y) / (foot_y - top_y), 0.0, 1.0);
+	vec3 top = mix(COLOR.rgb, vec3(1.0), 0.42);
+	vec3 foot = COLOR.rgb * vec3(0.8, 0.7, 0.62);
+	vec3 shaded = mix(top, foot, smoothstep(0.08, 0.95, t));
+	COLOR.rgb = mix(COLOR.rgb, shaded, lit);
+}
+"""
 
 const WARM_WHITE := Color(0.965, 0.935, 0.865)
 const GOLD := Color(1.0, 0.79, 0.38)
+const CRIT_GOLD := Color(1.0, 0.72, 0.2)
 const GOLD_FLASH := Color(1.0, 0.95, 0.8)
 const MUTED_RED := Color(0.93, 0.43, 0.37)
 const SOFT_GREEN := Color(0.62, 0.89, 0.64)
@@ -117,12 +163,12 @@ const INK_GREEN := Color(0.03, 0.09, 0.05)
 ## (0: the critical hit's pop); shade: how much of the soft dark round the
 ## glyphs.
 const STYLES := {
-	Style.HIT: {"size": 1.0, "rise": 40.0, "life": 0.85, "merge": 0.13, "rank": 1, "open": 0.88,
+	Style.HIT: {"size": 1.0, "rise": 40.0, "life": 0.85, "merge": 0.13, "rank": 1, "open": 0.62,
 		"fill": WARM_WHITE, "ink": INK, "shade": 1.0},
-	Style.FINISHER: {"size": 1.08, "rise": 44.0, "life": 0.92, "merge": 0.0, "rank": 1, "open": 0.84,
+	Style.FINISHER: {"size": 1.1, "rise": 44.0, "life": 0.92, "merge": 0.0, "rank": 1, "open": 0.58,
 		"fill": WARM_WHITE, "ink": INK, "shade": 1.0},
-	Style.CRIT: {"size": 1.24, "rise": 50.0, "life": 1.15, "merge": 0.0, "rank": 2, "open": 0.0,
-		"fill": GOLD, "ink": INK_GOLD, "shade": 1.0},
+	Style.CRIT: {"size": 1.34, "rise": 50.0, "life": 1.15, "merge": 0.0, "rank": 2, "open": 0.0,
+		"fill": CRIT_GOLD, "ink": INK_GOLD, "shade": 1.0},
 	Style.TAKEN: {"size": 0.92, "rise": 30.0, "life": 0.95, "merge": 0.13, "rank": 2, "open": 0.88,
 		"fill": MUTED_RED, "ink": INK_RED, "shade": 1.0},
 	Style.TAKEN_CRIT: {"size": 1.12, "rise": 36.0, "life": 1.1, "merge": 0.0, "rank": 2, "open": 0.0,
@@ -182,6 +228,9 @@ class Pop:
 static var _active: FloatingText = null
 
 var _canvas: Control
+## Under the figures: the critical hits' flares.
+var _glow: Control
+var _flare: GradientTexture2D
 var _font: Font
 var _word_font: Font
 var _live: Array[Pop] = []
@@ -205,9 +254,9 @@ static func figure(style: int, amount: int, key: int, at: Vector3, body: Node3D 
 		_active._add(style, amount, _figure_text(style, amount), key, at, body, girth, side, plate)
 
 ## A short word in place of a figure ("Evaded"), placed like one.
-static func note(text: String, key: int, at: Vector3, body: Node3D = null, girth := 0.45, plate := 0.0) -> void:
+static func note(text: String, key: int, at: Vector3, body: Node3D = null, girth := 0.45, plate := 0.0, side := 0) -> void:
 	if _active != null:
-		_active._add(Style.QUIET, 0, text, key, at, body, girth, 0, plate)
+		_active._add(Style.QUIET, 0, text, key, at, body, girth, side, plate)
 
 ## A word over `at` (world space): a status, a level, a title. `scale_mult`
 ## sizes it, `seconds` > 0 is how long it stays, `plate` as for a figure; its
@@ -250,17 +299,54 @@ func _exit_tree() -> void:
 func _ready() -> void:
 	_font = UITheme.world_font(UITheme.W_BOLD, true)
 	_word_font = UITheme.world_font(UITheme.W_BOLD)
+	_glow = Control.new()
+	_glow.name = "FlareCanvas"
+	_glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_glow.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_glow.draw.connect(_draw_flares)
+	add_child(_glow)
+	_flare = _flare_texture()
 	_canvas = Control.new()
 	_canvas.name = "TextCanvas"
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_canvas.draw.connect(_draw_all)
+	_canvas.material = _lit_material()
 	add_child(_canvas)
 	for i in MAX_POPS:
 		_free.append(Pop.new())
 	if enabled():
 		_shape_glyphs(_font, FIGURES)
 	set_process(false)
+
+## The light from above, told where the digits stand in a shaped line (drawn
+## centred on its point, at SHAPE_PX).
+func _lit_material() -> ShaderMaterial:
+	var shader := Shader.new()
+	shader.code = SHADER
+	var material := ShaderMaterial.new()
+	material.shader = shader
+	var height := _font.get_height(SHAPE_PX)
+	var baseline := -height * 0.5 + _font.get_ascent(SHAPE_PX)
+	material.set_shader_parameter("top_y", baseline - SHAPE_PX * FIGURE_TOP)
+	material.set_shader_parameter("foot_y", baseline)
+	return material
+
+## A soft round light, stretched wider than tall where it is drawn.
+static func _flare_texture() -> GradientTexture2D:
+	var gradient := Gradient.new()
+	gradient.set_color(0, Color(1, 1, 1, 1))
+	gradient.set_color(1, Color(1, 1, 1, 0))
+	gradient.add_point(0.3, Color(1, 1, 1, 0.55))
+	gradient.add_point(0.62, Color(1, 1, 1, 0.12))
+	var texture := GradientTexture2D.new()
+	texture.gradient = gradient
+	texture.fill = GradientTexture2D.FILL_RADIAL
+	texture.fill_from = Vector2(0.5, 0.5)
+	texture.fill_to = Vector2(1.0, 0.5)
+	texture.width = 96
+	texture.height = 96
+	return texture
 
 func _shape_glyphs(font: Font, glyphs: String) -> void:
 	var line := TextLine.new()
@@ -311,7 +397,7 @@ func _add(style: int, value: int, text: String, key: int, at: Vector3, body: Nod
 	pop.anchor = at
 	pop.body = body
 	pop.offset = at - body.global_position if body != null else Vector3.ZERO
-	pop.rise = float(data["rise"])
+	pop.rise = float(data["rise"]) * (OVER_RISE if side == OVER else 1.0)
 	pop.life = float(data["life"])
 	pop.rank = rank
 	pop.opening = float(data["open"])
@@ -388,7 +474,8 @@ func _shape(pop: Pop, text: String) -> void:
 	pop.height = size.y
 
 ## Where a new figure stands from its anchor, in canvas pixels: beside the body
-## (`side` 1 right, -1 left, 0 alternating, 2 straight over the anchor), a row
+## (`side` 1 right, -1 left, 0 alternating, 2 straight over the anchor, OVER
+## over it near the middle, fanned a little), a row
 ## lower each round of the fan, low enough that its rise ends under the
 ## nameplate (a word placed over a plate: above it), and on a path no figure
 ## already up crosses: the fan's row when it is clear, else the first clear one
@@ -400,7 +487,17 @@ func _lane(cam: Camera3D, pop: Pop, at: Vector3, girth: float, side: int, plate:
 	var box := Vector2(pop.width, pop.height * 0.74) * k
 	var lane_x := 0.0
 	var fan_y := 0.0
-	if side != 2:
+	if side == OVER:
+		# over the plate: the middle, then a little right, a little left
+		var fan: Array = _fans.get(pop.key, [0, 0.0])
+		if float(fan[1]) > FAN_REST:
+			fan[0] = 0
+		var count := int(fan[0])
+		fan[0] = count + 1
+		fan[1] = 0.0
+		_fans[pop.key] = fan
+		lane_x = [0.0, OVER_FAN, -OVER_FAN][count % 3] * box.x
+	elif side != 2:
 		var fan: Array = _fans.get(pop.key, [0, 0.0])
 		if float(fan[1]) > FAN_REST:
 			fan[0] = 0
@@ -555,6 +652,7 @@ func _process(delta: float) -> void:
 		if float(fan[1]) > FAN_REST:
 			_fans.erase(key)
 	_canvas.queue_redraw()
+	_glow.queue_redraw()
 	if _live.is_empty():
 		_fans.clear()
 		set_process(false)
@@ -571,21 +669,27 @@ func _step(pop: Pop, cam: Camera3D, canvas: Vector2) -> void:
 		return
 	pop.base = _base(pop, raw, canvas)
 	pop.at = pop.base + _drift(pop, pop.lane, t)
+	if pop.opening <= 0.0 and t < SHAKE_TIME:
+		pop.at.x += sin(t * SHAKE_RATE) * SHAKE_PX * _unit * (1.0 - t / SHAKE_TIME)
 	var bump := maxf(0.0, 1.0 - pop.touched / BUMP_TIME) * BUMP_SIZE if t > BUMP_TIME else 0.0
-	pop.scale = _scale_at(pop, t) + bump
 	var fade_from := pop.life * (1.0 - FADE_SHARE)
+	pop.scale = (_scale_at(pop, t) + bump) * lerpf(1.0, FADE_SHRINK, smoothstep(fade_from, pop.life, t))
 	pop.alpha = smoothstep(0.0, FADE_IN, t) * (1.0 - smoothstep(fade_from, pop.life, t)) \
 		* smoothstep(HUD_TOP, HUD_TOP + HUD_FADE, pop.at.y)
-	pop.tint = GOLD_FLASH.lerp(pop.fill, smoothstep(0.03, 0.2, t)) if pop.fill == GOLD else pop.fill
+	pop.tint = GOLD_FLASH.lerp(pop.fill, smoothstep(0.03, 0.2, t)) if pop.opening <= 0.0 else pop.fill
 
-## The opening: a plain figure settles up from `opening`; a critical one
-## (`opening` 0) starts small, passes its size and comes back.
+## The opening: a plain figure pops up from `opening` past its size and
+## settles; a critical one (`opening` 0) slams down from large, passes under
+## its size and comes back.
 static func _scale_at(pop: Pop, t: float) -> float:
 	if pop.opening > 0.0:
-		return lerpf(pop.opening, 1.0, 1.0 - pow(1.0 - minf(t / 0.09, 1.0), 2.0))
-	if t < 0.075:
-		return lerpf(0.72, 1.16, 1.0 - pow(1.0 - t / 0.075, 2.0))
-	return lerpf(1.16, 1.0, smoothstep(0.075, 0.24, t))
+		if t < 0.07:
+			return lerpf(pop.opening, 1.1, 1.0 - pow(1.0 - t / 0.07, 2.0))
+		return lerpf(1.1, 1.0, smoothstep(0.07, 0.18, t))
+	if t < 0.08:
+		var u := t / 0.08
+		return lerpf(1.8, 0.92, u * (2.0 - u))
+	return lerpf(0.92, 1.0, smoothstep(0.08, 0.2, t))
 
 func _draw_all() -> void:
 	var rid := _canvas.get_canvas_item()
@@ -604,8 +708,24 @@ func _draw_pop(rid: RID, pop: Pop) -> void:
 	pop.line.draw_outline(rid, at + Vector2(0.0, SHADE_DROP), SHADE_FAR, ink)
 	ink.a = pop.alpha * pop.alpha * 0.34 * pop.shade
 	pop.line.draw_outline(rid, at + Vector2(0.0, SHADE_DROP * 0.5), SHADE_NEAR, ink)
-	ink.a = pop.alpha * 0.86
+	# the hard shadow, then the edge
+	ink.a = pop.alpha * 0.8 * pop.shade
+	pop.line.draw_outline(rid, at + Vector2(0.0, DROP), EDGE_WIDTH, ink)
+	ink.a = pop.alpha * 0.92
 	pop.line.draw_outline(rid, at, EDGE_WIDTH, ink)
 	var fill := pop.tint
 	fill.a = pop.alpha
 	pop.line.draw(rid, at, fill)
+
+## The flares under critical hits: a flash as one lands, then a faint light.
+func _draw_flares() -> void:
+	var rid := _glow.get_canvas_item()
+	for pop: Pop in _live:
+		if pop.opening > 0.0 or pop.rank == 0 or pop.alpha <= 0.004:
+			continue
+		var flash := 1.0 - smoothstep(0.0, FLARE_TIME, pop.age)
+		var k := _size_of(pop) * pop.scale / float(SHAPE_PX)
+		var size := Vector2(pop.width * FLARE_WIDE, pop.height * FLARE_TALL) * k * (1.25 - 0.35 * flash)
+		var colour := pop.fill.lerp(GOLD_FLASH, 0.35 * flash)
+		colour.a = pop.alpha * (0.2 + 0.5 * flash)
+		RenderingServer.canvas_item_add_texture_rect(rid, Rect2(pop.at - size * 0.5, size), _flare.get_rid(), false, colour)

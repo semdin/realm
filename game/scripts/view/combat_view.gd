@@ -20,10 +20,8 @@ class_name CombatView
 
 ## Where a cast aims on a creature, above its feet (the server's chest height).
 const CHEST := 1.15
-## Damage numbers stand beside the upper body: this share of its height
-## (head_height where the view has one, else DEFAULT_TOP) over the feet.
-const NUMBER_RISE := 0.82
-const DEFAULT_TOP := 2.0
+## A body's nameplate stands this much over its head_height (where the view
+## has one); damage numbers on any body but the player's stand over the plate.
 const PLATE_OVER_HEAD := 0.45
 ## The local player's numbers stand at the chest (the nameplate holds the space
 ## over the head): blows on the camera's right, healing on its left.
@@ -322,16 +320,19 @@ func _number(event: Dictionary) -> void:
 	var feet: Vector3 = drawn[target]
 	var body := _body(target)
 	var own := target == own_id
-	var height := OWN_NUMBER_HEIGHT if own else _top_of(body) * NUMBER_RISE
+	# the player's own wounds beside it; every other body's over its nameplate
+	# (a number set beside a far body, under its plate, landed by the player)
+	var height := OWN_NUMBER_HEIGHT if own else _plate_of(body)
 	var at := feet + Vector3.UP * height
 	var girth := HERO_GIRTH if own else _girth_of(body)
-	var plate := _plate_of(body) - height
+	var plate := _plate_of(body) - height if own else -FloatingText.PLATE_AT
+	var side := 1 if own else FloatingText.OVER
 	if (flags & FLAG_EVADE) != 0:
 		evades_shown += 1
-		FloatingText.note(tr("Evaded"), target, at, body, girth, plate)
+		FloatingText.note(tr("Evaded"), target, at, body, girth, plate, side)
 		return
 	if amount <= 0:
-		FloatingText.note(tr("Blocked"), target, at, body, girth, plate)
+		FloatingText.note(tr("Blocked"), target, at, body, girth, plate, side)
 		return
 	var style: int
 	if own:
@@ -349,7 +350,7 @@ func _number(event: Dictionary) -> void:
 		style = FloatingText.Style.FINISHER
 	else:
 		style = FloatingText.Style.HIT
-	FloatingText.figure(style, amount, target, at, body, girth, 1 if own else 0, plate)
+	FloatingText.figure(style, amount, target, at, body, girth, side, plate)
 
 ## Healing the player received, on the side away from the blows.
 func show_heal(amount: int) -> void:
@@ -370,11 +371,6 @@ func note_health(vitals: PackedInt32Array) -> void:
 	_seen_max = vitals[1]
 	if steady and gained >= maxi(HEAL_SHOWN, ceili(vitals[1] * HEAL_SHARE)):
 		show_heal(gained)
-
-## How tall a body stands for its numbers.
-static func _top_of(body: Node3D) -> float:
-	var top: Variant = body.get("head_height") if body != null else null
-	return float(top) if top != null and float(top) > 0.5 else DEFAULT_TOP
 
 ## Where a body's nameplate stands over its feet (main.gd's and Nameplates').
 static func _plate_of(body: Node3D) -> float:
