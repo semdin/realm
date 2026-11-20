@@ -30,6 +30,8 @@ import numpy as np
 from mathutils import Vector, kdtree
 from mathutils.bvhtree import BVHTree
 from bl_ext.user_default.mpfb.services import HumanService, TargetService, ClothesService
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from bake_util import raster as raster_mesh  # noqa: E402
 
 args = sys.argv[sys.argv.index('--') + 1:]
 OUT = os.path.abspath(args[0])
@@ -98,6 +100,11 @@ FACE_TYPES = {
     'triangular': ['head/head-triangular'], 'diamond': ['head/head-diamond'],
 }
 FACE_TYPE_WEIGHT = 0.7
+
+
+def smooth_(a, b, x):
+    t = min(1.0, max(0.0, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
 
 
 def log(*a):
@@ -496,6 +503,40 @@ def joint(name):
 
 LM = {n: joint('joint-' + n) for n in ('l-eye', 'r-eye', 'mouth', 'jaw', 'head', 'neck')}
 log('landmarks', {k: tuple(np.round(v, 4)) for k, v in LM.items()})
+
+# ------------------------------------------------------------------ the lid margins
+# MakeHuman's own eyelash proxy is fitted with its roots on the lid margins:
+# its vertices touching the skin are the roots, the ones furthest from it
+# the tips. Binned along each lid (inner = toward the nose -> outer corner)
+# they give the margin line and the designed lash direction there.
+MARGINS = {}
+mh_lash = rest_h['lashes']
+_hb = BVHTree.FromPolygons(hi_rest.tolist(), [tuple(p.vertices) for p in head_me.polygons])
+d_skin = np.array([_hb.find_nearest(Vector(p))[3] for p in mh_lash])
+for side in ('l', 'r'):
+    centre = LM[side + '-eye']
+    out_sign = 1.0 if centre[0] > 0 else -1.0
+    near = np.abs(mh_lash[:, 0] - centre[0]) < 0.03
+    MARGINS[side] = {'centre': centre, 'out': out_sign}
+    for lid, sel in (('upper', mh_lash[:, 2] > centre[2] - 0.002), ('lower', mh_lash[:, 2] <= centre[2] - 0.002)):
+        idx = np.where(near & sel)[0]
+        pts, ds = mh_lash[idx], d_skin[idx]
+        xo = (pts[:, 0] - centre[0]) * out_sign
+        bins = np.linspace(xo.min(), xo.max(), 13)
+        roots, dirs = [], []
+        for b0, b1 in zip(bins[:-1], bins[1:]):
+            inb = np.where((xo >= b0) & (xo <= b1))[0]
+            if len(inb) < 2:
+                continue
+            order = inb[np.argsort(ds[inb])]
+            k = max(1, len(order) // 3)
+            r_, t_ = pts[order[:k]].mean(0), pts[order[-k:]].mean(0)
+            roots.append(r_)
+            dirs.append((t_ - r_) / max(np.linalg.norm(t_ - r_), 1e-9))
+        MARGINS[side][lid] = np.array(roots)
+        MARGINS[side][lid + '_dir'] = np.array(dirs)
+    log('lid margin %s: upper %d lower %d points, root-skin %.2f mm'
+        % (side, len(MARGINS[side]['upper']), len(MARGINS[side]['lower']), 1000 * d_skin[near].min()))
 bpy.data.objects.remove(lo)
 log('subdivided head verts %d faces %d' % (len(head_me.vertices), len(head_me.polygons)))
 
@@ -723,6 +764,26 @@ uvl = head_me.uv_layers.active.data
 uv = np.zeros(len(uvl) * 2, np.float32)
 uvl.foreach_get('uv', uv)
 uv = uv.reshape(-1, 2)
+# the lash line: the lid's skin darkens where the lashes grow (a thin dark
+# line along the upper lid, fainter under the eye)
+def _dist_to(points, poly):
+    d = np.full(len(points), 1e9)
+    for a_, b_ in zip(poly[:-1], poly[1:]):
+        ab = b_ - a_
+        t = np.clip(((points - a_) @ ab) / max(ab @ ab, 1e-12), 0, 1)
+        d = np.minimum(d, np.linalg.norm(points - (a_ + t[:, None] * ab), axis=1))
+    return d
+
+
+near_eye = np.zeros(len(hi_rest))
+for m in MARGINS.values():
+    du = _dist_to(hi_rest, m['upper'])
+    dl = _dist_to(hi_rest, m['lower'])
+    near_eye = np.maximum(near_eye, 0.5 * np.exp(-(du / 0.0011) ** 2) + 0.12 * np.exp(-(du / 0.003) ** 2))
+    near_eye = np.maximum(near_eye, 0.28 * np.exp(-(dl / 0.0008) ** 2))
+lash_line = raster_mesh(head_me, near_eye[:, None].astype(np.float32), CW, CH)[..., 0]
+albedo[..., :3] *= (1.0 - lash_line)[..., None]
+albedo_dark[..., :3] *= (1.0 - 0.6 * lash_line)[..., None]
 save_img(os.path.join(OUT, 'head_albedo.png'), albedo)
 save_img(os.path.join(OUT, 'head_albedo_dark.png'), albedo_dark)
 
@@ -883,12 +944,95 @@ def face_outward(ob):
 log('eye normals flipped: eyeball %s cornea %s' % (face_outward(eyeball), face_outward(cornea)))
 part_objs['eyes'] = eyeball
 part_objs['cornea'] = cornea
+
+# ------------------------------------------------------------------ eyelashes
+# Strips along each lid margin, inner -> outer corner; each column a lash
+# direction that curls away from the eye (up for the upper lid, down for the
+# lower one), longest on the outer third. The lash atlas (strand_atlas.py
+# --lashes) is mapped along the strip (u) and root -> tip (v). Each column
+# rides the head vertex nearest its root through the shape keys.
+from mathutils import kdtree as _kd
+_tree = _kd.KDTree(len(hi_rest))
+for i, p in enumerate(hi_rest):
+    _tree.insert(Vector(p), i)
+_tree.balance()
+LASH_V = {'upper': (1 - 8 / 512, 1 - 250 / 512), 'lower': (1 - 264 / 512, 1 - 400 / 512)}
+
+
+def _resample(poly, n):
+    """n points evenly spaced along the polyline by arc length."""
+    cum = np.concatenate([[0], np.cumsum(np.linalg.norm(np.diff(poly, axis=0), axis=1))])
+    ts = np.linspace(0, cum[-1], n)
+    return np.stack([np.interp(ts, cum, poly[:, k]) for k in range(3)], 1)
+
+
+lv, lf, luv, lroot = [], [], [], []
+fwd, up = np.array([0.0, -1.0, 0.0]), np.array([0.0, 0.0, 1.0])
+for side, m in MARGINS.items():
+    out = np.array([m['out'], 0.0, 0.0])
+    for lid, n_cols in (('upper', 18), ('lower', 13)):
+        pts = _resample(m[lid], n_cols)
+        # the root line smoothed (a moving average keeps the strip from
+        # crumpling); the lashes leave the lid forward and curl away from
+        # the eye toward their tips
+        sm = pts.copy()
+        sm[1:-1] = (pts[:-2] + 2 * pts[1:-1] + pts[2:]) / 4
+        pts = sm
+        v_root, v_tip = LASH_V[lid]
+        col0 = len(lv)
+        for i, mp in enumerate(pts):
+            s_ = i / (n_cols - 1)
+            root = mp
+            if lid == 'upper':
+                length = 0.0058 + 0.0050 * smooth_(0.0, 0.65, s_) - 0.0022 * smooth_(0.88, 1.0, s_)
+                d = fwd * 1.0 + up * 0.22 + out * 0.25 * s_
+                curl = up * 0.55
+            else:
+                length = 0.0024 + 0.0018 * smooth_(0.1, 0.7, s_) - 0.001 * smooth_(0.88, 1.0, s_)
+                d = fwd * 1.0 - up * 0.12 + out * 0.15 * s_
+                curl = -up * 0.25
+            d = d / np.linalg.norm(d)
+            for t in (0.0, 0.5, 1.0):
+                lv.append(root + d * length * t + curl * length * t * t)
+                luv.append((s_, v_root + (v_tip - v_root) * t))
+                lroot.append(_tree.find(Vector(mp))[1])
+        for i in range(n_cols - 1):
+            a0, b0 = col0 + i * 3, col0 + (i + 1) * 3
+            lf.append((a0, b0, b0 + 1, a0 + 1))
+            lf.append((a0 + 1, b0 + 1, b0 + 2, a0 + 2))
+lv = np.array(lv)
+lm = bpy.data.meshes.new('Face_Lashes')
+lm.from_pydata(lv.tolist(), [], lf)
+luvl = lm.uv_layers.new(name='UVMap')
+for poly in lm.polygons:
+    for loop, vi in zip(poly.loop_indices, poly.vertices):
+        luvl.data[loop].uv = luv[vi]
+for poly in lm.polygons:
+    poly.use_smooth = True
+lm.normals_split_custom_set_from_vertices([tuple(fwd)] * len(lv))
+lashes_new = bpy.data.objects.new('Face_Lashes_new', lm)
+bpy.context.scene.collection.objects.link(lashes_new)
+lashes_new.shape_key_add(name='Basis')
+lroot = np.array(lroot)
+n_lk = 0
+for name, co in hi_keys.items():
+    dsp = (co - hi_rest)[lroot]
+    if np.abs(dsp).max() < 2e-5:
+        continue
+    k = lashes_new.shape_key_add(name=name)
+    k.data.foreach_set('co', (lv + dsp).astype(np.float32).ravel())
+    n_lk += 1
+skin(lashes_new, rigid='Head')
+bpy.data.objects.remove(part_objs['lashes'])
+lashes_new.name = 'Face_Lashes'
+lashes_new.data.name = 'Face_Lashes'
+part_objs['lashes'] = lashes_new
+log('eyelashes: %d verts %d faces, follow %d keys' % (len(lv), len(lf), n_lk))
 log('eyeball faces %d cornea faces %d' % (len(eyeball.data.polygons), len(cornea.data.polygons)))
 
 # ------------------------------------------------------------------ small textures
 import shutil
 shutil.copy(os.path.join(MPFB_USER, 'eyes', 'materials', 'brown_eye.png'), os.path.join(OUT, 'eye.png'))
-shutil.copy(os.path.join(MPFB_USER, 'eyelashes', LASHES, LASHES + '.png'), os.path.join(OUT, 'lashes.png'))
 for bname, asset in BROWS.items():
     shutil.copy(os.path.join(MPFB_USER, 'eyebrows', asset, asset + '.png'), os.path.join(OUT, 'brow_%s.png' % bname))
 

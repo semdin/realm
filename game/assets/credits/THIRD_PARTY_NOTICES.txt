@@ -67,7 +67,7 @@ Quaternius  [CC0 1.0]
 
 MakeHuman  [CC0 1.0]
   Data Collection AB, Joel Palmius, Jonas Hauquier (via MPFB)
-  The hero's head, face shapes, skin, eyes, eyelashes and eyebrows.
+  The hero's head, face shapes, skin, eyes and eyebrows.
   http://www.makehumancommunity.org
 
 KayKit  [CC0 1.0]

@@ -126,12 +126,66 @@ def build(seed=11):
     return out
 
 
+# ---------------------------------------------------------------- lashes
+# lash_atlas.png (build_head.py maps the lash strips onto it): the upper
+# lashes in the top half, the lower ones in the bottom half, roots at the
+# top of each half. Lashes taper from a thick root, the neighbours' tips
+# gather in twos and threes (real lashes clump), a dense dark line runs
+# along the roots (the lash line).
+LASH_W, LASH_H = 1024, 512
+LASH_HALVES = {   # name: (root row, longest tip row, lashes, root width px, length range)
+    "upper": (8, 250, 150, 3.4, (0.55, 1.0)),
+    "lower": (264, 400, 70, 2.4, (0.45, 1.0)),
+}
+
+
+def build_lashes(seed=5):
+    from PIL import Image, ImageDraw
+    rng = np.random.default_rng(seed)
+    cov_img = Image.new("L", (LASH_W * SS, LASH_H * SS), 0)
+    cov = ImageDraw.Draw(cov_img)
+    for name, (r0, r1, count, w0, (lmin, lmax)) in LASH_HALVES.items():
+        # evenly along the lid with a little jitter (random gaps read as bald spots)
+        xs = np.sort(0.02 + 0.96 * (np.arange(count) + 0.5) / count + rng.normal(0, 0.35 / count, count)) * LASH_W
+        # clumps: runs of 2-3 lashes whose tips meet
+        tips = xs.copy()
+        i = 0
+        while i < count:
+            n = int(rng.integers(1, 4))
+            centre = xs[i:i + n].mean() + rng.normal(0, 3.0)
+            tips[i:i + n] = xs[i:i + n] + (centre - xs[i:i + n]) * rng.uniform(0.5, 0.9)
+            i += n
+        for x, tx in zip(xs, tips):
+            length = (r1 - r0) * rng.uniform(lmin, lmax)
+            n_pts = 24
+            t = np.linspace(0.0, 1.0, n_pts)
+            bend = rng.normal(0, 2.0)
+            px = x + (tx - x) * t ** 1.5 + bend * t * t
+            py = r0 + length * t
+            for k in range(n_pts - 1):
+                w = max(1, int(round(w0 * SS * (1.0 - 0.8 * t[k]))))
+                a = int(255 * (1.0 - 0.6 * t[k] ** 2))
+                cov.line([(px[k] * SS, py[k] * SS), (px[k + 1] * SS, py[k + 1] * SS)], fill=a, width=w)
+        # the lash line: the roots' dense dark band
+        cov.rectangle([0, (r0 - 2) * SS, LASH_W * SS, (r0 + 3) * SS], fill=230)
+    c = np.asarray(cov_img, np.float32) / 255.0
+    c = c.reshape(LASH_H, SS, LASH_W, SS).mean((1, 3))
+    out = np.zeros((LASH_H, LASH_W, 4), np.float32)
+    out[..., :3] = 0.03
+    out[..., 3] = c
+    return out
+
+
 if __name__ == "__main__":
     from PIL import Image
     out_path = sys.argv[1]
     atlas = build()
     Image.fromarray((np.clip(atlas, 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA").save(out_path)
     print("[atlas] %s %dx%d, %d columns: %s" % (out_path, W, H, len(COLUMNS), [c[0] for c in COLUMNS]))
+    if "--lashes" in sys.argv:
+        lash_path = sys.argv[sys.argv.index("--lashes") + 1]
+        Image.fromarray((np.clip(build_lashes(), 0, 1) * 255 + 0.5).astype(np.uint8), "RGBA").save(lash_path)
+        print("[atlas] %s %dx%d" % (lash_path, LASH_W, LASH_H))
     if "--preview" in sys.argv:
         prev = sys.argv[sys.argv.index("--preview") + 1]
         a = atlas

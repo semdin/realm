@@ -260,6 +260,11 @@ func _apply() -> void:
 	if fill != null:
 		fill.light_energy = float(current["fill_energy"]) * (1.0 + wet * 0.15)
 		fill.light_color = current["fill_color"]
+		# the characters' rim light follows the fill, cooler
+		var rim := HeroAppearance.character_rim(fill.get_parent() as Camera3D)
+		if rim != null:
+			rim.light_energy = minf(fill.light_energy * HeroAppearance.RIM_SHARE, 0.7)
+			rim.light_color = HeroAppearance.RIM_COLOR.lerp(fill.light_color, 0.3)
 	if not outdoors or main == null:
 		return   # inside: the map's own atmosphere holds
 	var env_node := main.get_node_or_null("WorldEnvironment") as WorldEnvironment

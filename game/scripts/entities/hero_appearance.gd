@@ -336,15 +336,15 @@ static func face_material(part: String) -> Material:
 			if ResourceLoader.exists(SKIN_MICRO):
 				mat.set_shader_parameter("micro_tex", load(SKIN_MICRO))
 				mat.set_shader_parameter("has_micro", true)
-			mat.set_shader_parameter("scalp_tex", _face_scalp_array())
-			mat.set_shader_parameter("has_scalp", true)
 		"Face_Eyeball":
 			mat.shader = FACE_EYE_SHADER
 			mat.set_shader_parameter("eye_tex", load(FACE_DIR + "eye.png"))
 		"Face_Cornea":
 			mat.shader = FACE_CORNEA_SHADER
 		"Face_Lashes":
-			mat = _card_material(load(FACE_DIR + "lashes.png"), false, 0.35)
+			# procedural lash strips on the lid margins (build_head.py) on the
+			# lash atlas (strand_atlas.py --lashes)
+			mat = _card_material(load(FACE_DIR + "lash_atlas.png"), false, 0.3)
 			_set_both(mat, {"spec_r": 0.05, "spec_trt": 0.04, "transmit": 0.0})
 		_:
 			# Face_Brow_<name>: fine hairs, a soft sheen
@@ -352,7 +352,10 @@ static func face_material(part: String) -> Material:
 			# brows barely shine: on a dark albedo even a faint broad lobe
 			# turned the whole brow grey
 			_set_both(mat, {"strand_along_u": true, "spec_r": 0.015, "spec_trt": 0.02, "gloss_r": 120.0,
-				"transmit": 0.1, "darkness": 0.85})
+				"transmit": 0.1, "darkness": 1.6})
+			# a higher cut leaves the brow's thin hairs to the soft fringe pass:
+			# at 0.4 the brow read as one painted black stroke
+			_set_both(mat, {"alpha_cut": 0.62})
 	_face_materials[part] = mat
 	return mat
 
@@ -361,10 +364,10 @@ static func face_material(part: String) -> Material:
 
 ## Hairstyles as hair cards (tools/art/hero/hair_cards.py): each built style
 ## is its own hair_<style>.glb (mesh skinned to the Head bone, with the head's
-## scalp-moving shape keys) and scalp_<style>.png (where it covers the scalp,
+## scalp-moving shape keys) and cap_<style>.png (its short hairs on the scalp,
 ## in the head's UV). The look's style is loaded when first worn.
 const HAIR_DIR := "res://assets/models/characters/hair/"
-## The styles built so far, in the order of the scalp mask array.
+## The styles built so far.
 const CARD_STYLES := ["SimpleParted", "Tousled"]
 ## A look's style that has no cards yet shows the nearest built one.
 const STAND_INS := {"Buzzed": "SimpleParted", "Neat": "SimpleParted", "Long": "Tousled", "Wavy": "Tousled",
@@ -372,7 +375,6 @@ const STAND_INS := {"Buzzed": "SimpleParted", "Neat": "SimpleParted", "Long": "T
 const HairSwayScript = preload("res://scripts/entities/hair_sway.gd")
 static var _hair_scenes := {}
 static var _hair_material: ShaderMaterial = null
-static var _face_scalp: Texture2DArray = null
 
 
 ## The style a look's `style` is drawn with ("none" stays bald).
@@ -450,24 +452,20 @@ static func _wear_hair(skeleton: Skeleton3D, style: String) -> Array[MeshInstanc
 	return worn
 
 
-## The built styles' scalp masks as one array (layer = CARD_STYLES index).
-static func _face_scalp_array() -> Texture2DArray:
-	if _face_scalp != null:
-		return _face_scalp
-	var images: Array[Image] = []
-	for style: String in CARD_STYLES:
-		var img := (load(HAIR_DIR + "scalp_%s.png" % style) as Texture2D).get_image()
-		if img.is_compressed():
-			img.decompress()
-		img.convert(Image.FORMAT_L8)
-		if not images.is_empty() and img.get_size() != images[0].get_size():
-			img.resize(images[0].get_width(), images[0].get_height())
-		if not img.has_mipmaps():
-			img.generate_mipmaps()
-		images.append(img)
-	_face_scalp = Texture2DArray.new()
-	_face_scalp.create_from_images(images)
-	return _face_scalp
+## The head's material under `style`: the face material with the style's
+## hair cap (cap_<style>.png, hair_cards.py) - one per built style, shared.
+static func _head_material(style: String) -> Material:
+	var base := face_material("Face_Head")
+	var path := HAIR_DIR + "cap_%s.png" % style
+	if style == "none" or not ResourceLoader.exists(path):
+		return base
+	var key := "Face_Head/" + style
+	if not _face_materials.has(key):
+		var mat := (base as ShaderMaterial).duplicate() as ShaderMaterial
+		mat.set_shader_parameter("cap_tex", load(path))
+		mat.set_shader_parameter("has_cap", true)
+		_face_materials[key] = mat
+	return _face_materials[key]
 
 
 ## Set shader parameters on a card material and its fringe pass.
@@ -791,9 +789,12 @@ static func apply_look(visuals: Node, raw_look: Dictionary) -> void:
 		var mi := node as MeshInstance3D
 		var part := String(mi.name)
 		if part == "Face_Head":
+			var head_mat := _head_material(drawn)
+			for surface in range(mi.mesh.get_surface_count()):
+				if mi.get_surface_override_material(surface) != head_mat:
+					mi.set_surface_override_material(surface, head_mat)
 			mi.set_instance_shader_parameter("skin_tint", skin)
 			mi.set_instance_shader_parameter("hair_color", hair)
-			mi.set_instance_shader_parameter("scalp_layer", float(CARD_STYLES.find(drawn)))
 			mi.set_instance_shader_parameter("beard_shade", float(beard["shade"]))
 		elif part == "Face_Eyeball":
 			mi.set_instance_shader_parameter("iris_color", iris)
@@ -911,7 +912,39 @@ static func add_character_fill(camera: Camera3D) -> DirectionalLight3D:
 	fill.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
 	fill.rotation_degrees = Vector3(-32, 28, 0)
 	camera.add_child(fill)
+	_add_character_rim(camera)
 	return fill
+
+
+## A cool light from behind the characters toward the camera (above and a
+## little to the side), on the character layer only: it draws a thin bright
+## edge round the hair, the shoulders and the face, the separation light
+## every character close-up in a modern MMO has. Shadowless; the world is not
+## lit by it. Its energy follows the fill (DayNight sets the fill).
+const RIM_SHARE := 0.75
+const RIM_COLOR := Color(0.82, 0.88, 1.0)
+
+static func _add_character_rim(camera: Camera3D) -> DirectionalLight3D:
+	var existing := camera.get_node_or_null("CharacterRim")
+	if existing is DirectionalLight3D:
+		return existing
+	var rim := DirectionalLight3D.new()
+	rim.name = "CharacterRim"
+	rim.light_cull_mask = CHARACTER_LAYER
+	rim.light_energy = FILL_ENERGY * RIM_SHARE * 2.0
+	rim.light_color = RIM_COLOR
+	rim.light_specular = 0.5
+	rim.shadow_enabled = false
+	rim.sky_mode = DirectionalLight3D.SKY_MODE_LIGHT_ONLY
+	# travelling toward the camera (+Z in its space), down and across
+	rim.transform.basis = Basis.looking_at(Vector3(-0.35, -0.6, 1.0).normalized(), Vector3.UP)
+	camera.add_child(rim)
+	return rim
+
+
+## The camera's rim light (made with the fill), or null.
+static func character_rim(camera: Camera3D) -> DirectionalLight3D:
+	return camera.get_node_or_null("CharacterRim") as DirectionalLight3D if camera != null else null
 
 
 ## The body's animation player, wherever the importer put it.

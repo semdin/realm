@@ -28,10 +28,10 @@ uniform float darkness = 1.0;
 uniform float root_dark = 0.7;
 uniform float shift_r = -0.12;
 uniform float shift_trt = 0.18;
-uniform float gloss_r = 140.0;
-uniform float gloss_trt = 36.0;
-uniform float spec_r = 0.055;
-uniform float spec_trt = 0.16;
+uniform float gloss_r = 260.0;
+uniform float gloss_trt = 50.0;
+uniform float spec_r = 0.065;
+uniform float spec_trt = 0.22;
 uniform float transmit = 0.3;
 uniform float sway_scale = 1.0;
 uniform float wind_scale = 0.004;
@@ -84,7 +84,10 @@ void hair_surface(vec2 uv, vec2 uv2, vec4 col, out vec3 albedo, out float covera
 		albedo = base * shade * darkness;
 		// depth: the inner layers sit in the hair's own shadow
 		ao = mix(0.45, 1.0, uv2.y * uv2.y) * col.b * mix(0.85, 1.0, lock_crown);
-		glint = mix(0.85, 1.15, fract(id * 7.31 + col.r * 3.7)) * mix(0.75, 1.0, lock_crown);
+		// highlights break into strands: some catch the light, most less
+		// (a whole lock lit evenly read as a grey blob on dark hair)
+		float g = fract(id * 7.31 + col.r * 3.7);
+		glint = mix(0.12, 1.3, g * g) * mix(0.7, 1.0, lock_crown);
 		// per strand only: one shift per card broke the band into patches
 		jitter = (id - 0.5) * shift_jitter;
 	} else {
@@ -100,6 +103,9 @@ void hair_surface(vec2 uv, vec2 uv2, vec4 col, out vec3 albedo, out float covera
 
 void hair_light(vec3 t, float ao, float glint, float jitter, vec3 normal, vec3 view, vec3 light, vec3 light_color,
 		float attenuation, float specular_amount, vec3 albedo, inout vec3 diffuse_light, inout vec3 specular_light) {
+	// the strand along the hair's surface: a card's twist tilts its tangent
+	// off the volume, and the highlight band broke where neighbours disagreed
+	t = normalize(t - normal * dot(t, normal));
 	float nl = dot(normal, light);
 	float wrap = clamp((nl + 0.45) / 1.45, 0.0, 1.0);
 	float tl = dot(t, light);
@@ -119,7 +125,10 @@ void hair_light(vec3 t, float ao, float glint, float jitter, vec3 normal, vec3 v
 	float facing = smoothstep(-0.2, 0.3, nl);
 	// TRT leaves through the fibre's pigment: the hair's own colour, lifted
 	vec3 tint = sqrt(albedo);
-	vec3 spec = (vec3(s1 * spec_r) * (0.4 + 0.6 * glint) + tint * (s2 * spec_trt * glint));
+	// R is near white; a little of the hair's own colour keeps dark hair's
+	// glints from reading as grey dust
+	vec3 r_col = mix(vec3(1.0), tint / max(max(tint.r, max(tint.g, tint.b)), 0.05), 0.3);
+	vec3 spec = r_col * (s1 * spec_r * glint) + tint * (s2 * spec_trt * (0.5 + 0.5 * glint));
 	// the light's own specular share: the camera's character fill has none
 	specular_light += spec * facing * attenuation * ao * light_color * specular_amount;
 }

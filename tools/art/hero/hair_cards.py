@@ -49,6 +49,8 @@ rng = np.random.default_rng(sum(ord(c) for c in STYLE) * 7919)
 N_COLUMNS = len(strand_atlas.COLUMNS)
 # the light / wispy columns (strand_atlas.COLUMNS) for cards on the hairline
 EDGE_COLUMNS = [4, 5]
+# the shortest card worth drawing (m)
+MIN_CARD = 0.012
 
 
 def log(*a):
@@ -210,8 +212,12 @@ for li, layer in enumerate(spec['layers']):
         path, reach = march(L)
         if reach < L * 0.97:
             # past the hairline: the card ends at the overhang, tapering there
-            L = max(reach, 0.006)
+            L = reach
             path, _r = march(L, check=False)
+        if L < MIN_CARD:
+            # a whole lock squeezed into a few mm is a dark chip on the edge:
+            # the hair cap carries the hairline there
+            continue
         nseg = len(path) - 1
         rows = []
         for i, (surf, n, d) in enumerate(path):
@@ -235,11 +241,16 @@ for li, layer in enumerate(spec['layers']):
                     e = loc + en * 0.0008
                 fixed.append(e)
             rows.append((fixed, t, p))
-        # cards rooted where the scalp fades out take the light columns, so
-        # the hairline ends in loose strands, not in dense card ends
+        # cards rooted near the hairline are narrower and take the fine
+        # columns: wide card sides along the edge drew a stepped outline
         _l, _n, root_tri = nearest(root)
-        edge_card = grow_w[root_tri] < 0.8 and not layer.get('edge', False)
+        edge_card = grow_w[root_tri] < 0.92 and not layer.get('edge', False)
         col = int(rng.choice(EDGE_COLUMNS if edge_card else layer['columns']))
+        if edge_card:
+            for row in rows:
+                (left, mid, right), t_, p_ = row
+                row[0][0] = p_ + (left - p_) * 0.55
+                row[0][2] = p_ + (right - p_) * 0.55
         u0, u1 = col / N_COLUMNS, (col + 1) / N_COLUMNS
         if rng.random() < 0.5:
             u0, u1 = u1, u0
@@ -333,14 +344,98 @@ hair = build_object('Hair_' + STYLE, cards, 1)
 hair_far = build_object('Hair_' + STYLE + '_far', [c for c in cards if c['layer'] in FAR_LAYERS], 2)
 log('cards %d' % card_count)
 
-# ------------------------------------------------------------------ the scalp mask (head UV)
+# ------------------------------------------------------------------ the hair cap (head UV)
+# Where the scalp shows - the hairline, the part, the crown, between the outer
+# cards - the skin carries the style's short hair: tens of thousands of short
+# strands drawn along the same flow on the head's own texture (the "hair cap"
+# of AAA hair). Toward the hairline they thin out and get shorter, so the
+# edge is a gradient of single hairs, not a line. cap_<style>.png:
+#   R strand coverage, G strand shade, B the hair's base shadow on the scalp.
 meta = json.load(open(os.path.join(WORK, 'head_meta.json')))
 pw, ph = meta['skin_pack']['size']
-# soft toward the edge: the painted short hair fades out over the hairline band
+CAP_SS = 2
+CW_, CH_ = pw * CAP_SS, ph * CAP_SS
+uvl = me.uv_layers.active.data
+loop_uv = np.zeros(len(uvl) * 2, np.float32)
+uvl.foreach_get('uv', loop_uv)
+loop_uv = loop_uv.reshape(-1, 2)
+tri_loops = []
+for poly in me.polygons:
+    li = list(poly.loop_indices)
+    for k in range(1, len(li) - 1):
+        tri_loops.append((li[0], li[k], li[k + 1]))
+tri_loops = np.array(tri_loops)
+
+
+def to_uv(points):
+    """Surface points -> head UV pixels (cap resolution), via their triangle."""
+    out = np.zeros((len(points), 2))
+    for i, p in enumerate(points):
+        loc, _n, ti, _d = bvh.find_nearest(Vector(p))
+        a, b, c = REST[tris[ti]]
+        v0, v1, v2 = b - a, c - a, np.array(loc) - a
+        d00, d01, d11, d20, d21 = v0 @ v0, v0 @ v1, v1 @ v1, v2 @ v0, v2 @ v1
+        den = d00 * d11 - d01 * d01
+        w1 = (d11 * d20 - d01 * d21) / den if den else 0.0
+        w2 = (d00 * d21 - d01 * d20) / den if den else 0.0
+        uv = loop_uv[tri_loops[ti]]
+        out[i] = uv[0] * (1 - w1 - w2) + uv[1] * w1 + uv[2] * w2
+    return out * [CW_, CH_]
+
+
+CAP_STRANDS = 70000
+CAP_STEPS = 5
+cap_tri = rng.choice(len(tris), size=CAP_STRANDS, p=(tri_area * grow_w ** 2) / (tri_area * grow_w ** 2).sum())
+r1, r2 = rng.random(CAP_STRANDS), rng.random(CAP_STRANDS)
+s1 = np.sqrt(r1)
+cap_bary = np.stack([1 - s1, s1 * (1 - r2), s1 * r2], 1)
+cap_root = (tri_p[cap_tri] * cap_bary[:, :, None]).sum(1)
+cap_w = grow_w[cap_tri]
+sx, sy, sa, sid = [], [], [], []
+for i in range(CAP_STRANDS):
+    p = cap_root[i]
+    surf, n, _ = nearest(p)
+    q = q_of(surf)
+    # short hairs: 3-7 mm inside, shorter and finer toward the hairline
+    length = min(spec['length'](q), 0.007) * rng.uniform(0.55, 1.1) * (0.45 + 0.55 * smooth(0.25, 0.9, cap_w[i]))
+    d = tangent(spec['flow'](q), n)
+    d = rotate(d, n, rng.normal(0, 0.18))
+    pts = [surf]
+    step = length / CAP_STEPS
+    for k in range(CAP_STEPS):
+        surf, n, _ = nearest(pts[-1] + d * step)
+        d = tangent(0.75 * d + 0.25 * tangent(spec['flow'](q_of(surf)), n), n)
+        pts.append(surf)
+    uv = to_uv(pts)
+    seg = np.diff(uv, axis=0)
+    if np.abs(seg).max() > 40:          # crosses a UV seam: skip
+        continue
+    a0 = rng.uniform(0.75, 1.0) * (0.55 + 0.45 * smooth(0.25, 0.9, cap_w[i]))
+    shade = rng.random()
+    for k in range(CAP_STEPS):
+        n_s = int(np.ceil(np.hypot(*seg[k]) * 1.5)) + 1
+        t = np.linspace(0, 1, n_s, endpoint=False)
+        xy = uv[k] + seg[k] * t[:, None]
+        fade = 1.0 - (k + t) / CAP_STEPS * 0.7       # tapers to the tip
+        sx.append(xy[:, 0]); sy.append(xy[:, 1]); sa.append(a0 * fade); sid.append(np.full(n_s, shade))
+sx, sy, sa, sid = (np.concatenate(v) for v in (sx, sy, sa, sid))
+ix = np.clip(sx.astype(int), 0, CW_ - 1)
+iy = np.clip(sy.astype(int), 0, CH_ - 1)
+cov = np.zeros((CH_, CW_), np.float32)
+np.maximum.at(cov, (iy, ix), sa.astype(np.float32))
+acc = np.zeros((CH_, CW_), np.float32)
+wsum = np.zeros((CH_, CW_), np.float32)
+np.add.at(acc, (iy, ix), (sa * sid).astype(np.float32))
+np.add.at(wsum, (iy, ix), sa.astype(np.float32))
+cov = cov.reshape(ph, CAP_SS, pw, CAP_SS).mean((1, 3))
+shade = (acc.reshape(ph, CAP_SS, pw, CAP_SS).sum((1, 3)) /
+         np.maximum(wsum.reshape(ph, CAP_SS, pw, CAP_SS).sum((1, 3)), 1e-6))
+# the hair's base shadow on the scalp: the style's region, soft at the edge
 hv = np.array([spec['hairline'](q_of(p)) for p in REST]) * np.clip(SCALP / 0.85, 0, 1) ** 1.5
-mask = raster(me, hv[:, None].astype(np.float32), pw // 2 // 4 * 4, ph // 2 // 4 * 4)
-mask = blur(mask, 2)
-save_img(os.path.join(OUT, 'scalp_%s.png' % STYLE), np.repeat(mask, 3, 2))
+base = blur(raster(me, hv[:, None].astype(np.float32), pw, ph)[..., 0], 3)
+cap = np.stack([cov, shade, base], -1)
+save_img(os.path.join(OUT, 'cap_%s.png' % STYLE), cap)
+log('hair cap: %d strands, coverage mean %.3f over the scalp' % (CAP_STRANDS, cov[base > 0.5].mean()))
 
 # ------------------------------------------------------------------ export
 bpy.ops.object.select_all(action='DESELECT')

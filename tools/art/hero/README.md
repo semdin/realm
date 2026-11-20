@@ -57,8 +57,23 @@ on `head_normal.png`, and import again.
    the head (the eyes do not turn), and the cornea shell is split off
    (`Face_Cornea`, additive wet reflections).
 
+6. Eyelashes: MakeHuman's lash proxy only gives the lid margins (its
+   vertices touching the skin, binned along each lid). Our lash strips run
+   along them, leave the lid forward and curl away from the eye (upper
+   5.5-10 mm, longest on the outer third; lower 2-4 mm), mapped onto
+   `lash_atlas.png` (`strand_atlas.py --lashes`: tapered lashes in clumps
+   of two or three, a dense lash line at the roots). Each lash column rides
+   the head vertex nearest its root through the eye sliders. The skin gets
+   a thin lash-line shadow along the upper lid.
+
 Shaders: `hero_face_skin.gdshader`, `hero_face_eye.gdshader`,
 `hero_face_cornea.gdshader`; brows and lashes use the hair card shader.
+
+Lighting: `HeroAppearance.add_character_fill` puts two shadowless lights on
+the camera that light only the character layer: the fill (no specular) and
+`CharacterRim`, a cool light from behind the characters toward the camera
+that draws the thin bright edge round the hair, shoulders and face. DayNight
+drives both with the hour. The world's lights are untouched.
 
 ## Hair: cards from a groomed flow
 
@@ -73,12 +88,15 @@ skull sphere (|q| ≈ 1; +x the hero's left, −y the face, +z up).
 1. samples card roots per layer (Poisson disk at the layer's spacing; the
    inner layers stay where MakeHuman's scalp weight is over 0.7, the
    `edge` hairline layer only in the band where it fades out; `min_z` /
-   `max_z` keep a layer to the top or to the sides);
+   `max_z` keep a layer to the top or to the sides; cards rooted near the
+   hairline are narrower and take the fine columns);
 2. grows each card's centre line along the flow, stepping over the scalp and
    re-projecting onto it every step - the root on the scalp, rising to the
    layer's height + the lift curve (a root floating at the layer's height
    showed its straight cut end); cards that run past the hairline end at the
-   style's `overhang` (a fringe may fall over the forehead, the sides not);
+   style's `overhang` (a fringe may fall over the forehead, the sides not),
+   and a card left shorter than `MIN_CARD` is dropped (a lock squeezed into
+   a few mm is a dark chip: the hair cap carries the edge there);
 3. sweeps a ribbon (3 vertices across, the middle bowed outward, a random
    twist, narrowing to the tip) with an atlas column across it and root →
    tip down it; cards rooted on the hairline take the fine columns;
@@ -90,8 +108,13 @@ skull sphere (|q| ≈ 1; +x the hero's left, −y the face, +z up).
    ears, a fringe over the brows), so the hair follows the face sliders;
 6. writes a far LOD (`Hair_<style>_far`: the sides, base and main layers,
    every other row, about 40 % of the triangles) into the same glb;
-7. writes `scalp_<style>.png` (head UV, soft toward the hairline): the skin
-   shader paints short hair in the hair colour under the style.
+7. writes `cap_<style>.png`, the style's **hair cap** in the head's UV:
+   70 000 short strands (3-7 mm) walked along the same flow and drawn on the
+   head texture (2x supersampled), thinner and shorter toward the hairline;
+   R strand coverage, G shade, B the hair's shadow on the scalp. The skin
+   shader composites it under the cards: the hairline, the part, the crown
+   and the nape end in single hairs (a fade) with no extra geometry. The
+   game gives each built style its own head material (`_head_material`).
 
 `strand_atlas.py` draws the shared atlas (`hair_atlas.png`): one column per
 card type (dense, locks, fine, single, strays). A column holds LOCKS - many
@@ -115,6 +138,10 @@ lock (each lock shades round), A coverage, 4x supersampled.
 - Roots grow out of the scalp; the hairline layer is lit like the outside.
 - Brows (MakeHuman cards) need almost no sheen: their albedo is so dark that
   any broad lobe turned them grey.
+- On dark hair a lock lit evenly is a grey blob: the R lobe is modulated per
+  strand (most strands catch little, a few a lot), so it reads as glints.
+- The hairline, part and nape come from the hair cap texture, not from
+  cards: card ends on the edge read as torn paper without TAA.
 
 ### Shading (`hero_hair_card.gdshaderinc`)
 
@@ -135,8 +162,7 @@ uniform `hair_sway`; the vertex shader never pushes a tip into the head).
 1. Copy a style in `hair_styles.py`, give it a new name and change its
    functions and layers.
 2. `bash tools/art/hero/build_hero_head.sh --hair <Name>`, import.
-3. Add the name to `HeroAppearance.CARD_STYLES` (order = scalp mask layers)
-   and, if new, to `content/data/looks.json` `hair_styles` **at the end**
+3. Add the name to `HeroAppearance.CARD_STYLES` and, if new, to `content/data/looks.json` `hair_styles` **at the end**
    (saved looks keep their index; the server reads that list too, so a new
    entry ships with a server deploy).
 4. Check offscreen renders from the front, side, back and top, in daylight

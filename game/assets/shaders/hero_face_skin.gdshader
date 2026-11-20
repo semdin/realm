@@ -16,8 +16,11 @@ uniform sampler2D normal_tex : hint_normal, filter_linear_mipmap_anisotropic;
 uniform sampler2D zones_tex : hint_default_black, filter_linear_mipmap;
 uniform sampler2D grain_tex : hint_default_white, filter_linear_mipmap, repeat_enable;
 uniform sampler2D micro_tex : hint_default_white, filter_linear_mipmap, repeat_enable;
-uniform sampler2DArray scalp_tex : hint_default_black, filter_linear_mipmap;
-uniform bool has_scalp = false;
+// the worn style's hair cap (hair_cards.py cap_<style>.png): R short-hair
+// strands drawn along the style's flow, G their shade, B the hair's shadow on
+// the scalp; one head material per style
+uniform sampler2D cap_tex : hint_default_black, filter_linear_mipmap_anisotropic;
+uniform bool has_cap = false;
 uniform bool has_micro = false;
 // mean linear luminance of the two skins (build_head.py prints them)
 uniform float light_mean = 0.316;
@@ -49,11 +52,16 @@ void fragment() {
 	// redness: cheeks, nose tip, ears a touch warmer
 	skin *= mix(vec3(1.0), vec3(1.04, 0.95, 0.94), zone.b * 0.6);
 	float rough = mix(roughness, oily_roughness, zone.g);
-	// under a hairstyle the scalp takes the hair colour as short hair
-	float scalp = has_scalp && scalp_layer >= 0.0 ? texture(scalp_tex, vec3(UV, scalp_layer)).r : 0.0;
-	scalp = smoothstep(0.2, 0.8, scalp) * (0.7 + 0.3 * strokes);
-	vec3 short_hair = min(hair_color * (0.5 + 0.55 * strokes), vec3(0.7));
-	vec3 colour = mix(skin, short_hair, scalp * 0.85);
+	// under a hairstyle: the scalp in the hair's shadow, its short hairs on it
+	vec3 colour = skin;
+	float scalp = 0.0;
+	if (has_cap) {
+		vec3 cap = texture(cap_tex, UV).rgb;
+		colour *= mix(vec3(1.0), vec3(0.72, 0.68, 0.68), cap.b);
+		scalp = cap.r;
+		vec3 short_hair = min(hair_color * mix(0.55, 1.1, cap.g), vec3(0.75));
+		colour = mix(colour, short_hair, clamp(scalp * 1.15, 0.0, 1.0));
+	}
 	rough = mix(rough, 0.8, scalp);
 	float beard = clamp(zone.r * (0.62 + 0.45 * grain), 0.0, 1.0) * beard_shade;
 	colour = mix(colour, hair_color, beard);

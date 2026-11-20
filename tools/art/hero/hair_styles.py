@@ -87,13 +87,17 @@ def parted_hairline(q):
 
 
 def whorl(q):
-    """Away from the crown point, turning clockwise round it close to it."""
+    """Away from the crown point, turning clockwise round it close to it;
+    right over it every lock lies the same way (backward), so the locks
+    overlap the crown instead of all leaving it bare."""
     q = np.asarray(q)
     away = q - CROWN
     dist = np.linalg.norm(away)
     around = np.cross(norm(q), norm(away))
     turn = 1.0 - smooth(0.05, 0.45, dist)
-    return norm(norm(away) * (1.0 - 0.7 * turn) + around * 0.9 * turn)
+    d = norm(norm(away) * (1.0 - 0.7 * turn) + around * 0.9 * turn)
+    over = 1.0 - smooth(0.06, 0.2, dist)
+    return norm(d * (1.0 - over) + np.array([0.15, 1.0, -0.3]) * over)
 
 
 # ---------------------------------------------------------------- Tousled
@@ -165,9 +169,6 @@ STYLES = {
         # (strand_atlas.COLUMNS) picked at random per card; offset = height
         # over the scalp at the root; length = fraction of the local length
         "layers": [
-            # short fine cards along the hairline: the edge ends in strands
-            {"name": "hairline", "edge": True, "depth": 0.7, "spacing": 0.0055, "width": 0.009, "columns": [4, 5, 7],
-             "offset": 0.0008, "length": 0.35, "lift": 0.1, "noise": 0.1, "twist": 0.05, "arc": 0.04},
             # the short sides and back: narrow dense cards lying flat on the
             # head, long enough to overlap (no card edge stands out)
             {"name": "sides", "spacing": 0.0068, "width": 0.012, "columns": [0, 1, 2], "offset": 0.0014,
@@ -190,8 +191,6 @@ STYLES = {
         "overhang": overhang_fringe,
         "gravity": 0.25,
         "layers": [
-            {"name": "hairline", "edge": True, "depth": 0.7, "spacing": 0.0055, "width": 0.009, "columns": [4, 5, 7],
-             "offset": 0.0008, "length": 0.35, "lift": 0.1, "noise": 0.12, "twist": 0.08, "arc": 0.04},
             {"name": "sides", "spacing": 0.0068, "width": 0.012, "columns": [0, 1, 2], "offset": 0.0014,
              "length": 1.0, "lift": 0.0, "noise": 0.06, "twist": 0.0, "arc": 0.05, "max_z": 0.3},
             {"name": "base", "spacing": 0.010, "width": 0.024, "columns": [0, 1], "offset": 0.0025,
