@@ -90,8 +90,6 @@ var target_hp_text: Label
 var target_portrait: TargetPortrait
 ## A game admin on the target card: the GA emblem after the name.
 var target_ga: TextureRect
-## What the target carries now (stunned, burning...): icons under the card.
-var target_status: HudBuffBar
 var chat: HudChat
 var party_frames: HudParty
 var invites: HudInvites
@@ -376,11 +374,6 @@ func _build_target_card() -> void:
 	invite_button.visible = false
 	invite_button.pressed.connect(_on_invite_pressed)
 	target_panel.add_child(invite_button)
-	target_status = HudBuffBar.new()
-	target_status.name = "TargetStatus"
-	target_status.add_theme_constant_override("separation", 4)
-	target_status.position = Vector2(left, TARGET_CARD_H + 6.0)
-	target_panel.add_child(target_status)
 
 ## The target card's invitation: the chat command, nothing more (the server
 ## answers with "Party invitation sent to ..." or why not).
@@ -425,7 +418,6 @@ func set_target(id: int, title := "", hp := 255, look := {}) -> void:
 	target_portrait.set_look(UITheme.chrome(String(look.get("icon", "ui_target"))), bar.lerp(tint, 0.35))
 	if changed:
 		_hit_hold_until = 0.0
-		target_status.set_bits(0)
 		_show_target_health(hp)
 		_target_stat.snap()
 
@@ -434,10 +426,6 @@ func set_target_health(hp: int) -> void:
 	if Time.get_ticks_msec() / 1000.0 < _hit_hold_until and hp > int(target_hp_bar.value):
 		return
 	_show_target_health(hp)
-
-## The target's status byte (StatusFX.STATUS_*), every frame.
-func set_target_statuses(bits: int) -> void:
-	target_status.set_bits(bits)
 
 ## A hit carries the target's hp byte after it: shown at once.
 func on_hit(event: Dictionary) -> void:

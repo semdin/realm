@@ -2007,7 +2007,6 @@ func _follow_target() -> void:
 		if is_duel_foe(target) != _target_foe:
 			_show_player_card()
 		hud.set_target_health((others["hp"] as PackedInt32Array)[p])
-		hud.set_target_statuses((others["statuses"] as PackedInt32Array)[p])
 		return
 	var i := _creature_index(target)
 	if i < 0:
@@ -2016,7 +2015,6 @@ func _follow_target() -> void:
 	if (others["kinds"] as PackedInt32Array)[i] != _target_kind:
 		_show_target_card(i)
 	hud.set_target_health((others["hp"] as PackedInt32Array)[i])
-	hud.set_target_statuses((others["statuses"] as PackedInt32Array)[i])
 
 ## The ring under the target: a creature's sized to it (a boss wide, violet),
 ## another player's pale blue; a boss's head or vine rings its boss's feet.

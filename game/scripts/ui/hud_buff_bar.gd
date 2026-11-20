@@ -1,9 +1,8 @@
 extends HBoxContainer
 class_name HudBuffBar
 
-## A row of timed effects: under the unit frame the ones on the player (the
-## old game's HudBuffBar), under the target card the ones on the target
-## (`set_bits`). Each effect is its own icon; the time gone darkens it
+## The row of timed effects on the player, under the unit frame (the old
+## game's HudBuffBar). Each effect is its own icon; the time gone darkens it
 ## clockwise from twelve with a bright hairline where the shade ends, the
 ## seconds left stand beneath it and a tooltip names it; when it ends the icon
 ## goes. A buff (the ward) has a gold edge, a debuff a red one.
@@ -13,11 +12,10 @@ class_name HudBuffBar
 ## one bumps and flashes again; in its last three seconds it blinks and counts
 ## tenths.
 ##
-## The player's effects come from the server's list of what lasts on it and
+## The effects come from the server's list of what lasts on the player and
 ## the tick each ends (RealmSession.effects: kind, seconds left), so a stun,
 ## a web or a ward shows exactly as long as the server holds it; between two
-## reads (POLL) the time runs down here. The target's come from the status
-## byte its snapshot carries: what it has now, without a time.
+## reads (POLL) the time runs down here.
 ##
 ## Cheap by design: the sweep and the flash are one small canvas shader per
 ## icon fed two numbers a frame (no polygon work), the come-in is the icon's
@@ -32,8 +30,6 @@ class_name HudBuffBar
 ## height and speed and the landing line up to date while it is open.
 
 const ICON := 34.0
-## The target card's icons, which carry no time.
-const SMALL := 26.0
 ## The line of seconds under a timed icon.
 const UNDER := 14.0
 ## kind -> [icon, title, description, debuff]; the ward's words are the
@@ -52,18 +48,6 @@ const KINDS := {
 	"bleed": ["status_bleed", "Bleeding", "Losing health over time.", true],
 	"weak": ["status_weakened", "Weakened", "Your spells deal less damage.", true],
 }
-## The target's status bits (StatusFX.STATUS_*) -> [icon, title], in the
-## order they stand.
-const BIT_LOOKS := {
-	StatusFX.STATUS_STUN: ["status_stun", "Stunned"],
-	StatusFX.STATUS_FREEZE: ["frost_grip", "Frozen"],
-	StatusFX.STATUS_KNOCKED: ["shockwave", "Knocked back!"],
-	StatusFX.STATUS_SLOW: ["status_slow", "Slowed"],
-	StatusFX.STATUS_BURN: ["status_burn", "Burning"],
-	StatusFX.STATUS_BLEED: ["status_bleed", "Bleeding"],
-	StatusFX.STATUS_POISON: ["mat_weaver_venom", "Poisoned"],
-	StatusFX.STATUS_WEAK: ["status_weakened", "Weakened"],
-}
 # i18n-end
 ## The list is read this often.
 const POLL := 0.1
@@ -73,8 +57,6 @@ var session: Node
 var sheet: PlayerSheet
 var _icons: Dictionary = {}   # kind -> BuffIcon
 var _poll := 0.0
-## The target's bits shown (`set_bits`).
-var _bits := 0
 ## Kinds ever shown (the check reads it).
 var shown: Dictionary = {}
 ## The broom while mounted (null on foot), and how many times its mark
@@ -123,22 +105,6 @@ func refresh(effects: Array) -> void:
 		# the largest seen keeps the sweep from jumping back
 		icon.duration = maxf(icon.duration, left)
 		icon.remaining = left
-
-## The target's status bits (0: none, or no target): one icon per status it
-## carries now, without a time.
-func set_bits(bits: int) -> void:
-	if bits == _bits:
-		return
-	_bits = bits
-	var now := {}
-	for bit: int in BIT_LOOKS:
-		if bits & bit:
-			now["bit_%d" % bit] = bit
-	_drop_except(now)
-	for kind: String in now:
-		if not _icons.has(kind):
-			var look: Array = BIT_LOOKS[now[kind]]
-			_add_icon(kind, String(look[0]), tr(String(look[1])).trim_suffix("!"), "", true, SMALL, 0.0)
 
 func _drop_except(keep: Dictionary) -> void:
 	for kind: String in _icons.keys():
@@ -248,7 +214,7 @@ void fragment() {
 	var remaining := -1.0
 	var duration := 0.0
 	var debuff := false
-	## The line under the picture (0: none, as on the target card).
+	## The line under the picture (0: none).
 	var under := UNDER
 	## The broom while mounted: the worn broom's item id, whether Shift would
 	## land here, the height over the ground (-1: none under it) and the speed.
