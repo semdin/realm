@@ -41,6 +41,9 @@ const FAMILY_NAMES := {"troll": "Troll", "undead": "Undead", "ashbound": "Ashbou
 ## Roles that are not creatures of their own (a boss's head or vine, an egg
 ## sac, a cocoon).
 const NOT_LISTED := ["part", "object"]
+## A list row's height, and the room kept round its text when a name wraps.
+const ROW_HEIGHT := 54.0
+const ROW_PAD := 12.0
 
 ## main.gd: the way-finding (MapWay) and the map the player is on.
 var way: Node = null
@@ -188,7 +191,7 @@ func _list_row(entry: Dictionary) -> Button:
 	b.name = "Row_" + String(entry["species"])
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
-	b.custom_minimum_size = Vector2(0, 54)
+	b.custom_minimum_size = Vector2(0, ROW_HEIGHT)
 	for state in ["normal", "hover", "pressed", "hover_pressed"]:
 		b.add_theme_stylebox_override(state, HudKit.button_box("hover" if state != "normal" else "normal"))
 	var row := HBoxContainer.new()
@@ -206,15 +209,17 @@ func _list_row(entry: Dictionary) -> Button:
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.clip_contents = true
 	row.add_child(col)
+	# a long name ("Drowned Warden of Lunra") wraps to a second line and the
+	# row grows to hold it, never cut short
 	var title := HudKit.label(String(entry["display"]), 15, HudKit.GOLD_LT, HudKit.bold(), 3)
 	title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	title.tooltip_text = String(entry["display"])
+	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(title)
 	var dungeon_only := (entry["regions"] as Dictionary).is_empty() and (entry["bosses"] as Array).is_empty()
 	var sub := HudKit.label(_level_text(entry) + (tr("  ·  dungeon") if dungeon_only else ""), 12, HudKit.TEXT_DIM, HudKit.body(), 2)
 	sub.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	col.add_child(sub)
+	col.minimum_size_changed.connect(func(): b.custom_minimum_size.y = maxf(ROW_HEIGHT, col.get_combined_minimum_size().y + ROW_PAD))
 	b.pressed.connect(func(): show_species(String(entry["species"])))
 	return b
 
