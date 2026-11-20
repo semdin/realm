@@ -392,7 +392,7 @@ static func _hair_card_material() -> ShaderMaterial:
 
 ## Past this distance the far LOD of the hair is drawn (the base and main
 ## layers, every other row, no fringe pass): about a fifth of the triangles.
-const HAIR_NEAR := 9.0
+const HAIR_NEAR := 7.0
 static var _hair_far_material: ShaderMaterial = null
 
 
@@ -800,9 +800,11 @@ static func apply_look(visuals: Node, raw_look: Dictionary) -> void:
 			mi.set_instance_shader_parameter("iris_color", iris)
 		elif part.begins_with("Face_Brow_"):
 			mi.visible = part == "Face_Brow_" + brow_name
-			mi.set_instance_shader_parameter("hair_color", hair)
+			# brows sit a shade darker than light hair (white brows glowed)
+			mi.set_instance_shader_parameter("hair_color", hair.darkened(clampf(hair.get_luminance() * 0.6, 0.0, 0.5)))
 		elif part == "Face_Lashes":
-			mi.set_instance_shader_parameter("hair_color", hair.darkened(0.55))
+			# lashes are darker than the hair, the more so the lighter it is
+			mi.set_instance_shader_parameter("hair_color", hair.darkened(minf(0.55 + 0.35 * hair.get_luminance(), 0.88)))
 	var skeleton := _skeleton(visuals)
 	if skeleton != null:
 		skeleton.scale = Vector3.ONE * (1.0 + LOOK_HEIGHT_SPAN * float(look.get("height", 0.0)))
