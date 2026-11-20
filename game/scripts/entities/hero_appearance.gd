@@ -238,6 +238,7 @@ static func spawn(anchor: Node3D, primary: Color) -> Node3D:
 	var body := MODEL.instantiate() as Node3D
 	if body == null:
 		return null
+	install_head(body)
 	# On the character layer before it enters the world (see set_character_layer).
 	set_character_layer(body)
 	anchor.add_child(body)
@@ -267,6 +268,227 @@ static func apply_house_tint(visuals: Node, primary: Color) -> void:
 		for prefix: String in OUTFIT_PARTS.values():
 			if part.begins_with(prefix):
 				(node as MeshInstance3D).set_instance_shader_parameter("house_color", primary)
+
+
+## ---------------------------------------------------------------- head
+
+## The hero's head (tools/art/hero/build_head.py): a MakeHuman head and neck
+## (CC0) on the same GameRig, with its eyes, corneas, lashes and every brow,
+## and the face sliders as shape keys of MakeHuman's own targets. It replaces
+## the kit head's parts of MODEL (removed from each instance).
+const HEAD_MODEL := preload("res://assets/models/characters/face/hero_head.glb")
+const FACE_DIR := "res://assets/models/characters/face/"
+const OLD_HEAD_PARTS := ["Hero_Head", "Hero_Eyes", "Hero_Brows", "Hero_Brows_Regular", "Hero_BrowPaint",
+	"Hero_Beard_Full"]
+const FACE_SKIN_SHADER := preload("res://assets/shaders/hero_face_skin.gdshader")
+const FACE_EYE_SHADER := preload("res://assets/shaders/hero_face_eye.gdshader")
+const FACE_CORNEA_SHADER := preload("res://assets/shaders/hero_face_cornea.gdshader")
+const HAIR_CARD_SHADER := preload("res://assets/shaders/hero_hair_card.gdshader")
+const HAIR_FRINGE_SHADER := preload("res://assets/shaders/hero_hair_fringe.gdshader")
+## A face slider at +-1 sets its keys to this: build_head.py bakes each key at
+## the strength its slider sheet was tuned to.
+const FACE_KEY_GAIN := 1.0
+static var _face_materials := {}
+
+
+## Take the kit head off `body` (a MODEL instance) and put the head model's
+## parts on its skeleton, bound by bone name (like the cloak). Idempotent.
+static func install_head(body: Node) -> void:
+	var skeleton := _skeleton(body)
+	if skeleton == null or skeleton.has_node("Face_Head"):
+		return
+	for node in body.find_children("Hero_*", "MeshInstance3D", true, false):
+		var part := String(node.name)
+		if part in OLD_HEAD_PARTS or part.begins_with("Hero_Hair_"):
+			node.get_parent().remove_child(node)
+			node.free()
+	var source := HEAD_MODEL.instantiate()
+	for node in source.find_children("Face_*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		mi.get_parent().remove_child(mi)
+		mi.owner = null
+		# on the character layer before it enters the world (set_character_layer)
+		mi.layers |= CHARACTER_LAYER
+		skeleton.add_child(mi)
+		mi.skeleton = NodePath("..")
+		mi.transform = Transform3D.IDENTITY
+		var material := face_material(String(mi.name))
+		for surface in range(mi.mesh.get_surface_count()):
+			mi.set_surface_override_material(surface, material)
+		if mi.name == "Face_Cornea" or String(mi.name).begins_with("Face_Brow_") or mi.name == "Face_Lashes":
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	source.free()
+
+
+## The shared material of a head part.
+static func face_material(part: String) -> Material:
+	if _face_materials.has(part):
+		return _face_materials[part]
+	var mat := ShaderMaterial.new()
+	match part:
+		"Face_Head":
+			mat.shader = FACE_SKIN_SHADER
+			mat.set_shader_parameter("albedo_tex", load(FACE_DIR + "head_albedo.png"))
+			mat.set_shader_parameter("albedo_dark_tex", load(FACE_DIR + "head_albedo_dark.png"))
+			mat.set_shader_parameter("normal_tex", load(FACE_DIR + "head_normal.png"))
+			mat.set_shader_parameter("zones_tex", load(FACE_DIR + "head_zones.png"))
+			mat.set_shader_parameter("grain_tex", load(SKIN_GRAIN))
+			if ResourceLoader.exists(SKIN_MICRO):
+				mat.set_shader_parameter("micro_tex", load(SKIN_MICRO))
+				mat.set_shader_parameter("has_micro", true)
+			mat.set_shader_parameter("scalp_tex", _face_scalp_array())
+			mat.set_shader_parameter("has_scalp", true)
+		"Face_Eyeball":
+			mat.shader = FACE_EYE_SHADER
+			mat.set_shader_parameter("eye_tex", load(FACE_DIR + "eye.png"))
+		"Face_Cornea":
+			mat.shader = FACE_CORNEA_SHADER
+		"Face_Lashes":
+			mat = _card_material(load(FACE_DIR + "lashes.png"), false, 0.35)
+			_set_both(mat, {"spec_r": 0.05, "spec_trt": 0.04, "transmit": 0.0})
+		_:
+			# Face_Brow_<name>: fine hairs, a soft sheen
+			mat = _card_material(load(FACE_DIR + "brow_%s.png" % part.trim_prefix("Face_Brow_")), false, 0.4)
+			# brows barely shine: on a dark albedo even a faint broad lobe
+			# turned the whole brow grey
+			_set_both(mat, {"strand_along_u": true, "spec_r": 0.015, "spec_trt": 0.02, "gloss_r": 120.0,
+				"transmit": 0.1, "darkness": 0.85})
+	_face_materials[part] = mat
+	return mat
+
+
+## ---------------------------------------------------------------- hair
+
+## Hairstyles as hair cards (tools/art/hero/hair_cards.py): each built style
+## is its own hair_<style>.glb (mesh skinned to the Head bone, with the head's
+## scalp-moving shape keys) and scalp_<style>.png (where it covers the scalp,
+## in the head's UV). The look's style is loaded when first worn.
+const HAIR_DIR := "res://assets/models/characters/hair/"
+## The styles built so far, in the order of the scalp mask array.
+const CARD_STYLES := ["SimpleParted", "Tousled"]
+## A look's style that has no cards yet shows the nearest built one.
+const STAND_INS := {"Buzzed": "SimpleParted", "Neat": "SimpleParted", "Long": "Tousled", "Wavy": "Tousled",
+	"Ponytail": "Tousled", "Curly": "Tousled"}
+const HairSwayScript = preload("res://scripts/entities/hair_sway.gd")
+static var _hair_scenes := {}
+static var _hair_material: ShaderMaterial = null
+static var _face_scalp: Texture2DArray = null
+
+
+## The style a look's `style` is drawn with ("none" stays bald).
+static func drawn_style(style: String) -> String:
+	if style == "none" or style in CARD_STYLES:
+		return style
+	return String(STAND_INS.get(style, CARD_STYLES[0]))
+
+
+static func _hair_card_material() -> ShaderMaterial:
+	if _hair_material == null:
+		_hair_material = _card_material(load(HAIR_DIR + "hair_atlas.png"), true, 0.5)
+	return _hair_material
+
+
+## Past this distance the far LOD of the hair is drawn (the base and main
+## layers, every other row, no fringe pass): about a fifth of the triangles.
+const HAIR_NEAR := 9.0
+static var _hair_far_material: ShaderMaterial = null
+
+
+static func _hair_far_card_material() -> ShaderMaterial:
+	if _hair_far_material == null:
+		_hair_far_material = (_hair_card_material().duplicate() as ShaderMaterial)
+		_hair_far_material.next_pass = null
+	return _hair_far_material
+
+
+## Put `style`'s cards on the skeleton (or none): the near mesh "Hair" and
+## the far LOD "HairFar". Returns the meshes worn.
+static func _wear_hair(skeleton: Skeleton3D, style: String) -> Array[MeshInstance3D]:
+	var worn: Array[MeshInstance3D] = []
+	var current := skeleton.get_node_or_null("Hair") as MeshInstance3D
+	if current != null and String(current.get_meta("style", "")) == style:
+		worn.append(current)
+		var far_now := skeleton.get_node_or_null("HairFar") as MeshInstance3D
+		if far_now != null:
+			worn.append(far_now)
+		return worn
+	for old_name in ["Hair", "HairFar"]:
+		var old := skeleton.get_node_or_null(old_name)
+		if old != null:
+			skeleton.remove_child(old)
+			old.queue_free()
+	var path := HAIR_DIR + "hair_%s.glb" % style
+	if style == "none" or not ResourceLoader.exists(path):
+		return worn
+	if not _hair_scenes.has(style):
+		_hair_scenes[style] = load(path)
+	var source := (_hair_scenes[style] as PackedScene).instantiate()
+	for node in source.find_children("*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var far := String(mi.name).ends_with("_far")
+		mi.get_parent().remove_child(mi)
+		mi.owner = null
+		mi.name = "HairFar" if far else "Hair"
+		mi.set_meta("style", style)
+		mi.layers |= CHARACTER_LAYER
+		skeleton.add_child(mi)
+		mi.skeleton = NodePath("..")
+		mi.transform = Transform3D.IDENTITY
+		if far:
+			mi.visibility_range_begin = HAIR_NEAR
+			mi.visibility_range_begin_margin = 0.5
+			mi.set_surface_override_material(0, _hair_far_card_material())
+		else:
+			mi.visibility_range_end = HAIR_NEAR
+			mi.visibility_range_end_margin = 0.5
+			mi.set_surface_override_material(0, _hair_card_material())
+			var sway := HairSwayScript.new()
+			sway.name = "HairSway"
+			mi.add_child(sway)
+		worn.append(mi)
+	source.free()
+	return worn
+
+
+## The built styles' scalp masks as one array (layer = CARD_STYLES index).
+static func _face_scalp_array() -> Texture2DArray:
+	if _face_scalp != null:
+		return _face_scalp
+	var images: Array[Image] = []
+	for style: String in CARD_STYLES:
+		var img := (load(HAIR_DIR + "scalp_%s.png" % style) as Texture2D).get_image()
+		if img.is_compressed():
+			img.decompress()
+		img.convert(Image.FORMAT_L8)
+		if not images.is_empty() and img.get_size() != images[0].get_size():
+			img.resize(images[0].get_width(), images[0].get_height())
+		if not img.has_mipmaps():
+			img.generate_mipmaps()
+		images.append(img)
+	_face_scalp = Texture2DArray.new()
+	_face_scalp.create_from_images(images)
+	return _face_scalp
+
+
+## Set shader parameters on a card material and its fringe pass.
+static func _set_both(mat: ShaderMaterial, params: Dictionary) -> void:
+	for key: String in params:
+		mat.set_shader_parameter(key, params[key])
+		(mat.next_pass as ShaderMaterial).set_shader_parameter(key, params[key])
+
+
+## A hair-card material (hero_hair_card + its fringe pass) on `atlas`.
+static func _card_material(atlas: Texture2D, card_data: bool, alpha_cut := 0.5) -> ShaderMaterial:
+	var mat := ShaderMaterial.new()
+	mat.shader = HAIR_CARD_SHADER
+	var fringe := ShaderMaterial.new()
+	fringe.shader = HAIR_FRINGE_SHADER
+	for m: ShaderMaterial in [mat, fringe]:
+		m.set_shader_parameter("atlas_tex", atlas)
+		m.set_shader_parameter("use_card_data", card_data)
+		m.set_shader_parameter("alpha_cut", alpha_cut)
+	mat.next_pass = fringe
+	return mat
 
 
 ## ---------------------------------------------------------------- lighting
@@ -325,7 +547,7 @@ const BEARDS := {
 	"none": {"shade": 0.0, "mesh": ""},
 	"stubble": {"shade": 0.5, "mesh": ""},
 	"short": {"shade": 0.95, "mesh": ""},
-	"full": {"shade": 0.0, "mesh": "Hero_Beard_Full"},
+	"full": {"shade": 1.0, "mesh": ""},
 }
 ## Looks.list("brows") -> a painted brow (its tile on Hero_BrowPaint, 1-5) or
 ## a brow mesh of the kit.
@@ -559,19 +781,41 @@ static func apply_look(visuals: Node, raw_look: Dictionary) -> void:
 					_wear_variant(mi, part, outfit)
 		if part == "Hero_Head" or part.ends_with("_Arms"):
 			mi.set_instance_shader_parameter("skin_tint", skin)
+	var brow_name := String(Looks.list("brows")[int(look["brows"])])
+	var drawn := drawn_style(style)
+	var face_skeleton := _skeleton(visuals)
+	if face_skeleton != null and face_skeleton.has_node("Face_Head"):
+		for hair_mesh in _wear_hair(face_skeleton, drawn):
+			hair_mesh.set_instance_shader_parameter("hair_color", hair)
+	for node in visuals.find_children("Face_*", "MeshInstance3D", true, false):
+		var mi := node as MeshInstance3D
+		var part := String(mi.name)
+		if part == "Face_Head":
+			mi.set_instance_shader_parameter("skin_tint", skin)
+			mi.set_instance_shader_parameter("hair_color", hair)
+			mi.set_instance_shader_parameter("scalp_layer", float(CARD_STYLES.find(drawn)))
+			mi.set_instance_shader_parameter("beard_shade", float(beard["shade"]))
+		elif part == "Face_Eyeball":
+			mi.set_instance_shader_parameter("iris_color", iris)
+		elif part.begins_with("Face_Brow_"):
+			mi.visible = part == "Face_Brow_" + brow_name
+			mi.set_instance_shader_parameter("hair_color", hair)
+		elif part == "Face_Lashes":
+			mi.set_instance_shader_parameter("hair_color", hair.darkened(0.55))
 	var skeleton := _skeleton(visuals)
 	if skeleton != null:
 		skeleton.scale = Vector3.ONE * (1.0 + LOOK_HEIGHT_SPAN * float(look.get("height", 0.0)))
 	# face sliders: face_<key>_neg / _pos shape keys on the head and the parts
 	# on the face (art/characters/hero_q/face_morphs.py)
-	for node in visuals.find_children("Hero_*", "MeshInstance3D", true, false):
+	for node in visuals.find_children("*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
 		if mi.get_blend_shape_count() == 0:
 			continue
+		var new_head := String(mi.name).begins_with("Face_") or String(mi.name).begins_with("Hair")
 		for key: String in Looks.sliders():
 			if key == "height":
 				continue
-			var v := float(look.get(key, 0.0)) * FACE_SLIDER_GAIN
+			var v := float(look.get(key, 0.0)) * (FACE_KEY_GAIN if new_head else FACE_SLIDER_GAIN)
 			var neg := mi.find_blend_shape_by_name("face_%s_neg" % key)
 			var pos := mi.find_blend_shape_by_name("face_%s_pos" % key)
 			if neg >= 0:
@@ -582,7 +826,9 @@ static func apply_look(visuals: Node, raw_look: Dictionary) -> void:
 		for type_name: String in Looks.list("faces"):
 			var k := mi.find_blend_shape_by_name("face_type_" + type_name)
 			if k >= 0:
-				mi.set_blend_shape_value(k, FACE_TYPE_WEIGHT if type_name == face_type else 0.0)
+				# the new head's keys are baked at the type's weight already
+				var on := 1.0 if new_head else FACE_TYPE_WEIGHT
+				mi.set_blend_shape_value(k, on if type_name == face_type else 0.0)
 
 
 ## The looks of this machine's own characters, by character id, so the

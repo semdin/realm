@@ -62,8 +62,13 @@ Free assets (CC0)
 ==============================================================================
 
 Quaternius  [CC0 1.0]
-  Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes, hair and many animations.
+  Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes and many animations.
   https://quaternius.com
+
+MakeHuman  [CC0 1.0]
+  Data Collection AB, Joel Palmius, Jonas Hauquier (via MPFB)
+  The hero's head, face shapes, skin, eyes, eyelashes and eyebrows.
+  http://www.makehumancommunity.org
 
 KayKit  [CC0 1.0]
   Kay Lousberg
@@ -465,6 +470,7 @@ serde 1.0.229  MIT OR Apache-2.0  (c) Erick Tryzelaar, David Tolnay
 serde_core 1.0.229  MIT OR Apache-2.0  (c) Erick Tryzelaar, David Tolnay
 serde_derive 1.0.229  MIT OR Apache-2.0  (c) Erick Tryzelaar, David Tolnay
 serde_json 1.0.154  MIT OR Apache-2.0
+serde_spanned 1.1.3  MIT OR Apache-2.0
 sha2 0.11.1  MIT OR Apache-2.0  (c) RustCrypto Developers
 signal-hook-registry 1.4.8  MIT OR Apache-2.0  (c) Michal 'vorner' Vaner, Masaki Hara
 signature 3.0.0  Apache-2.0 OR MIT  (c) RustCrypto Developers
@@ -483,6 +489,10 @@ thiserror-impl 2.0.21  MIT OR Apache-2.0  (c) David Tolnay
 tinyvec 1.13.3  Zlib OR Apache-2.0 OR MIT  (c) Lokathor
 tokio 1.54.1  MIT  (c) Tokio Contributors
 tokio-macros 2.7.2  MIT  (c) Tokio Contributors
+toml 1.2.1+spec-1.1.0  MIT OR Apache-2.0
+toml_datetime 1.1.3+spec-1.1.0  MIT OR Apache-2.0
+toml_parser 1.1.5+spec-1.1.0  MIT OR Apache-2.0
+toml_writer 1.2.0+spec-1.1.0  MIT OR Apache-2.0
 tracing 0.1.44  MIT  (c) Eliza Weisman, Tokio Contributors
 tracing-core 0.1.36  MIT  (c) Tokio Contributors
 typenum 1.20.1  MIT OR Apache-2.0
@@ -508,6 +518,7 @@ windows_i686_msvc 0.52.6  MIT OR Apache-2.0  (c) Microsoft
 windows_x86_64_gnu 0.52.6  MIT OR Apache-2.0  (c) Microsoft
 windows_x86_64_gnullvm 0.52.6  MIT OR Apache-2.0  (c) Microsoft
 windows_x86_64_msvc 0.52.6  MIT OR Apache-2.0  (c) Microsoft
+winnow 1.0.5  MIT
 zeroize 1.9.1  Apache-2.0 OR MIT  (c) The RustCrypto Project Developers
 zmij 1.0.23  MIT  (c) David Tolnay
 zstd 0.14.4  BSD-3-Clause  (c) Alexandre Bury
@@ -2566,6 +2577,28 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
 IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 
+--- serde_spanned 1.1.3, toml 1.2.1+spec-1.1.0, toml_datetime 1.1.3+spec-1.1.0, toml_parser 1.1.5+spec-1.1.0, toml_writer 1.2.0+spec-1.1.0
+
+Copyright (c) Individual contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
 --- sha2 0.11.1
 
 Copyright (c) 2016-2026 The RustCrypto Project Developers
@@ -3213,6 +3246,27 @@ MIT License
     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
     SOFTWARE
+
+--- winnow 1.0.5
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+"Software"), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 --- zeroize 1.9.1
 

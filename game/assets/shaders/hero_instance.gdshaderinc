@@ -13,3 +13,6 @@ instance uniform vec3 iris_color : source_color = vec3(0.435, 0.502, 0.533);
 instance uniform float beard_shade = 0.0;
 // the painted brow's tile on Hero_BrowPaint (1-5; 0 = none)
 instance uniform float brow_paint = 0.0;
+// hair cards: the head's lagging motion (xyz, world metres the tips trail by)
+// and the wind's strength (w); HairSway sets it on the worn style
+instance uniform vec4 hair_sway = vec4(0.0);

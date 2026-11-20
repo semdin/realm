@@ -746,6 +746,13 @@
   "repository": "https://github.com/serde-rs/json"
  },
  {
+  "name": "serde_spanned",
+  "version": "1.1.3",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [],
+  "repository": "https://github.com/toml-rs/toml"
+ },
+ {
   "name": "sha2",
   "version": "0.11.1",
   "licence": "MIT OR Apache-2.0",
@@ -911,6 +918,34 @@
    "Tokio Contributors"
   ],
   "repository": "https://github.com/tokio-rs/tokio"
+ },
+ {
+  "name": "toml",
+  "version": "1.2.1+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [],
+  "repository": "https://github.com/toml-rs/toml"
+ },
+ {
+  "name": "toml_datetime",
+  "version": "1.1.3+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [],
+  "repository": "https://github.com/toml-rs/toml"
+ },
+ {
+  "name": "toml_parser",
+  "version": "1.1.5+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [],
+  "repository": "https://github.com/toml-rs/toml"
+ },
+ {
+  "name": "toml_writer",
+  "version": "1.2.0+spec-1.1.0",
+  "licence": "MIT OR Apache-2.0",
+  "authors": [],
+  "repository": "https://github.com/toml-rs/toml"
  },
  {
   "name": "tracing",
@@ -1129,6 +1164,13 @@
    "Microsoft"
   ],
   "repository": "https://github.com/microsoft/windows-rs"
+ },
+ {
+  "name": "winnow",
+  "version": "1.0.5",
+  "licence": "MIT",
+  "authors": [],
+  "repository": "https://github.com/winnow-rs/winnow"
  },
  {
   "name": "zeroize",

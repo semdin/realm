@@ -59,7 +59,11 @@
       "entries": [
         {
           "name": "Quaternius", "by": "", "licence": "CC0 1.0", "url": "https://quaternius.com",
-          "what": "Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes, hair and many animations."
+          "what": "Modular Character Outfits, Universal Base Characters and the Universal Animation Library: the hero's body, clothes and many animations."
+        },
+        {
+          "name": "MakeHuman", "by": "Data Collection AB, Joel Palmius, Jonas Hauquier (via MPFB)", "licence": "CC0 1.0", "url": "http://www.makehumancommunity.org",
+          "what": "The hero's head, face shapes, skin, eyes, eyelashes and eyebrows."
         },
         {
           "name": "KayKit", "by": "Kay Lousberg", "licence": "CC0 1.0", "url": "https://kaylousberg.com",
