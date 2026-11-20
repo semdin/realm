@@ -21,9 +21,13 @@ class_name FloatingText
 ## A figure stands beside the body it belongs to (past the body's width on
 ## screen, alternating sides) and rises from there, so it does not cover what
 ## is being fought; one whose rise would run into the body's nameplate starts
-## lower and ends under the plate; a figure that would land on another starts
-## under it (the older one is ahead on the same curve, so they never meet), and
-## quick repeats on one body add up into one figure (`merge`).
+## lower and ends under the plate. A new figure takes a row whose whole path is
+## clear of every figure already up while both are plainly seen: an older one
+## slows as its rise eases out while the new one sets off fast, so being clear
+## of where the older one is now is not enough. Quick repeats on one body add
+## up into one figure (`merge`), and so does a blow that finds no clear row
+## near its body (a pack hitting at once): its kind's newest figure there grows
+## instead of a new one covering the others.
 ##
 ## One size on screen at any distance (a little smaller far away), following
 ## the window's height and the interface scale.
@@ -53,12 +57,19 @@ const FADE_SHARE := 0.34
 const SPREAD_FROM := 0.74
 ## Clear space between a body's edge and the figure beside it (px at unit 1),
 ## how far a body's half width counts on screen, the step down between rows of
-## figures on one side, and how many steps a figure takes to get clear.
+## figures on one side, how many rows under the top one a figure may take to
+## get clear, and how many more one that cannot join another (a critical hit)
+## may take.
 const BODY_GAP := 12.0
 const HALF_MIN := 6.0
 const HALF_MAX := 60.0
 const ROW_STEP := 20.0
 const CLEAR_STEPS := 3
+const DEEP_STEPS := 2
+## Paths are compared every PATH_STEP seconds; a figure counts as seen until
+## this share of its fade has passed (its alpha about a quarter).
+const PATH_STEP := 0.035
+const SEEN_SHARE := 0.65
 ## Half the height a nameplate takes on the canvas, and the air over it.
 const PLATE_HALF := 22.0
 const PLATE_GAP := 3.0
@@ -149,6 +160,8 @@ class Pop:
 	var body: Node3D = null
 	var offset := Vector3.ZERO
 	var lane := Vector2.ZERO
+	## The anchor's point on the canvas this frame (kept clear of the bars).
+	var base := Vector2.ZERO
 	var px := 0.0
 	var rise := 0.0
 	var life := 1.0
@@ -176,6 +189,8 @@ var _free: Array[Pop] = []
 ## Per body (`key`): [figures so far, seconds since the last].
 var _fans: Dictionary = {}
 var _unit := 1.0
+## Set by `_lane`: no row in reach was clear.
+var _crowded := false
 
 static func enabled() -> bool:
 	return DisplayServer.get_name() != "headless"
@@ -306,8 +321,15 @@ func _add(style: int, value: int, text: String, key: int, at: Vector3, body: Nod
 	var far := remap(clampf(distance, NEAR_DISTANCE, FAR_DISTANCE), NEAR_DISTANCE, FAR_DISTANCE, 1.0, FAR_SCALE)
 	pop.px = BASE_PX * float(data["size"]) * far * scale_mult
 	_shape(pop, text)
-	pop.lane = _lane(cam, pop, at, girth, side, plate)
-	pop.at = cam.unproject_position(at) + pop.lane
+	var joins := value > 0 and float(data["merge"]) > 0.0 \
+		and _live.any(func(other: Pop) -> bool: return other.key == key and other.style == style)
+	pop.lane = _lane(cam, pop, at, girth, side, plate, CLEAR_STEPS if joins else CLEAR_STEPS + DEEP_STEPS)
+	if _crowded and joins and _join(style, key, value):
+		pop.body = null
+		_free.append(pop)
+		return null
+	pop.base = _base(pop, cam.unproject_position(at), get_viewport().get_visible_rect().size)
+	pop.at = pop.base + _drift(pop, pop.lane, 0.0)
 	pop.alpha = 0.0
 	_live.append(pop)
 	set_process(true)
@@ -319,12 +341,31 @@ func _merged(style: int, key: int, value: int, window: float) -> bool:
 		return false
 	for pop: Pop in _live:
 		if pop.key == key and pop.style == style and pop.touched <= window:
-			pop.value += value
-			pop.touched = 0.0
-			pop.life = maxf(pop.life, pop.age + float(STYLES[style]["life"]) * 0.8)
-			_shape(pop, _figure_text(style, pop.value))
+			_grow(pop, value)
 			return true
 	return false
+
+## A blow with no clear row near its body joins the newest figure of its kind
+## there.
+func _join(style: int, key: int, value: int) -> bool:
+	var into: Pop = null
+	for pop: Pop in _live:
+		if pop.key == key and pop.style == style and (into == null or pop.age < into.age):
+			into = pop
+	if into == null:
+		return false
+	_grow(into, value)
+	return true
+
+## `value` added to a figure up: its total, the bump, and a longer life when it
+## is the newest on its body (one set off under it was placed for the life it
+## had).
+func _grow(pop: Pop, value: int) -> void:
+	pop.value += value
+	pop.touched = 0.0
+	if not _live.any(func(other: Pop) -> bool: return other.key == pop.key and other.age < pop.age):
+		pop.life = maxf(pop.life, pop.age + float(STYLES[pop.style]["life"]) * 0.8)
+	_shape(pop, _figure_text(pop.style, pop.value))
 
 ## A free slot, or the oldest figure of the lowest rank at or under `rank`.
 func _take(rank: int) -> Pop:
@@ -349,13 +390,16 @@ func _shape(pop: Pop, text: String) -> void:
 ## Where a new figure stands from its anchor, in canvas pixels: beside the body
 ## (`side` 1 right, -1 left, 0 alternating, 2 straight over the anchor), a row
 ## lower each round of the fan, low enough that its rise ends under the
-## nameplate (a word placed over a plate: above it), and clear of any figure
-## already there.
-func _lane(cam: Camera3D, pop: Pop, at: Vector3, girth: float, side: int, plate: float) -> Vector2:
+## nameplate (a word placed over a plate: above it), and on a path no figure
+## already up crosses: the fan's row when it is clear, else the first clear one
+## of the `reach` rows stacked under the top row (over it, above a plate).
+## With none clear it takes the row it covers least and sets `_crowded`.
+func _lane(cam: Camera3D, pop: Pop, at: Vector3, girth: float, side: int, plate: float, reach: int) -> Vector2:
 	var p := cam.unproject_position(at)
 	var k := _size_of(pop) / float(SHAPE_PX)
 	var box := Vector2(pop.width, pop.height * 0.74) * k
-	var lane := Vector2.ZERO
+	var lane_x := 0.0
+	var fan_y := 0.0
 	if side != 2:
 		var fan: Array = _fans.get(pop.key, [0, 0.0])
 		if float(fan[1]) > FAN_REST:
@@ -368,37 +412,124 @@ func _lane(cam: Camera3D, pop: Pop, at: Vector3, girth: float, side: int, plate:
 		var row := (count / 2) % 3 if side == 0 else count % 3
 		var half := absf(cam.unproject_position(at + cam.global_basis.x * girth).x - p.x)
 		half = clampf(half, HALF_MIN * _unit, HALF_MAX * _unit)
-		lane = Vector2(along * (half + BODY_GAP * _unit + box.x * 0.5), row * ROW_STEP * _unit)
+		lane_x = along * (half + BODY_GAP * _unit + box.x * 0.5)
+		fan_y = row * ROW_STEP * _unit
+	var plate_y := cam.unproject_position(at + Vector3.UP * plate).y if plate != 0.0 else 0.0
+	var top := _settle(pop, p.y, 0.0, box, plate, plate_y)
+	var rows: Array[float] = [_settle(pop, p.y, fan_y, box, plate, plate_y).x]
+	for i in reach + 1:
+		var y := top.x + top.y * i
+		if absf(y - rows[0]) > 1.0:
+			rows.append(y)
+	var start := _base(pop, p, get_viewport().get_visible_rect().size)
+	var paths := _paths(pop, start, lane_x, box, rows.min(), rows.max())
+	for y: float in rows:
+		if _crossing(pop, start, Vector2(lane_x, y), box, paths, false) <= 0.0:
+			_crowded = false
+			return Vector2(lane_x, y)
+	_crowded = true
+	var best := Vector2(lane_x, rows[0])
+	var least := INF
+	for y: float in rows:
+		var covered := _crossing(pop, start, Vector2(lane_x, y), box, paths, true)
+		if covered < least:
+			least = covered
+			best = Vector2(lane_x, y)
+	return best
+
+## A row `y` under the anchor's point `py` kept off the nameplate `plate_y`
+## (`plate` as for `figure`): x the row, y the step to the next row out.
+func _settle(pop: Pop, py: float, y: float, box: Vector2, plate: float, plate_y: float) -> Vector2:
 	var step := box.y
 	if plate != 0.0:
-		var plate_y := cam.unproject_position(at + Vector3.UP * plate).y
-		var bottom := p.y + lane.y + box.y * 0.5
+		var bottom := py + y + box.y * 0.5
 		if plate > 0.0:
 			var climb := (pop.rise + DRIFT * pop.life) * _unit
 			if bottom - box.y - climb < plate_y + PLATE_HALF and bottom > plate_y - PLATE_HALF:
-				lane.y = plate_y + PLATE_HALF + PLATE_GAP + box.y * 0.5 + climb - p.y
+				y = plate_y + PLATE_HALF + PLATE_GAP + box.y * 0.5 + climb - py
 		elif bottom > plate_y - PLATE_HALF:
-			lane.y = plate_y - PLATE_HALF - PLATE_GAP - box.y * 0.5 - p.y
+			y = plate_y - PLATE_HALF - PLATE_GAP - box.y * 0.5 - py
 			step = -box.y
-	for attempt in CLEAR_STEPS:
-		var mine := Rect2(p + lane - box * 0.5, box)
-		var clear := true
-		for other: Pop in _live:
-			if (other.alpha > 0.15 or other.age < 0.1) and mine.intersects(_rect_of(other)):
-				clear = false
-				break
-		if clear:
-			break
-		lane.y += step
-	return lane
+	return Vector2(y, step)
+
+## The figures up that a new one set off from `start` on a row between `y_lo`
+## and `y_hi` could meet: each one's box every PATH_STEP from now, while both
+## are seen.
+func _paths(pop: Pop, start: Vector2, lane_x: float, box: Vector2, y_lo: float, y_hi: float) -> Array:
+	var seen := _seen_for(pop)
+	var my_x := _span(start.x, lane_x * SPREAD_FROM, lane_x, box.x)
+	var my_y := _span(start.y, y_lo - _climb(pop, seen), y_hi, box.y)
+	var out := []
+	for other: Pop in _live:
+		if other.alpha <= 0.15 and other.age >= 0.1:
+			continue
+		var left := _seen_for(other) - other.age
+		if left <= 0.0:
+			continue
+		var other_box := Vector2(other.width, other.height * 0.74) * (_size_of(other) / float(SHAPE_PX))
+		var their_x := _span(other.base.x, other.lane.x * SPREAD_FROM, other.lane.x, other_box.x)
+		var their_y := _span(other.base.y, other.lane.y - _climb(other, other.age + left), other.lane.y - _climb(other, other.age), other_box.y)
+		if my_x.x >= their_x.y or their_x.x >= my_x.y or my_y.x >= their_y.y or their_y.x >= my_y.y:
+			continue
+		var boxes: Array[Rect2] = []
+		var t := 0.0
+		while t <= minf(seen, left):
+			boxes.append(Rect2(other.base + _drift(other, other.lane, other.age + t) - other_box * 0.5, other_box))
+			t += PATH_STEP
+		out.append(boxes)
+	return out
+
+## How much a figure set off from `start` along `lane` would cover the
+## `paths` (`_paths`), summed over time (0: it covers none); short of `whole`,
+## it stops at the first touch.
+func _crossing(pop: Pop, start: Vector2, lane: Vector2, box: Vector2, paths: Array, whole: bool) -> float:
+	var covered := 0.0
+	var i := 0
+	var t := 0.0
+	var any := true
+	while any:
+		any = false
+		var mine := Rect2(start + _drift(pop, lane, t) - box * 0.5, box)
+		for boxes: Array[Rect2] in paths:
+			if i < boxes.size():
+				any = true
+				covered += mine.intersection(boxes[i]).get_area()
+		if covered > 0.0 and not whole:
+			return covered
+		i += 1
+		t += PATH_STEP
+	return covered
+
+## How long a figure counts as seen (SEEN_SHARE into its fade).
+static func _seen_for(pop: Pop) -> float:
+	return pop.life * (1.0 - FADE_SHARE * (1.0 - SEEN_SHARE))
+
+## The extent along one axis of a box `size` wide whose centre moves from
+## `at + a` to `at + b`.
+static func _span(at: float, a: float, b: float, size: float) -> Vector2:
+	return Vector2(at + minf(a, b) - size * 0.5, at + maxf(a, b) + size * 0.5)
+
+## How far a figure has risen `t` seconds into its life (canvas pixels).
+func _climb(pop: Pop, t: float) -> float:
+	var eased := 1.0 - pow(1.0 - minf(t / RISE_TIME, 1.0), 3.0)
+	return (pop.rise * eased + DRIFT * t) * _unit
+
+## A figure's offset from its anchor's point `t` seconds into its life: out to
+## its side as it rises.
+func _drift(pop: Pop, lane: Vector2, t: float) -> Vector2:
+	var eased := 1.0 - pow(1.0 - minf(t / RISE_TIME, 1.0), 3.0)
+	return Vector2(lane.x * lerpf(SPREAD_FROM, 1.0, eased), lane.y - _climb(pop, t))
+
+## The anchor's point `raw` kept on the free part of the canvas: a tall body's
+## head out of view, or a body under the bars, keeps its figures in sight.
+func _base(pop: Pop, raw: Vector2, canvas: Vector2) -> Vector2:
+	var floor_y := canvas.y - (UITheme.DECK_BOTTOM + UITheme.DECK_H + 12.0)
+	var low := HUD_TOP + HUD_FADE + pop.rise * _unit
+	raw.y = clampf(raw.y, low, maxf(floor_y - HUD_FADE, low))
+	return raw
 
 func _size_of(pop: Pop) -> float:
 	return pop.px * _unit
-
-func _rect_of(pop: Pop) -> Rect2:
-	var k := _size_of(pop) / float(SHAPE_PX)
-	var box := Vector2(pop.width, pop.height * 0.74) * k
-	return Rect2(pop.at - box * 0.5, box)
 
 func _process(delta: float) -> void:
 	_measure()
@@ -435,16 +566,11 @@ func _step(pop: Pop, cam: Camera3D, canvas: Vector2) -> void:
 		pop.anchor = pop.body.global_position + pop.offset
 	if cam.is_position_behind(pop.anchor):
 		return
-	var base := cam.unproject_position(pop.anchor)
-	if base.x < -SIDE_MARGIN or base.x > canvas.x + SIDE_MARGIN:
+	var raw := cam.unproject_position(pop.anchor)
+	if raw.x < -SIDE_MARGIN or raw.x > canvas.x + SIDE_MARGIN:
 		return
-	var eased := 1.0 - pow(1.0 - minf(t / RISE_TIME, 1.0), 3.0)
-	var climb := (pop.rise * eased + DRIFT * t) * _unit
-	# a tall body's head out of view, or under the bars: the figure stays on
-	# the free part of the screen
-	var floor_y := canvas.y - (UITheme.DECK_BOTTOM + UITheme.DECK_H + 12.0)
-	base.y = clampf(base.y, HUD_TOP + HUD_FADE + pop.rise * _unit, maxf(floor_y - HUD_FADE, HUD_TOP + HUD_FADE + pop.rise * _unit))
-	pop.at = base + Vector2(pop.lane.x * lerpf(SPREAD_FROM, 1.0, eased), pop.lane.y - climb)
+	pop.base = _base(pop, raw, canvas)
+	pop.at = pop.base + _drift(pop, pop.lane, t)
 	var bump := maxf(0.0, 1.0 - pop.touched / BUMP_TIME) * BUMP_SIZE if t > BUMP_TIME else 0.0
 	pop.scale = _scale_at(pop, t) + bump
 	var fade_from := pop.life * (1.0 - FADE_SHARE)
