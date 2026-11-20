@@ -15,8 +15,8 @@ class_name FloatingText
 ## The look, loudest first: a critical hit is deep gold, larger, slams in with
 ## a shake over a short flare of light; a normal hit of the player's is a warm
 ## white that pops in; a blow taken is a muted red beside the hero, healing a
-## soft green on its other side; what other people do, damage over time and
-## misses are small and quiet. Every figure is lit from above (`SHADER`: pale
+## soft green on its other side; what other people do and damage over time
+## are small and quiet (a miss shows nothing). Every figure is lit from above (`SHADER`: pale
 ## at the top of the digits, deeper at their foot), with a crisp dark edge and
 ## a hard shadow under it, and shrinks a little as it fades.
 ##
@@ -35,7 +35,7 @@ class_name FloatingText
 ## One size on screen at any distance (a little smaller far away), following
 ## the window's height and the interface scale.
 
-enum Style { HIT, FINISHER, CRIT, TAKEN, TAKEN_CRIT, HEAL, ALLY, ALLY_CRIT, ALLY_TAKEN, TICK, QUIET, WORD }
+enum Style { HIT, FINISHER, CRIT, TAKEN, TAKEN_CRIT, HEAL, ALLY, ALLY_CRIT, ALLY_TAKEN, TICK, WORD }
 
 ## A plain hit's letters at a 900 px window and interface scale 1 (canvas
 ## pixels); the window's height scales them within UNIT_MIN..UNIT_MAX.
@@ -183,8 +183,6 @@ const STYLES := {
 		"fill": DUSK_ROSE, "ink": INK_RED, "shade": 0.55},
 	Style.TICK: {"size": 0.68, "rise": 18.0, "life": 0.62, "merge": 0.75, "rank": 0, "open": 0.94,
 		"fill": EMBER, "ink": INK, "shade": 0.5},
-	Style.QUIET: {"size": 0.7, "rise": 22.0, "life": 0.8, "merge": 0.0, "rank": 0, "open": 0.94,
-		"fill": MIST, "ink": INK, "shade": 0.55},
 	Style.WORD: {"size": 0.72, "rise": 28.0, "life": 1.3, "merge": 0.0, "rank": 1, "open": 0.92,
 		"fill": WARM_WHITE, "ink": INK, "shade": 0.8},
 }
@@ -252,11 +250,6 @@ static func enabled() -> bool:
 static func figure(style: int, amount: int, key: int, at: Vector3, body: Node3D = null, girth := 0.45, side := 0, plate := 0.0) -> void:
 	if _active != null:
 		_active._add(style, amount, _figure_text(style, amount), key, at, body, girth, side, plate)
-
-## A short word in place of a figure ("Evaded"), placed like one.
-static func note(text: String, key: int, at: Vector3, body: Node3D = null, girth := 0.45, plate := 0.0, side := 0) -> void:
-	if _active != null:
-		_active._add(Style.QUIET, 0, text, key, at, body, girth, side, plate)
 
 ## A word over `at` (world space): a status, a level, a title. `scale_mult`
 ## sizes it, `seconds` > 0 is how long it stays, `plate` as for a figure; its

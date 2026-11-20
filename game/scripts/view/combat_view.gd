@@ -327,12 +327,11 @@ func _number(event: Dictionary) -> void:
 	var girth := HERO_GIRTH if own else _girth_of(body)
 	var plate := _plate_of(body) - height if own else -FloatingText.PLATE_AT
 	var side := 1 if own else FloatingText.OVER
+	# a blow shrugged off (walking home) or blocked shows no word: no figure
 	if (flags & FLAG_EVADE) != 0:
 		evades_shown += 1
-		FloatingText.note(tr("Evaded"), target, at, body, girth, plate, side)
 		return
 	if amount <= 0:
-		FloatingText.note(tr("Blocked"), target, at, body, girth, plate, side)
 		return
 	var style: int
 	if own:

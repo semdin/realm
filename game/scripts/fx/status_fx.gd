@@ -22,7 +22,8 @@ class_name StatusFX
 ##   knocked  dust where the throw starts and where it lands
 ##   weak     (disarmed) only its name
 ##
-## A status that begins pops its name over the body. Bodies call
+## No words over the body: the look says it, and the player's own effects
+## and the target's stand as icons in the HUD (HudBuffBar). Bodies call
 ## `StatusFX.update(body, bits)` when their status changes; nothing is built on
 ## a headless process. What the look needs from a body:
 ##   visuals          the Node3D holding its drawn meshes (else the body itself)
@@ -71,34 +72,14 @@ const STUN_SPARKS_SECONDS := 30.0
 const SLOW_PACE := 0.55
 ## Blood left on the ground at a time, per bleeding body.
 const MAX_SPLATS := 5
-const POP_RANGE := 45.0
-## One pop per status per this many seconds across all bodies: a blast that
-## stuns six creatures says so once, not six times on top of each other.
-const POP_GAP := 0.35
-## The pop's size among the floating words: the look on the body says it first.
-const POP_SCALE := 0.9
 
 const BITS := [STATUS_STUN, STATUS_FREEZE, STATUS_SLOW, STATUS_BLEED, STATUS_BURN,
 	STATUS_POISON, STATUS_KNOCKED, STATUS_WEAK]
 
-# i18n-begin
-## What pops over the body when a status begins: [text, colour].
-const POPS := {
-	STATUS_STUN: ["Stunned!", Color(1.0, 0.86, 0.3)],
-	STATUS_FREEZE: ["Frozen!", Color(0.62, 0.9, 1.0)],
-	STATUS_SLOW: ["Slowed", Color(0.55, 0.78, 1.0)],
-	STATUS_BLEED: ["Bleeding", Color(1.0, 0.22, 0.2)],
-	STATUS_BURN: ["Burning", Color(1.0, 0.55, 0.2)],
-	STATUS_POISON: ["Poisoned", Color(0.55, 1.0, 0.35)],
-	STATUS_KNOCKED: ["Knocked back!", Color(1.0, 0.95, 0.82)],
-	STATUS_WEAK: ["Disarmed", Color(0.8, 0.7, 1.0)],
-}
-# i18n-end
 
 static var _materials: Dictionary = {}
 ## The sparks' draw mesh (ember_spark.gdshader on a quad), one per process.
 static var _spark_quad: QuadMesh = null
-static var _last_pop: Dictionary = {}   # status bit -> msec
 
 var body: Node3D = null
 var bits := 0
@@ -237,7 +218,6 @@ func _audio() -> Node:
 # ------------------------------------------------------------------ begin/end
 
 func _begin(bit: int) -> void:
-	_pop(bit)
 	match bit:
 		STATUS_STUN:
 			_stars = _make_dizzy()
@@ -287,20 +267,6 @@ func _end(bit: int) -> void:
 
 func _is_dead() -> bool:
 	return body.get("is_dead") == true
-
-## The status name over the body when it begins (near the camera only).
-func _pop(bit: int) -> void:
-	if not POPS.has(bit):
-		return
-	var camera := get_viewport().get_camera_3d()
-	if camera == null or camera.global_position.distance_to(body.global_position) > POP_RANGE:
-		return
-	var now := Time.get_ticks_msec()
-	if now - int(_last_pop.get(bit, -100000)) < int(POP_GAP * 1000.0):
-		return
-	_last_pop[bit] = now
-	var pop: Array = POPS[bit]
-	FloatingText.word(body.global_position + Vector3.UP * (_head + 1.0), tr(String(pop[0])), pop[1], POP_SCALE, 0.0, -0.55)
 
 # ------------------------------------------------------------------ the body
 

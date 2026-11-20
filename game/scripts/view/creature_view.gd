@@ -17,7 +17,7 @@ class_name CreatureView
 ## bends that head or vine on the model (PartDroop: Threehead's head slumps,
 ## the Strangling Vine's vine withers and shrinks). Threehead's stun is the
 ## sleep the chime lulls it into: its Sleep clip, a slow pale haze drifting up
-## off each head still standing, "Asleep!" over it, no stun stars.
+## off each head still standing, no stun stars (and no word over it).
 ##
 ## A web thing (rig web_object: the Web Mother's egg sacs and cocoons) has no
 ## clips: its death is the silk splitting open (SilkBurst, with the fluid
@@ -379,8 +379,6 @@ func _set_asleep(on: bool) -> void:
 	if on == asleep:
 		return
 	asleep = on
-	if on and not is_dead and DisplayServer.get_name() != "headless":
-		FloatingText.word(global_position + Vector3.UP * (head_height + 1.2), tr("Asleep!"), SLEEP_TINT, 1.0, 0.0, -0.75)
 	_update_haze()
 
 ## A haze of slow pale motes drifting up off every standing head while it

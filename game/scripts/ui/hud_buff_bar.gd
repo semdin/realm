@@ -1,14 +1,28 @@
 extends HBoxContainer
 class_name HudBuffBar
 
-## The row of timed effects under the unit frame (the old game's HudBuffBar):
-## each effect is an icon whose shadow grows clockwise as its time runs out,
-## with the seconds left beneath it and a tooltip that names it; when it ends
-## the icon goes. A buff (the ward) has a gold edge, a debuff a red one.
+## A row of timed effects: under the unit frame the ones on the player (the
+## old game's HudBuffBar), under the target card the ones on the target
+## (`set_bits`). Each effect is its own icon; the time gone darkens it
+## clockwise from twelve with a bright hairline where the shade ends, the
+## seconds left stand beneath it and a tooltip names it; when it ends the icon
+## goes. A buff (the ward) has a gold edge, a debuff a red one.
 ##
-## Everything comes from the server's list of what lasts on the player and
+## An effect that comes says so here instead of a word over the body: its icon
+## comes in large with a white flash and a ring that opens round it; a renewed
+## one bumps and flashes again; in its last three seconds it blinks and counts
+## tenths.
+##
+## The player's effects come from the server's list of what lasts on it and
 ## the tick each ends (RealmSession.effects: kind, seconds left), so a stun,
-## a web or a ward shows exactly as long as the server holds it.
+## a web or a ward shows exactly as long as the server holds it; between two
+## reads (POLL) the time runs down here. The target's come from the status
+## byte its snapshot carries: what it has now, without a time.
+##
+## Cheap by design: the sweep and the flash are one small canvas shader per
+## icon fed two numbers a frame (no polygon work), the come-in is the icon's
+## scale, the blink its modulate; the icon redraws only while its ring opens
+## or when the line under it changes.
 ##
 ## While the body rides the broom, the ridden broom's own icon leads the row
 ## (no timer: the height over the ground under it). Its corner mark says
@@ -18,6 +32,10 @@ class_name HudBuffBar
 ## height and speed and the landing line up to date while it is open.
 
 const ICON := 34.0
+## The target card's icons, which carry no time.
+const SMALL := 26.0
+## The line of seconds under a timed icon.
+const UNDER := 14.0
 ## kind -> [icon, title, description, debuff]; the ward's words are the
 ## spell's own (spells.json).
 # i18n-begin
@@ -25,14 +43,26 @@ const KINDS := {
 	"ward": ["ward_shield", "Ward Shield", "Reflects projectiles; other damage reduced by 60%.", false],
 	"shardglass_ward": ["shardglass_ward", "Shardglass Ward", "Reflects a duel foe's bolts; other damage reduced by 35%.", false],
 	"stun": ["status_stun", "Stunned", "You cannot cast or move.", true],
-	"knock": ["status_stun", "Knocked back", "Thrown off your feet: no casting until you land.", true],
-	"freeze": ["status_stun", "Frozen", "Encased in ice: you cannot cast or move.", true],
-	"web": ["status_stun", "Webbed", "Sticky silk: you move at half speed.", true],
+	"knock": ["shockwave", "Knocked back", "Thrown off your feet: no casting until you land.", true],
+	"freeze": ["frost_grip", "Frozen", "Encased in ice: you cannot cast or move.", true],
+	"web": ["status_slow", "Webbed", "Sticky silk: you move at half speed.", true],
 	"despair": ["status_despair", "Despair", "A Pallid's cold: no natural health recovery.", true],
-	"venom": ["status_burn", "Poisoned", "Spider venom: damage over time.", true],
+	"venom": ["mat_weaver_venom", "Poisoned", "Spider venom: damage over time.", true],
 	"burn": ["status_burn", "Burning", "Taking fire damage over time.", true],
-	"bleed": ["status_burn", "Bleeding", "Losing health over time.", true],
+	"bleed": ["status_bleed", "Bleeding", "Losing health over time.", true],
 	"weak": ["status_weakened", "Weakened", "Your spells deal less damage.", true],
+}
+## The target's status bits (StatusFX.STATUS_*) -> [icon, title], in the
+## order they stand.
+const BIT_LOOKS := {
+	StatusFX.STATUS_STUN: ["status_stun", "Stunned"],
+	StatusFX.STATUS_FREEZE: ["frost_grip", "Frozen"],
+	StatusFX.STATUS_KNOCKED: ["shockwave", "Knocked back!"],
+	StatusFX.STATUS_SLOW: ["status_slow", "Slowed"],
+	StatusFX.STATUS_BURN: ["status_burn", "Burning"],
+	StatusFX.STATUS_BLEED: ["status_bleed", "Bleeding"],
+	StatusFX.STATUS_POISON: ["mat_weaver_venom", "Poisoned"],
+	StatusFX.STATUS_WEAK: ["status_weakened", "Weakened"],
 }
 # i18n-end
 ## The list is read this often.
@@ -43,6 +73,8 @@ var session: Node
 var sheet: PlayerSheet
 var _icons: Dictionary = {}   # kind -> BuffIcon
 var _poll := 0.0
+## The target's bits shown (`set_bits`).
+var _bits := 0
 ## Kinds ever shown (the check reads it).
 var shown: Dictionary = {}
 ## The broom while mounted (null on foot), and how many times its mark
@@ -56,6 +88,10 @@ func _init() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 func _process(delta: float) -> void:
+	for icon: BuffIcon in _icons.values():
+		icon.advance(delta)
+	if broom_icon != null:
+		broom_icon.advance(delta)
 	if session == null:
 		return
 	_poll -= delta
@@ -72,33 +108,58 @@ func refresh(effects: Array) -> void:
 		var kind := String(e.get("kind", ""))
 		if KINDS.has(kind):
 			now[kind] = maxf(float(now.get(kind, 0.0)), float(e.get("seconds", 0.0)))
+	_drop_except(now)
+	for kind: String in now:
+		var icon: BuffIcon = _icons.get(kind)
+		var left := float(now[kind])
+		if icon == null:
+			var look: Array = KINDS[kind]
+			icon = _add_icon(kind, String(look[0]), I18n.t(String(look[1])), I18n.t(String(look[2])), bool(look[3]), ICON, UNDER)
+			icon.duration = left
+		elif left > icon.remaining + 0.25:
+			# renewed: the whole length is what it has now
+			icon.duration = left
+			icon.renew()
+		# the largest seen keeps the sweep from jumping back
+		icon.duration = maxf(icon.duration, left)
+		icon.remaining = left
+
+## The target's status bits (0: none, or no target): one icon per status it
+## carries now, without a time.
+func set_bits(bits: int) -> void:
+	if bits == _bits:
+		return
+	_bits = bits
+	var now := {}
+	for bit: int in BIT_LOOKS:
+		if bits & bit:
+			now["bit_%d" % bit] = bit
+	_drop_except(now)
+	for kind: String in now:
+		if not _icons.has(kind):
+			var look: Array = BIT_LOOKS[now[kind]]
+			_add_icon(kind, String(look[0]), tr(String(look[1])).trim_suffix("!"), "", true, SMALL, 0.0)
+
+func _drop_except(keep: Dictionary) -> void:
 	for kind: String in _icons.keys():
-		if not now.has(kind):
+		if not keep.has(kind):
 			remove_child(_icons[kind])   # the others close up this frame, not the next
 			(_icons[kind] as Node).queue_free()
 			_icons.erase(kind)
-	for kind: String in now:
-		var look: Array = KINDS[kind]
-		var icon: BuffIcon = _icons.get(kind)
-		if icon == null:
-			icon = BuffIcon.new()
-			icon.name = "Buff_" + kind
-			icon.custom_minimum_size = Vector2(ICON, ICON + 14)
-			icon.texture = UITheme.icon_for(String(look[0]))
-			icon.title = I18n.t(String(look[1]))
-			icon.desc = I18n.t(String(look[2]))
-			icon.debuff = bool(look[3])
-			add_child(icon)
-			_icons[kind] = icon
-			shown[kind] = true
-		# The whole length is what it had when it began; the largest seen
-		# keeps the sweep from jumping back when a new one replaces it.
-		var left := float(now[kind])
-		if left > icon.remaining + 0.25:
-			icon.duration = left
-		icon.duration = maxf(icon.duration, left)
-		icon.remaining = left
-		icon.queue_redraw()
+
+func _add_icon(kind: String, picture: String, title: String, desc: String, debuff: bool, side: float, under: float) -> BuffIcon:
+	var icon := BuffIcon.new()
+	icon.name = "Buff_" + kind
+	icon.under = under
+	icon.custom_minimum_size = Vector2(side, side + under)
+	icon.texture = UITheme.icon_for(picture)
+	icon.title = title
+	icon.desc = desc
+	icon.debuff = debuff
+	add_child(icon)
+	_icons[kind] = icon
+	shown[kind] = true
+	return icon
 
 ## The broom icon: there while the body rides, first in the row; its picture
 ## is the worn broom's, its mark and numbers the body's and
@@ -115,7 +176,7 @@ func refresh_broom() -> void:
 		broom_icon = BuffIcon.new()
 		broom_icon.name = "Buff_broom"
 		broom_icon.mount = true
-		broom_icon.custom_minimum_size = Vector2(ICON, ICON + 14)
+		broom_icon.custom_minimum_size = Vector2(ICON, ICON + UNDER)
 		broom_icon.title = tr("Broom Flight")
 		add_child(broom_icon)
 		move_child(broom_icon, 0)
@@ -143,12 +204,52 @@ func kinds() -> Array:
 
 
 class BuffIcon extends Control:
+	## The come-in: this long, from this much larger; a renewal's bump.
+	const COME_TIME := 0.34
+	const COME_SCALE := 0.42
+	const RENEW_TIME := 0.22
+	const RENEW_SCALE := 0.14
+	## The last seconds blink (this many times a second) and count tenths.
+	const BLINK_FROM := 3.0
+	const BLINK_RATE := 2.6
+	## How far the come-in's ring opens past the icon (px).
+	const RING_REACH := 11.0
+	const SHADER := """shader_type canvas_item;
+// The time gone shaded clockwise from twelve over the picture (box: its rect
+// in the icon's own space), a bright hairline where the shade ends, and a
+// white flash over everything in the box as the icon comes.
+uniform vec4 box = vec4(0.0, 0.0, 1.0, 1.0);
+uniform float gone = 0.0;
+uniform float flash = 0.0;
+varying vec2 local;
+void vertex() {
+	local = VERTEX;
+}
+void fragment() {
+	vec2 rel = (local - box.xy) / box.zw;
+	if (rel.x >= 0.0 && rel.y >= 0.0 && rel.x <= 1.0 && rel.y <= 1.0) {
+		if (gone > 0.0 && gone < 1.0) {
+			vec2 d = rel - 0.5;
+			float turn = fract(atan(d.x, -d.y) / 6.2831853 + 1.0);
+			float edge = 1.0 - smoothstep(0.0, 0.014, abs(turn - gone));
+			COLOR.rgb *= turn < gone ? 0.34 : 1.0;
+			COLOR.rgb += vec3(1.0, 0.9, 0.66) * edge * 0.4 * COLOR.a;
+		}
+		COLOR.rgb = mix(COLOR.rgb, vec3(1.0), flash * COLOR.a);
+	}
+}
+"""
+	static var _shader: Shader = null
+	static var _plates: Dictionary = {}   # "back" / edge colour -> StyleBoxFlat
+
 	var texture: Texture2D
 	var title := ""
 	var desc := ""
 	var remaining := -1.0
 	var duration := 0.0
 	var debuff := false
+	## The line under the picture (0: none, as on the target card).
+	var under := UNDER
 	## The broom while mounted: the worn broom's item id, whether Shift would
 	## land here, the height over the ground (-1: none under it) and the speed.
 	var mount := false
@@ -158,9 +259,64 @@ class BuffIcon extends Control:
 	var speed := 0.0
 	## Tooltips opened on it (the check reads it).
 	var tips := 0
+	## Seconds since it came and since it was last renewed.
+	var age := 0.0
+	var renewed := 99.0
+	var _line := ""
+	var _shows := -2
+	var _gone := -1.0
+	var _flash := -1.0
+	var _box := Rect2()
+	var _material := ShaderMaterial.new()
 
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_STOP
+		if _shader == null:
+			_shader = Shader.new()
+			_shader.code = SHADER
+		_material.shader = _shader
+		material = _material
+
+	func renew() -> void:
+		renewed = 0.0
+
+	## One frame: the time runs down, the sweep, the flash, the come-in and
+	## the blink follow; a redraw only while the ring opens or the line under
+	## it changes.
+	func advance(delta: float) -> void:
+		age += delta
+		renewed += delta
+		if remaining > 0.0:
+			remaining = maxf(0.0, remaining - delta)
+		var gone := clampf(1.0 - remaining / duration, 0.0, 1.0) if duration > 0.0 and remaining >= 0.0 else 0.0
+		if absf(gone - _gone) > 0.0015:
+			_gone = gone
+			_material.set_shader_parameter("gone", gone)
+		var come := clampf(age / COME_TIME, 0.0, 1.0)
+		var bump := clampf(renewed / RENEW_TIME, 0.0, 1.0)
+		if come < 1.0 or bump < 1.0 or _flash != 0.0:
+			var flash := maxf(pow(1.0 - come, 2.0) * 0.9, pow(1.0 - bump, 2.0) * 0.5)
+			if absf(flash - _flash) > 0.004 or flash == 0.0:
+				_flash = flash
+				_material.set_shader_parameter("flash", flash)
+			scale = Vector2.ONE * (1.0 + COME_SCALE * pow(1.0 - come, 3.0) + RENEW_SCALE * pow(1.0 - bump, 2.0))
+		var blink := remaining > 0.0 and remaining < BLINK_FROM
+		self_modulate.a = 0.62 + 0.38 * (0.5 + 0.5 * cos(remaining * TAU * BLINK_RATE)) if blink else 1.0
+		# the line under it is made again only when what it shows changes
+		var shows := -1
+		if under > 0.0 and not mount and remaining > 0.0:
+			shows = int(remaining * 10.0) if blink else 1000 + int(ceil(remaining))
+		if shows != _shows:
+			_shows = shows
+			_line = _under_text()
+			queue_redraw()
+		elif come < 1.0:
+			queue_redraw()
+
+	func _under_text() -> String:
+		if under <= 0.0 or mount or remaining <= 0.0:
+			return ""
+		return I18n.num(remaining) if remaining < BLINK_FROM else "%ds" % int(ceil(remaining))
 
 	## The broom's tooltip lines: title, flight, controls, landing.
 	func broom_lines() -> PackedStringArray:
@@ -192,38 +348,49 @@ class BuffIcon extends Control:
 			return BroomTip.new(self)
 		return HudKit.tooltip(for_text, HudKit.RED.lightened(0.3) if debuff else HudKit.GOLD_LT)
 
+	## A rounded plate: the dark back, or an edge in `colour`.
+	static func _plate(colour: Color, back: bool) -> StyleBoxFlat:
+		var key := "back" if back else colour.to_html()
+		if not _plates.has(key):
+			var box := StyleBoxFlat.new()
+			box.set_corner_radius_all(4)
+			box.anti_aliasing = true
+			if back:
+				box.bg_color = Color(0.035, 0.028, 0.03, 0.82)
+			else:
+				box.draw_center = false
+				box.border_color = colour
+				box.set_border_width_all(2)
+			_plates[key] = box
+		return _plates[key]
+
 	func _draw() -> void:
-		var s := minf(size.x, size.y - 14)
+		var s := minf(size.x, size.y - under)
 		var r := Rect2(Vector2((size.x - s) * 0.5, 0), Vector2(s, s))
-		draw_rect(r, Color(0, 0, 0, 0.7))
+		var inner := r.grow(-2)
+		if inner != _box:
+			_box = inner
+			_material.set_shader_parameter("box", Vector4(inner.position.x, inner.position.y, inner.size.x, inner.size.y))
+			pivot_offset = r.get_center()
+		draw_style_box(_plate(Color.BLACK, true), r)
 		if texture != null:
-			draw_texture_rect(UITheme.drawn_pixels(texture, s - 4.0, self), r.grow(-2), false)
-		# The time gone shaded, growing clockwise from twelve.
-		if duration > 0.0 and remaining >= 0.0:
-			var elapsed := clampf(1.0 - remaining / duration, 0.0, 1.0)
-			if elapsed > 0.0:
-				var c := r.get_center()
-				var pts := PackedVector2Array([c])
-				var steps := maxi(3, int(40 * elapsed))
-				for i in range(steps + 1):
-					var a := -PI * 0.5 + TAU * elapsed * float(i) / float(steps)
-					pts.append(c + Vector2(cos(a), sin(a)) * s)
-				var inner := r.grow(-2)
-				var sq := PackedVector2Array([inner.position, Vector2(inner.end.x, inner.position.y), inner.end,
-					Vector2(inner.position.x, inner.end.y)])
-				for poly in Geometry2D.intersect_polygons(pts, sq):
-					draw_colored_polygon(poly, Color(0, 0, 0, 0.62))
-		draw_rect(r, HudKit.RED if debuff else HudKit.GOLD, false, 1.5)
+			draw_texture_rect(UITheme.drawn_pixels(texture, s - 4.0, self), inner, false)
+		var edge := HudKit.RED if debuff else HudKit.GOLD
+		draw_style_box(_plate(edge, false), r)
+		# the come-in's ring, opening out and fading
+		var come := clampf(age / COME_TIME, 0.0, 1.0)
+		if come < 1.0:
+			var ring := edge.lightened(0.35)
+			ring.a = 0.85 * (1.0 - come)
+			draw_rect(r.grow(1.0 + RING_REACH * (1.0 - pow(1.0 - come, 2.0))), ring, false, 2.0)
 		if mount:
 			_draw_landing_mark(r)
 			# the height over the ground under it, where the others count down
 			if height >= 0.0:
 				_draw_under(tr("%s m") % I18n.num(height, 0), s, HudKit.PARCHMENT)
 			return
-		# The seconds left under the icon.
-		if remaining > 0.0:
-			var txt := I18n.num(remaining) if remaining < 3.0 else "%ds" % int(ceil(remaining))
-			_draw_under(txt, s, HudKit.PARCHMENT if remaining > 3.0 else HudKit.GOLD_HI)
+		if _line != "":
+			_draw_under(_line, s, HudKit.PARCHMENT if remaining > BLINK_FROM else HudKit.GOLD_HI)
 
 	## A short line centred under the icon.
 	func _draw_under(txt: String, s: float, colour: Color) -> void:

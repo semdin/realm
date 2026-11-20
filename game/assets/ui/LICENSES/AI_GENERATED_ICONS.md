@@ -130,3 +130,14 @@ of 2026-11-18/19 (commit 67aa51c) for spells that did not exist yet; the old spe
 * `icon_starnail.png` - Starnail: a splinter of star crystal driven down into cracked stone.
 * `icon_hushing_gale.png` - Hushing Gale: a silver-blue gust spiralling out of an open gloved palm.
 * `icon_shardglass_ward.png` - Shardglass Ward: a faceted wall of pale crystal catching a fiery bolt.
+
+## 2026-11-20 additions (fal.ai) - Seedream 5.5, two status icons
+
+Tool: fal.ai `bytedance/seedream/v5.5/edit` (Seedream 5.5, 1024 px, 1:1, transparent PNG output), a
+text prompt plus the project's own `icon_status_burn.png` and `icon_status_stun.png` (on white) as the
+style reference. No third-party image was used as an input. Resized with Lanczos to 512 px, cut-out
+style like the other status icons. For the HUD's effect rows, which replaced the words over bodies.
+
+* `icon_status_bleed.png` - Bleeding: three glossy crimson drops over a small splash (brightened 1.32x
+  so it reads at 26 px).
+* `icon_status_slow.png` - Slowed / webbed: a brass hourglass gripped by frost, sand trickling slowly.
