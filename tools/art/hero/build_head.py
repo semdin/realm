@@ -248,20 +248,35 @@ nc, nrad, _ = ring(near_axis, CUT + 0.03, CUT + 0.05)
 T = np.array([oc[0] - nc[0], oc[1] - nc[1], 0.0])
 log('MakeHuman height %.4f -> scale %.4f, neck centre shift (%.4f, %.4f), neck radius %.4f -> %.4f'
     % (H, S, T[0], T[1], nrad, orad))
-NECK_TOP = CUT + 0.07
-NECK_LOW = CUT + 0.015
+# per direction round the neck: the old (kit) neck's radius and ours at the
+# collar's height, printed to choose the easing
+def _radial(pts, z0, z1, centre, n=12):
+    sel = pts[(pts[:, 2] > z0) & (pts[:, 2] < z1)]
+    ang = np.arctan2(sel[:, 1] - centre[1], sel[:, 0] - centre[0])
+    rad = np.hypot(sel[:, 0] - centre[0], sel[:, 1] - centre[1])
+    out = []
+    for k in range(n):
+        a0 = -math.pi + 2 * math.pi * k / n
+        m = (ang >= a0) & (ang < a0 + 2 * math.pi / n)
+        out.append(float(np.median(rad[m])) if m.any() else float('nan'))
+    return np.array(out)
+
+
+# The neck keeps MakeHuman's own shape: widening it toward the kit neck's
+# girth (the collar was fitted to it) bent the throat into a ledge under the
+# jaw, folds and a skirt-like flare. The neck's axis, for the side faces:
+_nb = sb + np.array([T[0], T[1], 0.0])
+_ring = _nb[(_nb[:, 2] > CUT + 0.015) & (_nb[:, 2] < CUT + 0.045) & (np.abs(_nb[:, 0]) < 0.055)]
+NECK_C = np.array([0.0, float((_ring[:, 1].max() + _ring[:, 1].min()) / 2)])
+log('neck axis y %.4f (from %d verts)' % (NECK_C[1], len(_ring)))
+NECK_TOP = -1.0
+NECK_LOW = -2.0
 
 
 def to_hero(co):
     """MakeHuman world positions -> on the hero: scaled, centred, and the low
     neck eased to the old neck's girth (the collars were fitted to it)."""
-    p = co * S + T
-    f = np.clip((NECK_TOP - p[:, 2]) / (NECK_TOP - NECK_LOW), 0.0, 1.0)
-    f = f * f * (3 - 2 * f)
-    k = 1.0 + (orad / nrad - 1.0) * f
-    p[:, 0] = oc[0] + (p[:, 0] - oc[0]) * k
-    p[:, 1] = oc[1] + (p[:, 1] - oc[1]) * k
-    return p
+    return co * S + T
 
 
 rest_h = {k: to_hero(v) for k, v in rest.items()}
@@ -285,16 +300,51 @@ def in_head_island(f):
     return sum(u for u, _v in fuv) / len(fuv) > 0.6
 
 
-NECK_KEEP = CUT + 0.035
+NECK_KEEP = CUT - 0.012
+
+
+# the torso island's faces kept for the neck's sides: within this of the
+# neck's axis (at 0.12 the shoulders' slope came along and stood out as fins)
+NECK_SIDE_R = 0.078
 
 
 def near_axis_xy(i):
     p = rest_h['base'][i]
-    return math.hypot(p[0] - oc[0], p[1] - oc[1]) < 0.12
+    return math.hypot(p[0] - NECK_C[0], p[1] - NECK_C[1]) < NECK_SIDE_R
+
+
+def faces_up(f):
+    """The face's normal leans up: the shoulders' slope (the trapezius), not
+    the neck's side."""
+    pts = rest_h['base'][f]
+    nrm = np.cross(pts[1] - pts[0], pts[2] - pts[0])
+    nrm /= max(np.linalg.norm(nrm), 1e-12)
+    return nrm[2] > 0.45
 
 
 keep_faces = [f for f in body_faces if tuple(f) in face_uv and all(rest_h['base'][i, 2] >= NECK_KEEP for i in f)
               and (in_head_island(f) or all(near_axis_xy(i) for i in f))]
+# close the neck's side outline: a torso face that shares two or more edges
+# with the kept faces fills a notch (the radius cut left little bays down the
+# sides of the throat); a face along a straight edge shares one, so the
+# outline does not grow out over the shoulders
+_pool = [f for f in body_faces if tuple(f) in face_uv and not in_head_island(f)
+         and all(rest_h['base'][i, 2] >= NECK_KEEP for i in f)
+         and all(math.hypot(rest_h['base'][i, 0] - NECK_C[0], rest_h['base'][i, 1] - NECK_C[1]) < 0.11 for i in f)]
+_kept = {tuple(f) for f in keep_faces}
+for _it in range(12):
+    _edges = {}
+    for f in _kept:
+        for a_, b_ in zip(f, f[1:] + f[:1]):
+            _edges[(min(a_, b_), max(a_, b_))] = _edges.get((min(a_, b_), max(a_, b_)), 0) + 1
+    _added = [f for f in _pool if tuple(f) not in _kept
+              and sum(1 for a_, b_ in zip(f, f[1:] + f[:1]) if (min(a_, b_), max(a_, b_)) in _edges) >= 2]
+    if not _added:
+        break
+    for f in _added:
+        _kept.add(tuple(f))
+        keep_faces.append(f)
+log('neck outline closed in %d passes' % _it)
 keep_ids = sorted({i for f in keep_faces for i in f})
 new_index = {old: k for k, old in enumerate(keep_ids)}
 log('head faces %d (torso island %d) verts %d' % (len(keep_faces), sum(not in_head_island(f) for f in keep_faces), len(keep_ids)))
@@ -329,11 +379,11 @@ row2 = {v: N0 + len(rim_verts) + k for k, v in enumerate(rim_verts)}
 parents = np.array(rim_verts + rim_verts)
 rest_rim = rest_h['base'][keep_ids][rim_verts]
 rim_r = np.hypot(rest_rim[:, 0] - oc[0], rest_rim[:, 1] - oc[1])
-ease = orad / rim_r.mean()
+ease = 1.0
 offsets = []
 for frac in (0.5, 1.0):
     o = np.zeros((len(rim_verts), 3))
-    o[:, 2] = ((CUT - 0.006) - rest_rim[:, 2]) * frac
+    o[:, 2] = ((CUT - 0.14) - rest_rim[:, 2]) * frac
     k = 1.0 + (ease - 1.0) * frac
     o[:, 0] = (rest_rim[:, 0] - oc[0]) * (k - 1.0)
     o[:, 1] = (rest_rim[:, 1] - oc[1]) * (k - 1.0)
@@ -353,8 +403,8 @@ for fi, a, b in rim:
     head_faces.append([row1[b], row1[a], row2[a], row2[b]])
     head_uvs.append([up_b, up_a, ua, ub])
     face_island += [face_island[fi]] * 2
-log('neck extended: %d rim edges, %d verts, ring radius %.4f -> %.4f, bottom %.4f -> %.4f'
-    % (len(rim), len(rim_verts), rim_r.mean(), orad, low_z, CUT - 0.006))
+log('neck extended: %d rim edges, %d verts, bottom %.4f -> %.4f'
+    % (len(rim), len(rim_verts), low_z, CUT - 0.14))
 
 
 def with_neck(coords):
@@ -479,8 +529,55 @@ def subdivided(coords):
 
 hi_rest = subdivided(with_neck(rest_h['base'][keep_ids]))
 hi_keys = {name: subdivided(with_neck(snap['base'][keep_ids])) for name, snap in var_h.items()}
+# Under the clothes: behind and beside the neck, skin that lies outside an
+# outfit's shirt (MakeHuman's trapezius is fuller than the kit body the
+# shirts were made for) is pulled 4 mm under it - it showed through the back
+# of the collar. The V of the shirt at the front keeps the skin as it is.
+_push = np.zeros_like(hi_rest)
+PUSH_CAP = 0.008
+for _name in ('Hero_Peasant_Body', 'Hero_Ranger_Body'):
+    _ob = bpy.data.objects.get(_name)
+    if _ob is None:
+        continue
+    _bv = [tuple(_ob.matrix_world @ v.co) for v in _ob.data.vertices]
+    _bf = [tuple(pl.vertices) for pl in _ob.data.polygons]
+    _shirt = BVHTree.FromPolygons(_bv, _bf)
+    for _i, _p in enumerate(hi_rest):
+        if _p[2] > 1.575 or _p[1] < NECK_C[1] - 0.012:
+            continue
+        _q = _p + _push[_i]
+        _hit = _shirt.find_nearest(Vector(_q))
+        if _hit[0] is None or _hit[3] > 0.04:
+            continue
+        _loc, _nrm = np.array(_hit[0]), np.array(_hit[1])
+        _out = (_q - _loc) @ _nrm
+        if _out > -0.004:
+            _push[_i] += -_nrm * (_out + 0.004)
+# capped, and spread over the neighbours so the skin slides under the cloth
+# instead of crumpling (an uncapped per-vertex push folded the neck's sides)
+_len = np.linalg.norm(_push, axis=1, keepdims=True)
+_push = _push * np.minimum(1.0, PUSH_CAP / np.maximum(_len, 1e-9))
+_evm = lo.evaluated_get(bpy.context.evaluated_depsgraph_get()).data
+_ed = np.zeros(len(_evm.edges) * 2, np.int32)
+_evm.edges.foreach_get('vertices', _ed)
+_ed = _ed.reshape(-1, 2)
+for _k in range(8):
+    _acc = np.zeros_like(_push)
+    _cnt = np.zeros(len(_push))
+    np.add.at(_acc, _ed[:, 0], _push[_ed[:, 1]]); np.add.at(_cnt, _ed[:, 0], 1)
+    np.add.at(_acc, _ed[:, 1], _push[_ed[:, 0]]); np.add.at(_cnt, _ed[:, 1], 1)
+    _avg = _acc / np.maximum(_cnt, 1)[:, None]
+    _push = np.where(np.linalg.norm(_push, axis=1, keepdims=True) >= np.linalg.norm(_avg, axis=1, keepdims=True),
+                     _push, 0.5 * _push + 0.5 * _avg)
+_pushed = int((np.linalg.norm(_push, axis=1) > 1e-5).sum())
+hi_rest = hi_rest + _push
+hi_keys = {k: v + _push for k, v in hi_keys.items()}
+log('skin pulled under the shirts: %d verts, max %.1f mm' % (_pushed, 1000 * np.linalg.norm(_push, axis=1).max()))
 subdivided(with_neck(rest_h['base'][keep_ids]))
 head_me = bpy.data.meshes.new_from_object(lo.evaluated_get(bpy.context.evaluated_depsgraph_get()))
+# the rest positions after the pull under the shirts
+head_me.vertices.foreach_set('co', hi_rest.astype(np.float32).ravel())
+head_me.update()
 head_me.name = 'Face_Head'
 head = bpy.data.objects.new('Face_Head', head_me)
 bpy.context.scene.collection.objects.link(head)
@@ -758,6 +855,21 @@ def fill_outside(img, mask, steps=24):
 MASK = island_mask()
 albedo = fill_outside(pack(skin_light), MASK)
 albedo_dark = fill_outside(pack(skin_dark), MASK)
+# under the chin the photo's own shading (neck tendons, the torso island's
+# collarbone shadows) read as dark stripes - twice, as colour and through the
+# detail normal derived from it: the neck keeps its colour, not its shading
+# The neck is two UV islands (the head island's front and back, the torso
+# island's sides unrolled into strips) whose photo skin does not match at
+# the seams: a thin dark line ran down each side of the throat. Under the
+# jaw both islands take the neck's mean skin (the collar hides most of it),
+# so no seam can show.
+neck_w = raster_mesh(head_me, ramp(1.625, 1.595, hi_rest[:, 2])[:, None].astype(np.float32), PACK_W, PACK_H)[..., 0]
+neck_w = np.clip(neck_w, 0, 1)[..., None]
+_in_neck = (neck_w[..., 0] > 0.99) & (MASK > 0.5)
+for _img in (albedo, albedo_dark):
+    _mean = _img[_in_neck].mean(0)
+    _img[:] = _img * (1 - neck_w) + _mean[None, None, :] * neck_w
+log('neck skin unified over %d texels' % int(_in_neck.sum()))
 log('island texels %.1f %% of the pack' % (100 * MASK.mean()))
 CW, CH = PACK_W, PACK_H
 uvl = head_me.uv_layers.active.data
@@ -794,6 +906,13 @@ NORMAL_STRENGTH = 3.0
 gx = (np.roll(hp, -1, 1) - np.roll(hp, 1, 1)) * 0.5 * NORMAL_STRENGTH
 gy = (np.roll(hp, -1, 0) - np.roll(hp, 1, 0)) * 0.5 * NORMAL_STRENGTH
 n = np.stack([-gx, -gy, np.ones_like(gx)], -1)
+n /= np.linalg.norm(n, axis=-1, keepdims=True)
+# the neck keeps its form from the geometry only: the photo's neck shading
+# (and the seams where the neck strips meet the head island) drew dark
+# vertical lines through the detail normal
+flat = np.zeros_like(n); flat[..., 2] = 1.0
+nw = neck_w[..., 0:1]
+n = n * (1 - nw) + flat * nw
 n /= np.linalg.norm(n, axis=-1, keepdims=True)
 save_img(os.path.join(OUT, 'head_normal.png'), n * 0.5 + 0.5)
 
@@ -1058,7 +1177,7 @@ meta = {
 json.dump(meta, open(os.path.join(WORK, 'head_meta.json'), 'w'), indent=1)
 # the hair builder (hair_cards.py) grows its cards on MakeHuman's scalp
 np.savez(os.path.join(WORK, 'head_regions.npz'), rest=hi_rest, scalp=region_w['scalp'], ears=region_w['ears'],
-         lips=region_w['lips'])
+         lips=region_w['lips'], beard=beard)
 
 # ------------------------------------------------------------------ save + export
 for o in list(bpy.data.objects):

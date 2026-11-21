@@ -42,12 +42,25 @@ uniform float micro_scale = 26.0;
 uniform float micro_strength = 0.35;
 // how far past the terminator each channel's light wraps (red the most)
 uniform vec3 skin_wrap = vec3(0.24, 0.12, 0.08);
+// the bare arms beside the photo-skinned head (hero_face_skin.gdshader):
+// their texture brought to the face's mean colour, the skin tone applied the
+// face's way (brightness from the palette, its hue a little), so hands and
+// face are one skin
+uniform bool face_tone = false;
+uniform vec3 tone_match = vec3(1.0);
 
 // the blurred (low-mip) normal, view space: the red channel's light
 varying vec3 soft_normal;
 
 void fragment() {
-	vec3 skin = texture(albedo_tex, UV).rgb * skin_tint;
+	vec3 skin = texture(albedo_tex, UV).rgb;
+	if (face_tone) {
+		float lt = dot(skin_tint, vec3(0.2126, 0.7152, 0.0722));
+		vec3 hue = skin_tint / max(lt, 0.001);
+		skin *= tone_match * lt * mix(vec3(1.0), hue, 0.3);
+	} else {
+		skin *= skin_tint;
+	}
 	float scalp = has_scalp && scalp_layer >= 0.0 ? texture(scalp_tex, vec3(UV, scalp_layer)).r : 0.0;
 	float rough = has_roughness ? texture(roughness_tex, UV).g : roughness;
 	float grain = texture(grain_tex, UV * grain_scale).r;

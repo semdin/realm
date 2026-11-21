@@ -63,6 +63,8 @@ head = bpy.data.objects['Face_Head']
 reg = np.load(os.path.join(WORK, 'head_regions.npz'))
 REST = reg['rest'].astype(np.float64)
 SCALP = reg['scalp']
+# where this style grows: the scalp, or the beard area (build_head.py zones)
+REGION = reg[spec.get('region', 'scalp')]
 me = head.data
 tris = []
 for poly in me.polygons:
@@ -107,7 +109,7 @@ def smooth(a, b, x):
 # ------------------------------------------------------------------ where hair grows
 tri_p = REST[tris]
 tri_area = 0.5 * np.linalg.norm(np.cross(tri_p[:, 1] - tri_p[:, 0], tri_p[:, 2] - tri_p[:, 0]), axis=1)
-tri_w = SCALP[tris].mean(1)
+tri_w = REGION[tris].mean(1)
 centres = tri_p.mean(1)
 hairline = np.array([spec['hairline'](q_of(c)) for c in centres])
 grow_w = tri_w * hairline
@@ -123,7 +125,16 @@ cand_w = grow_w[pick]
 log('scalp area %.4f m2, candidates %d' % ((tri_area * (grow_w > 0.25)).sum(), cand_n))
 
 
-def poisson(spacing, min_z=None, edge=False, max_z=None):
+# inner layers grow where the scalp (or beard) weight is at least this; a
+# beard's density is lower on the cheeks than a scalp's anywhere
+DENSE = spec.get('dense', 0.7)
+EDGE_W = spec.get('edge_w', 0.92)
+BAND_JITTER = spec.get('band_jitter', 0.0)
+# card normals: the head's surface normal (1) .. the skull's radial direction (0)
+NORMAL_SURFACE = spec.get('normal_surface', 0.35)
+
+
+def poisson(spacing, min_z=None, edge=False, max_z=None, dense=None):
     cell = spacing / math.sqrt(3)
     grid = {}
     out = []
@@ -134,13 +145,15 @@ def poisson(spacing, min_z=None, edge=False, max_z=None):
             # the hairline layer: only the band where the scalp fades out
             if not 0.15 < cand_w[i] < 0.85:
                 continue
-        elif cand_w[i] < 0.7 or rng.random() > smooth(0.7, 0.95, cand_w[i]):
+        elif cand_w[i] < (dense or DENSE) or rng.random() > smooth(dense or DENSE, (dense or DENSE) + 0.25, cand_w[i]):
             # the inner layers stay inside the hairline: their blunt card
             # sides on the edge read as torn paper
             continue
-        if min_z is not None and q_of(p)[2] < min_z:
+        # a layer's band edges are ragged (a straight root line read as a
+        # cut edge across the face)
+        if min_z is not None and q_of(p)[2] < min_z + rng.random() * BAND_JITTER:
             continue
-        if max_z is not None and q_of(p)[2] > max_z:
+        if max_z is not None and q_of(p)[2] > max_z - rng.random() * BAND_JITTER:
             continue
         key = tuple((p // cell).astype(int))
         ok = True
@@ -163,15 +176,187 @@ def poisson(spacing, min_z=None, edge=False, max_z=None):
     return np.array(out)
 
 
+# ------------------------------------------------------------------ the body (long hair falls over it)
+body_parts = [o for o in bpy.data.objects if o.type == 'MESH' and o.name in ('Hero_Peasant_Body', 'Hero_Ranger_Body')]
+body_v, body_f = [], []
+for o in body_parts:
+    off = len(body_v)
+    body_v += [tuple(o.matrix_world @ v.co) for v in o.data.vertices]
+    body_f += [tuple(i + off for i in poly.vertices) for poly in o.data.polygons]
+body_bvh = BVHTree.FromPolygons(body_v, body_f) if body_v else None
+DOWN = np.array([0.0, 0.0, -1.0])
+MIN_CARD_STYLE = spec.get('min_card', MIN_CARD)
+
+
+def keep_out(p, clear_head, clear_body):
+    """p pushed out of the head / neck and the body by the clearances."""
+    # only surfaces close by: the side a far point lies on, read from the
+    # nearest face's normal, is not to be trusted (a point over the crown
+    # was "inside" the shirt and jumped 20 cm down)
+    loc, nrm, _i, dist = bvh.find_nearest(Vector(p))
+    loc, nrm = np.array(loc), np.array(nrm)
+    if dist < 0.03 and (p - loc) @ nrm < clear_head:
+        p = loc + nrm * clear_head
+    if body_bvh is not None:
+        hit = body_bvh.find_nearest(Vector(p))
+        if hit[0] is not None and hit[3] < 0.03:
+            bl, bn = np.array(hit[0]), np.array(hit[1])
+            if (p - bl) @ bn < clear_body:
+                p = bl + bn * clear_body
+    return p
+
+
 # ------------------------------------------------------------------ cards
 cards = []
 n_layers = len(spec['layers'])
 card_count = 0
+release = spec.get('release')          # q -> the height (q.z) below which hair leaves the scalp
+fall = spec.get('fall', 0.0)           # how fast free hair turns down (per 2 cm)
+wave = spec.get('wave')                # (amplitude m, wavelength m)
+curl = spec.get('curl')                # (radius m, period m)
+
+
+def card_path(surf0, n0, d0, L, layer, lift, card_seed, overhang, free_from_start=False, tail_top=None):
+    """The card's centre line: rows of (point, normal, direction), and how
+    far it got before running past the hairline by more than the overhang
+    (only while it walks the scalp). Over the scalp each row is re-projected
+    onto it at the layer's height (the root on the skin, rising to the layer
+    + the lift); where the style releases it (or from the start: a tail) it
+    falls free - turning down with `fall`, kept clear of the head, the neck
+    and the body."""
+    crng = np.random.default_rng(card_seed)
+    seg_len = spec.get('seg_len', 0.009) if curl is None else min(spec.get('seg_len', 0.009), curl[1] / 5)
+    nseg = int(min(24, max(3, round(L / seg_len))))
+    step = L / nseg
+    surf, n, d = surf0, n0, d0
+    free = free_from_start
+    p = surf + n * (0.0006 if not free else 0.002)
+    rows, outside, run = [(p, n, d)], 0.0, 0.0
+    clear_free = layer['offset'] + 0.004
+    for i in range(1, nseg + 1):
+        t = i / nseg
+        run += step
+        if not free:
+            target = surf + d * step + DOWN * spec['gravity'] * step * t
+            s2, n2, ti = nearest(target)
+            q2 = q_of(s2)
+            if release is not None and q2[2] < release(q2):
+                free = True
+            else:
+                if overhang is not None and grow_w[ti] < 0.3:
+                    outside += step
+                    if outside > overhang:
+                        return rows, run - (outside - overhang)
+                surf, n = s2, n2
+                nd = tangent(spec['flow'](q2), n)
+                d = tangent(0.7 * d + 0.3 * nd, n)
+                d = rotate(d, n, crng.normal(0, layer['noise'] * 0.25))
+                # `lift_start`: the card lies on the skin for that share of
+                # its length before it rises (a beard's mass grows downward)
+                ls = layer.get('lift_start', 0.0)
+                h = 0.0006 + (layer['offset'] - 0.0006) * smooth(ls, ls + 0.25, t) \
+                    + lift * smooth(ls, ls + 0.35, t) * (1.0 - 0.35 * t)
+                p = surf + n * h
+        if free:
+            d = d + DOWN * fall * step / 0.02
+            d = d / np.linalg.norm(d)
+            d = rotate(d, DOWN, crng.normal(0, layer['noise'] * 0.15))
+            p = keep_out(p + d * step, clear_free, 0.012)
+            if tail_top is not None:
+                radial = p - tail_top
+            else:
+                radial = np.array([p[0] - C[0], p[1] - C[1], 0.0])
+            radial[2] = 0.0
+            radial /= max(np.linalg.norm(radial), 1e-9)
+            n = n * 0.5 + radial * 0.5
+            n = n - d * (n @ d)
+            n /= max(np.linalg.norm(n), 1e-9)
+        rows.append((p, n, d))
+    return rows, L
+
+
+def ribbon(rows, L, layer, twist, width, phase, taper=0.5, width_profile=None):
+    """The card's ribbon (3 vertices a row: the middle bowed outward), with
+    the style's waves or curls laid on the centre line."""
+    out_rows = []
+    nseg = len(rows) - 1
+    for i, (p, n, d) in enumerate(rows):
+        t = i / nseg
+        side = np.cross(n, d)
+        side /= max(np.linalg.norm(side), 1e-9)
+        side = rotate(side, d, twist * (0.4 + 0.6 * t))
+        nrm = np.cross(d, side)
+        dist = t * L
+        ramp = smooth(0.0, 0.015, dist)
+        if wave is not None:
+            p = p + side * wave[0] * ramp * math.sin(2 * math.pi * dist / wave[1] + phase)
+        if curl is not None:
+            th = 2 * math.pi * dist / curl[1] + phase
+            p = p + (side * math.cos(th) + nrm * math.sin(th)) * curl[0] * ramp
+        w = width * (width_profile(t) if width_profile else (1.0 - taper * t))
+        left, right = p - side * w / 2, p + side * w / 2
+        mid = p + nrm * layer['arc'] * w
+        fixed = [keep_out(e, 0.0008, 0.004) for e in (left, mid, right)]
+        out_rows.append((fixed, t, p))
+    return out_rows
+
+
+def tail_profile(t):
+    """A ponytail card: gathered at the tie, full in the middle, a point."""
+    return 0.45 + 0.55 * math.sin(min(1.0, t * 1.4) * math.pi * 0.5) * (1.0 - 0.7 * smooth(0.6, 1.0, t))
+
+
 for li, layer in enumerate(spec['layers']):
     # how deep in the hair the layer lies (0 under everything .. 1 on top);
     # the hairline layer is on the outside of the edge, never in shadow
     depth = layer.get('depth', li / max(1, n_layers - 1))
-    roots = poisson(layer['spacing'], layer.get('min_z'), layer.get('edge', False), layer.get('max_z'))
+    if layer.get('tail'):
+        # a ponytail: cards round the tie, falling from it
+        tie_q = np.array(layer['tail'], dtype=float)
+        tie_s, tie_n, _ = nearest(C + tie_q / np.linalg.norm(tie_q) * R * 1.3)
+        e1 = np.cross(tie_n, DOWN)
+        e1 /= np.linalg.norm(e1)
+        e2 = np.cross(tie_n, e1)
+        top = tie_s + tie_n * 0.006
+        made = 0
+        for k in range(layer['count']):
+            a_ = 2 * math.pi * (k + rng.random() * 0.6) / layer['count']
+            radial0 = e1 * math.cos(a_) + e2 * math.sin(a_)
+            root = top + radial0 * layer['radius'] * rng.uniform(0.4, 1.0)
+            d0 = tie_n * 0.6 + DOWN * 0.8 + radial0 * 0.15
+            d0 /= np.linalg.norm(d0)
+            L = layer['length'] * rng.uniform(0.75, 1.05)
+            rows, _r = card_path(root, radial0, d0, L, layer, 0.0, int(rng.integers(1 << 30)), None,
+                                 free_from_start=True, tail_top=top)
+            col = int(rng.choice(layer['columns']))
+            u0, u1 = col / N_COLUMNS, (col + 1) / N_COLUMNS
+            built = ribbon(rows, L, layer, rng.normal(0, layer['twist']), layer['width'] * rng.uniform(0.85, 1.15),
+                           rng.uniform(0, 2 * math.pi), width_profile=tail_profile)
+            cards.append({'layer': layer['name'], 'rows': built, 'u': (u0, u1), 'depth': depth,
+                          'rnd': float(rng.random()), 'flex': float(min(1.5, max(0.2, L / 0.07)))})
+            made += 1
+        # the tie: a lock wrapped round the tail's root (hair over the band,
+        # the way it is tied), short cards running round it
+        wraps = layer.get('wraps', 0)
+        for k in range(wraps):
+            rows = []
+            a_start = 2 * math.pi * k / wraps
+            for j in range(4):
+                a_ = a_start + (2 * math.pi / wraps) * 1.35 * j / 3
+                radial = e1 * math.cos(a_) + e2 * math.sin(a_)
+                tangent_ = -e1 * math.sin(a_) + e2 * math.cos(a_)
+                p_ = top + tie_n * 0.003 + radial * (layer['radius'] * 1.05)
+                rows.append((p_, radial, tangent_))
+            built = ribbon(rows, 0.02, layer, 0.0, 0.011, 0.0, taper=0.2)
+            # the wrap's cards lie across the tie (no free fall, no collision push)
+            cards.append({'layer': layer['name'], 'rows': built, 'u': (2 / N_COLUMNS, 3 / N_COLUMNS),
+                          'depth': 1.0, 'rnd': float(rng.random()), 'flex': 0.0})
+            made += 1
+        card_count += made
+        log('layer %s: %d tail cards' % (layer['name'], made))
+        continue
+    roots = poisson(layer['spacing'], layer.get('min_z'), layer.get('edge', False), layer.get('max_z'), layer.get('dense'))
+    made = 0
     for root in roots:
         surf0, n0, _ = nearest(root)
         q = q_of(surf0)
@@ -183,84 +368,33 @@ for li, layer in enumerate(spec['layers']):
         width = layer['width'] * rng.uniform(0.85, 1.15)
         card_seed = int(rng.integers(1 << 30))
         overhang = spec['overhang'](q)
-
-        def march(length, check=True):
-            """The card's path over the scalp: (surface point, normal,
-            direction) per row, and how far it got before running past the
-            hairline by more than the style's overhang there."""
-            crng = np.random.default_rng(card_seed)
-            nseg = int(min(10, max(3, round(length / 0.009))))
-            step = length / nseg
-            surf, n, d = surf0, n0, d0
-            path, outside, run = [], 0.0, 0.0
-            for i in range(nseg + 1):
-                path.append((surf, n, d))
-                if i == nseg:
-                    break
-                target = surf + d * step + np.array([0, 0, -1.0]) * spec['gravity'] * step * (i / nseg)
-                surf, n, ti = nearest(target)
-                run += step
-                if check and grow_w[ti] < 0.3:
-                    outside += step
-                    if outside > overhang:
-                        return path, run - (outside - overhang)
-                nd = tangent(spec['flow'](q_of(surf)), n)
-                d = tangent(0.7 * d + 0.3 * nd, n)
-                d = rotate(d, n, crng.normal(0, layer['noise'] * 0.25))
-            return path, length
-
-        path, reach = march(L)
+        rows, reach = card_path(surf0, n0, d0, L, layer, lift, card_seed, overhang)
         if reach < L * 0.97:
             # past the hairline: the card ends at the overhang, tapering there
             L = reach
-            path, _r = march(L, check=False)
-        if L < MIN_CARD:
+            rows, _r = card_path(surf0, n0, d0, L, layer, lift, card_seed, None)
+        if L < MIN_CARD_STYLE:
             # a whole lock squeezed into a few mm is a dark chip on the edge:
             # the hair cap carries the hairline there
             continue
-        nseg = len(path) - 1
-        rows = []
-        for i, (surf, n, d) in enumerate(path):
-            t = i / nseg
-            # the root grows out of the scalp and rises to its layer: a root
-            # floating at the layer's height showed its straight cut end
-            h = 0.0006 + (layer['offset'] - 0.0006) * smooth(0.0, 0.25, t)                 + lift * smooth(0.0, 0.35, t) * (1.0 - 0.35 * t)
-            p = surf + n * h
-            side = np.cross(n, d)
-            side /= max(np.linalg.norm(side), 1e-9)
-            side = rotate(side, d, twist * (0.4 + 0.6 * t))
-            out = np.cross(d, side)
-            w = width * (1.0 - 0.5 * t)
-            left, right = p - side * w / 2, p + side * w / 2
-            mid = p + out * layer['arc'] * w
-            # an edge that dips under the scalp is lifted back over it
-            fixed = []
-            for e in (left, mid, right):
-                loc, en, _ = nearest(e)
-                if (e - loc) @ en < 0.0008:
-                    e = loc + en * 0.0008
-                fixed.append(e)
-            rows.append((fixed, t, p))
         # cards rooted near the hairline are narrower and take the fine
         # columns: wide card sides along the edge drew a stepped outline
         _l, _n, root_tri = nearest(root)
-        edge_card = grow_w[root_tri] < 0.92 and not layer.get('edge', False)
+        edge_card = grow_w[root_tri] < EDGE_W and not layer.get('edge', False)
+        built = ribbon(rows, L, layer, twist, width * (0.55 if edge_card else 1.0), rng.uniform(0, 2 * math.pi))
         col = int(rng.choice(EDGE_COLUMNS if edge_card else layer['columns']))
-        if edge_card:
-            for row in rows:
-                (left, mid, right), t_, p_ = row
-                row[0][0] = p_ + (left - p_) * 0.55
-                row[0][2] = p_ + (right - p_) * 0.55
         u0, u1 = col / N_COLUMNS, (col + 1) / N_COLUMNS
         if rng.random() < 0.5:
             u0, u1 = u1, u0
-        cards.append({'layer': layer['name'], 'rows': rows, 'u': (u0, u1), 'depth': depth,
-                      'rnd': float(rng.random()), 'flex': float(min(1.5, max(0.2, L / 0.07)))})
-        card_count += 1
-    log('layer %s: %d cards' % (layer['name'], len(roots)))
-# far LOD: the base and main layers only, every other row (hair_far, past
+        cards.append({'layer': layer['name'], 'rows': built, 'u': (u0, u1), 'depth': depth,
+                      'rnd': float(rng.random()), 'flex': float(min(1.5, max(0.2, L / 0.07))),
+                      'root_fade': layer.get('root_fade', 0.0) * rng.uniform(0.6, 1.4)})
+        made += 1
+    card_count += made
+    log('layer %s: %d cards' % (layer['name'], made))
+# far LOD: the inner layers only, every other row (hair_far, past
 # HeroAppearance.HAIR_NEAR metres; no fringe pass there)
-FAR_LAYERS = ('sides', 'base', 'main')
+FAR_LAYERS = tuple(spec.get('far_layers', ('sides', 'base', 'main')))
 keys = head.data.shape_keys.key_blocks if head.data.shape_keys else []
 
 
@@ -277,11 +411,27 @@ def build_object(name, use_cards, row_step):
             (left, mid, right), t, p = rows[ri]
             for k, e in enumerate((left, mid, right)):
                 verts.append(e)
-                nrms.append((e - C) / np.linalg.norm(e - C))
+                # the card's normal: the head's surface below it (a beard faces
+                # the way the jaw does - radial from the skull's centre it faced
+                # down, away from every light, and read black), blended with the
+                # skull's radial direction for scalp hair (one round volume)
+                _loc, _sn, _ti, _d = bvh.find_nearest(Vector(e))
+                radial = (e - C) / np.linalg.norm(e - C)
+                ws = NORMAL_SURFACE
+                nv = np.array(_sn) * ws + radial * (1.0 - ws)
+                nrms.append(nv / max(np.linalg.norm(nv), 1e-9))
                 uv_a.append((u0 + (u1 - u0) * k / 2, 1.0 - t))
                 uv_b.append((t, 1.0 - card['depth']))
                 ao = (0.8 + 0.2 * card['depth']) * (0.75 + 0.25 * smooth(0.0, 0.6, t))
-                cols.append((card['rnd'], card['flex'], ao, 1.0))
+                # where the card lies on the skin past the hairline it fades
+                # out (the shader multiplies coverage by it): no card edge
+                # draws the hairline as steps
+                loc, _nn, ti, dist = bvh.find_nearest(Vector(e))
+                fade = 1.0 if dist > 0.005 else smooth(spec.get('edge_fade', (0.35, 0.85))[0], spec.get('edge_fade', (0.35, 0.85))[1], float(grow_w[ti]))
+                if card.get('root_fade', 0.0) > 0.0:
+                    # the card grows out of the skin: no visible cut root row
+                    fade *= smooth(0.0, card['root_fade'], t)
+                cols.append((card['rnd'], card['flex'], ao, fade))
         for i in range(len(idx) - 1):
             a0, b0 = base + i * 3, base + (i + 1) * 3
             faces.append((a0, a0 + 1, b0 + 1, b0))
@@ -335,13 +485,26 @@ def build_object(name, use_cards, row_step):
     mod = ob.modifiers.new('Armature', 'ARMATURE')
     mod.object = rig
     g = ob.vertex_groups.new(name='Head')
-    g.add(list(range(len(verts))), 1.0, 'REPLACE')
+    drop = spec.get('drop_skin')       # (z full head, z full chest): long hair's ends ride the torso
+    if drop is None:
+        g.add(list(range(len(verts))), 1.0, 'REPLACE')
+    else:
+        gn = ob.vertex_groups.new(name='Neck')
+        gc = ob.vertex_groups.new(name='UpperChest')
+        for vi, v in enumerate(verts):
+            w = smooth(drop[1], drop[0], v[2])      # 1 at the head .. 0 down the back
+            if w > 0.001:
+                g.add([vi], w, 'REPLACE')
+            if 1.0 - w > 0.001:
+                gn.add([vi], (1.0 - w) * 0.35, 'REPLACE')
+                gc.add([vi], (1.0 - w) * 0.65, 'REPLACE')
     log('%s: verts %d tris %d, follows %d head keys' % (name, len(verts), 2 * len(faces), followed))
     return ob
 
 
-hair = build_object('Hair_' + STYLE, cards, 1)
-hair_far = build_object('Hair_' + STYLE + '_far', [c for c in cards if c['layer'] in FAR_LAYERS], 2)
+hair = build_object('Hair_' + STYLE, cards, 1) if cards else None
+far_cards = [c for c in cards if c['layer'] in FAR_LAYERS]
+hair_far = build_object('Hair_' + STYLE + '_far', far_cards, 2) if far_cards else None
 log('cards %d' % card_count)
 
 # ------------------------------------------------------------------ the hair cap (head UV)
@@ -383,7 +546,7 @@ def to_uv(points):
     return out * [CW_, CH_]
 
 
-CAP_STRANDS = 70000
+CAP_STRANDS = spec.get('cap_strands', 70000)
 CAP_STEPS = 5
 cap_tri = rng.choice(len(tris), size=CAP_STRANDS, p=(tri_area * grow_w ** 2) / (tri_area * grow_w ** 2).sum())
 r1, r2 = rng.random(CAP_STRANDS), rng.random(CAP_STRANDS)
@@ -397,7 +560,7 @@ for i in range(CAP_STRANDS):
     surf, n, _ = nearest(p)
     q = q_of(surf)
     # short hairs: 3-7 mm inside, shorter and finer toward the hairline
-    length = min(spec['length'](q), 0.007) * rng.uniform(0.55, 1.1) * (0.45 + 0.55 * smooth(0.25, 0.9, cap_w[i]))
+    length = min(spec['length'](q), spec.get('cap_max', 0.007)) * rng.uniform(0.55, 1.1) * (0.45 + 0.55 * smooth(0.25, 0.9, cap_w[i]))
     d = tangent(spec['flow'](q), n)
     d = rotate(d, n, rng.normal(0, 0.18))
     pts = [surf]
@@ -408,11 +571,14 @@ for i in range(CAP_STRANDS):
         pts.append(surf)
     uv = to_uv(pts)
     seg = np.diff(uv, axis=0)
-    if np.abs(seg).max() > 40:          # crosses a UV seam: skip
-        continue
-    a0 = rng.uniform(0.75, 1.0) * (0.55 + 0.45 * smooth(0.25, 0.9, cap_w[i]))
+    a0 = rng.uniform(0.75, 1.0) * (0.55 + 0.45 * smooth(0.25, 0.9, cap_w[i])) * spec.get('cap_alpha', 1.0)
     shade = rng.random()
     for k in range(CAP_STEPS):
+        if np.abs(seg[k]).max() > 40:
+            # this step crosses a UV seam: its two ends lie on different
+            # islands, the rest of the strand is still drawn (skipping whole
+            # strands left a hairless line along every seam)
+            continue
         n_s = int(np.ceil(np.hypot(*seg[k]) * 1.5)) + 1
         t = np.linspace(0, 1, n_s, endpoint=False)
         xy = uv[k] + seg[k] * t[:, None]
@@ -431,21 +597,42 @@ cov = cov.reshape(ph, CAP_SS, pw, CAP_SS).mean((1, 3))
 shade = (acc.reshape(ph, CAP_SS, pw, CAP_SS).sum((1, 3)) /
          np.maximum(wsum.reshape(ph, CAP_SS, pw, CAP_SS).sum((1, 3)), 1e-6))
 # the hair's base shadow on the scalp: the style's region, soft at the edge
-hv = np.array([spec['hairline'](q_of(p)) for p in REST]) * np.clip(SCALP / 0.85, 0, 1) ** 1.5
-base = blur(raster(me, hv[:, None].astype(np.float32), pw, ph)[..., 0], 3)
+hv = np.array([spec['hairline'](q_of(p)) for p in REST]) * np.clip(REGION / 0.85, 0, 1) ** (1.5 if spec.get('region', 'scalp') == 'scalp' else 0.6)
+base = blur(raster(me, hv[:, None].astype(np.float32), pw, ph)[..., 0], 3) * spec.get('cap_shadow', 1.0)
+# grow the strands past the UV islands' edges: filtering at a seam read the
+# empty texels outside the island and drew a bare line along it
+isl = raster(me, np.ones((len(REST), 1), np.float32), pw, ph, grow=0)[..., 0] > 0.5
+isl = isl & (np.minimum.reduce([np.roll(isl, sh, ax) for sh in (-1, 1) for ax in (0, 1)]))
+filled = isl.astype(np.float32)
+cov_f, shade_f = cov * filled, shade * filled
+for _ in range(10):
+    grow_c = blur(cov_f, 1); grow_s = blur(shade_f, 1); gw = blur(filled, 1)
+    empty = (filled == 0) & (gw > 0.01)
+    cov_f[empty] = grow_c[empty] / gw[empty]
+    shade_f[empty] = grow_s[empty] / gw[empty]
+    filled[empty] = 1.0
+cov = np.where(isl, cov, cov_f)
+shade = np.where(isl, shade, shade_f)
 cap = np.stack([cov, shade, base], -1)
 save_img(os.path.join(OUT, 'cap_%s.png' % STYLE), cap)
-log('hair cap: %d strands, coverage mean %.3f over the scalp' % (CAP_STRANDS, cov[base > 0.5].mean()))
+log('hair cap: %d strands, coverage mean %.3f where it grows' % (CAP_STRANDS, cov[base > 0.25].mean() if (base > 0.25).any() else 0.0))
 
 # ------------------------------------------------------------------ export
+out_glb = os.path.join(OUT, 'hair_%s.glb' % STYLE)
+if hair is None:
+    # a style drawn by its hair cap alone (a buzz cut): no glb
+    if os.path.exists(out_glb):
+        os.remove(out_glb)
+    log('no cards: cap only')
+    raise SystemExit(0)
 bpy.ops.object.select_all(action='DESELECT')
 for o in bpy.data.objects:
     o.hide_set(False)
 hair.select_set(True)
-hair_far.select_set(True)
+if hair_far is not None:
+    hair_far.select_set(True)
 rig.select_set(True)
 bpy.context.view_layer.objects.active = rig
-out_glb = os.path.join(OUT, 'hair_%s.glb' % STYLE)
 bpy.ops.export_scene.gltf(filepath=out_glb, export_format='GLB', use_selection=True, export_skins=True,
                           export_morph=True, export_morph_normal=False, export_tangents=True,
                           export_animations=False, export_materials='PLACEHOLDER', export_yup=True,

@@ -123,6 +123,30 @@ staggered soft roots, a few strands ending early - not loose random strands
 (those read as frizz or straw). R strand id, G the strand's place in its
 lock (each lock shades round), A coverage, 4x supersampled.
 
+### Style keys beyond the basics
+
+- `release` (q -> q.z): below it hair leaves the scalp and falls free; `fall`
+  is how fast it turns down; free hair is kept clear of the head, the neck
+  and the body (Hero_*_Body); `drop_skin` (z head, z chest) lets long ends
+  ride Neck / UpperChest instead of the Head bone.
+- `wave` (amplitude, wavelength) and `curl` (radius, period) are laid on each
+  card's centre line (Wavy, Curly, a wiry full beard).
+- A layer with `tail` (a point on the head in q) is a ponytail: `count` cards
+  round the tie falling free, and `wraps` short cards wrapped round the tie.
+- `region: "beard"` grows the style in build_head.py's beard zone (lips and
+  nose bare); its `hairline` function is a density (the beard's lines).
+  `cap_shadow` / `cap_alpha` scale the cap's B (the soft hair shadow under
+  the skin - most of a stubble) and its strands. A style with no layers is
+  drawn by its cap alone (Buzzed, the stubble, the short beard: no glb).
+- Layer keys: `min_z` / `max_z` (in q) keep a layer to a band, `depth`
+  fixes its shade depth, `root_fade` fades the card in from its root (no
+  visible cut root row), `edge_fade` (style) is where cards fade out on the
+  skin past the hairline.
+
+The game (`HeroAppearance`): `CARD_STYLES` lists every built style; the look's
+hair is worn as "Hair"/"HairFar", the beard's cards (`BEARDS[...].mesh`) as
+"Beard"/"BeardFar"; the head material is chosen per (hair cap, beard cap).
+
 ### What made it look like hair (and what did not)
 
 - Locks, not strands: an atlas of random thin strands read as straw; tubes
@@ -140,6 +164,26 @@ lock (each lock shades round), A coverage, 4x supersampled.
   any broad lobe turned them grey.
 - On dark hair a lock lit evenly is a grey blob: the R lobe is modulated per
   strand (most strands catch little, a few a lot), so it reads as glints.
+- Beards: the stubble and the short beard are mostly a soft shadow under the
+  skin with fine strands over it (no shadow = salt and pepper); the cheek
+  line runs from above the mouth's corner up to the sideburn, the neckline
+  a finger under the jaw (the zones' raw area reached the cheekbones). Full
+  beard cards only below the mouth's corners, hugging the jaw (cards lying
+  on the cheeks read as flakes, hanging cards as straw).
+- UV seams: cap strands are drawn segment by segment (a strand crossing a
+  seam was dropped whole: a bare line along every seam, e.g. under the
+  jaw), and the cap is grown past the islands' edges.
+- The neck's two UV islands disagree at their seams: build_head.py gives the
+  neck under the jaw one mean skin and a flat detail normal.
+- The neck is MakeHuman's own down to the collar (with its Adam's apple):
+  widening it to the kit neck's girth made a ledge under the jaw, folds and
+  a skirt; the side faces are taken within `NECK_SIDE_R` of the neck's axis
+  and the notches that leaves are closed (a face sharing two edges with the
+  kept ones is added); a straight two-row extension reaches into the shirt's
+  V; behind and beside the neck the skin is pulled under the shirts (capped
+  at 8 mm and smoothed over the neighbours: an uncapped push crumpled it).
+- The kit's bare arms are brought to the MakeHuman face's mean colour and
+  take the skin tone the face's way (`face_tone`, `ARM_TONE_MATCH`).
 - The hairline, part and nape come from the hair cap texture, not from
   cards: card ends on the edge read as torn paper without TAA.
 
@@ -168,5 +212,12 @@ uniform `hair_sway`; the vertex shader never pushes a tip into the head).
 4. Check offscreen renders from the front, side, back and top, in daylight
    and from behind the light.
 
-Styles in `looks.json` that have no cards yet are drawn with
-its stand-in (`HeroAppearance.STAND_INS`).
+Every style in `looks.json` is built (SimpleParted, Buzzed, Long, Wavy,
+Tousled, Neat, Ponytail, Curly) and the three beards (Beard_Stubble,
+Beard_Short, Beard_Full). A style added to `looks.json` before its cards are
+built is drawn with its stand-in (`HeroAppearance.STAND_INS`).
+
+Cost: near meshes 16-28k triangles (drawn within `HAIR_NEAR`, 7 m, with
+the fringe pass), far meshes 8-13k; Buzzed and the two short beards are
+texture only. Small face parts stop drawing past `FACE_PART_REACH`
+(lashes 9 m, corneas 12 m, brows 30 m, eyeballs 40 m).

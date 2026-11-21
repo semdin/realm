@@ -289,6 +289,8 @@ const HAIR_FRINGE_SHADER := preload("res://assets/shaders/hero_hair_fringe.gdsha
 ## the strength its slider sheet was tuned to.
 const FACE_KEY_GAIN := 1.0
 static var _face_materials := {}
+## How far (m) the small head parts are drawn (by the name after "Face_").
+const FACE_PART_REACH := {"Lashes": 9.0, "Cornea": 12.0, "Brow": 30.0, "Eyeball": 40.0}
 
 
 ## Take the kit head off `body` (a MODEL instance) and put the head model's
@@ -317,6 +319,11 @@ static func install_head(body: Node) -> void:
 			mi.set_surface_override_material(surface, material)
 		if mi.name == "Face_Cornea" or String(mi.name).begins_with("Face_Brow_") or mi.name == "Face_Lashes":
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		# past these the part is under a pixel: not drawn (fewer draws per hero)
+		var reach := float(FACE_PART_REACH.get(String(mi.name).get_slice("_", 1), 0.0))
+		if reach > 0.0:
+			mi.visibility_range_end = reach
+			mi.visibility_range_end_margin = 1.0
 	source.free()
 
 
@@ -367,11 +374,12 @@ static func face_material(part: String) -> Material:
 ## scalp-moving shape keys) and cap_<style>.png (its short hairs on the scalp,
 ## in the head's UV). The look's style is loaded when first worn.
 const HAIR_DIR := "res://assets/models/characters/hair/"
-## The styles built so far.
-const CARD_STYLES := ["SimpleParted", "Tousled"]
-## A look's style that has no cards yet shows the nearest built one.
-const STAND_INS := {"Buzzed": "SimpleParted", "Neat": "SimpleParted", "Long": "Tousled", "Wavy": "Tousled",
-	"Ponytail": "Tousled", "Curly": "Tousled"}
+## The styles built so far (all of looks.json's): a style with cards has a
+## hair_<style>.glb; Buzzed is drawn by its hair cap alone.
+const CARD_STYLES := ["SimpleParted", "Buzzed", "Long", "Wavy", "Tousled", "Neat", "Ponytail", "Curly"]
+## A look's style that has no cards yet shows the nearest built one (none
+## today; a style added to looks.json before its cards are built).
+const STAND_INS := {}
 const HairSwayScript = preload("res://scripts/entities/hair_sway.gd")
 static var _hair_scenes := {}
 static var _hair_material: ShaderMaterial = null
@@ -403,34 +411,35 @@ static func _hair_far_card_material() -> ShaderMaterial:
 	return _hair_far_material
 
 
-## Put `style`'s cards on the skeleton (or none): the near mesh "Hair" and
-## the far LOD "HairFar". Returns the meshes worn.
-static func _wear_hair(skeleton: Skeleton3D, style: String) -> Array[MeshInstance3D]:
+## Put `style`'s cards on the skeleton (or none) as `node` (the near mesh)
+## and `node`Far (the far LOD): the hair ("Hair") or the beard ("Beard").
+## Returns the meshes worn.
+static func _wear_cards(skeleton: Skeleton3D, style: String, node: String, sway: bool) -> Array[MeshInstance3D]:
 	var worn: Array[MeshInstance3D] = []
-	var current := skeleton.get_node_or_null("Hair") as MeshInstance3D
+	var current := skeleton.get_node_or_null(node) as MeshInstance3D
 	if current != null and String(current.get_meta("style", "")) == style:
 		worn.append(current)
-		var far_now := skeleton.get_node_or_null("HairFar") as MeshInstance3D
+		var far_now := skeleton.get_node_or_null(node + "Far") as MeshInstance3D
 		if far_now != null:
 			worn.append(far_now)
 		return worn
-	for old_name in ["Hair", "HairFar"]:
+	for old_name in [node, node + "Far"]:
 		var old := skeleton.get_node_or_null(old_name)
 		if old != null:
 			skeleton.remove_child(old)
 			old.queue_free()
 	var path := HAIR_DIR + "hair_%s.glb" % style
-	if style == "none" or not ResourceLoader.exists(path):
+	if style == "" or style == "none" or not ResourceLoader.exists(path):
 		return worn
 	if not _hair_scenes.has(style):
 		_hair_scenes[style] = load(path)
 	var source := (_hair_scenes[style] as PackedScene).instantiate()
-	for node in source.find_children("*", "MeshInstance3D", true, false):
-		var mi := node as MeshInstance3D
+	for found in source.find_children("*", "MeshInstance3D", true, false):
+		var mi := found as MeshInstance3D
 		var far := String(mi.name).ends_with("_far")
 		mi.get_parent().remove_child(mi)
 		mi.owner = null
-		mi.name = "HairFar" if far else "Hair"
+		mi.name = node + "Far" if far else node
 		mi.set_meta("style", style)
 		mi.layers |= CHARACTER_LAYER
 		skeleton.add_child(mi)
@@ -444,26 +453,36 @@ static func _wear_hair(skeleton: Skeleton3D, style: String) -> Array[MeshInstanc
 			mi.visibility_range_end = HAIR_NEAR
 			mi.visibility_range_end_margin = 0.5
 			mi.set_surface_override_material(0, _hair_card_material())
-			var sway := HairSwayScript.new()
-			sway.name = "HairSway"
-			mi.add_child(sway)
+			if sway:
+				var spring := HairSwayScript.new()
+				spring.name = "HairSway"
+				mi.add_child(spring)
 		worn.append(mi)
 	source.free()
 	return worn
 
 
-## The head's material under `style`: the face material with the style's
-## hair cap (cap_<style>.png, hair_cards.py) - one per built style, shared.
-static func _head_material(style: String) -> Material:
+## The head's material under hair `style` and `beard` (Looks.list("beards")):
+## the face material with the style's hair cap (cap_<style>.png) and the
+## beard's (cap_Beard_<...>.png, hair_cards.py) - one per pair worn, shared.
+static func _head_material(style: String, beard: String) -> Material:
 	var base := face_material("Face_Head")
-	var path := HAIR_DIR + "cap_%s.png" % style
-	if style == "none" or not ResourceLoader.exists(path):
+	var hair_path := HAIR_DIR + "cap_%s.png" % style
+	var has_hair := style != "none" and ResourceLoader.exists(hair_path)
+	var beard_style := String(BEARDS.get(beard, {}).get("cap", ""))
+	var beard_path := HAIR_DIR + "cap_%s.png" % beard_style
+	var has_beard := beard_style != "" and ResourceLoader.exists(beard_path)
+	if not has_hair and not has_beard:
 		return base
-	var key := "Face_Head/" + style
+	var key := "Face_Head/%s/%s" % [style if has_hair else "", beard_style if has_beard else ""]
 	if not _face_materials.has(key):
 		var mat := (base as ShaderMaterial).duplicate() as ShaderMaterial
-		mat.set_shader_parameter("cap_tex", load(path))
-		mat.set_shader_parameter("has_cap", true)
+		if has_hair:
+			mat.set_shader_parameter("cap_tex", load(hair_path))
+			mat.set_shader_parameter("has_cap", true)
+		if has_beard:
+			mat.set_shader_parameter("beard_tex", load(beard_path))
+			mat.set_shader_parameter("has_beard", true)
 		_face_materials[key] = mat
 	return _face_materials[key]
 
@@ -512,6 +531,8 @@ const EYE_SHADER := preload("res://assets/shaders/hero_eye.gdshader")
 const BROW_SHADER := preload("res://assets/shaders/hero_brow.gdshader")
 const BROW_PAINT_SHADER := preload("res://assets/shaders/hero_brow_paint.gdshader")
 const CLOTH_SHADER := preload("res://assets/shaders/hero_cloth.gdshader")
+## The kit arm texture brought to the MakeHuman face's mean colour.
+const ARM_TONE_MATCH := Vector3(1.423, 1.606, 2.065)
 ## Materials that are skin: the head's and the bare arms every outfit carries.
 const SKIN_MATERIALS := ["MI_Superhero_Male", "MI_Regular_Male"]
 ## Each hairstyle texture's mean luminance in linear colour (hero_hair.gdshader
@@ -539,13 +560,14 @@ const SKIN_GRAIN := "res://assets/models/characters/skin_grain.png"
 const SKIN_MICRO := "res://assets/models/characters/skin_micro.png"
 ## a 1024 px iris photo for the eye shader, HumanShaders by MatMADNESS, CC BY 4.0
 const EYE_IRIS := "res://assets/models/characters/eye_iris.png"
-## Looks.list("beards") -> the painted shade's strength (beard_shade) and the
-## beard mesh shown ("" = none; the kit's beard).
+## Looks.list("beards") -> the beard's short hairs on the face (its hair cap,
+## cap_<cap>.png) and, for a full beard, its cards (hair_<mesh>.glb).
+## "shade" is the kit head's painted beard (unused by the MakeHuman head).
 const BEARDS := {
-	"none": {"shade": 0.0, "mesh": ""},
-	"stubble": {"shade": 0.5, "mesh": ""},
-	"short": {"shade": 0.95, "mesh": ""},
-	"full": {"shade": 1.0, "mesh": ""},
+	"none": {"shade": 0.0, "mesh": "", "cap": ""},
+	"stubble": {"shade": 0.5, "mesh": "", "cap": "Beard_Stubble"},
+	"short": {"shade": 0.95, "mesh": "", "cap": "Beard_Short"},
+	"full": {"shade": 1.0, "mesh": "Beard_Full", "cap": "Beard_Full"},
 }
 ## Looks.list("brows") -> a painted brow (its tile on Hero_BrowPaint, 1-5) or
 ## a brow mesh of the kit.
@@ -606,6 +628,11 @@ static func dress_parts(visuals: Node) -> void:
 static func _dressed(part: String, base: StandardMaterial3D) -> Material:
 	if _is_skin(base):
 		var skin := _shader_material(SKIN_SHADER, base)
+		if part != "Hero_Head":
+			# the arms match the MakeHuman face (face/head_albedo.png's mean
+			# skin over the kit's arm texture's, linear)
+			skin.set_shader_parameter("face_tone", true)
+			skin.set_shader_parameter("tone_match", ARM_TONE_MATCH)
 		skin.set_shader_parameter("has_normal", base.normal_enabled and base.normal_texture != null)
 		if base.roughness_texture != null:
 			skin.set_shader_parameter("roughness_tex", base.roughness_texture)
@@ -783,13 +810,15 @@ static func apply_look(visuals: Node, raw_look: Dictionary) -> void:
 	var drawn := drawn_style(style)
 	var face_skeleton := _skeleton(visuals)
 	if face_skeleton != null and face_skeleton.has_node("Face_Head"):
-		for hair_mesh in _wear_hair(face_skeleton, drawn):
+		for hair_mesh in _wear_cards(face_skeleton, drawn, "Hair", true):
 			hair_mesh.set_instance_shader_parameter("hair_color", hair)
+		for beard_mesh in _wear_cards(face_skeleton, String(beard["mesh"]), "Beard", false):
+			beard_mesh.set_instance_shader_parameter("hair_color", hair)
 	for node in visuals.find_children("Face_*", "MeshInstance3D", true, false):
 		var mi := node as MeshInstance3D
 		var part := String(mi.name)
 		if part == "Face_Head":
-			var head_mat := _head_material(drawn)
+			var head_mat := _head_material(drawn, String(Looks.list("beards")[int(look["beard"])]))
 			for surface in range(mi.mesh.get_surface_count()):
 				if mi.get_surface_override_material(surface) != head_mat:
 					mi.set_surface_override_material(surface, head_mat)
@@ -814,7 +843,8 @@ static func apply_look(visuals: Node, raw_look: Dictionary) -> void:
 		var mi := node as MeshInstance3D
 		if mi.get_blend_shape_count() == 0:
 			continue
-		var new_head := String(mi.name).begins_with("Face_") or String(mi.name).begins_with("Hair")
+		var new_head := String(mi.name).begins_with("Face_") or String(mi.name).begins_with("Hair") \
+				or String(mi.name).begins_with("Beard")
 		for key: String in Looks.sliders():
 			if key == "height":
 				continue

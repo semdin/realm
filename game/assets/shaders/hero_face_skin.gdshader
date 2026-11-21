@@ -21,6 +21,9 @@ uniform sampler2D micro_tex : hint_default_white, filter_linear_mipmap, repeat_e
 // the scalp; one head material per style
 uniform sampler2D cap_tex : hint_default_black, filter_linear_mipmap_anisotropic;
 uniform bool has_cap = false;
+// the beard's short hairs (cap_Beard_<...>.png, same channels)
+uniform sampler2D beard_tex : hint_default_black, filter_linear_mipmap_anisotropic;
+uniform bool has_beard = false;
 uniform bool has_micro = false;
 // mean linear luminance of the two skins (build_head.py prints them)
 uniform float light_mean = 0.316;
@@ -63,8 +66,18 @@ void fragment() {
 		colour = mix(colour, short_hair, clamp(scalp * 1.15, 0.0, 1.0));
 	}
 	rough = mix(rough, 0.8, scalp);
-	float beard = clamp(zone.r * (0.62 + 0.45 * grain), 0.0, 1.0) * beard_shade;
-	colour = mix(colour, hair_color, beard);
+	float beard = 0.0;
+	if (has_beard) {
+		vec3 bc = texture(beard_tex, UV).rgb;
+		// B: the beard's shadow - the hairs under and in the skin, the soft
+		// darkening a shaved or short beard is mostly made of (its strength
+		// per style is baked in); R: the strands over it, G their shade
+		vec3 shadow_col = mix(colour * 0.6, min(hair_color, vec3(0.6)), 0.45);
+		colour = mix(colour, shadow_col, clamp(bc.b, 0.0, 1.0));
+		float strands = clamp(bc.r, 0.0, 1.0);
+		colour = mix(colour, min(hair_color * mix(0.78, 1.0, bc.g), vec3(0.75)), strands);
+		beard = max(bc.b, strands);
+	}
 	rough = mix(rough, 0.8, beard);
 	ALBEDO = colour;
 	ROUGHNESS = rough;

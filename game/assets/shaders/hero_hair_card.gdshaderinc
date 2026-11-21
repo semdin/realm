@@ -70,6 +70,14 @@ void hair_surface(vec2 uv, vec2 uv2, vec4 col, out vec3 albedo, out float covera
 		out float ao, out float glint, out float jitter) {
 	vec4 a = texture(atlas_tex, uv);
 	coverage = coverage_at(uv, a.a);
+	if (use_card_data) {
+		// COLOR.a: the card fades out where it lies on the skin past the
+		// hairline and in from its root (hair_cards.py). Strand by strand:
+		// each strand (its id, R) has its own threshold, so the edge thins
+		// out into single hairs instead of a card's straight cut
+		float th = a.r * 0.8;
+		coverage *= smoothstep(th, th + 0.2, col.a);
+	}
 	vec3 base = hair_color;
 	if (use_card_data) {
 		float id = a.r;
