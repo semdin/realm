@@ -2398,18 +2398,6 @@ msgstr "Kıvırcık"
 msgid "Shaved"
 msgstr "Kazınmış"
 
-msgid "Clean-shaven"
-msgstr "Sakalsız"
-
-msgid "Stubble"
-msgstr "Sakal Gölgesi"
-
-msgid "Short Beard"
-msgstr "Kısa Sakal"
-
-msgid "Full Beard"
-msgstr "Gür Sakal"
-
 msgid "Natural Brows"
 msgstr "Doğal Kaş"
 
@@ -2599,8 +2587,8 @@ msgstr "Kıyafet"
 msgid "Hairstyle"
 msgstr "Saç Modeli"
 
-msgid "Facial hair"
-msgstr "Sakal ve Kaş"
+msgid "Eyebrows"
+msgstr "Kaşlar"
 
 msgid "Hair colour"
 msgstr "Saç Rengi"

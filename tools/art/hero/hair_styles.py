@@ -348,86 +348,8 @@ def curly_overhang(q):
     return 0.004 + 0.02 * smooth(-0.2, -0.7, y) * smooth(0.0, 0.5, z)
 
 
-# ---------------------------------------------------------------- beards
-# Grown in the beard area (build_head.py zones, which keep the lips and the
-# nose bare), trimmed to a real beard's lines here ("region": "beard").
-# Measured on the head, in q: eyes z -0.22, nose tip -0.68, lips -0.92 ..
-# -1.16 (corners |x| 0.32), chin -1.55, ears z -0.75 .. -0.17 at y -0.2 ..
-# 0.15; the face is -y.
-def beard_flow(q):
-    x, y, z = q
-    ax = abs(x)
-    # cheeks and jaw: down, a little out (growing smoothly from the middle:
-    # a sideways push that switched sign at x = 0 parted the beard down the
-    # chin); under the chin: back down the neck
-    out = 0.25 * max(-1.0, min(1.0, x / 0.45))
-    d = norm([out, -0.1 + 0.7 * smooth(-1.4, -1.65, z), -1.0])
-    # the moustache: from the philtrum out and down over the lip
-    mo = smooth(-0.72, -0.8, z) * smooth(-0.98, -0.9, z) * smooth(0.45, 0.3, ax)
-    d_mo = norm([max(-1.0, min(1.0, x / 0.12)), -0.2, -0.8])
-    return norm(d * (1 - mo) + d_mo * mo)
-
-
-def beard_hairline(q):
-    """A groomed beard's lines: the cheek line from just above the mouth's
-    corner rising to the sideburn in front of the ear, the moustache under
-    the nose, the neckline a finger under the jaw; densest on the chin and
-    the moustache, lighter high on the cheeks."""
-    x, y, z = q
-    ax = abs(x)
-    u = smooth(-1.25, -0.25, y)                 # 0 by the mouth .. 1 by the ear
-    top = -0.84 + 0.28 * u + 0.36 * smooth(0.82, 0.97, u)
-    top = max(top, -0.78) if ax < 0.36 else top  # the moustache under the nose
-    cheek = smooth(top + 0.03, top - 0.16, z)
-    neck = smooth(-2.12, -1.9, z)
-    dens = cheek * neck
-    return dens * (0.62 + 0.38 * max(smooth(-0.95, -1.3, z), smooth(0.4, 0.25, ax) * smooth(-0.74, -0.84, z)))
-
-
-def stubble_length(q):
-    return 0.0018
-
-
-def short_beard_height(q):
-    x, y, z = q
-    return 0.004 + 0.002 * smooth(-1.0, -1.4, z)
-
-
 def buzz_height(q):
     return 0.005
-
-
-def short_beard_length(q):
-    return 0.0055
-
-
-def full_beard_length(q):
-    x, y, z = q
-    chin = smooth(-1.05, -1.4, z) * smooth(0.5, 0.15, abs(x))
-    jaw = smooth(-0.95, -1.25, z)
-    return 0.012 + 0.006 * jaw + 0.012 * chin
-
-
-def beard_lift(q):
-    """A full beard stands off the face: most on the chin and the jaw."""
-    x, y, z = q
-    return 0.002 + 0.006 * smooth(-0.95, -1.35, z)
-
-
-def full_beard_height(q):
-    """How long a full beard's hairs are (m): longest on the chin, shorter
-    up the cheeks and on the moustache."""
-    x, y, z = q
-    chin = smooth(-1.0, -1.45, z) * smooth(0.55, 0.15, abs(x))
-    jaw = smooth(-0.85, -1.25, z)
-    mo = smooth(-0.72, -0.8, z) * smooth(-0.98, -0.9, z) * smooth(0.45, 0.3, abs(x))
-    base = 0.006 + 0.005 * jaw + 0.014 * chin
-    return base * (1 - mo) + 0.009 * mo
-
-
-def chin_release(q):
-    """Beard hair leaves the face under the jaw line."""
-    return -1.38
 
 
 STYLES = {
@@ -596,59 +518,5 @@ STYLES = {
             {"name": "top", "spacing": 0.02, "width": 0.016, "columns": [3, 4, 6], "offset": 0.011,
              "length": 1.0, "lift": 1.2, "noise": 0.35, "twist": 0.5, "arc": 0.18, "min_z": 0.0},
         ],
-    },
-    "Beard_Stubble": {
-        "normal_surface": 1.0,
-        "region": "beard",
-        "flow": beard_flow,
-        "length": stubble_length,
-        "lift": pony_lift,
-        "hairline": beard_hairline,
-        "overhang": no_overhang,
-        "gravity": 0.0,
-        "cap_strands": 110000,
-        "cap_max": 0.0022,
-        # the beard's shadow under the skin carries a stubble; its strands
-        # are fine dark points over it
-        "cap_shadow": 0.55,
-        "cap_alpha": 0.55,
-        "layers": [],
-    },
-    "Beard_Short": {
-        "normal_surface": 1.0,
-        "region": "beard",
-        "flow": beard_flow,
-        "length": short_beard_length,
-        "lift": pony_lift,
-        "hairline": beard_hairline,
-        "overhang": no_overhang,
-        "gravity": 0.0,
-        "cap_strands": 170000,
-        "cap_max": 0.006,
-        "cap_shadow": 0.8,
-        "cap_alpha": 0.85,
-        "shells": {"layers": 6, "height": short_beard_height, "rise": 0.5, "lean": 0.8,
-                   "strands_per_texel": 0.28, "strand_radius": 0.9},
-        "layers": [],
-    },
-    "Beard_Full": {
-        "region": "beard",
-        "normal_surface": 1.0,
-        "flow": beard_flow,
-        "length": full_beard_length,
-        "lift": beard_lift,
-        "hairline": beard_hairline,
-        "overhang": no_overhang,
-        "gravity": 0.0,
-        # the skin under it: the beard's shadow and its short hairs
-        "cap_strands": 230000,
-        "cap_max": 0.008,
-        "cap_shadow": 0.95,
-        "cap_alpha": 1.0,
-        # the beard's volume: shells (no cards - cards on a beard read as a
-        # carpet of flakes)
-        "shells": {"layers": 12, "height": full_beard_height, "rise": 0.45, "lean": 0.8,
-                   "strands_per_texel": 0.3, "strand_radius": 1.0},
-        "layers": [],
     },
 }

@@ -2,7 +2,7 @@ extends PanelContainer
 class_name LookEditor
 
 ## The appearance panel of the character screen, two tabs: the look (outfit,
-## hairstyle, beard, brows, hair / eye / skin colour swatches, height) and the
+## hairstyle, brows, hair / eye / skin colour swatches, height) and the
 ## face (a preset face, the face type and the face sliders in five parts -
 ## shape, eyes, nose, mouth, ears - one part's sliders at a time, so the panel
 ## keeps its height) (Looks: content/data/looks.json). A preset face
@@ -21,7 +21,6 @@ signal tab_changed(tab_name: String)
 # i18n-begin
 const HAIR_NAMES := {"SimpleParted": "Side Part", "Buzzed": "Buzzed", "Long": "Long", "Wavy": "Wavy",
 	"Tousled": "Tousled", "Neat": "Neat Comb", "Ponytail": "Ponytail", "Curly": "Curly", "none": "Shaved"}
-const BEARD_NAMES := {"none": "Clean-shaven", "stubble": "Stubble", "short": "Short Beard", "full": "Full Beard"}
 const BROW_NAMES := {"natural": "Natural Brows", "bushy": "Bushy Brows", "arched": "Arched Brows",
 	"thin": "Thin Brows", "angular": "Sharp Brows", "classic": "Classic Brows", "classic_straight": "Classic Straight Brows"}
 const OUTFIT_NAMES := {"peasant": "Tunic", "peasant_2": "Travel Tunic", "ranger": "Ranger", "ranger_3": "Scout"}
@@ -64,7 +63,6 @@ const RANDOM_SPREAD := 0.45
 var look: Dictionary = {}
 var _hair_label: Label
 var _outfit_label: Label
-var _beard_label: Label
 var _brows_label: Label
 var _face_label: Label
 var _preset_label: Label
@@ -116,8 +114,7 @@ func _init() -> void:
 	_outfit_label = _stepper(general, "outfit", Looks.list("outfits").size())
 	general.add_child(_caption(tr("Hairstyle")))
 	_hair_label = _stepper(general, "hair", Looks.list("hair_styles").size())
-	general.add_child(_caption(tr("Facial hair")))
-	_beard_label = _stepper(general, "beard", Looks.list("beards").size())
+	general.add_child(_caption(tr("Eyebrows")))
 	_brows_label = _stepper(general, "brows", Looks.list("brows").size())
 
 	for entry in [["hair_color", tr("Hair colour"), Looks.list("hair_colors")],
@@ -212,7 +209,6 @@ func set_look(value: Dictionary, notify := false) -> void:
 	_quiet = true
 	_hair_label.text = tr(HAIR_NAMES.get(String(Looks.list("hair_styles")[int(look["hair"])]), "Hair"))
 	_outfit_label.text = tr(OUTFIT_NAMES.get(String(Looks.list("outfits")[int(look["outfit"])]), "Outfit"))
-	_beard_label.text = tr(BEARD_NAMES.get(String(Looks.list("beards")[int(look["beard"])]), "Beard"))
 	_brows_label.text = tr(BROW_NAMES.get(String(Looks.list("brows")[int(look["brows"])]), "Brows"))
 	_face_label.text = tr(FACE_NAMES.get(String(Looks.list("faces")[int(look["face"])]), "Face"))
 	for key in swatches:
@@ -279,7 +275,6 @@ func randomize_look() -> void:
 	l["eyes"] = randi() % Looks.list("eye_colors").size()
 	l["skin"] = randi() % Looks.list("skin_tones").size()
 	l["outfit"] = randi() % Looks.list("outfits").size()
-	l["beard"] = randi() % Looks.list("beards").size()
 	l["brows"] = randi() % Looks.list("brows").size()
 	l["height"] = randf_range(-0.8, 0.8)
 	_preset = randi() % PRESET_FACES.size()

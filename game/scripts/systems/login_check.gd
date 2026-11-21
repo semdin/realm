@@ -193,7 +193,7 @@ func _first_account() -> void:
 	(editor.steppers["hair"][1] as Button).pressed.emit()
 	(editor.steppers["hair"][1] as Button).pressed.emit()
 	(editor.steppers["outfit"][1] as Button).pressed.emit()
-	(editor.steppers["beard"][1] as Button).pressed.emit()
+	(editor.steppers["brows"][1] as Button).pressed.emit()
 	(editor.swatches["hair_color"][4] as Button).pressed.emit()
 	(editor.swatches["eyes"][2] as Button).pressed.emit()
 	(editor.swatches["skin"][2] as Button).pressed.emit()

@@ -628,16 +628,15 @@ save_img(os.path.join(OUT, 'cap_%s.png' % STYLE), cap)
 log('hair cap: %d strands, coverage mean %.3f where it grows' % (CAP_STRANDS, cov[base > 0.25].mean() if (base > 0.25).any() else 0.0))
 
 
-# ------------------------------------------------------------------ shells (short dense hair: beards)
-# A beard is a volume of short dense hair, not a few dozen cards: it is drawn
-# as SHELLS - the beard area of the head copied `layers` times, each copy
-# risen off the skin and slid along the flow (the hairs lie combed down),
-# with a strand texture in the head's UV (shell_<style>.png): every strand
-# is a dot with its own length, so a layer shows the strands that reach it,
-# thinner toward their tips. Seen from any side the beard has depth, a soft
-# fuzzy outline and no card edge anywhere. The game draws it with
-# hero_hair_shell.gdshader, near the camera only (the hair cap below carries
-# the beard further out).
+# ------------------------------------------------------------------ shells (short dense hair: a buzz cut)
+# Short dense hair is a volume, not a few dozen cards: it is drawn as SHELLS -
+# the style's area of the head copied `layers` times, each copy risen off the
+# skin and slid along the flow (the hairs lie combed down), with a strand
+# texture in the head's UV (shell_<style>.png): every strand is a dot with
+# its own length, so a layer shows the strands that reach it, thinner toward
+# their tips. Seen from any side the hair has depth, a soft fuzzy outline and
+# no card edge anywhere. The game draws it with hero_hair_shell.gdshader,
+# near the camera only (the hair cap below carries it further out).
 shell_spec = spec.get('shells')
 shell_obj = None
 if shell_spec:
@@ -647,13 +646,13 @@ if shell_spec:
     vn = vn.reshape(-1, 3).astype(np.float64)
     dens_v = np.array([spec['hairline'](q_of(p)) for p in REST]) * np.clip(REGION / 0.85, 0, 1) ** 0.6
     hmax_v = np.array([shell_spec['height'](q_of(p)) for p in REST])
-    # the hairs get shorter toward the beard's lines: a soft outline
+    # the hairs get shorter toward the style's lines: a soft outline
     hv_v = hmax_v * np.array([smooth(0.04, 0.45, float(d)) for d in dens_v])
     flow_v = np.array([tangent(spec['flow'](q_of(p)), n) for p, n in zip(REST, vn)])
     keep = [poly for poly in me.polygons if all(dens_v[v] > 0.03 for v in poly.vertices)]
     uvl = me.uv_layers.active.data
     # the shells are built on the head's unsubdivided cage (a quarter of the
-    # faces): the beard's faces copied out, bmesh unsubdivide, the cage's
+    # faces): the style's faces copied out, bmesh unsubdivide, the cage's
     # corners mapped back to their head vertices
     import bmesh
     _bm = bmesh.new()
@@ -765,7 +764,7 @@ if shell_spec:
     jit = rng.random((nstr, 2))
     cy, cx = pick[:, 0] + jit[:, 0], pick[:, 1] + jit[:, 1]
     d_at = dens_px[pick[:, 0], pick[:, 1]]
-    # toward the beard's lines the hairs end shorter and shorter, down to
+    # toward the style's lines the hairs end shorter and shorter, down to
     # none: no layer can show a polygon edge (a hard sawtooth outline)
     length = rng.uniform(0.5, 1.0, nstr) * np.clip((d_at - 0.04) / 0.5, 0.0, 1.0) ** 1.2
     sid = rng.random(nstr)
@@ -789,7 +788,7 @@ if shell_spec:
             B[py, px] = core_k[better]
             Rr[py, px] = sid_k[better]
     save_img(os.path.join(OUT, 'shell_%s.png' % STYLE), np.stack([Rr, G, B], -1))
-    log('shell texture %dx%d: %d strands, %.1f %% of the beard area covered'
+    log('shell texture %dx%d: %d strands, %.1f %% of the area covered'
         % (tw, th, nstr, 100.0 * (G[dens_px > 0.3] > 0).mean()))
 
 # ------------------------------------------------------------------ export

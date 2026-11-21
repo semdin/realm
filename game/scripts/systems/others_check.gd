@@ -16,7 +16,7 @@ extends Node
 ##             wand, wears the mantle and the look of its info (capture)
 ##   ready     a local line ("Ready when you are.") tells the partner to change
 ##   changed   pushed unasked: the partner's new look (another hair, hair
-##             colour, outfit and beard) and gear without the wand; its body
+##             colour and outfit) and gear without the wand; its body
 ##             wears the new look and its hand is empty (capture)
 ##
 ## `--others-guest NAME` makes this client the partner: once NAME's local line
@@ -29,7 +29,7 @@ extends Node
 const PARTNER := 900812
 const READY_LINE := "Ready when you are."
 ## The partner's new look (looks.json picks: indexes into each list).
-const NEW_LOOK := {"hair": 4.0, "hair_color": 6.0, "outfit": 2.0, "beard": 2.0}
+const NEW_LOOK := {"hair": 4.0, "hair_color": 6.0, "outfit": 2.0}
 const TIMEOUT := 150.0
 const STEP_TIMEOUT := 40.0
 const HOLD := 1.2
@@ -178,7 +178,7 @@ func _run() -> void:
 	await _frames(2)
 	worn = hero._worn_look
 	if NEW_LOOK.keys().all(func(k): return is_equal_approx(float(worn.get(k, -1.0)), float(NEW_LOOK[k]))):
-		_see("new_look", "hair %s colour %s outfit %s beard %s" % [worn["hair"], worn["hair_color"], worn["outfit"], worn["beard"]])
+		_see("new_look", "hair %s colour %s outfit %s" % [worn["hair"], worn["hair_color"], worn["outfit"]])
 	if _wand(hero) == null:
 		_see("no_wand")
 	if game.plates.text_of(id).contains(who):

@@ -130,14 +130,14 @@ lock (each lock shades round), A coverage, 4x supersampled.
   and the body (Hero_*_Body); `drop_skin` (z head, z chest) lets long ends
   ride Neck / UpperChest instead of the Head bone.
 - `wave` (amplitude, wavelength) and `curl` (radius, period) are laid on each
-  card's centre line (Wavy, Curly, a wiry full beard).
+  card's centre line (Wavy, Curly).
 - A layer with `tail` (a point on the head in q) is a ponytail: `count` cards
   round the tie falling free, and `wraps` short cards wrapped round the tie.
-- `region: "beard"` grows the style in build_head.py's beard zone (lips and
-  nose bare); its `hairline` function is a density (the beard's lines).
-  `cap_shadow` / `cap_alpha` scale the cap's B (the soft hair shadow under
-  the skin - most of a stubble) and its strands. A style with no layers is
-  drawn by its cap alone (Buzzed, the stubble, the short beard: no glb).
+- `region: "beard"` grows a style in build_head.py's beard zone (lips and
+  nose bare; no style uses it since the beards were removed); its
+  `hairline` function is then a density. `cap_shadow` / `cap_alpha` scale
+  the cap's B (the soft hair shadow under the skin) and its strands. A
+  style with no layers is drawn by its cap (and `shells`) alone (Buzzed).
 - Layer keys: `min_z` / `max_z` (in q) keep a layer to a band, `depth`
   fixes its shade depth, `root_fade` fades the card in from its root (no
   visible cut root row), `edge_fade` (style, default 0.55-0.97 of the scalp
@@ -146,8 +146,25 @@ lock (each lock shades round), A coverage, 4x supersampled.
   fallen past `release` is never faded).
 
 The game (`HeroAppearance`): `CARD_STYLES` lists every built style; the look's
-hair is worn as "Hair"/"HairFar", the beard's cards (`BEARDS[...].mesh`) as
-"Beard"/"BeardFar"; the head material is chosen per (hair cap, beard cap).
+hair is worn as "Hair"/"HairFar"; the head material is chosen per hair cap.
+
+### Beards: removed (the owner, 2026-11-21)
+
+Heroes are clean-shaven. The look keeps its `beard` pick (looks.json and the
+server unchanged, saved looks still load) but the game draws no beard and
+the character screen offers none. What was tried, for a later attempt:
+- hand-placed cards hugging the jaw: flakes on the cheeks, straw hanging;
+- shells (the cage risen in 6-12 layers, strand dots): a fuzzy velvet, cheap
+  (+25 ms on a full-screen face, llvmpipe), judged far from a real beard;
+- a real strand groom (160 000 numpy-grown hairs with clumps, noise, curl,
+  stray and messy hairs, rendered in Cycles: right) baked into 800 cards,
+  each card carrying its own clump's hairs in a per-style atlas: a real
+  beard's clumps and strands, but woolly and dark in the game and 2.5x the
+  shells' cost; shells baked from the same groom: slabs and spikes.
+  Lessons: strands must be at least a texel wide in a card's tile (thinner,
+  lone hairs never pass the alpha cut and clumps draw as solid shards); no
+  per-card root darkening (fish scales); a dense groom needs its albedo
+  lifted (multiple scattering) or brown reads black.
 
 ### What made it look like hair (and what did not)
 
@@ -166,12 +183,6 @@ hair is worn as "Hair"/"HairFar", the beard's cards (`BEARDS[...].mesh`) as
   any broad lobe turned them grey.
 - On dark hair a lock lit evenly is a grey blob: the R lobe is modulated per
   strand (most strands catch little, a few a lot), so it reads as glints.
-- Beards: the stubble and the short beard are mostly a soft shadow under the
-  skin with fine strands over it (no shadow = salt and pepper); the cheek
-  line runs from above the mouth's corner up to the sideburn, the neckline
-  a finger under the jaw (the zones' raw area reached the cheekbones). Full
-  beard cards only below the mouth's corners, hugging the jaw (cards lying
-  on the cheeks read as flakes, hanging cards as straw).
 - UV seams: cap strands are drawn segment by segment (a strand crossing a
   seam was dropped whole: a bare line along every seam, e.g. under the
   jaw), and the cap is grown past the islands' edges.
@@ -199,7 +210,9 @@ strand-shaped shadows); its `next_pass` (`hero_hair_fringe`) blends only the
 coverage below the cut over it - soft edges without TAA or MSAA, which this
 game does not run. Far mips get more coverage (`mip_coverage`) so hair does
 not thin out at a distance; the fringe stops past `fringe_far`; past
-`HeroAppearance.HAIR_NEAR` the far LOD is drawn without a fringe pass. Tips
+`HeroAppearance.HAIR_NEAR` the far LOD is drawn without a fringe pass. The
+atlas is sampled trilinear, not anisotropic (several cards deep, the extra
+taps cost ~10 % of a full-screen face for no visible difference). Tips
 swing with the head (`HairSway`, one damped spring per hero → instance
 uniform `hair_sway`; the vertex shader never pushes a tip into the head).
 
@@ -215,9 +228,8 @@ uniform `hair_sway`; the vertex shader never pushes a tip into the head).
    and from behind the light.
 
 Every style in `looks.json` is built (SimpleParted, Buzzed, Long, Wavy,
-Tousled, Neat, Ponytail, Curly) and the three beards (Beard_Stubble,
-Beard_Short, Beard_Full). A style added to `looks.json` before its cards are
-built is drawn with its stand-in (`HeroAppearance.STAND_INS`).
+Tousled, Neat, Ponytail, Curly). A style added to `looks.json` before its
+cards are built is drawn with its stand-in (`HeroAppearance.STAND_INS`).
 
 Measured (llvmpipe, relative only; 16 heroes, mixed styles and beards):
 141 ms a frame vs 136-146 ms with the old kit head - within the noise; a
@@ -225,6 +237,5 @@ face filling the screen with Long hair 229 ms vs 265 ms before. The rim
 light is about 2 % of a crowd frame.
 
 Cost: near meshes 16-28k triangles (drawn within `HAIR_NEAR`, 7 m, with
-the fringe pass), far meshes 8-13k; Buzzed and the two short beards are
-texture only. Small face parts stop drawing past `FACE_PART_REACH`
+the fringe pass), far meshes 8-13k; Buzzed is its cap and shells. Small face parts stop drawing past `FACE_PART_REACH`
 (lashes 9 m, corneas 12 m, brows 30 m, eyeballs 40 m).

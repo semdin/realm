@@ -17,7 +17,10 @@
 // toward the tip), a wrapped diffuse and transmission when lit from behind.
 
 #include "res://assets/shaders/hero_instance.gdshaderinc"
-uniform sampler2D atlas_tex : source_color, filter_linear_mipmap_anisotropic;
+// trilinear, not anisotropic: hair is several cards deep and the extra taps
+// on every layer cost a full-screen face ~10 % of its frame (llvmpipe) with
+// no visible difference (the strands run along the card)
+uniform sampler2D atlas_tex : source_color, filter_linear_mipmap;
 uniform bool use_card_data = true;
 // the strands run along the texture's U (MakeHuman brows) instead of V
 uniform bool strand_along_u = false;

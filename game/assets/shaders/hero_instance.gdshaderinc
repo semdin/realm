@@ -9,8 +9,6 @@ instance uniform vec3 hair_color : source_color = vec3(0.169, 0.114, 0.086);
 // the worn style's layer of the head's scalp masks (-1 = none)
 instance uniform float scalp_layer = -1.0;
 instance uniform vec3 iris_color : source_color = vec3(0.435, 0.502, 0.533);
-// the painted beard shade's strength on the head (face_masks.png R)
-instance uniform float beard_shade = 0.0;
 // the painted brow's tile on Hero_BrowPaint (1-5; 0 = none)
 instance uniform float brow_paint = 0.0;
 // hair cards: the head's lagging motion (xyz, world metres the tips trail by)
