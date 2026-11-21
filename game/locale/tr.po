@@ -6350,3 +6350,6 @@ msgstr "Şifren saklanmaz: yalnızca bu bilgisayarda 30 gün geçerli güvenli b
 
 msgid "Your saved login has run out. Please enter your password."
 msgstr "Kayıtlı girişinin süresi doldu. Lütfen şifreni gir."
+
+msgid "Saved"
+msgstr "Kayıtlı"
