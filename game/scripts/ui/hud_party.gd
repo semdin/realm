@@ -1,10 +1,12 @@
 extends Control
 class_name HudParty
 
-## Party frames under the player's own frame (the old game's approved rows):
-## one ROW_W x ROW_H row per member other than the player, the leader first,
-## each with "* Name  Lv N" (gold for the leader), a health bar and a mana bar.
-## A fallen member, or one on another map, is drawn at AWAY_ALPHA.
+## Party frames under the player's own frame: one ROW_W x ROW_H row per
+## member other than the player, the leader first, drawn the way AION 2 and
+## Lost Ark draw theirs - no boxes, type and slim gauges over a soft dark
+## wash: the name (gold, with a gold mark, for the leader), the level on the
+## right, a health line and a thinner mana line under it. A fallen member, or
+## one on another map, is drawn at AWAY_ALPHA.
 ##
 ## Everything shown is the server's party view (RealmSession.party), handed in
 ## by `show_party` whenever the session says the party changed; members'
@@ -15,8 +17,8 @@ class_name HudParty
 signal rows_changed(bottom: float)
 
 const ROW_W := 190.0
-const ROW_H := 46.0
-const ROW_GAP := 4.0
+const ROW_H := 34.0
+const ROW_GAP := 6.0
 const AT := Vector2(14.0, 178.0)
 const AWAY_ALPHA := 0.45
 
@@ -30,6 +32,7 @@ var _shown: Array = []
 ## names, levels, away or fallen); health and mana move the bars in place.
 var _rows_key := ""
 var _row_bars: Dictionary = {}
+var _back: StyleBox
 
 func _init() -> void:
 	name = "PartyFrames"
@@ -42,6 +45,14 @@ func _ready() -> void:
 	_rows.add_theme_constant_override("separation", int(ROW_GAP))
 	_rows.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_rows)
+	_back = UIKit.nine("rail_back") if UIKit.tex("rail_back") != null else null
+
+## The soft dark wash behind the rows (the quest tracker's).
+func _draw() -> void:
+	if _back == null or _rows.get_child_count() == 0:
+		return
+	var h := _rows.get_combined_minimum_size().y
+	_back.draw(get_canvas_item(), Rect2(Vector2(-position.x, -8.0), Vector2(position.x + ROW_W + 50.0, h + 16.0)))
 
 ## The server's party view: {party, leader, me, members}.
 func show_party(view: Dictionary) -> void:
@@ -99,6 +110,7 @@ func _rebuild() -> void:
 		var leader := int(_view.get("leader", 0))
 		for m: Dictionary in _shown:
 			_rows.add_child(_member_row(m, int(m["character"]) == leader, String(m["map"]) != map_name))
+	queue_redraw()
 	_say_bottom.call_deferred()
 
 ## Where the rows end, once they are laid out.
@@ -112,18 +124,38 @@ static func _fill(bar: ProgressBar, value: int, most: int) -> void:
 func _member_row(m: Dictionary, leader: bool, away: bool) -> Control:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(ROW_W, ROW_H)
-	panel.add_theme_stylebox_override("panel", HudKit.panel(0.78, 5, 0.6))
+	var bare := StyleBoxEmpty.new()
+	bare.content_margin_left = 2
+	bare.content_margin_right = 4
+	panel.add_theme_stylebox_override("panel", bare)
 	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 1)
+	box.add_theme_constant_override("separation", 2)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.add_child(box)
-	var name_text := tr("%s%s  Lv %d") % ["* " if leader else "", String(m["name"]), int(m["level"])]
-	box.add_child(HudKit.label(name_text, 13, HudKit.GOLD_HI if leader else HudKit.PARCHMENT, HudKit.bold(), 3))
-	var health := _bar(9.0, Color(0.75, 0.18, 0.16))
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 4)
+	head.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	box.add_child(head)
+	if leader and UIKit.tex("tab_mark") != null:
+		var crown := TextureRect.new()
+		crown.texture = UIKit.tex("tab_mark")
+		crown.custom_minimum_size = Vector2(10, 10)
+		crown.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		crown.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		crown.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		crown.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		crown.tooltip_text = tr("Party leader")
+		head.add_child(crown)
+	var who := HudKit.label(String(m["name"]), 13, Color(1.0, 0.86, 0.56) if leader else Color(0.93, 0.91, 0.86), HudKit.bold(), 3)
+	who.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	who.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	head.add_child(who)
+	head.add_child(HudKit.label(tr("Lv %d") % int(m["level"]), 12, Color(0.78, 0.72, 0.60), HudKit.body(), 3))
+	var health := _bar(6.0, Color(0.86, 0.16, 0.15))
 	_fill(health, int(m["hp"]), int(m["max_hp"]))
 	box.add_child(health)
-	var mana := _bar(6.0, Color(0.18, 0.42, 0.92))
+	var mana := _bar(3.0, Color(0.22, 0.50, 0.98))
 	_fill(mana, int(m["mana"]), int(m["max_mana"]))
 	box.add_child(mana)
 	_row_bars[int(m["character"])] = [health, mana]
@@ -135,6 +167,6 @@ static func _bar(height: float, colour: Color) -> ProgressBar:
 	var bar := ProgressBar.new()
 	bar.show_percentage = false
 	bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	bar.custom_minimum_size = Vector2(ROW_W - 12.0, height)
+	bar.custom_minimum_size = Vector2(ROW_W - 8.0, height)
 	HudKit.style_gauge(bar, colour)
 	return bar

@@ -7,12 +7,15 @@ class_name UIKit
 ## Button, ProgressBar or HSlider anywhere already has them; HudKit's button
 ## and gauge helpers hand them out too.
 ##
-## The look (2026-11-21, after AION 2 / Lost Ark / FFXIV): chamfered plates of
-## dark blued steel in a thin antique-gold bevel lit from above, with a faint
-## inner double rule; the main action in gilt bronze with a warm inner glow and
-## gold studs on its ends; the one big action of a screen (Enter World) with
-## flourishes beyond its ends; inset grooves for gauges, the fill glossy with
-## a hot leading edge; diamond slider grips and gem swatches.
+## The look (2026-11-21): chamfered plates of dark blued steel in a thin
+## antique-gold bevel lit from above, with a faint inner double rule; the main
+## action in gilt bronze with a warm inner glow and gold studs on its ends; the
+## one big action of a screen (Enter World) with flourishes beyond its ends;
+## diamond slider grips and gem swatches. Gauges follow the Korean MMOs the
+## owner pointed at (AION 2, Lost Ark): slim, a groove of dark glass with a
+## crisp outline and no frame, the fill even and saturated with one lit line
+## on top, light gathering toward its leading edge and a soft glow there - no
+## plastic shine.
 ##
 ## A piece is drawn at 4 px per interface unit and loaded as a texture that
 ## reports its interface size (ImageTexture size_override): nine-slice margins
@@ -25,13 +28,14 @@ const STATES := ["normal", "hover", "pressed", "disabled"]
 ## far the art reaches past the control (halo and shadow room)]. Printed by
 ## `python tools/art/ui_kit.py --spec`; a plate's states share its row.
 const SPEC := {
-	"bar_cap_l": [Vector2(18, 24), [], 0],
-	"bar_cap_r": [Vector2(18, 24), [], 0],
-	"bar_fill": [Vector2(32, 16), [3, 0, 3, 0], 0],
-	"bar_gloss": [Vector2(32, 16), [3, 0, 3, 0], 0],
-	"bar_spark": [Vector2(12, 24), [], 0],
-	"bar_track": [Vector2(64, 16), [5, 4, 5, 4], 0],
-	"bar_track_thin": [Vector2(48, 8), [3.5, 2, 3.5, 2], 0],
+	"bar_cap_l": [Vector2(26, 12), [], 0],
+	"bar_cap_r": [Vector2(26, 12), [], 0],
+	"bar_fill": [Vector2(32, 12), [1, 0, 1, 0], 0],
+	"bar_gloss": [Vector2(32, 12), [1, 0, 1, 0], 0],
+	"bar_lead": [Vector2(64, 12), [], 0],
+	"bar_spark": [Vector2(16, 24), [], 0],
+	"bar_track": [Vector2(64, 12), [2, 2, 2, 2], 0],
+	"bar_track_thin": [Vector2(48, 6), [1.5, 1.5, 1.5, 1.5], 0],
 	"btn": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
 	"btn_accent": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
 	"btn_blood": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
@@ -52,10 +56,14 @@ const SPEC := {
 	"ico_chevron_right": [Vector2(20, 20), [], 0],
 	"ico_chevron_up": [Vector2(20, 20), [], 0],
 	"ico_close": [Vector2(16, 16), [], 0],
-	"pip_next": [Vector2(14, 9), [], 0],
-	"pip_off": [Vector2(14, 9), [], 0],
-	"pip_on": [Vector2(14, 9), [], 0],
+	"pip_next": [Vector2(14, 8), [], 0],
+	"pip_off": [Vector2(14, 8), [], 0],
+	"pip_on": [Vector2(14, 8), [], 0],
 	"plaque": [Vector2(96, 30), [24, 7, 24, 7], 0],
+	"quest_mark": [Vector2(18, 18), [], 0],
+	"quest_new": [Vector2(18, 18), [], 0],
+	"quest_ready": [Vector2(18, 18), [], 0],
+	"rail_back": [Vector2(200, 100), [4, 18, 120, 18], 0],
 	"rail_row": [Vector2(120, 40), [10, 4, 70, 4], 0],
 	"rail_row_hover": [Vector2(120, 40), [10, 4, 70, 4], 0],
 	"slider_fill": [Vector2(40, 10), [5, 4, 5, 4], 0],
@@ -439,9 +447,11 @@ static func fill(colour: Color, edge := false, inset := 1.5) -> StyleBox:
 		out = sb
 	else:
 		var f := Fill.new()
-		f.shade = nine("bar_fill", colour.lightened(0.10))
+		f.shade = nine("bar_fill", colour)
 		f.gloss = nine("bar_gloss")
+		f.lead = tex("bar_lead")
 		f.spark = tex("bar_spark") if edge else null
+		f.glow = colour.lightened(0.55)
 		f.inset = inset
 		out = f
 	out.set_content_margin_all(0)
@@ -452,7 +462,7 @@ static func fill(colour: Color, edge := false, inset := 1.5) -> StyleBox:
 static func style_gauge(bar: ProgressBar, colour: Color, edge := false, ornate := false) -> void:
 	var thin := bar.custom_minimum_size.y > 0.0 and bar.custom_minimum_size.y < 10.0
 	bar.add_theme_stylebox_override("background", track(thin, ornate))
-	bar.add_theme_stylebox_override("fill", fill(colour, edge, 1.0 if thin else 1.5))
+	bar.add_theme_stylebox_override("fill", fill(colour, edge, 1.0))
 	bar.show_percentage = false
 
 ## Draw a gauge by hand (a custom Control's _draw): the groove over `rect`,
@@ -463,7 +473,7 @@ static func draw_gauge(item: CanvasItem, rect: Rect2, fraction: float, colour: C
 	if fraction > 0.0:
 		var f := rect
 		f.size.x = rect.size.x * clampf(fraction, 0.0, 1.0)
-		fill(colour, edge, 1.0 if thin else 1.5).draw(item.get_canvas_item(), f)
+		fill(colour, edge, 1.0).draw(item.get_canvas_item(), f)
 
 
 # ------------------------------------------------------------------ theme
@@ -592,7 +602,7 @@ class Plate extends StyleBox:
 		if caps.size() == 2 and caps[0] != null:
 			var cl: Texture2D = caps[0]
 			var cr: Texture2D = caps[1]
-			var cs := cl.get_size() * clampf(rect.size.y / 12.0, 0.8, 1.4)
+			var cs := cl.get_size() * clampf(rect.size.y / 10.0, 0.8, 1.4)
 			var cy := rect.position.y + (rect.size.y - cs.y) * 0.5
 			cl.draw_rect(item, Rect2(Vector2(rect.position.x - cs.x + 2.0, cy), cs), false)
 			cr.draw_rect(item, Rect2(Vector2(rect.end.x - 2.0, cy), cs), false)
@@ -638,21 +648,27 @@ class Swatch extends StyleBox:
 		ring.draw_rect(item, at, false)
 
 
-## A gauge's fill: the white light tinted by the gauge's colour, the gloss
-## over it, both inset into the groove, and the hot leading edge.
+## A gauge's fill: the white light tinted by the gauge's colour, its lit top
+## line, the light gathering over its last stretch, all inset into the groove;
+## `spark` adds the soft glow at the leading edge (bars that fill up).
 class Fill extends StyleBox:
 	@export var shade: StyleBox
 	@export var gloss: StyleBox
+	@export var lead: Texture2D = null
 	@export var spark: Texture2D = null
-	@export var inset := 1.5
+	@export var glow := Color.WHITE
+	@export var inset := 1.0
 
 	func _draw(item: RID, rect: Rect2) -> void:
 		var r := rect.grow(-inset)
 		if r.size.x < 1.0 or r.size.y < 1.0:
 			return
 		shade.draw(item, r)
+		if lead != null:
+			var lw := minf(r.size.x, maxf(24.0, r.size.y * 6.0))
+			lead.draw_rect(item, Rect2(Vector2(r.end.x - lw, r.position.y), Vector2(lw, r.size.y)), false)
 		gloss.draw(item, r)
 		if spark != null and r.size.x > 4.0:
-			var h := r.size.y * 1.9
-			var w := h * 0.5
-			spark.draw_rect(item, Rect2(Vector2(r.end.x - w * 0.5, r.get_center().y - h * 0.5), Vector2(w, h)), false)
+			var h := r.size.y * 2.2
+			var w := h * 0.66
+			spark.draw_rect(item, Rect2(Vector2(r.end.x - w * 0.5, r.get_center().y - h * 0.5), Vector2(w, h)), false, glow)

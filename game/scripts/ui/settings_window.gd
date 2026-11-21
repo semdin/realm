@@ -93,9 +93,11 @@ func _ready() -> void:
 	var titles := {"general": tr("General"), "graphics": tr("Graphics"), "audio": tr("Audio"), "controls": tr("Controls"),
 		"account": tr("Account"), "credits": tr("Credits")}
 	for key: String in TABS:
-		var b := HudKit.button(String(titles[key]), 15)
+		var b := Button.new()
+		b.text = String(titles[key])
+		# the control kit's tab: the open page underlined in lit gold
+		UIKit.style_tab(b, 15, Vector2(10, 6))
 		b.name = key.capitalize() + "Tab"
-		b.toggle_mode = true
 		b.custom_minimum_size = Vector2(90, 34)
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.pressed.connect(show_page.bind(key))

@@ -6299,3 +6299,6 @@ msgstr "Görevleri göster"
 
 msgid "Hide the quests"
 msgstr "Görevleri gizle"
+
+msgid "Party leader"
+msgstr "Grup lideri"

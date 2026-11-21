@@ -468,123 +468,178 @@ def rail_row(name, hover=False, w=120.0, h=40.0):
 
 # ------------------------------------------------------------------ gauges
 
-def track(name, w=64, h=16, cham=3.0, ornate=False):
-    """A gauge's groove: a near-black inset in a thin dark-gold frame."""
+def track(name, w=64, h=12, thin=False):
+    """A gauge's groove, the Korean MMO way (AION 2, Lost Ark): dark glass
+    letting the world show faintly through, a crisp black outline, the shade
+    of its top lip inside and a faint lit line along its foot. No frame."""
     cv = Canvas(w, h)
     x, y = cv.x, cv.y
-    d = sd_chamfer(x, y, 0.5, 0.5, w - 0.5, h - 0.5, cham)
-    cv.over(hexc("#020305"), cov(d) * 0.96)
-    fr = ramp(y / h, [(0.0, "#c9a457"), (0.5, "#7c6131"), (1.0, "#3b2c14")])
-    fr = shade(fr, grain(cv, 0.9, 51), 0.12)
-    cv.over(fr, band(d, -1.15, -0.15))
-    inner = -1.15
-    well = ramp(y / h, [(0.0, "#010203"), (1.0, "#0b0f16")])
-    well = shade(well, grain(cv, 1.2, 53, 4), 0.25)
-    cv.over(well, cov(d - inner))
-    # the groove's shadow falls from its top edge
-    cv.over(hexc("#000000"), cov(d - inner) * np.exp(-np.maximum(y - 1.5, 0) / (h * 0.18)) * 0.6)
-    # the lower lip catches the light
-    cv.add(hexc("#ffdf9a")[:3], band(d, -1.6, -1.0) * (y > h * 0.6) * 0.12)
+    d = sd_round(x, y, 0.5, 0.5, w - 0.5, h - 0.5, 1.0)
+    glass = ramp(y / h, [(0.0, "#161b24"), (1.0, "#1d232d")] if thin else [(0.0, "#070a10"), (1.0, "#0d121a")])
+    cv.over(glass, cov(d) * np.interp(y / h, [0, 1], [0.82, 0.70] if thin else [0.78, 0.62]).astype(np.float32))
+    cv.over(hexc("#000000"), band(d, -0.75, 0.0) * 0.85)
+    cv.over(hexc("#000000"), cov(d + 0.75) * np.exp(-np.maximum(y - 0.9, 0) / (0.9 if thin else 1.4)) * 0.45)
+    if not thin:
+        cv.add(np.array([1, 0.95, 0.85], np.float32), cov(d + 0.75) * np.exp(-((y - (h - 1.4)) / 0.35) ** 2) * 0.07)
     save(cv.image(), name)
-    m = max(2.0, cham + 2.0)
-    tb = 2.0 if h <= 10 else max(3.0, cham + 1.0)
-    record(name, (w, h), (m, tb, m, tb), {"inset": 1.5})
+    m = 1.5 if thin else 2.0
+    record(name, (w, h), (m, m, m, m), {"inset": 1.0})
 
 
-def fill_shade(name, w=32, h=16):
+def fill_shade(name, w=32, h=12):
     """A gauge fill's light, white: the game multiplies it by the gauge's
-    colour. Lit top, a soft dark foot, faint diagonal energy streaks."""
+    colour. Even and saturated (no plastic shine): the faintest fall from top
+    to foot, a darker last line, a hairline grain along it."""
     cv = Canvas(w, h)
     x, y = cv.x, cv.y
     ty = y / h
-    lum = np.interp(ty, [0.0, 0.08, 0.30, 0.55, 0.85, 1.0], [1.0, 0.98, 0.88, 0.74, 0.56, 0.42]).astype(np.float32)
-    streak = 0.5 + 0.5 * np.sin((x + y * 0.9) * 2.0 * math.pi / 7.0)
-    lum = lum * (1.0 - 0.06 * streak)
-    lum = lum * (1.0 + grain(cv, 1.0, 61, 3) * 0.05)
+    lum = np.interp(ty, [0.0, 0.15, 0.55, 0.9, 1.0], [1.0, 0.97, 0.88, 0.74, 0.58]).astype(np.float32)
+    lum = lum * (1.0 + grain(cv, 0.6, 61, 2) * 0.025)
     rgb = np.repeat(np.clip(lum, 0, 1)[..., None], 3, axis=2)
-    # rounded ends so a short fill is not a hard slab
-    d = sd_round(x, y, 0, 0, w, h, min(2.5, h * 0.3))
+    d = sd_round(x, y, 0, 0, w, h, 0.6)
     cv.over(rgb, cov(d))
     save(cv.image(), name)
-    record(name, (w, h), (3, 0, 3, 0))
+    record(name, (w, h), (1, 0, 1, 0))
 
 
-def fill_gloss(name, w=32, h=16):
-    """White light over the fill, unmultiplied: the glossy top band, a lit
-    top line and a dark bottom line."""
+def fill_gloss(name, w=32, h=12):
+    """White over the fill, unmultiplied: one crisp lit line along the top
+    and a faint sheen under it - the edge of a liquid, not a plastic band."""
     cv = Canvas(w, h)
     x, y = cv.x, cv.y
-    d = sd_round(x, y, 0, 0, w, h, min(2.5, h * 0.3))
+    d = sd_round(x, y, 0, 0, w, h, 0.6)
     inside = cov(d)
-    band_top = np.clip(1.0 - (y - h * 0.08) / (h * 0.38), 0, 1) ** 1.8
-    cv.add(np.array([1, 1, 1], np.float32), inside * band_top * 0.30)
-    cv.add(np.array([1, 0.98, 0.9], np.float32), inside * (y < 1.1) * 0.45)
-    cv.over(np.array([0, 0, 0], np.float32), inside * (y > h - 1.1) * 0.35)
+    cv.add(np.array([1, 1, 1], np.float32), inside * np.exp(-((y - 0.55) / 0.42) ** 2) * 0.48)
+    cv.add(np.array([1, 1, 1], np.float32), inside * np.clip(1.0 - y / (h * 0.45), 0, 1) ** 2 * 0.07)
     save(cv.image(), name)
-    record(name, (w, h), (3, 0, 3, 0))
+    record(name, (w, h), (1, 0, 1, 0))
 
 
-def spark(name, w=12, h=24):
-    """The hot leading edge of a filling gauge: a bright core line in a halo."""
+def fill_lead(name, w=64, h=12):
+    """The light gathering toward a gauge's leading edge (the game lays it
+    over the last stretch of the fill): clear at the left, brighter to the
+    right, strongest through the middle of the bar."""
     cv = Canvas(w, h)
-    x, y = cv.x - w / 2, cv.y - h / 2
-    vy = np.clip(1.0 - (np.abs(y) / (h / 2)) ** 2, 0, 1)
-    halo = np.exp(-(x / 2.6) ** 2) * vy
-    core = np.exp(-(x / 0.55) ** 2) * vy ** 0.5
-    cv.add(hexc("#ffd88a")[:3], halo * 0.55)
-    cv.add(hexc("#fffaf0")[:3], core * 0.95)
+    x, y = cv.x, cv.y
+    along = np.clip(x / w, 0, 1) ** 1.8
+    across = 1.0 - 0.45 * np.abs(y / h - 0.45) * 2.0
+    cv.add(np.array([1, 1, 1], np.float32), along * np.clip(across, 0, 1) * 0.30)
     save(cv.image(), name)
     record(name, (w, h))
 
 
-def end_cap(name, w=18, h=24, mirror=False):
-    """The loading bar's end ornament: a gold diamond with a short blade."""
+def spark(name, w=16, h=24):
+    """A gauge's leading edge: a soft glow, no hard line (the game tints it
+    with the gauge's colour, lightened)."""
+    cv = Canvas(w, h)
+    x, y = cv.x - w / 2, cv.y - h / 2
+    vy = np.clip(1.0 - (np.abs(y) / (h / 2)) ** 2, 0, 1)
+    halo = np.exp(-(x / 3.2) ** 2) * vy ** 1.5
+    core = np.exp(-(x / 1.1) ** 2) * vy ** 0.8
+    cv.add(np.array([1, 1, 1], np.float32), halo * 0.38 + core * 0.55)
+    save(cv.image(), name)
+    record(name, (w, h))
+
+
+def end_cap(name, w=26, h=12, mirror=False):
+    """The loading bar's end: a small gold diamond on the groove's end and a
+    hairline running out from it, fading."""
     cv = Canvas(w, h)
     x = cv.x if not mirror else w - cv.x
     y = cv.y
     cy = h / 2
-    dd = sd_diamond(x, y, w - 6.5, cy, 5.5, 8.0)
-    blade = np.maximum(np.abs(y - cy) - 1.0 * np.clip((x - 1.0) / (w - 7.0), 0.05, 1) ** 0.6, -x + 1.0)
-    d = np.minimum(dd, blade)
-    cv.over(hexc("#04060a"), cov(d - 0.8) * 0.9)
-    g = ramp((y - (cy - 8)) / 16.0, [(0.0, "#fff3c4"), (0.5, "#d4a64a"), (1.0, "#6e4c16")])
-    cv.over(shade(g, grain(cv, 0.8, 71), 0.12), cov(d))
-    inner = sd_diamond(x, y, w - 6.5, cy, 2.4, 3.6)
-    cv.over(hexc("#0a0d14"), cov(inner))
-    cv.add(hexc("#ffcf6a")[:3], cov(inner + 0.2) * np.exp(-((x - (w - 6.5)) ** 2 + (y - cy) ** 2) / 4.0) * 0.8)
+    line = np.exp(-((y - cy) / 0.32) ** 2) * np.clip(1.0 - (x - 4.0) / (w - 4.0), 0, 1) ** 1.4 * (x > 3.0)
+    cv.add(hexc("#e9c77a")[:3], line * 0.85)
+    dd = sd_diamond(x, y, 3.6, cy, 3.0, 3.6)
+    cv.over(hexc("#04060a"), cov(dd - 0.6) * 0.85)
+    cv.over(ramp((y - (cy - 3.6)) / 7.2, [(0.0, "#fff1c2"), (0.5, "#d9ab4c"), (1.0, "#7c5616")]), cov(dd))
     save(cv.image(), name)
     record(name, (w, h))
 
 
 def pips():
-    """The skill window's progress steps and the master gem."""
-    for state, (fill_a, fill_b, frame_a, frame_b, glow) in {
-        "off": ("#0a0f18", "#060910", "#4a5568", "#262d3a", 0.0),
-        "on": ("#ffe39a", "#c28a24", "#fff2c4", "#8a6218", 0.0),
-        "next": ("#5a4520", "#2a1f0c", "#f2cf7a", "#a07a2a", 0.6),
+    """The skill window's progress steps (slanted slivers) and the master gem."""
+    for state, (fill_a, fill_b, line, glow) in {
+        "off": ("#0b1018", "#070a10", "#3a4352", 0.0),
+        "on": ("#ffe6a2", "#c48a28", "#fff2c8", 0.0),
+        "next": ("#3a2c12", "#22190a", "#f0c86a", 0.55),
     }.items():
-        cv = Canvas(14, 9)
-        d = sd_chamfer(cv.x, cv.y, 1.5, 1.5, 12.5, 7.5, 1.6)
+        w, h = 14.0, 8.0
+        cv = Canvas(w, h)
+        # a parallelogram slanting forward
+        sx = cv.x - (h - cv.y) * 0.45
+        d = np.maximum(np.abs(sx - (w / 2 - 1.0)) - 4.6, np.abs(cv.y - h / 2) - 2.2)
         if glow:
-            cv.over(hexc("#ffc45a"), np.exp(-np.maximum(d, 0) / 1.2) * glow * (d > -0.3))
-        cv.over(hexc("#03050a"), cov(d - 0.6) * 0.9)
-        cv.over(ramp((cv.y - 1.5) / 6, [(0, frame_a), (1, frame_b)]), cov(d))
-        cv.over(ramp((cv.y - 2.5) / 4, [(0, fill_a), (1, fill_b)]), cov(d + 0.9))
+            cv.over(hexc("#ffc45a"), np.exp(-np.maximum(d, 0) / 1.0) * glow * (d > -0.3))
+        cv.over(hexc("#000000"), cov(d - 0.7) * 0.8)
+        cv.over(ramp((cv.y - 1.8) / 4.4, [(0, fill_a), (1, fill_b)]), cov(d))
+        cv.over(hexc(line), band(d, -0.55, 0.0) * (0.9 if state != "on" else 0.35))
         if state == "on":
-            cv.add(np.array([1, 1, 0.9], np.float32), cov(d + 0.9) * (cv.y < 4.2) * 0.35)
+            cv.add(np.array([1, 1, 0.92], np.float32), cov(d) * np.exp(-((cv.y - 2.3) / 0.5) ** 2) * 0.5)
         save(cv.image(), "pip_" + state)
-        record("pip_" + state, (14, 9))
+        record("pip_" + state, (w, h))
         cv = Canvas(16, 16)
-        d = sd_diamond(cv.x, cv.y, 8, 8, 5.6, 5.6)
+        dm = sd_diamond(cv.x, cv.y, 8, 8, 4.6, 5.6)
         if glow or state == "on":
-            cv.over(hexc("#ffc45a"), np.exp(-np.maximum(d, 0) / 1.6) * (0.55 if state == "on" else glow) * (d > -0.3))
-        cv.over(hexc("#03050a"), cov(d - 0.7) * 0.9)
-        cv.over(ramp((cv.y - 2.4) / 11.2, [(0, frame_a), (1, frame_b)]), cov(d))
-        cv.over(ramp((cv.y - 4) / 8, [(0, fill_a), (1, fill_b)]), cov(d + 1.2))
+            cv.over(hexc("#ffc45a"), np.exp(-np.maximum(dm, 0) / 1.5) * (0.5 if state == "on" else glow) * (dm > -0.3))
+        cv.over(hexc("#000000"), cov(dm - 0.7) * 0.8)
+        cv.over(ramp((cv.y - 2.4) / 11.2, [(0, fill_a), (1, fill_b)]), cov(dm))
+        cv.over(hexc(line), band(dm, -0.6, 0.0) * (0.9 if state != "on" else 0.4))
         facet = (cv.x - 8) + (cv.y - 8) < 0
-        cv.add(np.array([1, 0.97, 0.88], np.float32), cov(d + 1.2) * facet * (0.35 if state == "on" else 0.12))
+        cv.add(np.array([1, 0.97, 0.9], np.float32), cov(dm + 0.6) * facet * (0.3 if state == "on" else 0.06))
         save(cv.image(), "gem_" + state)
         record("gem_" + state, (16, 16))
+
+
+def quest_marks():
+    """The quest tracker's marks, small and flat like AION 2's and Lost Ark's:
+    a cut diamond in the quest's colour with a dark glyph - a dot (in
+    progress), "!" (new), a tick (finished, reward waiting)."""
+    for name, (top, bottom, glyph) in {
+        "quest_mark": ("#ffd98c", "#c3862a", "dot"),
+        "quest_new": ("#ffe7a4", "#e09a2c", "bang"),
+        "quest_ready": ("#d4f59a", "#5fa634", "tick"),
+    }.items():
+        s = 18.0
+        cv = Canvas(s, s)
+        x, y = cv.x, cv.y
+        c = s / 2
+        d = sd_diamond(x, y, c, c, 6.6, 7.6)
+        cv.over(hexc("#000000"), np.clip(0.5 - sd_diamond(x, y - 0.8, c, c, 7.2, 8.2) / 1.2, 0, 1) * 0.5 * (1 - cov(d)))
+        cv.over(hexc("#05070b"), cov(d - 0.8) * 0.9)
+        cv.over(ramp((y - (c - 7.6)) / 15.2, [(0, top), (1, bottom)]), cov(d))
+        facet = (x - c) * 0.6 + (y - c) < 0
+        cv.add(np.array([1, 1, 0.95], np.float32), cov(d + 0.5) * facet * 0.18)
+        ink = hexc("#1a1206")[:3]
+        if glyph == "dot":
+            cv.over(ink, cov(sd_diamond(x, y, c, c, 2.0, 2.3)) * 0.85)
+        elif glyph == "bang":
+            bar = np.maximum(np.abs(x - c) - 0.95, np.abs(y - (c - 1.6)) - 2.6)
+            dot = sd_circle(x, y, c, c + 3.4, 1.05)
+            cv.over(ink, cov(np.minimum(bar, dot)) * 0.9)
+        else:
+            def seg(px, py, ax, ay, bx, by):
+                pax, pay = px - ax, py - ay
+                bax, bay = bx - ax, by - ay
+                hh = np.clip((pax * bax + pay * bay) / (bax * bax + bay * bay), 0, 1)
+                return np.sqrt((pax - bax * hh) ** 2 + (pay - bay * hh) ** 2)
+            tick = np.minimum(seg(x, y, c - 3.0, c + 0.2, c - 0.8, c + 2.6), seg(x, y, c - 0.8, c + 2.6, c + 3.2, c - 2.6)) - 0.95
+            cv.over(ink, cov(tick) * 0.9)
+        save(cv.image(), name)
+        record(name, (s, s))
+
+
+def rail_back(name, w=200.0, h=100.0):
+    """The quest tracker's backdrop: a dark wash behind the text so it reads
+    over bright ground, strongest at the left, gone by the right, soft at top
+    and bottom - no box, no border."""
+    cv = Canvas(w, h)
+    x, y = cv.x, cv.y
+    across = np.clip(1.0 - x / w, 0, 1) ** 1.25
+    vert = np.clip(np.minimum(y, h - y) / 16.0, 0, 1) ** 1.2
+    cv.over(hexc("#04060a"), across * vert * 0.55)
+    save(cv.image(), name)
+    record(name, (w, h), (4, 18, 120, 18))
 
 
 # ------------------------------------------------------------------ slider
@@ -753,14 +808,17 @@ def build():
     plaque("plaque")
     for st in ("normal", "focus", "disabled"):
         field("field_" + st, state=st)
-    track("bar_track", 64, 16, 3.0)
-    track("bar_track_thin", 48, 8, 1.5)
+    track("bar_track", 64, 12)
+    track("bar_track_thin", 48, 6, thin=True)
     fill_shade("bar_fill")
     fill_gloss("bar_gloss")
+    fill_lead("bar_lead")
     spark("bar_spark")
     end_cap("bar_cap_l", mirror=True)
     end_cap("bar_cap_r")
     pips()
+    quest_marks()
+    rail_back("rail_back")
     rail_row("rail_row")
     rail_row("rail_row_hover", hover=True)
     slider_parts()

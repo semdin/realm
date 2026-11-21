@@ -617,13 +617,10 @@ class SkillCard extends PanelContainer:
 		train_button.add_theme_color_override("font_hover_color", HudKit.GOLD_HI)
 		train_button.add_theme_color_override("font_pressed_color", HudKit.GOLD_HI)
 		train_button.add_theme_color_override("font_disabled_color", Color("3b465c"))
-		var looks := {"normal": Color("5a3e0e"), "hover": Color("8a611a"), "pressed": Color("44300a"), "disabled": Color("0d1320")}
-		for state in looks:
-			var box := HudSkillWindow._box(looks[state], Color("283247") if state == "disabled" else HudKit.GOLD_LT, 4, 0)
-			if state != "disabled":
-				box.shadow_color = Color(0.91, 0.78, 0.48, 0.25)
-				box.shadow_size = 4
-			train_button.add_theme_stylebox_override(state, box)
+		# the control kit's square plate, lit gold from inside: it spends a point
+		for state in UIKit.STATES:
+			train_button.add_theme_stylebox_override(state, UIKit.plate("icon", state, Color(1.0, 0.72, 0.25, 0.8), Vector2(2, 0)))
+		train_button.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 		train_button.pressed.connect(func(): window.train(spell_id))
 		row.add_child(train_button)
 		seal = SkillMark.new("star")
