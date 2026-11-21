@@ -24,6 +24,9 @@ const SHARE_RADIUS: f32 = 40.0;
 /// How long a player who just rose is untouchable (and cannot cast); the
 /// client fades the body in over the same time (combat_feedback.gd RISE_PROTECT).
 pub(super) const RISE_PROTECT_MS: u32 = 3000;
+/// The body stands up (the hero's Revive clip, 1.9 s) before it may walk: a
+/// hold on its inputs, carried to the owner's prediction like a stun's.
+const RISE_STILL_MS: u32 = 1600;
 /// A party member more than this many levels below the highest sharer
 /// does not share.
 const SHARE_LEVEL_SPREAD: u16 = 15;
@@ -549,6 +552,10 @@ impl Sim {
         p.life = p.life.wrapping_add(1);
         p.afflictions = super::afflict::Afflictions::default();
         p.restraint = Default::default();
+        // holds count in the owner's input ticks, from its next input
+        let still_from = p.last_input_tick + 1;
+        p.restraint.lock_from = still_from;
+        p.restraint.lock_until = still_from + (RISE_STILL_MS * SIM_HZ).div_ceil(1000);
         p.caster.cast = None;
         p.caster.queued = None;
         if here {

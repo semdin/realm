@@ -14,3 +14,5 @@ instance uniform float brow_paint = 0.0;
 // hair cards: the head's lagging motion (xyz, world metres the tips trail by)
 // and the wind's strength (w); HairSway sets it on the worn style
 instance uniform vec4 hair_sway = vec4(0.0);
+// rising from a death (HeroView.ghost): 0 solid .. 1 gone
+instance uniform float ghost = 0.0;

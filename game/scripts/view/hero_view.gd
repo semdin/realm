@@ -88,11 +88,16 @@ var dead := false
 var _cc_pace := 1.0
 var _tree_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 
-## Rising from a death: how see-through the body starts and how long it
-## takes to grow solid (combat_feedback.gd RISE_PROTECT).
-const RISE_FADE_FROM := 0.65
+## Rising from a death: a ghost (the hero shaders' `ghost`, a share of the
+## pixels dithered away, the rest pale blue and glowing at the rim) for
+## RISE_GHOST_HOLD seconds, then solid again by RISE_FADE_SECONDS
+## (combat_feedback.gd RISE_PROTECT, the server's protection).
+const RISE_GHOST := 0.6
+const RISE_GHOST_HOLD := 2.3
 const RISE_FADE_SECONDS := 3.0
 var _fade: Tween = null
+var _ghost_from := 0.0
+var _ghost_pieces: Array[Node] = []
 
 ## The drawn meshes (StatusFX lays its skin looks over them).
 var visuals: Node3D:
@@ -327,30 +332,50 @@ func set_dead(on: bool) -> void:
 	if anim == null:
 		return
 	if on:
+		if _fade != null:
+			_fade.kill()
+			_set_fade(0.0)
 		anim.end_cast()
 		anim.cancel_oneshot()
 		anim.set_locomotion("dead", "Death_A", true)
 	else:
 		anim.play_oneshot("Revive")
 		anim.set_locomotion("idle", "Idle", true)
-		# untouchable while it rises (the server's RISE_PROTECT_MS): seen
-		# through at first, solid again by its end
-		fade_in(RISE_FADE_SECONDS)
+		# untouchable while it rises (the server's RISE_PROTECT_MS): a
+		# ghost, solid again by its end
+		ghost_rise()
 
-## Seen through (RISE_FADE_FROM) and growing solid over `seconds`: every
-## drawn piece's instance transparency, back to 0 (the opaque path) at the end.
-func fade_in(seconds: float) -> void:
+## The ghost while the body rises: held, then fading out. Timed by the clock
+## (when it rose), not by the tween's own steps: a frame hitch must not keep
+## the body a ghost past the server's protection.
+func ghost_rise() -> void:
 	if visuals == null or not is_inside_tree():
 		return
 	if _fade != null:
 		_fade.kill()
-	_set_fade(RISE_FADE_FROM)
-	_fade = create_tween()
-	_fade.tween_method(_set_fade, RISE_FADE_FROM, 0.0, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+	_ghost_from = Time.get_ticks_msec() / 1000.0
+	_ghost_pieces = visuals.find_children("*", "GeometryInstance3D", true, false)
+	_set_fade(RISE_GHOST)
+	# the tree's own tween (a hero is not always processing): it only calls
+	# _ghost_step each frame for the length of the rise, then clears it
+	_fade = get_tree().create_tween()
+	_fade.tween_method(_ghost_step, 0.0, 1.0, RISE_FADE_SECONDS)
+	_fade.tween_callback(_set_fade.bind(0.0))
+
+func _ghost_step(_unused: float) -> void:
+	var t := Time.get_ticks_msec() / 1000.0 - _ghost_from
+	_set_fade(RISE_GHOST * (1.0 - smoothstep(RISE_GHOST_HOLD, RISE_FADE_SECONDS, t)))
 
 func _set_fade(amount: float) -> void:
-	for piece in visuals.find_children("*", "GeometryInstance3D", true, false):
-		(piece as GeometryInstance3D).transparency = amount
+	if not is_instance_valid(visuals):
+		return
+	if _ghost_pieces.is_empty():
+		_ghost_pieces = visuals.find_children("*", "GeometryInstance3D", true, false)
+	for piece in _ghost_pieces:
+		if is_instance_valid(piece):
+			(piece as GeometryInstance3D).set_instance_shader_parameter("ghost", amount)
+	if amount <= 0.0:
+		_ghost_pieces = []
 
 ## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
 func set_cc_anim_scale(pace: float) -> void:

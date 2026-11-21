@@ -793,9 +793,10 @@ impl Sim {
 
     /// `player` fell: every creature on it turns to the nearest other player
     /// its pack may still fight (on its home ground, within assist reach), or
-    /// gives up and walks home. Done at once: a creature whose cell no living
-    /// player keeps awake would otherwise sleep with the corpse as its
-    /// target and run after the body once it rose at the entrance.
+    /// stops where it stands and waits (`stand_by`): no blows on the corpse,
+    /// no walking off. Done at once: a creature whose cell no living player
+    /// keeps awake would otherwise sleep with the corpse as its target, frozen
+    /// mid-swing, and run after the body once it rose at the entrance.
     pub(super) fn release_player(&mut self, player: Entity) {
         let tick = self.tick;
         let mut living: Vec<(Entity, Vec3)> = Vec::new();
@@ -850,8 +851,37 @@ impl Sim {
                         self.event(pos, CombatEvent::TelegraphCancelled { caster });
                     }
                 }
-                None => self.break_fight(mob),
+                None => self.stand_by(mob),
             }
+        }
+    }
+
+    /// `mob` lost its foe and stays where it is: idle (the pose too, so a
+    /// sleeping cell does not freeze it mid-swing), a blow it was winding up
+    /// called off; it looks round again at once and drifts home only by its
+    /// usual strolls.
+    fn stand_by(&mut self, mob: Entity) {
+        let tick = self.tick;
+        let Some(mut m) = self.world.get_mut::<Mob>(mob) else {
+            return;
+        };
+        if m.mode == MobMode::Dead {
+            return;
+        }
+        let cancelled = m
+            .attack
+            .take()
+            .is_some_and(|a| a.ability.is_some() && !a.released);
+        m.mode = MobMode::Idle;
+        m.state = STATE_IDLE;
+        m.path.clear();
+        m.unreachable_since = 0;
+        m.next_scan = tick;
+        m.next_think = tick + ticks(WANDER_REST_MS.1);
+        let at = m.pos;
+        if cancelled {
+            let caster = self.net_id_of(mob);
+            self.event(at, CombatEvent::TelegraphCancelled { caster });
         }
     }
 

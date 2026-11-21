@@ -77,6 +77,18 @@ void fragment() {
 		AO_LIGHT_AFFECT = 0.0;
 	}
 	NORMAL_MAP = nm;
+	// rising from a death (HeroView.ghost): a share of the pixels left out in
+	// a fine dither (no blending: the opaque pass, no sorting), the rest pale
+	// and lit from within, brightest at the rim
+	if (ghost > 0.0) {
+		float grain = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));
+		if (grain < ghost) {
+			discard;
+		}
+		float edge = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 2.0);
+		ALBEDO = mix(ALBEDO, vec3(0.5, 0.68, 0.95), ghost * 0.7);
+		EMISSION += vec3(0.32, 0.55, 1.0) * (0.18 + edge * 1.3) * ghost;
+	}
 }
 
 float ggx(float n_dot_h, float n_dot_l, float n_dot_v, float alpha) {
