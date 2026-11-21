@@ -6314,3 +6314,30 @@ msgstr "YENİLDİN\n%d:%02d sonra girişe dönülüyor"
 
 msgid "You are still getting up!"
 msgstr "Henüz toparlanıyorsun!"
+
+msgid "Where you fell, at half health"
+msgstr "Düştüğün yerde, yarım canla"
+
+msgid "At the dungeon's entrance, full health"
+msgstr "Zindanın girişinde, tam canla"
+
+msgid "At the respawn point, full health"
+msgstr "Diriliş noktasında, tam canla"
+
+msgid "Defeated"
+msgstr "Yenildin"
+
+msgid "[b]%s[/b] struck you down."
+msgstr "[b]%s[/b] seni alt etti."
+
+msgid "Death penalty [color=#ff5a5f][b]+%d s[/b][/color]"
+msgstr "Ölüm cezası [color=#ff5a5f][b]+%d sn[/b][/color]"
+
+msgid "Death [color=#ff5a5f][b]%d[/b][/color] this run"
+msgstr "Bu koşuda [color=#ff5a5f][b]%d[/b][/color]. ölüm"
+
+msgid "%s until you return to the entrance"
+msgstr "%s sonra girişe dönülüyor"
+
+msgid "%s until you return to town"
+msgstr "%s sonra şehre dönülüyor"

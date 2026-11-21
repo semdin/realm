@@ -30,11 +30,16 @@ var player: Node3D
 var _toast_box: VBoxContainer
 var _toast_panel: Panel
 var _toasts: Array = []
-var _death_panel: ColorRect
-var _death_label: Label
-var _death_icon: TextureRect
+const DeathScreenScript := preload("res://scripts/ui/death_screen.gd")
+var _death_panel: Control
 var _revive_here: Button
 var _revive_town: Button
+## Who struck a blow, by entity id (main.gd entity_name), and the dungeon
+## run's state (deaths, difficulty), for the death screen's lines.
+var name_of: Callable = Callable()
+var run_state: Callable = Callable()
+## The seconds the death choice waited at the start (the cards' rings).
+var _wait_total := 1.0
 var _respawn_sent := false
 ## The death as the server scheduled it: server ticks the choice opens and the
 ## body goes to town by itself (-1: alive).
@@ -105,52 +110,22 @@ func _build() -> void:
 	_toast_panel.hide()
 	add_child(_toast_panel)
 
-	# Death / rise state.
-	_death_panel = ColorRect.new()
-	_death_panel.name = "DeathPanel"
-	_death_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_death_panel.color = Color(0.12, 0.0, 0.0, 0.55)
-	_death_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# Death / rise state: the death screen (death_screen.gd), on its own
+	# layer above every window (a window left open must not hide the choice).
+	_death_panel = DeathScreenScript.new()
 	_death_panel.hide()
-	var backdrop := ColorRect.new()
-	backdrop.name = "Backdrop"
-	backdrop.color = Color(0.03, 0.01, 0.01, 0.72)
-	backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_place_centred(backdrop, Vector2(620, 290), Vector2(0, 8))
-	_death_panel.add_child(backdrop)
-	_death_label = _make_label("", UITheme.FS_BANNER, UITheme.c("blood_lt"))
-	_place_centred(_death_label, Vector2(640, 120))
-	_death_label.custom_minimum_size = Vector2(640, 120)
-	_death_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_death_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_death_panel.add_child(_death_label)
-	_death_icon = UITheme.icon_rect("status_dead", 72.0)
-	_death_icon.name = "DeathIcon"
-	_place_centred(_death_icon, Vector2(72, 72), Vector2(0, -104))
-	_death_panel.add_child(_death_icon)
-	# The death choice: get up where you fell, or go back to town. The panel
-	# itself ignores the mouse; only the buttons take clicks.
-	var choices := HBoxContainer.new()
-	choices.name = "DeathChoices"
-	choices.alignment = BoxContainer.ALIGNMENT_CENTER
-	choices.add_theme_constant_override("separation", 18)
-	_place_centred(choices, Vector2(460, 44), Vector2(0, 96))
-	_death_panel.add_child(choices)
-	_revive_here = HudKit.button(tr("Revive Here"), 16)
-	_revive_here.name = "ReviveHere"
-	_revive_here.custom_minimum_size = Vector2(200, UIKit.H_MAIN)
+	_revive_here = _death_panel.here
+	_revive_here.title = tr("Revive Here")
+	_revive_here.line = tr("Where you fell, at half health")
 	_revive_here.tooltip_text = tr("Get up where you fell with half health")
 	_revive_here.pressed.connect(request_respawn.bind(true))
-	choices.add_child(_revive_here)
-	_revive_town = HudKit.button(tr("Return to the Entrance") if in_dungeon() else tr("Return to Town"), 16)
-	_revive_town.name = "ReviveTown"
-	_revive_town.custom_minimum_size = Vector2(200, UIKit.H_MAIN)
+	_revive_town = _death_panel.back
+	_revive_town.title = tr("Return to the Entrance") if in_dungeon() else tr("Return to Town")
+	_revive_town.line = tr("At the dungeon's entrance, full health") if in_dungeon() \
+		else tr("At the respawn point, full health")
 	_revive_town.tooltip_text = tr("Wake at the dungeon's entrance with full health") if in_dungeon() \
 		else tr("Wake at this map's respawn point with full health")
 	_revive_town.pressed.connect(request_respawn.bind(false))
-	choices.add_child(_revive_town)
-	# Its own layer, above every window (a window left open must not hide the
-	# choice).
 	var death_layer := CanvasLayer.new()
 	death_layer.name = "DeathLayer"
 	death_layer.layer = 80
@@ -180,17 +155,19 @@ func on_death(event: Dictionary) -> void:
 	_auto_tick = float(event.get("auto_tick", 0))
 	_respawn_sent = false
 	_seen_down = false
-	_death_panel.show()
+	_wait_total = maxf(1.0, _seconds_until(_ready_tick))
+	var killer := String(name_of.call(int(event.get("killer", 0)))) if name_of.is_valid() else ""
+	if first:
+		_death_panel.open()
+	_tell_story(killer)
 	_update_death_panel()
 	if not first:
 		return
 	deaths_shown += 1
-	hud.show_notice(tr("You were defeated."), "warn")
+	# the death screen says it: no notice, no word over the body
 	AudioManager.play_stinger("stinger_death")
 	if is_instance_valid(player):
 		player.set_dead(true)
-		FloatingText.word(player.global_position + Vector3(0, 2.4, 0), I18n.upper(tr("Defeated!")),
-			FloatingText.MUTED_RED, 1.25, 2.0, Nameplates.HERO_HEIGHT - 2.4)
 
 ## A dungeon copy's map (its "town" is its entrance).
 func in_dungeon() -> bool:
@@ -221,18 +198,37 @@ func _seconds_until(tick: float) -> float:
 		return 0.0
 	return maxf(0.0, (tick - now) / _hz())
 
+## The death screen's lines: the title, who struck the blow, and in a dungeon
+## run its death penalty and this death's number.
+func _tell_story(killer: String) -> void:
+	var cause := (tr("[b]%s[/b] struck you down.") % killer) if killer != "" else ""
+	cause = cause.replace("[b]", "[b][color=#e7a39f]").replace("[/b]", "[/color][/b]")
+	var penalty := ""
+	var count := ""
+	var state: Dictionary = run_state.call() if run_state.is_valid() else {}
+	if in_dungeon() and not state.is_empty():
+		var rules := DungeonData.difficulty(DungeonData.difficulty_id(int(state.get("difficulty", 1))))
+		var seconds := int(rules.get("death_penalty_s", 0))
+		if seconds > 0:
+			penalty = tr("Death penalty [color=#ff5a5f][b]+%d s[/b][/color]") % seconds
+		var deaths := int(state.get("deaths", 0))
+		if deaths > 0:
+			count = tr("Death [color=#ff5a5f][b]%d[/b][/color] this run") % deaths
+	_death_panel.set_story(I18n.upper(tr("Defeated")), cause, penalty, count)
+
 func _update_death_panel() -> void:
 	var wait := _seconds_until(_ready_tick)
 	var ready := wait <= 0.0 and not _respawn_sent
 	_revive_here.disabled = not ready
 	_revive_town.disabled = not ready
-	if wait > 0.0:
-		_death_label.text = tr("DEFEATED\nYou can rise in %ds") % int(ceil(wait))
-	else:
-		var left := int(ceil(_seconds_until(_auto_tick)))
-		var back := tr("DEFEATED\nReturning to the entrance in %d:%02d") if in_dungeon() \
-			else tr("DEFEATED\nReturning to town in %d:%02d")
-		_death_label.text = back % [left / 60, left % 60]
+	var share := clampf(wait / _wait_total, 0.0, 1.0) if wait > 0.0 else 0.0
+	_death_panel.here.set_wait(share, int(ceil(wait)))
+	_death_panel.back.set_wait(share, int(ceil(wait)))
+	var left := _seconds_until(_auto_tick)
+	var total := maxf(1.0, (_auto_tick - _ready_tick) / _hz() + _wait_total)
+	var clock := "[b][color=#ece6df]%d:%02d[/color][/b]" % [int(ceil(left)) / 60, int(ceil(left)) % 60]
+	var line := tr("%s until you return to the entrance") if in_dungeon() else tr("%s until you return to town")
+	_death_panel.set_auto(left, total, line % clock)
 
 ## Whether the choice is open (the buttons take clicks).
 func can_rise() -> bool:

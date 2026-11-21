@@ -343,6 +343,14 @@ func _add_hero() -> void:
 	hero.call("setup", Color(0.85, 0.4, 0.11))
 	_place(hero)
 	_hero = hero
+	# a body rising from a death: the spirit worn, and its outline over a
+	# solid body (HeroView.ghost_rise), their pipelines on every kind of piece
+	for phase in [1, 2]:
+		var rising: Node3D = load(HeroViewScript).new()
+		add_child(rising)
+		rising.call("setup", Color(0.85, 0.4, 0.11))
+		_place(rising)
+		rising.call("ghost_hold", phase)
 
 func _place(body: Node3D) -> void:
 	body.position = _grid(_slot)

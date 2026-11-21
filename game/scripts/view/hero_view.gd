@@ -88,16 +88,24 @@ var dead := false
 var _cc_pace := 1.0
 var _tree_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 
-## Rising from a death: a ghost (the hero shaders' `ghost`, a share of the
-## pixels dithered away, the rest pale blue and glowing at the rim) for
-## RISE_GHOST_HOLD seconds, then solid again by RISE_FADE_SECONDS
-## (combat_feedback.gd RISE_PROTECT, the server's protection).
-const RISE_GHOST := 0.6
+## Rising from a death: a spirit (hero_ghost.gdshader worn over every piece)
+## for RISE_GHOST_HOLD seconds, then the solid body back under the spirit's
+## outline, which fades out by RISE_FADE_SECONDS (combat_feedback.gd
+## RISE_PROTECT, the server's protection).
 const RISE_GHOST_HOLD := 2.3
 const RISE_FADE_SECONDS := 3.0
+const GHOST_SHADER := "res://assets/shaders/hero_ghost.gdshader"
+const GHOST_NOISE := "res://assets/vfx/tex/noise_erosion_512.png"
+## The spirit's materials, one per kind of piece (a hair atlas, a plain
+## piece) and pass (worn, or laid over as an outline), shared by every hero.
+static var _ghost_materials: Dictionary = {}
 var _fade: Tween = null
 var _ghost_from := 0.0
-var _ghost_pieces: Array[Node] = []
+## 0 solid, 1 the spirit worn, 2 the outline over the solid body.
+var _ghost_phase := 0
+## Each piece's own material_override and material_overlay while the spirit
+## stands in for them.
+var _ghost_saved: Dictionary = {}
 
 ## The drawn meshes (StatusFX lays its skin looks over them).
 var visuals: Node3D:
@@ -334,7 +342,7 @@ func set_dead(on: bool) -> void:
 	if on:
 		if _fade != null:
 			_fade.kill()
-			_set_fade(0.0)
+		_ghost_apply(0)
 		anim.end_cast()
 		anim.cancel_oneshot()
 		anim.set_locomotion("dead", "Death_A", true)
@@ -345,37 +353,96 @@ func set_dead(on: bool) -> void:
 		# ghost, solid again by its end
 		ghost_rise()
 
-## The ghost while the body rises: held, then fading out. Timed by the clock
-## (when it rose), not by the tween's own steps: a frame hitch must not keep
-## the body a ghost past the server's protection.
+## The spirit while the body rises: worn, then fading out as an outline over
+## the solid body. Timed by the clock (when it rose), not by the tween's own
+## steps: a frame hitch must not keep it past the server's protection.
 func ghost_rise() -> void:
 	if visuals == null or not is_inside_tree():
 		return
 	if _fade != null:
 		_fade.kill()
 	_ghost_from = Time.get_ticks_msec() / 1000.0
-	_ghost_pieces = visuals.find_children("*", "GeometryInstance3D", true, false)
-	_set_fade(RISE_GHOST)
+	_ghost_apply(1)
+	_set_ghost_fade(1.0)
 	# the tree's own tween (a hero is not always processing): it only calls
-	# _ghost_step each frame for the length of the rise, then clears it
+	# _ghost_step each frame for the length of the rise, then ends the spirit
 	_fade = get_tree().create_tween()
 	_fade.tween_method(_ghost_step, 0.0, 1.0, RISE_FADE_SECONDS)
-	_fade.tween_callback(_set_fade.bind(0.0))
+	_fade.tween_callback(_ghost_apply.bind(0))
+
+## The warm-up's pose: the spirit worn (1) or its outline over the body (2),
+## held (its pipelines compiled behind the loading screen).
+func ghost_hold(phase: int) -> void:
+	_ghost_apply(phase)
+	_set_ghost_fade(1.0)
 
 func _ghost_step(_unused: float) -> void:
 	var t := Time.get_ticks_msec() / 1000.0 - _ghost_from
-	_set_fade(RISE_GHOST * (1.0 - smoothstep(RISE_GHOST_HOLD, RISE_FADE_SECONDS, t)))
-
-func _set_fade(amount: float) -> void:
-	if not is_instance_valid(visuals):
+	if t < RISE_GHOST_HOLD:
 		return
-	if _ghost_pieces.is_empty():
-		_ghost_pieces = visuals.find_children("*", "GeometryInstance3D", true, false)
-	for piece in _ghost_pieces:
+	_ghost_apply(2)
+	_set_ghost_fade(1.0 - smoothstep(RISE_GHOST_HOLD, RISE_FADE_SECONDS, t))
+
+func _set_ghost_fade(amount: float) -> void:
+	for piece in _ghost_saved:
 		if is_instance_valid(piece):
-			(piece as GeometryInstance3D).set_instance_shader_parameter("ghost", amount)
-	if amount <= 0.0:
-		_ghost_pieces = []
+			(piece as GeometryInstance3D).set_instance_shader_parameter("ghost_fade", amount)
+
+## Puts every piece in `phase` (0 solid, 1 the spirit worn, 2 its outline
+## over the solid body), keeping what the piece wore to put it back.
+func _ghost_apply(phase: int) -> void:
+	if phase == _ghost_phase or visuals == null:
+		return
+	if _ghost_phase == 0:
+		_ghost_saved.clear()
+		for piece in visuals.find_children("*", "MeshInstance3D", true, false):
+			var mesh := piece as MeshInstance3D
+			_ghost_saved[mesh] = [mesh.material_override, mesh.material_overlay]
+	for piece in _ghost_saved:
+		if not is_instance_valid(piece):
+			continue
+		var mesh := piece as MeshInstance3D
+		var saved: Array = _ghost_saved[piece]
+		match phase:
+			0:
+				mesh.material_override = saved[0]
+				mesh.material_overlay = saved[1]
+			1:
+				mesh.material_override = _ghost_material(mesh, false)
+				mesh.material_overlay = null
+			2:
+				mesh.material_override = saved[0]
+				mesh.material_overlay = _ghost_material(mesh, true)
+	_ghost_phase = phase
+	if phase == 0:
+		_ghost_saved.clear()
+
+## The spirit's material for `mesh`: a hair card's own atlas as its coverage
+## (and its hairline fade), else the plain one.
+static func _ghost_material(mesh: MeshInstance3D, shell: bool) -> ShaderMaterial:
+	var source: Material = mesh.material_override
+	if source == null and mesh.mesh != null and mesh.mesh.get_surface_count() > 0:
+		source = mesh.get_active_material(0)
+	var mask: Texture2D = null
+	var card := false
+	if source is ShaderMaterial:
+		var atlas: Variant = (source as ShaderMaterial).get_shader_parameter("atlas_tex")
+		if atlas is Texture2D:
+			mask = atlas
+			var card_data: Variant = (source as ShaderMaterial).get_shader_parameter("use_card_data")
+			card = card_data == null or bool(card_data)
+	var key := "%s|%s|%s" % [mask.get_rid().get_id() if mask != null else 0, card, shell]
+	if not _ghost_materials.has(key):
+		var material := ShaderMaterial.new()
+		material.shader = load(GHOST_SHADER)
+		material.set_shader_parameter("noise", load(GHOST_NOISE))
+		material.set_shader_parameter("use_mask", mask != null)
+		if mask != null:
+			material.set_shader_parameter("mask_tex", mask)
+		material.set_shader_parameter("card_fade", card)
+		material.set_shader_parameter("shell", shell)
+		_ghost_materials[key] = material
+	return _ghost_materials[key]
 
 ## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
 func set_cc_anim_scale(pace: float) -> void:

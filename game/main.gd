@@ -1044,6 +1044,9 @@ func _build_ui() -> void:
 	feedback = load(FeedbackScript).new()
 	feedback.name = "CombatFeedback"
 	feedback.map_name = map_name
+	feedback.name_of = entity_name
+	feedback.run_state = func() -> Dictionary:
+		return dungeon.run_view.state if dungeon != null and dungeon.run_view != null else {}
 	root.add_child(feedback)
 	feedback.setup(session, hud, player)
 	_build_quest_ui(root)
@@ -1833,6 +1836,24 @@ func select_target(id: int) -> void:
 		return
 	session.inspect(target)
 	_show_target_card(i)
+
+## Who an entity is, as the player reads it (the death screen's "struck you
+## down" line): a player's own name, a creature's as its target card shows
+## it; "" when it is out of view.
+func entity_name(id: int) -> String:
+	if id == 0 or others.is_empty():
+		return ""
+	if _player_index(id) >= 0:
+		return String(player_identity(id).get("name", ""))
+	var i := _creature_index(id)
+	if i < 0:
+		return ""
+	var kind := (others["kinds"] as PackedInt32Array)[i]
+	var own_name := String((infos.get(id, {}) as Dictionary).get("name", ""))
+	var title := _species_title(CreatureView.species_for_kind(kind), own_name)
+	if CreatureView.is_elite(kind) and own_name == "":
+		title = tr("Elite %s") % title
+	return title
 
 ## The target card for snapshot index `i`: its name (a boss's, a Dark
 ## Shard's or a dummy's own, else the species'), what kind of target it is and
