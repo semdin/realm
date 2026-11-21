@@ -140,8 +140,10 @@ lock (each lock shades round), A coverage, 4x supersampled.
   drawn by its cap alone (Buzzed, the stubble, the short beard: no glb).
 - Layer keys: `min_z` / `max_z` (in q) keep a layer to a band, `depth`
   fixes its shade depth, `root_fade` fades the card in from its root (no
-  visible cut root row), `edge_fade` (style) is where cards fade out on the
-  skin past the hairline.
+  visible cut root row), `edge_fade` (style, default 0.55-0.97 of the scalp
+  weight) is where cards within 2 cm of the skin fade out toward the
+  hairline, strand by strand (the hair cap draws the edge; hair that has
+  fallen past `release` is never faded).
 
 The game (`HeroAppearance`): `CARD_STYLES` lists every built style; the look's
 hair is worn as "Hair"/"HairFar", the beard's cards (`BEARDS[...].mesh`) as
@@ -216,6 +218,11 @@ Every style in `looks.json` is built (SimpleParted, Buzzed, Long, Wavy,
 Tousled, Neat, Ponytail, Curly) and the three beards (Beard_Stubble,
 Beard_Short, Beard_Full). A style added to `looks.json` before its cards are
 built is drawn with its stand-in (`HeroAppearance.STAND_INS`).
+
+Measured (llvmpipe, relative only; 16 heroes, mixed styles and beards):
+141 ms a frame vs 136-146 ms with the old kit head - within the noise; a
+face filling the screen with Long hair 229 ms vs 265 ms before. The rim
+light is about 2 % of a crowd frame.
 
 Cost: near meshes 16-28k triangles (drawn within `HAIR_NEAR`, 7 m, with
 the fringe pass), far meshes 8-13k; Buzzed and the two short beards are

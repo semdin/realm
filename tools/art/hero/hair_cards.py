@@ -132,6 +132,9 @@ EDGE_W = spec.get('edge_w', 0.92)
 BAND_JITTER = spec.get('band_jitter', 0.0)
 # card normals: the head's surface normal (1) .. the skull's radial direction (0)
 NORMAL_SURFACE = spec.get('normal_surface', 0.35)
+# cards fade out over this band of scalp weight toward the hairline, leaving
+# the edge to the hair cap (card tips ending on the temple drew square steps)
+EDGE_FADE = (0.55, 0.97)
 
 
 def poisson(spacing, min_z=None, edge=False, max_z=None, dense=None):
@@ -423,11 +426,18 @@ def build_object(name, use_cards, row_step):
                 uv_a.append((u0 + (u1 - u0) * k / 2, 1.0 - t))
                 uv_b.append((t, 1.0 - card['depth']))
                 ao = (0.8 + 0.2 * card['depth']) * (0.75 + 0.25 * smooth(0.0, 0.6, t))
-                # where the card lies on the skin past the hairline it fades
-                # out (the shader multiplies coverage by it): no card edge
-                # draws the hairline as steps
+                # where the card lies over the skin near and past the hairline
+                # it fades out (the shader thins it strand by strand): no card
+                # edge draws the hairline as steps - also cards standing a
+                # little off the skin (at 5 mm the temple kept square ends)
                 loc, _nn, ti, dist = bvh.find_nearest(Vector(e))
-                fade = 1.0 if dist > 0.005 else smooth(spec.get('edge_fade', (0.35, 0.85))[0], spec.get('edge_fade', (0.35, 0.85))[1], float(grow_w[ti]))
+                fade = 1.0 if dist > 0.02 else smooth(spec.get('edge_fade', EDGE_FADE)[0], spec.get('edge_fade', EDGE_FADE)[1], float(grow_w[ti]))
+                if release is not None:
+                    # hair that has left the scalp (falling past the ears and
+                    # the nape) is not at a hairline: it keeps its coverage
+                    _ql = q_of(np.array(loc))
+                    if _ql[2] < release(_ql) + 0.08:
+                        fade = 1.0
                 if card.get('root_fade', 0.0) > 0.0:
                     # the card grows out of the skin: no visible cut root row
                     fade *= smooth(0.0, card['root_fade'], t)
