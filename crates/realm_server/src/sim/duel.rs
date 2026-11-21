@@ -574,7 +574,13 @@ impl Sim {
         by: &str,
     ) -> u32 {
         let tick = self.tick;
-        let Some(mut p) = self.world.get_mut::<Player>(victim) else {
+        // A duelist who fell to something else stays down: "never below 1"
+        // would hand a corpse a point of health.
+        let Some(mut p) = self
+            .world
+            .get_mut::<Player>(victim)
+            .filter(|p| p.dead_until == 0)
+        else {
             return 0;
         };
         let beaten = p.hp - amount < 1.0;

@@ -862,7 +862,15 @@ impl Sim {
             flags |= self.apply_status(attacker, victim, spell, amount);
         }
         self.stats.hits += 1;
-        if let Some(mut player) = self.world.get_mut::<Player>(attacker) {
+        // A bolt or a burn still landing after its caster fell steals
+        // nothing: a dead player's health stays at 0 until it rises (the
+        // client takes health coming back as the rise, and took a corpse
+        // with a few points of stolen life for a living, frozen body).
+        if let Some(mut player) = self
+            .world
+            .get_mut::<Player>(attacker)
+            .filter(|p| p.dead_until == 0)
+        {
             player.last_combat = tick;
             let heal = (amount * life_steal.min(life_cap) / 100.0).round();
             if heal > 0.0 {
