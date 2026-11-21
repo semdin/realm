@@ -6287,3 +6287,15 @@ msgstr "Diyar dolu: beklemen gerekebilir"
 
 msgid "The realm is having problems"
 msgstr "Diyarda sorun var"
+
+msgid "Previous slot"
+msgstr "Önceki yuva"
+
+msgid "Next slot"
+msgstr "Sonraki yuva"
+
+msgid "Show the quests"
+msgstr "Görevleri göster"
+
+msgid "Hide the quests"
+msgstr "Görevleri gizle"

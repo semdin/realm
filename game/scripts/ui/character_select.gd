@@ -2,7 +2,8 @@ extends Node3D
 class_name CharacterSelect
 
 ## The character screen (the old client's character select): the key art
-## behind a dark stone dais lit in the house colour, the character standing
+## behind a dark stone dais (a groove of house-coloured light round its rim,
+## a shaft of light from above, mist round its foot), the character standing
 ## on it in the real hero body (HeroAppearance, the same body, look and
 ## house tint the world draws), the roster of the account's two slots on
 ## the left, the chosen character's card on the right, one big Enter World
@@ -66,9 +67,10 @@ static var look_on_entry: Dictionary = {}
 var camera: Camera3D
 var podium: Node3D
 var podium_light: OmniLight3D
-var rune_ring: MeshInstance3D
+## The light on the dais (dais_inlay / dais_shaft / dais_mist shaders).
+var inlay: MeshInstance3D
+var shaft: MeshInstance3D
 var model_anchor: Node3D
-var embers: CPUParticles3D
 var rim_light: DirectionalLight3D
 ## The character on the dais (HeroAppearance.spawn), null on an empty slot.
 var current_body: Node3D
@@ -230,54 +232,84 @@ func _build_stage() -> void:
 	stone.roughness = 0.9
 	dais.material_override = stone
 	podium.add_child(dais)
-	rune_ring = MeshInstance3D.new()
-	rune_ring.name = "RuneRing"
-	var torus := TorusMesh.new()
-	torus.inner_radius = 1.22
-	torus.outer_radius = 1.27
-	torus.rings = 96
-	rune_ring.mesh = torus
-	rune_ring.position.y = 0.26
-	var glow := StandardMaterial3D.new()
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.emission_enabled = true
-	glow.emission_energy_multiplier = 1.4
-	rune_ring.material_override = glow
-	podium.add_child(rune_ring)
+	_build_dais_light()
 	podium_light = OmniLight3D.new()
 	podium_light.name = "PodiumLight"
 	podium_light.position.y = 0.4
 	# on the dais and the boots: reaching up from below it painted the
 	# eyelids, nostrils and jaw
 	podium_light.omni_range = 0.9
-	podium_light.light_energy = 1.8
+	podium_light.light_energy = 0.9
 	podium.add_child(podium_light)
-	embers = CPUParticles3D.new()
-	embers.name = "EmbersParticles"
-	embers.position.y = 0.3
-	embers.amount = 25
-	embers.lifetime = 2.0
-	var spark := SphereMesh.new()
-	spark.radius = 0.025
-	spark.height = 0.05
-	# amber sparks whatever the house (the key art's own embers)
-	var spark_mat := StandardMaterial3D.new()
-	spark_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	spark_mat.albedo_color = Color(1.0, 0.75, 0.3, 0.8)
-	spark_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	spark.material = spark_mat
-	embers.mesh = spark
-	embers.emission_shape = CPUParticles3D.EMISSION_SHAPE_SPHERE
-	embers.emission_sphere_radius = 1.2
-	embers.gravity = Vector3(0, 0.8, 0)
-	embers.scale_amount_min = 0.5
-	embers.scale_amount_max = 1.3
-	podium.add_child(embers)
 	model_anchor = Node3D.new()
 	model_anchor.name = "ModelAnchor"
 	model_anchor.position.y = 0.25
 	podium.add_child(model_anchor)
 	_stage_lights()
+
+## The light on the dais, all of it shaders over the cloud map, no shapes or
+## particles of its own (until 2026-11-21: a flat emissive torus and spark
+## spheres rising over the character, which read cheap): a groove of light
+## round the rim in the house colour that glows in pools and breathes, with a
+## fine inner groove and seams between them; a shaft of light from high above
+## drawn only behind the character; a low mist round the foot of the stone.
+func _build_dais_light() -> void:
+	var clouds := NoiseTexture2D.new()
+	var cloud_noise := FastNoiseLite.new()
+	cloud_noise.frequency = 0.012
+	cloud_noise.fractal_octaves = 4
+	clouds.noise = cloud_noise
+	clouds.seamless = true
+	clouds.width = 256
+	clouds.height = 256
+	clouds.generate_mipmaps = true
+	inlay = MeshInstance3D.new()
+	inlay.name = "DaisInlay"
+	var top := PlaneMesh.new()
+	top.size = Vector2(3.0, 3.0)
+	inlay.mesh = top
+	inlay.position.y = 0.252
+	inlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var inlay_mat := ShaderMaterial.new()
+	inlay_mat.shader = load("res://assets/shaders/dais_inlay.gdshader")
+	inlay_mat.set_shader_parameter("noise", clouds)
+	inlay.material_override = inlay_mat
+	podium.add_child(inlay)
+	shaft = MeshInstance3D.new()
+	shaft.name = "DaisShaft"
+	var cone := CylinderMesh.new()
+	cone.top_radius = 0.55
+	cone.bottom_radius = 1.25
+	cone.height = 4.2
+	cone.radial_segments = 48
+	cone.rings = 1
+	cone.cap_top = false
+	cone.cap_bottom = false
+	shaft.mesh = cone
+	shaft.position.y = 0.25 + 2.1
+	shaft.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	var shaft_mat := ShaderMaterial.new()
+	shaft_mat.shader = load("res://assets/shaders/dais_shaft.gdshader")
+	shaft_mat.set_shader_parameter("noise", clouds)
+	shaft.material_override = shaft_mat
+	# not on the dais: the shaft stays put while the dais turns
+	add_child(shaft)
+	for i in 2:
+		var mist := MeshInstance3D.new()
+		mist.name = "DaisMist%d" % i
+		var sheet := PlaneMesh.new()
+		sheet.size = Vector2(6.0, 6.0)
+		mist.mesh = sheet
+		# under the stone's foot (it ends at -0.25): round it, never across it
+		mist.position.y = -0.27 + 0.03 * i
+		mist.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var mist_mat := ShaderMaterial.new()
+		mist_mat.shader = load("res://assets/shaders/dais_mist.gdshader")
+		mist_mat.set_shader_parameter("noise", clouds)
+		mist_mat.set_shader_parameter("turn", 1.0 if i == 0 else -0.7)
+		mist_mat.set_shader_parameter("strength", 0.14 if i == 0 else 0.09)
+		mist.material_override = mist_mat
+		add_child(mist)
 
 ## The portrait lighting: a warm key from the camera's left, high and in
 ## front (the one shadow), a cool fill from the right and a rim from behind
@@ -313,9 +345,9 @@ func _stage_lights() -> void:
 func _apply_rune_color(col: Color) -> void:
 	podium_light.light_color = col
 	rim_light.light_color = Color(0.78, 0.84, 1.0).lerp(col.lightened(0.45), 0.35)
-	var mat := rune_ring.material_override as StandardMaterial3D
-	mat.albedo_color = col
-	mat.emission = col
+	(inlay.material_override as ShaderMaterial).set_shader_parameter("tint", col)
+	(inlay.material_override as ShaderMaterial).set_shader_parameter("strength", 1.0 if col.a >= 1.0 else 0.6)
+	(shaft.material_override as ShaderMaterial).set_shader_parameter("tint", Color(1.0, 0.92, 0.8).lerp(col.lightened(0.3), 0.22))
 
 ## ================================================================ the interface
 
@@ -430,16 +462,14 @@ func _build_ui() -> void:
 	nav.set_anchors_preset(Control.PRESET_CENTER)
 	nav.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(nav)
-	prev_btn = HudKit.button("◄", 20)
-	prev_btn.custom_minimum_size = Vector2(52, 52)
+	prev_btn = UIKit.icon_button("ico_chevron_left", 46.0, tr("Previous slot"))
 	prev_btn.pressed.connect(func(): _switch_slot((current_slot - 1 + MAX_CHARACTERS) % MAX_CHARACTERS))
 	nav.add_child(prev_btn)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	nav.add_child(spacer)
-	next_btn = HudKit.button("►", 20)
-	next_btn.custom_minimum_size = Vector2(52, 52)
+	next_btn = UIKit.icon_button("ico_chevron_right", 46.0, tr("Next slot"))
 	next_btn.pressed.connect(func(): _switch_slot((current_slot + 1) % MAX_CHARACTERS))
 	nav.add_child(next_btn)
 
@@ -460,20 +490,8 @@ func _build_ui() -> void:
 	edit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	edit_btn.pressed.connect(open_edit)
 	bottom.add_child(edit_btn)
-	enter_btn = HudKit.button(tr("ENTER WORLD"), 22)
+	enter_btn = UIKit.cta_button(tr("ENTER WORLD"), Vector2(360, 58), 22)
 	enter_btn.name = "EnterWorldButton"
-	for state in ["normal", "hover", "pressed"]:
-		var sb := HudKit.button_box(state).duplicate() as StyleBoxFlat
-		sb.bg_color = Color(0.36, 0.25, 0.08) if state == "normal" else (Color(0.48, 0.34, 0.1) if state == "hover" else Color(0.26, 0.18, 0.06))
-		sb.border_color = HudKit.GOLD_HI if state == "hover" else HudKit.GOLD_LT
-		sb.set_border_width_all(2)
-		sb.set_corner_radius_all(6)
-		sb.shadow_color = Color(0, 0, 0, 0.5)
-		sb.shadow_size = 8
-		enter_btn.add_theme_stylebox_override(state, sb)
-	enter_btn.add_theme_font_override("font", HudKit.title())
-	enter_btn.add_theme_color_override("font_color", HudKit.GOLD_HI)
-	enter_btn.custom_minimum_size = Vector2(380, 60)
 	enter_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	enter_btn.pressed.connect(_on_enter_world_pressed)
 	bottom.add_child(enter_btn)
@@ -773,18 +791,14 @@ func _refresh_roster() -> void:
 		card.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		card.add_theme_constant_override("h_separation", 12)
 		var selected := i == current_slot
-		var normal := StyleBoxFlat.new()
-		normal.bg_color = Color(0.09, 0.11, 0.17, 0.9) if selected else Color(0.05, 0.06, 0.09, 0.7)
-		normal.border_color = HudKit.GOLD_LT if selected else Color(HudKit.GOLD.r, HudKit.GOLD.g, HudKit.GOLD.b, 0.35)
-		normal.set_border_width_all(2 if selected else 1)
-		normal.set_corner_radius_all(6)
-		normal.content_margin_left = 12
-		normal.content_margin_right = 10
-		var hover := normal.duplicate() as StyleBoxFlat
-		hover.border_color = HudKit.GOLD_HI
-		card.add_theme_stylebox_override("normal", normal)
-		card.add_theme_stylebox_override("hover", hover)
-		card.add_theme_stylebox_override("pressed", hover)
+		var lit := Color(0, 0, 0, 0)
+		if selected and i < characters.size():
+			lit = Color(FrontDoor.house_color(String(characters[i].get("house", ""))), 0.7)
+		elif selected:
+			lit = Color(0.85, 0.7, 0.35, 0.5)
+		for state in UIKit.STATES:
+			var look_state: String = "hover" if selected and state == "normal" else state
+			card.add_theme_stylebox_override(state, UIKit.plate("steel", look_state, lit, Vector2(14, 6)))
 		card.add_theme_stylebox_override("focus", HudKit.empty())
 		card.add_theme_font_override("font", HudKit.bold())
 		card.add_theme_font_size_override("font_size", 16)
@@ -895,12 +909,9 @@ func _select_house(key: String) -> void:
 	for k: String in house_buttons:
 		var b: Button = house_buttons[k]
 		b.modulate = Color.WHITE if k == key else Color(1, 1, 1, 0.55)
-		var sb := HudKit.button_box("normal").duplicate() as StyleBoxFlat
-		if k == key:
-			sb.border_color = colour.lightened(0.35)
-			sb.set_border_width_all(2)
-			sb.bg_color = colour.darkened(0.72)
-		b.add_theme_stylebox_override("normal", sb)
+		var lit := Color(colour, 0.85) if k == key else Color(0, 0, 0, 0)
+		for state in UIKit.STATES:
+			b.add_theme_stylebox_override(state, UIKit.plate("steel", "hover" if k == key and state == "normal" else state, lit, Vector2(8, 8)))
 	if creating:
 		_apply_rune_color(colour)
 		if is_instance_valid(current_body):
@@ -1039,8 +1050,6 @@ func _process(delta: float) -> void:
 		_camera_far = camera.transform
 	_zoom = lerpf(_zoom, _zoom_target, 1.0 - exp(-10.0 * delta))
 	_pitch = lerpf(_pitch, _pitch_target, 1.0 - exp(-10.0 * delta))
-	# close up the embers drift past the lens as big blobs
-	embers.visible = _zoom < 0.3
 	if _zoom_target == 0.0 and _zoom < 0.001 and absf(_pitch) < 0.0005 and _pitch_target == 0.0:
 		camera.transform = _camera_far
 		return

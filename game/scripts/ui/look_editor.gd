@@ -104,7 +104,9 @@ func _init() -> void:
 	face.add_theme_constant_override("separation", 6)
 	box.add_child(face)
 	for entry in [["look", tr("Look"), general], ["face", tr("Face"), face]]:
-		var tab := _small_button(entry[1])
+		var tab := Button.new()
+		tab.text = entry[1]
+		UIKit.style_tab(tab, 15, Vector2(22, 6))
 		var tab_name: String = entry[0]
 		tab.pressed.connect(func(): _show_tab(tab_name))
 		tab_row.add_child(tab)
@@ -193,7 +195,7 @@ func _init() -> void:
 
 	_buttons = HBoxContainer.new()
 	_buttons.alignment = BoxContainer.ALIGNMENT_CENTER
-	var save := _small_button(tr("Save"))
+	var save := _small_button(tr("Save"), "gold")
 	save.pressed.connect(func(): confirmed.emit(look.duplicate()))
 	var cancel := _small_button(tr("Cancel"))
 	cancel.pressed.connect(func(): cancelled.emit())
@@ -240,7 +242,7 @@ func _show_tab(tab_name: String) -> void:
 	for name: String in _tabs:
 		var on := name == tab_name
 		(_tabs[name][1] as Control).visible = on
-		(_tabs[name][0] as Button).modulate = Color.WHITE if on else Color(1, 1, 1, 0.55)
+		(_tabs[name][0] as Button).set_pressed_no_signal(on)
 		for extra in (_tabs[name] as Array).slice(2):
 			(extra as Control).visible = on
 	tab_changed.emit(tab_name)
@@ -317,28 +319,37 @@ func _set_value(key: String, value) -> void:
 	set_look(l, true)
 
 
-## A "< name >" row that steps `key` through `count` choices; returns the name label.
+## A stepper that moves `key` through `count` choices; returns the name label.
 func _stepper(box: VBoxContainer, key: String, count: int) -> Label:
 	var label := _step_row(box, func(step: int): _set_value(key, (int(look[key]) + step + count) % count))
-	var row := label.get_parent()
+	var row := label.get_parent().get_parent()
 	steppers[key] = [row.get_child(0), row.get_child(2)]
 	return label
 
 
-## A "< name >" row calling `on_step` with -1 / +1; returns the name label.
+## A stepper row calling `on_step` with -1 / +1: the kit's arrow buttons
+## either side of the value on its recessed plaque; returns the value label.
 func _step_row(box: VBoxContainer, on_step: Callable) -> Label:
 	var row := HBoxContainer.new()
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
-	var prev := _small_button("<")
+	row.add_theme_constant_override("separation", 6)
+	var prev := UIKit.icon_button("ico_chevron_left", 32.0)
 	prev.pressed.connect(func(): on_step.call(-1))
+	var plate := PanelContainer.new()
+	plate.add_theme_stylebox_override("panel", UIKit.plaque(Vector2(10, 3)))
+	plate.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	plate.custom_minimum_size = Vector2(150, 32)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var label := Label.new()
-	label.custom_minimum_size = Vector2(150, 0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	HudKit.style_label(label, 16, HudKit.PARCHMENT, HudKit.bold(), 2)
-	var next := _small_button(">")
+	plate.add_child(label)
+	var next := UIKit.icon_button("ico_chevron_right", 32.0)
 	next.pressed.connect(func(): on_step.call(1))
 	row.add_child(prev)
-	row.add_child(label)
+	row.add_child(plate)
 	row.add_child(next)
 	box.add_child(row)
 	return label
@@ -372,17 +383,16 @@ func _caption(text: String) -> Label:
 	return l
 
 
-func _small_button(text: String) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.focus_mode = Control.FOCUS_NONE
-	HudKit.style_button(b, 14)
+## A plate button sized to its caption (`kind`: the kit's "steel" or "gold").
+func _small_button(text: String, kind := "steel") -> Button:
+	var b := UIKit.button(text, kind, 14)
 	var font := b.get_theme_font("font")
-	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 28.0 if font != null else 14.0 * text.length() + 20.0
-	b.custom_minimum_size = Vector2(maxf(36.0, width), 32)
+	var width := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 14).x + 36.0 if font != null else 14.0 * text.length() + 28.0
+	b.custom_minimum_size = Vector2(maxf(40.0, width), 32)
 	return b
 
 
+## A colour choice: the kit's gem swatch.
 func _swatch(color: Color) -> Button:
 	var b := Button.new()
 	b.focus_mode = Control.FOCUS_NONE
@@ -394,14 +404,7 @@ func _swatch(color: Color) -> Button:
 
 
 func _mark(b: Button, selected: bool) -> void:
-	var color: Color = b.get_meta("color")
-	var box := StyleBoxFlat.new()
-	box.bg_color = color
-	box.set_corner_radius_all(15)
-	box.border_color = HudKit.GOLD_HI if selected else Color(0, 0, 0, 0.6)
-	box.set_border_width_all(3 if selected else 1)
-	for state in ["normal", "hover", "pressed", "focus"]:
-		b.add_theme_stylebox_override(state, box)
+	UIKit.style_swatch(b, b.get_meta("color"), selected)
 
 
 ## A face part's tab (the character window's TabChip, narrower: five fit the
@@ -439,16 +442,6 @@ class PartChip extends PanelContainer:
 			accept_event()
 
 	func _restyle() -> void:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color("1d2f4a") if selected else Color(0, 0, 0, 0)
-		sb.border_color = HudKit.GOLD_DK if selected else Color(0, 0, 0, 0)
-		sb.set_border_width_all(1)
-		sb.border_width_bottom = 0
-		sb.corner_radius_top_left = 5
-		sb.corner_radius_top_right = 5
-		sb.content_margin_left = 6
-		sb.content_margin_right = 6
-		sb.content_margin_top = 5
-		sb.content_margin_bottom = 6
-		add_theme_stylebox_override("panel", sb)
+		# the kit's tab: lit gold underline and mark when chosen
+		add_theme_stylebox_override("panel", UIKit.tab("selected" if selected else ("hover" if _hover else "normal"), Vector2(6, 5)))
 		_label.add_theme_color_override("font_color", HudKit.GOLD_HI if selected else (HudKit.PARCHMENT if _hover else HudKit.TEXT_DIM))
