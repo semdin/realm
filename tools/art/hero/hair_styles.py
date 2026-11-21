@@ -356,13 +356,15 @@ def curly_overhang(q):
 # 0.15; the face is -y.
 def beard_flow(q):
     x, y, z = q
-    sgn = 1.0 if x > 0 else -1.0
     ax = abs(x)
-    # cheeks and jaw: down, a little out; under the chin: back down the neck
-    d = norm([0.25 * sgn * smooth(0.05, 0.45, ax), -0.1 + 0.7 * smooth(-1.4, -1.65, z), -1.0])
+    # cheeks and jaw: down, a little out (growing smoothly from the middle:
+    # a sideways push that switched sign at x = 0 parted the beard down the
+    # chin); under the chin: back down the neck
+    out = 0.25 * max(-1.0, min(1.0, x / 0.45))
+    d = norm([out, -0.1 + 0.7 * smooth(-1.4, -1.65, z), -1.0])
     # the moustache: from the philtrum out and down over the lip
     mo = smooth(-0.72, -0.8, z) * smooth(-0.98, -0.9, z) * smooth(0.45, 0.3, ax)
-    d_mo = norm([sgn, -0.2, -0.8])
+    d_mo = norm([max(-1.0, min(1.0, x / 0.12)), -0.2, -0.8])
     return norm(d * (1 - mo) + d_mo * mo)
 
 
@@ -386,6 +388,15 @@ def stubble_length(q):
     return 0.0018
 
 
+def short_beard_height(q):
+    x, y, z = q
+    return 0.004 + 0.002 * smooth(-1.0, -1.4, z)
+
+
+def buzz_height(q):
+    return 0.005
+
+
 def short_beard_length(q):
     return 0.0055
 
@@ -401,6 +412,17 @@ def beard_lift(q):
     """A full beard stands off the face: most on the chin and the jaw."""
     x, y, z = q
     return 0.002 + 0.006 * smooth(-0.95, -1.35, z)
+
+
+def full_beard_height(q):
+    """How long a full beard's hairs are (m): longest on the chin, shorter
+    up the cheeks and on the moustache."""
+    x, y, z = q
+    chin = smooth(-1.0, -1.45, z) * smooth(0.55, 0.15, abs(x))
+    jaw = smooth(-0.85, -1.25, z)
+    mo = smooth(-0.72, -0.8, z) * smooth(-0.98, -0.9, z) * smooth(0.45, 0.3, abs(x))
+    base = 0.006 + 0.005 * jaw + 0.014 * chin
+    return base * (1 - mo) + 0.009 * mo
 
 
 def chin_release(q):
@@ -463,6 +485,8 @@ STYLES = {
         "gravity": 0.0,
         "cap_strands": 150000,
         "cap_max": 0.006,
+        "shells": {"layers": 6, "height": buzz_height, "rise": 0.7, "lean": 0.5,
+                   "strands_per_texel": 0.3, "strand_radius": 0.9},
         "layers": [],
     },
     "Neat": {
@@ -603,39 +627,28 @@ STYLES = {
         "cap_max": 0.006,
         "cap_shadow": 0.8,
         "cap_alpha": 0.85,
+        "shells": {"layers": 6, "height": short_beard_height, "rise": 0.5, "lean": 0.8,
+                   "strands_per_texel": 0.28, "strand_radius": 0.9},
         "layers": [],
     },
     "Beard_Full": {
-        "normal_surface": 1.0,
         "region": "beard",
+        "normal_surface": 1.0,
         "flow": beard_flow,
         "length": full_beard_length,
         "lift": beard_lift,
         "hairline": beard_hairline,
         "overhang": no_overhang,
-        "gravity": 0.2,
-        "wave": (0.0015, 0.014),
-        "min_card": 0.008,
-        # the face of the beard is drawn on the skin: long dense strands over
-        # its full shadow; cards only give the jaw's underside and the chin
-        # their volume in silhouette (cards over the cheeks and the mouth
-        # read as flakes where they end)
-        "cap_strands": 300000,
-        "cap_max": 0.015,
-        "cap_shadow": 0.96,
+        "gravity": 0.0,
+        # the skin under it: the beard's shadow and its short hairs
+        "cap_strands": 230000,
+        "cap_max": 0.008,
+        "cap_shadow": 0.95,
         "cap_alpha": 1.0,
-        "dense": 0.45,
-        "edge_w": 0.45,
-        "edge_fade": (0.35, 0.75),
-        "band_jitter": 0.2,
-        "far_layers": ["under"],
-        "layers": [
-            {"name": "under", "spacing": 0.0052, "width": 0.009, "columns": [2, 3], "offset": 0.0015,
-             "length": 1.1, "lift": 0.7, "noise": 0.1, "twist": 0.08, "arc": 0.12, "depth": 0.8, "max_z": -1.0,
-             "root_fade": 0.55, "lift_start": 0.3},
-            {"name": "wisps", "spacing": 0.0075, "width": 0.0065, "columns": [4, 6], "offset": 0.0035,
-             "length": 1.15, "lift": 1.0, "noise": 0.16, "twist": 0.15, "arc": 0.1, "depth": 1.0, "max_z": -1.05,
-             "root_fade": 0.55, "lift_start": 0.35},
-        ],
+        # the beard's volume: shells (no cards - cards on a beard read as a
+        # carpet of flakes)
+        "shells": {"layers": 12, "height": full_beard_height, "rise": 0.45, "lean": 0.8,
+                   "strands_per_texel": 0.3, "strand_radius": 1.0},
+        "layers": [],
     },
 }

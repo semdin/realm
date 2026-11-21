@@ -627,9 +627,174 @@ cap = np.stack([cov, shade, base], -1)
 save_img(os.path.join(OUT, 'cap_%s.png' % STYLE), cap)
 log('hair cap: %d strands, coverage mean %.3f where it grows' % (CAP_STRANDS, cov[base > 0.25].mean() if (base > 0.25).any() else 0.0))
 
+
+# ------------------------------------------------------------------ shells (short dense hair: beards)
+# A beard is a volume of short dense hair, not a few dozen cards: it is drawn
+# as SHELLS - the beard area of the head copied `layers` times, each copy
+# risen off the skin and slid along the flow (the hairs lie combed down),
+# with a strand texture in the head's UV (shell_<style>.png): every strand
+# is a dot with its own length, so a layer shows the strands that reach it,
+# thinner toward their tips. Seen from any side the beard has depth, a soft
+# fuzzy outline and no card edge anywhere. The game draws it with
+# hero_hair_shell.gdshader, near the camera only (the hair cap below carries
+# the beard further out).
+shell_spec = spec.get('shells')
+shell_obj = None
+if shell_spec:
+    NL = shell_spec['layers']
+    vn = np.zeros(len(me.vertices) * 3, np.float32)
+    me.vertices.foreach_get('normal', vn)
+    vn = vn.reshape(-1, 3).astype(np.float64)
+    dens_v = np.array([spec['hairline'](q_of(p)) for p in REST]) * np.clip(REGION / 0.85, 0, 1) ** 0.6
+    hmax_v = np.array([shell_spec['height'](q_of(p)) for p in REST])
+    # the hairs get shorter toward the beard's lines: a soft outline
+    hv_v = hmax_v * np.array([smooth(0.04, 0.45, float(d)) for d in dens_v])
+    flow_v = np.array([tangent(spec['flow'](q_of(p)), n) for p, n in zip(REST, vn)])
+    keep = [poly for poly in me.polygons if all(dens_v[v] > 0.03 for v in poly.vertices)]
+    uvl = me.uv_layers.active.data
+    # the shells are built on the head's unsubdivided cage (a quarter of the
+    # faces): the beard's faces copied out, bmesh unsubdivide, the cage's
+    # corners mapped back to their head vertices
+    import bmesh
+    _bm = bmesh.new()
+    _uvb = _bm.loops.layers.uv.new('UVMap')
+    # one bmesh vertex per (head vertex, UV): the UV islands come apart at
+    # their seams, so unsubdividing never merges faces across a seam (that
+    # stretched the strand texture into a line under the jaw)
+    _vmap = {}
+    _src_of = {}
+    for poly in keep:
+        for v, li in zip(poly.vertices, poly.loop_indices):
+            key = (v, round(uvl[li].uv[0], 5), round(uvl[li].uv[1], 5))
+            if key not in _vmap:
+                bv = _bm.verts.new(REST[v])
+                _vmap[key] = bv
+                _src_of[bv] = v
+    for poly in keep:
+        keys = [(v, round(uvl[li].uv[0], 5), round(uvl[li].uv[1], 5)) for v, li in zip(poly.vertices, poly.loop_indices)]
+        try:
+            f = _bm.faces.new([_vmap[k] for k in keys])
+        except ValueError:
+            continue
+        for loop, li in zip(f.loops, poly.loop_indices):
+            loop[_uvb].uv = uvl[li].uv
+    if shell_spec.get('cage', True):
+        bmesh.ops.unsubdivide(_bm, verts=list(_bm.verts), iterations=2)
+    keep_cage = []
+    for f in _bm.faces:
+        keep_cage.append(([_src_of[v] for v in f.verts], [tuple(l[_uvb].uv) for l in f.loops]))
+    _bm.free()
+    base_ids = sorted({v for vs, _u in keep_cage for v in vs})
+    idx = {v: k for k, v in enumerate(base_ids)}
+    sv, sf, suv, suv2, scol, snrm, ssrc = [], [], [], [], [], [], []
+    rise, lean = shell_spec.get('rise', 0.6), shell_spec.get('lean', 0.9)
+    for L in range(1, NL + 1):
+        t = L / NL
+        off = len(sv)
+        for v in base_ids:
+            h = hv_v[v]
+            # out of the skin, bending over along the flow (combed down)
+            p = REST[v] + vn[v] * h * rise * t * (1.0 - 0.3 * t) + flow_v[v] * h * lean * t * t
+            sv.append(p)
+            snrm.append(vn[v])
+            ssrc.append(v)
+            scol.append((flow_v[v][0] * 0.5 + 0.5, flow_v[v][1] * 0.5 + 0.5, flow_v[v][2] * 0.5 + 0.5, 1.0))
+        for vs, fuv in keep_cage:
+            sf.append(tuple(off + idx[v] for v in vs))
+            suv.append(fuv)
+            suv2.append(t)
+    sv = np.array(sv)
+    sm = bpy.data.meshes.new('Hair_' + STYLE + '_shell')
+    sm.from_pydata(sv.tolist(), [], sf)
+    u1 = sm.uv_layers.new(name='UVMap')
+    u2 = sm.uv_layers.new(name='UVMap2')
+    for poly, fuv, t in zip(sm.polygons, suv, suv2):
+        for k, loop in enumerate(poly.loop_indices):
+            u1.data[loop].uv = fuv[k]
+            u2.data[loop].uv = (t, 0.0)
+    sm.uv_layers.active = u1
+    ca = sm.color_attributes.new('Col', 'FLOAT_COLOR', 'POINT')
+    ca.data.foreach_set('color', np.array(scol, np.float32).ravel())
+    sm.color_attributes.active_color = ca
+    for poly in sm.polygons:
+        poly.use_smooth = True
+    sm.normals_split_custom_set_from_vertices([tuple(n) for n in snrm])
+    sm.materials.append(bpy.data.materials.new('HS_' + STYLE))
+    shell_obj = bpy.data.objects.new('Hair_' + STYLE + '_shell', sm)
+    bpy.context.scene.collection.objects.link(shell_obj)
+    # the head's shape keys move each layer with its skin vertex
+    ssrc = np.array(ssrc)
+    shell_obj.shape_key_add(name='Basis')
+    nk = 0
+    for kb in (head.data.shape_keys.key_blocks if head.data.shape_keys else []):
+        if kb.name == 'Basis':
+            continue
+        kc = np.zeros(len(kb.data) * 3, np.float32)
+        kb.data.foreach_get('co', kc)
+        disp = kc.reshape(-1, 3) - REST
+        d = disp[ssrc]
+        if np.abs(d).max() < 0.0003:
+            continue
+        k = shell_obj.shape_key_add(name=kb.name)
+        k.data.foreach_set('co', (sv + d).astype(np.float32).ravel())
+        nk += 1
+    # skinned exactly like the skin below it
+    shell_obj.parent = rig
+    mod = shell_obj.modifiers.new('Armature', 'ARMATURE')
+    mod.object = rig
+    gmap = {}
+    for vg in head.vertex_groups:
+        gmap[vg.index] = shell_obj.vertex_groups.new(name=vg.name)
+    for si, v in enumerate(ssrc):
+        for g in me.vertices[int(v)].groups:
+            if g.weight > 1e-4 and g.group in gmap:
+                gmap[g.group].add([si], g.weight, 'REPLACE')
+    log('shells: %d layers x %d faces = %d tris, follow %d head keys, hair up to %.1f mm'
+        % (NL, len(keep_cage), 2 * len(sf), nk, 1000 * hv_v.max()))
+
+    # the strand texture in the head's UV: R a random per strand, G its
+    # length (0..1 of the local height; 0 = no strand), B its core (1 at the
+    # strand's centre .. 0 at its edge)
+    meta_s = json.load(open(os.path.join(WORK, 'head_meta.json')))
+    tw, th = meta_s['skin_pack']['size']
+    dens_px = raster(me, dens_v[:, None].astype(np.float32), tw, th, grow=2)[..., 0]
+    cand = np.argwhere(dens_px > 0.03)
+    fill = shell_spec.get('strands_per_texel', 0.4)
+    nstr = int(len(cand) * fill)
+    pick = cand[rng.integers(0, len(cand), nstr)]
+    jit = rng.random((nstr, 2))
+    cy, cx = pick[:, 0] + jit[:, 0], pick[:, 1] + jit[:, 1]
+    d_at = dens_px[pick[:, 0], pick[:, 1]]
+    # toward the beard's lines the hairs end shorter and shorter, down to
+    # none: no layer can show a polygon edge (a hard sawtooth outline)
+    length = rng.uniform(0.5, 1.0, nstr) * np.clip((d_at - 0.04) / 0.5, 0.0, 1.0) ** 1.2
+    sid = rng.random(nstr)
+    r0 = shell_spec.get('strand_radius', 1.15)
+    G = np.zeros((th, tw), np.float32)
+    B = np.zeros((th, tw), np.float32)
+    Rr = np.zeros((th, tw), np.float32)
+    order = np.argsort(length)          # longer strands drawn last win the texel
+    cy, cx, length, sid = cy[order], cx[order], length[order], sid[order]
+    for dy in (-2, -1, 0, 1, 2):
+        for dx in (-2, -1, 0, 1, 2):
+            py = np.floor(cy).astype(int) + dy
+            px = np.floor(cx).astype(int) + dx
+            dist = np.hypot(py + 0.5 - cy, px + 0.5 - cx)
+            core = np.clip(1.0 - dist / r0, 0.0, 1.0)
+            ok = (core > 0) & (py >= 0) & (py < th) & (px >= 0) & (px < tw)
+            py, px, core_k, len_k, sid_k = py[ok], px[ok], core[ok], length[ok], sid[ok]
+            better = core_k * len_k > B[py, px] * G[py, px]
+            py, px = py[better], px[better]
+            G[py, px] = len_k[better]
+            B[py, px] = core_k[better]
+            Rr[py, px] = sid_k[better]
+    save_img(os.path.join(OUT, 'shell_%s.png' % STYLE), np.stack([Rr, G, B], -1))
+    log('shell texture %dx%d: %d strands, %.1f %% of the beard area covered'
+        % (tw, th, nstr, 100.0 * (G[dens_px > 0.3] > 0).mean()))
+
 # ------------------------------------------------------------------ export
 out_glb = os.path.join(OUT, 'hair_%s.glb' % STYLE)
-if hair is None:
+if hair is None and shell_obj is None:
     # a style drawn by its hair cap alone (a buzz cut): no glb
     if os.path.exists(out_glb):
         os.remove(out_glb)
@@ -638,9 +803,9 @@ if hair is None:
 bpy.ops.object.select_all(action='DESELECT')
 for o in bpy.data.objects:
     o.hide_set(False)
-hair.select_set(True)
-if hair_far is not None:
-    hair_far.select_set(True)
+for _o in (hair, hair_far, shell_obj):
+    if _o is not None:
+        _o.select_set(True)
 rig.select_set(True)
 bpy.context.view_layer.objects.active = rig
 bpy.ops.export_scene.gltf(filepath=out_glb, export_format='GLB', use_selection=True, export_skins=True,

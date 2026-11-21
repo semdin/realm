@@ -417,13 +417,16 @@ static func _hair_far_card_material() -> ShaderMaterial:
 static func _wear_cards(skeleton: Skeleton3D, style: String, node: String, sway: bool) -> Array[MeshInstance3D]:
 	var worn: Array[MeshInstance3D] = []
 	var current := skeleton.get_node_or_null(node) as MeshInstance3D
+	if current == null:
+		current = skeleton.get_node_or_null(node + "Shell") as MeshInstance3D
 	if current != null and String(current.get_meta("style", "")) == style:
 		worn.append(current)
-		var far_now := skeleton.get_node_or_null(node + "Far") as MeshInstance3D
-		if far_now != null:
-			worn.append(far_now)
+		for extra in [node + "Far", node + "Shell"]:
+			var other := skeleton.get_node_or_null(extra) as MeshInstance3D
+			if other != null:
+				worn.append(other)
 		return worn
-	for old_name in [node, node + "Far"]:
+	for old_name in [node, node + "Far", node + "Shell"]:
 		var old := skeleton.get_node_or_null(old_name)
 		if old != null:
 			skeleton.remove_child(old)
@@ -437,6 +440,7 @@ static func _wear_cards(skeleton: Skeleton3D, style: String, node: String, sway:
 	for found in source.find_children("*", "MeshInstance3D", true, false):
 		var mi := found as MeshInstance3D
 		var far := String(mi.name).ends_with("_far")
+		var shell := String(mi.name).ends_with("_shell")
 		mi.get_parent().remove_child(mi)
 		mi.owner = null
 		mi.name = node + "Far" if far else node
@@ -445,7 +449,15 @@ static func _wear_cards(skeleton: Skeleton3D, style: String, node: String, sway:
 		skeleton.add_child(mi)
 		mi.skeleton = NodePath("..")
 		mi.transform = Transform3D.IDENTITY
-		if far:
+		if shell:
+			# short dense hair as shells (a beard): near the camera only, the
+			# hair cap on the skin carries it further out
+			mi.name = node + "Shell"
+			mi.visibility_range_end = SHELL_NEAR
+			mi.visibility_range_end_margin = 0.5
+			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			mi.set_surface_override_material(0, _shell_material(style))
+		elif far:
 			mi.visibility_range_begin = HAIR_NEAR
 			mi.visibility_range_begin_margin = 0.5
 			mi.set_surface_override_material(0, _hair_far_card_material())
@@ -483,6 +495,23 @@ static func _head_material(style: String, beard: String) -> Material:
 		if has_beard:
 			mat.set_shader_parameter("beard_tex", load(beard_path))
 			mat.set_shader_parameter("has_beard", true)
+		_face_materials[key] = mat
+	return _face_materials[key]
+
+
+## Shells are drawn within this distance (m).
+const SHELL_NEAR := 6.0
+const HAIR_SHELL_SHADER := preload("res://assets/shaders/hero_hair_shell.gdshader")
+
+
+## The shell material of `style` (its strand texture shell_<style>.png).
+static func _shell_material(style: String) -> ShaderMaterial:
+	var key := "shell/" + style
+	if not _face_materials.has(key):
+		var mat := ShaderMaterial.new()
+		mat.shader = HAIR_SHELL_SHADER
+		mat.set_shader_parameter("shell_tex", load(HAIR_DIR + "shell_%s.png" % style))
+		mat.set_shader_parameter("use_card_data", false)
 		_face_materials[key] = mat
 	return _face_materials[key]
 
