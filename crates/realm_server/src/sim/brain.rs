@@ -762,25 +762,95 @@ impl Sim {
         self.world.get::<Mob>(mob).map_or(Vec3::ZERO, |m| m.pos)
     }
 
-    /// Which cells are awake (players near), and where the living players are.
+    /// Which cells are awake (players near), and where the living players are
+    /// (one still rising wakes its cells but is not there to be seen: a
+    /// creature chasing it gives up, none turns on it).
     fn wake_cells(&mut self) {
         self.awake.iter_mut().for_each(|a| *a = false);
         for cell in &mut self.player_cells {
             cell.clear();
         }
         self.player_pos.clear();
+        let tick = self.tick;
         let mut players = self.world.query::<(Entity, &Player)>();
         for (entity, player) in players.iter(&self.world) {
             if player.dead_until != 0 {
                 continue;
             }
             let pos = player.body.pos;
+            for cell in cells_around(pos, super::WAKE_CELLS) {
+                self.awake[cell] = true;
+            }
+            if tick < player.protect_until {
+                continue;
+            }
             self.player_pos.insert(entity, pos);
             if let Some(cell) = cell_of(pos) {
                 self.player_cells[cell].push((entity, pos));
             }
-            for cell in cells_around(pos, super::WAKE_CELLS) {
-                self.awake[cell] = true;
+        }
+    }
+
+    /// `player` fell: every creature on it turns to the nearest other player
+    /// its pack may still fight (on its home ground, within assist reach), or
+    /// gives up and walks home. Done at once: a creature whose cell no living
+    /// player keeps awake would otherwise sleep with the corpse as its
+    /// target and run after the body once it rose at the entrance.
+    pub(super) fn release_player(&mut self, player: Entity) {
+        let tick = self.tick;
+        let mut living: Vec<(Entity, Vec3)> = Vec::new();
+        {
+            let mut players = self.world.query::<(Entity, &Player)>();
+            for (entity, p) in players.iter(&self.world) {
+                if entity != player && p.dead_until == 0 && tick >= p.protect_until {
+                    living.push((entity, p.body.pos));
+                }
+            }
+        }
+        let mut chasers: Vec<(Entity, usize, Vec3)> = Vec::new();
+        {
+            let mut mobs = self.world.query::<(Entity, &Mob)>();
+            for (entity, m) in mobs.iter(&self.world) {
+                let on_it = m.mode == MobMode::Chase(player)
+                    || m.attack.as_ref().is_some_and(|a| a.target == player);
+                if on_it && m.mode != MobMode::Dead {
+                    chasers.push((entity, m.pack, m.pos));
+                }
+            }
+        }
+        for (mob, pack, pos) in chasers {
+            let anchor = self.packs[pack].anchor;
+            let (leash, reach) = (self.game.packs[pack].leash, self.game.packs[pack].assist_radius);
+            let next = living
+                .iter()
+                .filter(|(_, at)| {
+                    planar_distance(*at, anchor) <= leash && planar_distance(*at, pos) <= reach
+                })
+                .min_by(|a, b| {
+                    planar_distance(a.1, pos).total_cmp(&planar_distance(b.1, pos))
+                })
+                .map(|(e, _)| *e);
+            match next {
+                Some(other) => {
+                    let Some(mut m) = self.world.get_mut::<Mob>(mob) else {
+                        continue;
+                    };
+                    // a blow wound up at the corpse is called off
+                    let cancelled = if m.attack.as_ref().is_some_and(|a| a.target == player) {
+                        m.attack
+                            .take()
+                            .is_some_and(|a| a.ability.is_some() && !a.released)
+                    } else {
+                        false
+                    };
+                    m.mode = MobMode::Chase(other);
+                    m.next_think = tick;
+                    if cancelled {
+                        let caster = self.net_id_of(mob);
+                        self.event(pos, CombatEvent::TelegraphCancelled { caster });
+                    }
+                }
+                None => self.break_fight(mob),
             }
         }
     }

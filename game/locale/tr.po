@@ -6302,3 +6302,15 @@ msgstr "Görevleri gizle"
 
 msgid "Party leader"
 msgstr "Grup lideri"
+
+msgid "Return to the Entrance"
+msgstr "Girişe Dön"
+
+msgid "Wake at the dungeon's entrance with full health"
+msgstr "Zindanın girişinde tam canla uyan"
+
+msgid "DEFEATED\nReturning to the entrance in %d:%02d"
+msgstr "YENİLDİN\n%d:%02d sonra girişe dönülüyor"
+
+msgid "You are still getting up!"
+msgstr "Henüz toparlanıyorsun!"

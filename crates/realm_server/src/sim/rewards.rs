@@ -21,6 +21,9 @@ use crate::game::PackKind;
 
 /// Party members this close to a kill share it (3D).
 const SHARE_RADIUS: f32 = 40.0;
+/// How long a player who just rose is untouchable (and cannot cast); the
+/// client fades the body in over the same time (combat_feedback.gd RISE_PROTECT).
+pub(super) const RISE_PROTECT_MS: u32 = 3000;
 /// A party member more than this many levels below the highest sharer
 /// does not share.
 const SHARE_LEVEL_SPREAD: u16 = 15;
@@ -486,9 +489,10 @@ impl Sim {
     }
 
     /// A player fell: it may rise after a moment, and goes to town by itself
-    /// after a while.
+    /// after a while. The creatures on it let it go.
     pub(super) fn player_died(&mut self, player: Entity, killer: Entity) {
         self.run_player_died(player);
+        self.release_player(player);
         let tick = self.tick;
         let d = &self.game.death;
         let (ready, auto) = (tick + d.ready_ticks, tick + d.auto_ticks);
@@ -510,7 +514,8 @@ impl Sim {
     }
 
     /// Rises a dead player: `here` where it fell (half health and mana, a
-    /// short ward), else in town whole.
+    /// short ward), else in town whole (a dungeon copy's entry); either way
+    /// untouchable for RISE_PROTECT_MS.
     pub(super) fn respawn(&mut self, player: Entity, here: bool) {
         let tick = self.tick;
         let (fraction, ward) = (
@@ -540,6 +545,7 @@ impl Sim {
         let here = here && p.body.pos.y >= y_min;
         p.dead_until = 0;
         p.respawn_ready = 0;
+        p.protect_until = tick + (RISE_PROTECT_MS * SIM_HZ).div_ceil(1000);
         p.life = p.life.wrapping_add(1);
         p.afflictions = super::afflict::Afflictions::default();
         p.restraint = Default::default();

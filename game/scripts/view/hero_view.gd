@@ -88,6 +88,12 @@ var dead := false
 var _cc_pace := 1.0
 var _tree_mode := AnimationMixer.ANIMATION_CALLBACK_MODE_PROCESS_IDLE
 
+## Rising from a death: how see-through the body starts and how long it
+## takes to grow solid (combat_feedback.gd RISE_PROTECT).
+const RISE_FADE_FROM := 0.65
+const RISE_FADE_SECONDS := 3.0
+var _fade: Tween = null
+
 ## The drawn meshes (StatusFX lays its skin looks over them).
 var visuals: Node3D:
 	get:
@@ -327,6 +333,24 @@ func set_dead(on: bool) -> void:
 	else:
 		anim.play_oneshot("Revive")
 		anim.set_locomotion("idle", "Idle", true)
+		# untouchable while it rises (the server's RISE_PROTECT_MS): seen
+		# through at first, solid again by its end
+		fade_in(RISE_FADE_SECONDS)
+
+## Seen through (RISE_FADE_FROM) and growing solid over `seconds`: every
+## drawn piece's instance transparency, back to 0 (the opaque path) at the end.
+func fade_in(seconds: float) -> void:
+	if visuals == null or not is_inside_tree():
+		return
+	if _fade != null:
+		_fade.kill()
+	_set_fade(RISE_FADE_FROM)
+	_fade = create_tween()
+	_fade.tween_method(_set_fade, RISE_FADE_FROM, 0.0, seconds).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
+
+func _set_fade(amount: float) -> void:
+	for piece in visuals.find_children("*", "GeometryInstance3D", true, false):
+		(piece as GeometryInstance3D).transparency = amount
 
 ## StatusFX: hold the pose (0, frozen) or play at the slowed pace.
 func set_cc_anim_scale(pace: float) -> void:

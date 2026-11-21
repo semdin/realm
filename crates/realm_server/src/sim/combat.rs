@@ -150,8 +150,10 @@ impl Sim {
             return;
         }
         // A held body casts nothing (judged on the input's own tick, as the
-        // owner's prediction does).
-        let refusal = if player.restraint.locked(frame.tick) {
+        // owner's prediction does); nor does one still rising.
+        let refusal = if tick < player.protect_until {
+            Some("rising")
+        } else if player.restraint.locked(frame.tick) {
             Some("held")
         } else if player.sheet.level < spell.requires_level {
             Some("level")
@@ -914,7 +916,7 @@ impl Sim {
         let Some(player) = self
             .world
             .get::<Player>(victim)
-            .filter(|p| p.dead_until == 0)
+            .filter(|p| p.dead_until == 0 && tick >= p.protect_until)
         else {
             return 0;
         };
@@ -981,7 +983,7 @@ impl Sim {
         let Some(mut player) = self
             .world
             .get_mut::<Player>(victim)
-            .filter(|p| p.dead_until == 0)
+            .filter(|p| p.dead_until == 0 && tick >= p.protect_until)
         else {
             return 0;
         };

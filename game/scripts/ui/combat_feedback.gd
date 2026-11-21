@@ -11,6 +11,9 @@ class_name CombatFeedback
 ## the body rises when the server says so (the snapshot's health comes back).
 
 const TOASTS_MAX := 6
+## A body that just rose is untouchable and casts nothing this long (the
+## server's RISE_PROTECT_MS); the hero fades in over it (HeroView.fade_in).
+const RISE_PROTECT := 3.0
 ## Height of the notification card, in canvas pixels, pinned above the
 ## control deck rather than to a fixed y.
 const TOAST_H := 120.0
@@ -36,6 +39,11 @@ var _respawn_sent := false
 ## The death as the server scheduled it: server ticks the choice opens and the
 ## body goes to town by itself (-1: alive).
 var _ready_tick := -1.0
+## The map this layer is on (main.gd sets it before setup): in a dungeon the
+## second death choice wakes at its entrance, not in town.
+var map_name := ""
+## Until when (seconds, Time.get_ticks_msec) the risen body is protected.
+var _protect_until := 0.0
 var _auto_tick := -1.0
 ## The snapshot showed the body at no health since the death (it rises when
 ## the health comes back).
@@ -134,10 +142,11 @@ func _build() -> void:
 	_revive_here.tooltip_text = tr("Get up where you fell with half health")
 	_revive_here.pressed.connect(request_respawn.bind(true))
 	choices.add_child(_revive_here)
-	_revive_town = HudKit.button(tr("Return to Town"), 16)
+	_revive_town = HudKit.button(tr("Return to the Entrance") if in_dungeon() else tr("Return to Town"), 16)
 	_revive_town.name = "ReviveTown"
 	_revive_town.custom_minimum_size = Vector2(200, UIKit.H_MAIN)
-	_revive_town.tooltip_text = tr("Wake at this map's respawn point with full health")
+	_revive_town.tooltip_text = tr("Wake at the dungeon's entrance with full health") if in_dungeon() \
+		else tr("Wake at this map's respawn point with full health")
 	_revive_town.pressed.connect(request_respawn.bind(false))
 	choices.add_child(_revive_town)
 	# Its own layer, above every window (a window left open must not hide the
@@ -183,10 +192,20 @@ func on_death(event: Dictionary) -> void:
 		FloatingText.word(player.global_position + Vector3(0, 2.4, 0), I18n.upper(tr("Defeated!")),
 			FloatingText.MUTED_RED, 1.25, 2.0, Nameplates.HERO_HEIGHT - 2.4)
 
-## The body is up again (the snapshot's health came back).
+## A dungeon copy's map (its "town" is its entrance).
+func in_dungeon() -> bool:
+	return map_name.begins_with("dng_")
+
+## Whether the body that just rose is still protected (no casts yet).
+func is_rising() -> bool:
+	return Time.get_ticks_msec() / 1000.0 < _protect_until
+
+## The body is up again (the snapshot's health came back): RISE_PROTECT
+## seconds untouchable, fading in.
 func _on_risen() -> void:
 	_ready_tick = -1.0
 	_auto_tick = -1.0
+	_protect_until = Time.get_ticks_msec() / 1000.0 + RISE_PROTECT
 	_death_panel.hide()
 	rises_shown += 1
 	hud.show_notice(tr("Back on your feet."), "good")
@@ -211,7 +230,9 @@ func _update_death_panel() -> void:
 		_death_label.text = tr("DEFEATED\nYou can rise in %ds") % int(ceil(wait))
 	else:
 		var left := int(ceil(_seconds_until(_auto_tick)))
-		_death_label.text = tr("DEFEATED\nReturning to town in %d:%02d") % [left / 60, left % 60]
+		var back := tr("DEFEATED\nReturning to the entrance in %d:%02d") if in_dungeon() \
+			else tr("DEFEATED\nReturning to town in %d:%02d")
+		_death_label.text = back % [left / 60, left % 60]
 
 ## Whether the choice is open (the buttons take clicks).
 func can_rise() -> bool:

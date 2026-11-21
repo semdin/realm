@@ -125,7 +125,7 @@ impl Sim {
         let Some(mut p) = self.world.get_mut::<Player>(victim) else {
             return;
         };
-        if p.dead_until != 0 {
+        if p.dead_until != 0 || tick < p.protect_until {
             return;
         }
         // Holds count in the owner's input ticks, from its next input.

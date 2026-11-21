@@ -579,7 +579,7 @@ impl Sim {
         let Some(mut p) = self
             .world
             .get_mut::<Player>(victim)
-            .filter(|p| p.dead_until == 0)
+            .filter(|p| p.dead_until == 0 && tick >= p.protect_until)
         else {
             return 0;
         };

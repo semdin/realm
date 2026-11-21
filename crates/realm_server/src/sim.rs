@@ -226,6 +226,10 @@ struct Player {
     /// A dead player may rise from this tick (`dead_until` is when it goes
     /// to town by itself).
     respawn_ready: u32,
+    /// Just risen: until this tick nothing hurts it or lays anything on it,
+    /// creatures do not see it and it casts nothing (walking and potions
+    /// still go). RISE_PROTECT_MS.
+    protect_until: u32,
     /// The character record. Position and hp live in `body` / `hp` while
     /// playing and are written back by `Sim::sheet_of`.
     sheet: CharacterSheet,
@@ -1148,6 +1152,7 @@ impl Sim {
             items_seen: VecDeque::new(),
             party: realm_proto::coord::PartyView::default(),
             respawn_ready: 0,
+            protect_until: 0,
             sheet,
             dirty_since: None,
             caster,

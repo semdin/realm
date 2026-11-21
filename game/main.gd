@@ -1043,6 +1043,7 @@ func _build_ui() -> void:
 	root.add_child(loot_window)
 	feedback = load(FeedbackScript).new()
 	feedback.name = "CombatFeedback"
+	feedback.map_name = map_name
 	root.add_child(feedback)
 	feedback.setup(session, hud, player)
 	_build_quest_ui(root)
@@ -2469,10 +2470,17 @@ func shake_camera(strength: float) -> void:
 ## Stunned or thrown (own_body `held`): the server refuses every cast, so none
 ## is sent and the notice band says why, at most every HELD_NOTICE_SECONDS.
 func _held_refusal() -> bool:
+	var now := Time.get_ticks_msec() / 1000.0
+	if feedback != null and feedback.is_rising():
+		# just risen: untouchable and no casts for a moment (potions still go)
+		if now >= _held_notice_at:
+			_held_notice_at = now + HELD_NOTICE_SECONDS
+			hud.show_notice(tr("You are still getting up!"), "warn")
+			AudioManager.play_deny()
+		return true
 	var own: Dictionary = session.own_body()
 	if not bool(own.get("held", false)):
 		return false
-	var now := Time.get_ticks_msec() / 1000.0
 	if now >= _held_notice_at:
 		_held_notice_at = now + HELD_NOTICE_SECONDS
 		var bits := int(own.get("status", 0))
@@ -2501,6 +2509,8 @@ func _say_refusal(spell: String, reason: String) -> void:
 			text = tr("Your level is too low for that spell")
 		"skill_locked":
 			text = tr("Learn %s first - click its slot to spend a skill point") % I18n.t(String(data.get("name", spell)))
+		"rising":
+			text = tr("You are still getting up!")
 	if text != "":
 		hud.show_notice(text, "warn")
 		AudioManager.play_deny()

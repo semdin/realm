@@ -343,6 +343,13 @@ func _add_hero() -> void:
 	hero.call("setup", Color(0.85, 0.4, 0.11))
 	_place(hero)
 	_hero = hero
+	# and one seen through, as a body rising from a death is drawn (the
+	# transparent pipelines of every piece of it)
+	var rising: Node3D = load(HeroViewScript).new()
+	add_child(rising)
+	rising.call("setup", Color(0.85, 0.4, 0.11))
+	_place(rising)
+	rising.call("_set_fade", HeroView.RISE_FADE_FROM)
 
 func _place(body: Node3D) -> void:
 	body.position = _grid(_slot)
