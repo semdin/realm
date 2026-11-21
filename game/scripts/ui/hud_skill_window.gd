@@ -735,7 +735,7 @@ class SkillPips extends Control:
 	var _t := 0.0
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(STEP * 9.0 + GEM + 6.0, 10)
+		custom_minimum_size = Vector2(STEP * 9.0 + GEM + 8.0, 12)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _process(delta: float) -> void:
@@ -755,6 +755,13 @@ class SkillPips extends Control:
 	func _step(r: Rect2, i: int, pulse: float, gem: bool) -> void:
 		var on := i <= filled
 		var next := glow and i == filled + 1
+		# the control kit's pips and gem (tools/art/ui_kit.py)
+		var art := UIKit.tex(("gem_" if gem else "pip_") + ("on" if on else ("next" if next else "off")))
+		if art != null:
+			var s := art.get_size() * (1.15 if gem else 1.0)
+			var tint := Color(1, 1, 1, 0.55 + 0.45 * pulse) if next else Color.WHITE
+			draw_texture_rect(art, Rect2(r.get_center() - s * 0.5, s), false, tint)
+			return
 		var fill := Color(0.039, 0.059, 0.098)
 		var edge := Color(0.173, 0.227, 0.322)
 		if on:

@@ -248,36 +248,8 @@ class InviteCard extends PanelContainer:
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		b.custom_minimum_size = Vector2(0, 36)
-		for state in ["normal", "hover", "pressed", "focus"]:
-			var sb := StyleBoxFlat.new()
-			sb.set_corner_radius_all(6)
-			sb.set_border_width_all(1)
-			sb.content_margin_top = 6
-			sb.content_margin_bottom = 6
-			sb.anti_aliasing = true
-			match state:
-				"hover":
-					sb.bg_color = tint.darkened(0.45)
-					sb.border_color = tint.lightened(0.35)
-					sb.shadow_color = Color(tint.r, tint.g, tint.b, 0.35)
-					sb.shadow_size = 6
-				"pressed":
-					sb.bg_color = tint.darkened(0.7)
-					sb.border_color = tint
-				"focus":
-					sb.draw_center = false
-					sb.border_color = tint.lightened(0.35)
-				_:
-					sb.bg_color = tint.darkened(0.62)
-					sb.border_color = tint.darkened(0.1)
-			b.add_theme_stylebox_override(state, sb)
-		b.add_theme_font_override("font", HudKit.bold())
-		b.add_theme_font_size_override("font_size", 15)
-		b.add_theme_color_override("font_color", HudKit.PARCHMENT)
-		b.add_theme_color_override("font_hover_color", Color.WHITE)
-		b.add_theme_color_override("font_pressed_color", HudKit.GOLD_LT)
-		b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-		b.add_theme_constant_override("outline_size", UITheme.outline_for(15, 3))
+		# the kit's plate lit from inside in the answer's colour
+		UIKit.style_button(b, "steel", 15, Color(tint, 0.75))
 		return b
 
 	func _ready() -> void:
@@ -322,15 +294,12 @@ class TimerBar extends Control:
 				queue_redraw()
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(0, 5)
+		custom_minimum_size = Vector2(0, 6)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0, 0, 0, 0.55))
-		var fill := Rect2(Vector2.ZERO, Vector2(size.x * fraction, size.y))
 		var tint := accent if fraction > 0.25 else accent.lerp(Color(1.0, 0.3, 0.25), 0.6)
-		draw_rect(fill, tint.darkened(0.15))
-		draw_rect(Rect2(Vector2.ZERO, Vector2(fill.size.x, 1.0)), tint.lightened(0.35))
+		UIKit.draw_gauge(self, Rect2(Vector2.ZERO, size), fraction, tint)
 
 
 ## The card's medallion: a dark disc in a coloured ring with the invitation's

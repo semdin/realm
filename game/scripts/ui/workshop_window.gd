@@ -978,11 +978,19 @@ class GradePips extends Control:
 		mouse_filter = Control.MOUSE_FILTER_STOP
 
 	func _draw() -> void:
+		# the kit's step pips, stood on end, tinted the enchant colour when on
+		var pip_on := UIKit.tex("pip_on")
+		var pip_off := UIKit.tex("pip_off")
 		for i in 5:
-			var r := Rect2(Vector2(i * 8, 1), Vector2(6, 10))
 			var on := i < grade
-			draw_rect(r, ItemTooltip.ENCHANT_COLOUR if on else Color("1c1a2a"))
-			draw_rect(r, Color("d6c6ff") if on else Color("3a3550"), false, 1.0)
+			var r := Rect2(Vector2(i * 8, 1), Vector2(6, 10))
+			if pip_on == null:
+				draw_rect(r, ItemTooltip.ENCHANT_COLOUR if on else Color("1c1a2a"))
+				continue
+			draw_set_transform(r.get_center(), PI * 0.5)
+			var tint := ItemTooltip.ENCHANT_COLOUR.lightened(0.35) if on else Color.WHITE
+			draw_texture_rect(pip_on if on else pip_off, Rect2(Vector2(-7.5, -4.5), Vector2(15, 9)), false, tint)
+			draw_set_transform(Vector2.ZERO)
 
 
 ## A page tab (the character window's strip): dim, lit when chosen.
@@ -1015,17 +1023,7 @@ class TabChip extends PanelContainer:
 			accept_event()
 
 	func _restyle() -> void:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color("1d2f4a") if selected else Color(0, 0, 0, 0)
-		sb.border_color = HudKit.GOLD_DK if selected else Color(0, 0, 0, 0)
-		sb.set_border_width_all(1)
-		sb.border_width_bottom = 0
-		sb.corner_radius_top_left = 5
-		sb.corner_radius_top_right = 5
-		sb.content_margin_left = 16
-		sb.content_margin_right = 16
-		sb.content_margin_top = 6
-		sb.content_margin_bottom = 7
-		add_theme_stylebox_override("panel", sb)
+		# the kit's tab: lit gold underline and mark when chosen
+		add_theme_stylebox_override("panel", UIKit.tab("selected" if selected else ("hover" if _hover else "normal"), Vector2(16, 6)))
 		if _label != null:
 			_label.add_theme_color_override("font_color", HudKit.GOLD_HI if selected else (HudKit.PARCHMENT if _hover else HudKit.TEXT_DIM))

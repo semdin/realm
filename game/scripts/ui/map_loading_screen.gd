@@ -104,12 +104,13 @@ func _ready() -> void:
 	_bar.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_bar.offset_left = -360
 	_bar.offset_right = 360
-	_bar.offset_top = -132
+	_bar.offset_top = -134
 	_bar.offset_bottom = -118
 	_bar.min_value = 0
 	_bar.max_value = 100
 	_bar.show_percentage = false
-	HudKit.style_gauge(_bar, Color(0.9, 0.68, 0.2))
+	# the kit's ornate groove (gold blades at its ends) and the hot edge
+	UIKit.style_gauge(_bar, Color(0.95, 0.70, 0.22), true, true)
 	_root.add_child(_bar)
 	_status = HudKit.label("", 16, HudKit.PARCHMENT, HudKit.title(), 4)
 	_status.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)

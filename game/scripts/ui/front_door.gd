@@ -274,8 +274,19 @@ static func line_edit(placeholder: String) -> LineEdit:
 	edit.add_theme_stylebox_override("read_only", read_only)
 	return edit
 
-## The big blood-red button with the gold rim (Enter Game, Create Account).
+## The screen's big action (Enter Game): the control kit's call to action,
+## the gilt plate with a flourish beyond each end (keep UIKit.WING_ROOM free
+## beside it), like Enter World on the character screen.
 static func primary_button(text: String) -> Button:
+	if UIKit.available():
+		# centred and narrower than the card, so its flourishes stay inside it
+		var cta := UIKit.cta_button(text, Vector2(232, 52), 19)
+		cta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		return cta
+	return _flat_primary_button(text)
+
+## Without the kit's art: the blood-red button with the gold rim.
+static func _flat_primary_button(text: String) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.custom_minimum_size = Vector2(0, 52)

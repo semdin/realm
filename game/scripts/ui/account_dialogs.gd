@@ -86,15 +86,9 @@ static func link(text: String, size := 14) -> Button:
 	b.add_theme_color_override("font_pressed_color", HudKit.GOLD)
 	return b
 
-## The button of an action that cannot be undone.
+## The button of an action that cannot be undone: the kit's blood plate.
 static func danger_button(text: String, size := 15) -> Button:
-	var b := HudKit.button(text, size)
-	for state in ["normal", "hover", "pressed"]:
-		var sb := HudKit.button_box(state).duplicate() as StyleBoxFlat
-		sb.bg_color = COLOR_DANGER if state == "normal" else (COLOR_DANGER.lightened(0.15) if state == "hover" else COLOR_DANGER.darkened(0.25))
-		sb.border_color = COLOR_ERROR
-		b.add_theme_stylebox_override(state, sb)
-	return b
+	return UIKit.button(text, "blood", size)
 
 static func set_message(label: Label, text: String, colour := COLOR_ERROR) -> void:
 	label.text = text

@@ -672,18 +672,8 @@ class TabChip extends PanelContainer:
 			accept_event()
 
 	func _restyle() -> void:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = Color("1d2f4a") if selected else Color(0, 0, 0, 0)
-		sb.border_color = HudKit.GOLD_DK if selected else Color(0, 0, 0, 0)
-		sb.set_border_width_all(1)
-		sb.border_width_bottom = 0
-		sb.corner_radius_top_left = 5
-		sb.corner_radius_top_right = 5
-		sb.content_margin_left = 16
-		sb.content_margin_right = 16
-		sb.content_margin_top = 6
-		sb.content_margin_bottom = 7
-		add_theme_stylebox_override("panel", sb)
+		# the kit's tab: lit gold underline and mark when chosen
+		add_theme_stylebox_override("panel", UIKit.tab("selected" if selected else ("hover" if _hover else "normal"), Vector2(16, 6)))
 		if _label != null:
 			_label.add_theme_color_override("font_color", HudKit.GOLD_HI if selected else (HudKit.PARCHMENT if _hover else HudKit.TEXT_DIM))
 
@@ -700,7 +690,8 @@ class StatTile extends PanelContainer:
 		draw_rect(Rect2(Vector2(0, 6), Vector2(3, size.y - 12)), accent)
 
 
-## A gauge: dark well, two-tone fill with a lit top half.
+## A gauge: the control kit's groove and glossy fill (UIKit.draw_gauge) in
+## the colour between `top` and `bottom`.
 class FillBar extends Control:
 	var top := Color.WHITE
 	var bottom := Color.WHITE
@@ -718,13 +709,7 @@ class FillBar extends Control:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var r := Rect2(Vector2.ZERO, size)
-		draw_rect(r, CharacterWindow.WELL)
-		if fraction > 0.0:
-			var fill := Rect2(Vector2(1, 1), Vector2(maxf(2.0, (size.x - 2.0) * fraction), size.y - 2.0))
-			draw_rect(fill, bottom)
-			draw_rect(Rect2(fill.position, Vector2(fill.size.x, fill.size.y * 0.45)), top.lerp(bottom, 0.25))
-		draw_rect(r, CharacterWindow.WELL_EDGE, false, 1.0)
+		UIKit.draw_gauge(self, Rect2(Vector2.ZERO, size), fraction, top.lerp(bottom, 0.35), fraction < 1.0)
 
 
 ## The round level medallion in the header.

@@ -332,19 +332,13 @@ func _tab_button(text: String) -> Button:
 	b.add_theme_color_override("font_hover_color", UITheme.c("parchment"))
 	b.add_theme_color_override("font_pressed_color", UITheme.c("gold_hi"))
 	b.add_theme_color_override("font_hover_pressed_color", UITheme.c("gold_hi"))
-	var idle := StyleBoxFlat.new()
-	idle.bg_color = Color(0, 0, 0, 0)
-	idle.border_color = UITheme.alpha("steel_lt", 0.7)
-	idle.border_width_bottom = 1
-	var active := idle.duplicate() as StyleBoxFlat
-	active.border_color = UITheme.c("gold_lt")
-	active.border_width_bottom = 2
-	active.bg_color = UITheme.alpha("gold", 0.06)
-	b.add_theme_stylebox_override("normal", idle)
-	b.add_theme_stylebox_override("hover", idle)
-	b.add_theme_stylebox_override("pressed", active)
-	b.add_theme_stylebox_override("hover_pressed", active)
-	b.add_theme_stylebox_override("disabled", idle)
+	# the control kit's tab: the chosen one underlined in lit gold
+	b.add_theme_stylebox_override("normal", UIKit.tab("hover", Vector2(10, 6)))
+	b.add_theme_stylebox_override("hover", UIKit.tab("hover", Vector2(10, 6)))
+	b.add_theme_stylebox_override("pressed", UIKit.tab("selected", Vector2(10, 6)))
+	b.add_theme_stylebox_override("hover_pressed", UIKit.tab("selected", Vector2(10, 6)))
+	b.add_theme_stylebox_override("disabled", UIKit.tab("normal", Vector2(10, 6)))
+	b.add_theme_stylebox_override("focus", StyleBoxEmpty.new())
 	return b
 
 func _build_notice() -> PanelContainer:
@@ -427,16 +421,9 @@ func _build_language_picker() -> void:
 	picker.add_theme_font_size_override("font_size", 14)
 	picker.add_theme_color_override("font_color", UITheme.c("text"))
 	picker.add_theme_color_override("font_hover_color", UITheme.c("gold_hi"))
-	var sb := FrontDoor.pill_box()
-	sb.content_margin_left = 16
-	sb.content_margin_right = 12
-	sb.content_margin_top = 0
-	sb.content_margin_bottom = 0
-	var hover := sb.duplicate() as StyleBoxFlat
-	hover.border_color = UITheme.c("gold_lt")
-	for state in ["normal", "pressed", "focus", "disabled"]:
-		picker.add_theme_stylebox_override(state, sb)
-	picker.add_theme_stylebox_override("hover", hover)
+	# the control kit's plates (the theme's OptionButton), tighter
+	for state in UIKit.STATES:
+		picker.add_theme_stylebox_override(state, UIKit.plate("steel", state, Color(0, 0, 0, 0), Vector2(14, 2)))
 	var languages: Array = I18n.languages()
 	for i in languages.size():
 		picker.add_item(String(languages[i].name), i)
@@ -464,12 +451,9 @@ func _build_language_picker() -> void:
 	settings.offset_right = -192.0
 	settings.offset_top = 70.0
 	settings.offset_bottom = 102.0
-	settings.add_theme_font_size_override("font_size", 14)
-	settings.add_theme_color_override("font_color", UITheme.c("text"))
-	settings.add_theme_color_override("font_hover_color", UITheme.c("gold_hi"))
-	for state in ["normal", "pressed", "focus", "disabled"]:
-		settings.add_theme_stylebox_override(state, sb)
-	settings.add_theme_stylebox_override("hover", hover)
+	UIKit.style_button(settings, "steel", 14)
+	for state in UIKit.STATES:
+		settings.add_theme_stylebox_override(state, UIKit.plate("steel", state, Color(0, 0, 0, 0), Vector2(14, 2)))
 	settings.pressed.connect(func(): settings_requested.emit())
 	add_child(settings)
 

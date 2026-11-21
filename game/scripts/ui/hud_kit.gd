@@ -131,88 +131,30 @@ static func parchment() -> StyleBoxFlat:
 static func empty() -> StyleBoxEmpty:
 	return StyleBoxEmpty.new()
 
-## Buttons: gold-rimmed navy, lit on hover.
-static func button_box(state: String) -> StyleBoxFlat:
-	var key := "btn_" + state
-	if _boxes.has(key):
-		return _boxes[key]
-	var sb := StyleBoxFlat.new()
-	sb.set_corner_radius_all(5)
-	sb.set_border_width_all(1)
-	sb.content_margin_left = 14
-	sb.content_margin_right = 14
-	sb.content_margin_top = 6
-	sb.content_margin_bottom = 6
-	match state:
-		"hover":
-			sb.bg_color = Color(0.141, 0.176, 0.255)
-			sb.border_color = GOLD_LT
-		"pressed":
-			sb.bg_color = Color(0.051, 0.063, 0.094)
-			sb.border_color = GOLD
-		"disabled":
-			sb.bg_color = Color(0.067, 0.071, 0.086, 0.8)
-			sb.border_color = Color(0.3, 0.28, 0.24)
-		"focus":
-			sb.draw_center = false
-			sb.border_color = GOLD_HI
-		_:
-			sb.bg_color = Color(0.090, 0.114, 0.165)
-			sb.border_color = GOLD_DK.lerp(GOLD, 0.6)
-	_boxes[key] = sb
-	return sb
+## Buttons wear the control kit's plates (UIKit): dark blued steel in a thin
+## antique-gold bevel, lit on hover.
+static func button_box(state: String) -> StyleBox:
+	return UIKit.plate("steel", state)
 
 static func style_button(b: Button, size: int = 15) -> void:
-	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
-		b.add_theme_stylebox_override(state, button_box(state))
-	b.add_theme_font_override("font", bold())
-	b.add_theme_font_size_override("font_size", size)
-	b.add_theme_color_override("font_color", PARCHMENT)
-	b.add_theme_color_override("font_hover_color", GOLD_HI)
-	b.add_theme_color_override("font_pressed_color", GOLD_LT)
-	b.add_theme_color_override("font_disabled_color", TEXT_DIM)
-	b.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.8))
-	b.add_theme_constant_override("outline_size", 3)
+	UIKit.style_button(b, "steel", size)
 
-## The window's main action (Upgrade, Enter, Sell): gold on dark wood with a
-## lit edge, the title face; greyed out while disabled.
+## The window's main action (Upgrade, Enter, Sell): the kit's gilt plate with
+## its gold studs; greyed out while disabled.
 static func gold_button(text: String, height: float = 44.0, font_size: int = 17) -> Button:
-	var b := Button.new()
-	b.text = text
-	b.focus_mode = Control.FOCUS_NONE
+	var b := UIKit.button(text, "gold", font_size)
 	b.custom_minimum_size = Vector2(0, height)
 	b.add_theme_font_override("font", title())
-	b.add_theme_font_size_override("font_size", font_size)
-	for colour_name in ["font_color", "font_hover_color", "font_pressed_color"]:
-		b.add_theme_color_override(colour_name, GOLD_HI)
-	b.add_theme_color_override("font_disabled_color", Color("3b465c"))
-	var looks := {"normal": Color("6a4a14"), "hover": Color("8a611a"), "pressed": Color("4a330b"), "disabled": Color("0d1320")}
-	for state in looks:
-		var sb := StyleBoxFlat.new()
-		sb.bg_color = looks[state]
-		sb.border_color = Color("283247") if state == "disabled" else GOLD_LT
-		sb.set_border_width_all(1)
-		sb.set_corner_radius_all(5)
-		sb.anti_aliasing = true
-		if state != "disabled":
-			sb.shadow_color = Color(0.91, 0.78, 0.48, 0.2)
-			sb.shadow_size = 6
-		b.add_theme_stylebox_override(state, sb)
 	return b
 
 ## A small gold button for a row (Buy): the body face, tight padding.
 static func gold_button_small(text: String) -> Button:
-	var b := gold_button(text, 28.0, 13)
+	var b := UIKit.button(text, "gold", 13)
 	b.add_theme_font_override("font", body())
 	b.custom_minimum_size = Vector2(48, 28)
 	b.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	for state in ["normal", "hover", "pressed", "disabled"]:
-		var sb := (b.get_theme_stylebox(state) as StyleBoxFlat).duplicate() as StyleBoxFlat
-		sb.set_corner_radius_all(4)
-		sb.shadow_size = 0
-		sb.content_margin_left = 10
-		sb.content_margin_right = 10
-		b.add_theme_stylebox_override(state, sb)
+	for state in UIKit.STATES:
+		b.add_theme_stylebox_override(state, UIKit.plate("gold", state, Color(0, 0, 0, 0), Vector2(11, 3)))
 	return b
 
 static func button(text: String, size: int = 15) -> Button:
@@ -224,50 +166,17 @@ static func button(text: String, size: int = 15) -> Button:
 
 # ------------------------------------------------------------------- gauges
 
-## Vertical gloss gradient for a gauge fill: lit top edge, body colour, dark foot.
-static func gauge_fill(base: Color) -> StyleBoxTexture:
-	var key := "fill_" + base.to_html()
-	if _boxes.has(key):
-		return _boxes[key]
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 0.10, 0.42, 0.58, 1.0])
-	g.colors = PackedColorArray([
-		base.lightened(0.62),
-		base.lightened(0.28),
-		base.lightened(0.05),
-		base.darkened(0.12),
-		base.darkened(0.45),
-	])
-	var tex := GradientTexture2D.new()
-	tex.gradient = g
-	tex.width = 4
-	tex.height = 32
-	tex.fill_from = Vector2(0, 0)
-	tex.fill_to = Vector2(0, 1)
-	var sb := StyleBoxTexture.new()
-	sb.texture = tex
-	_boxes[key] = sb
-	return sb
+## Gauges are the control kit's (UIKit): an inset groove in a thin gold
+## frame, the fill lit on top with a glossy band and a dark foot.
+static func gauge_fill(base: Color) -> StyleBox:
+	return UIKit.fill(base)
 
-static func gauge_track() -> StyleBoxFlat:
-	if _boxes.has("track"):
-		return _boxes["track"]
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Color(0.02, 0.024, 0.035, 0.92)
-	# A dark-gold rim, so the gauge reads as an inset in the brass frame.
-	sb.border_color = Color(GOLD_DK.r, GOLD_DK.g, GOLD_DK.b, 0.95)
-	sb.set_border_width_all(1)
-	sb.set_corner_radius_all(3)
-	sb.set_expand_margin_all(2)
-	sb.shadow_color = Color(0, 0, 0, 0.5)
-	sb.shadow_size = 2
-	_boxes["track"] = sb
-	return sb
+static func gauge_track() -> StyleBox:
+	return UIKit.track()
 
-static func style_gauge(bar: ProgressBar, base: Color) -> void:
-	bar.add_theme_stylebox_override("background", gauge_track())
-	bar.add_theme_stylebox_override("fill", gauge_fill(base))
-	bar.show_percentage = false
+## `edge`: the fill's hot leading edge (a bar that fills up: loading, sleep).
+static func style_gauge(bar: ProgressBar, base: Color, edge := false) -> void:
+	UIKit.style_gauge(bar, base, edge)
 
 # --------------------------------------------------------------- tooltip
 

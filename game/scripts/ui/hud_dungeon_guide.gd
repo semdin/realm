@@ -123,10 +123,8 @@ func _ready() -> void:
 		var colour := DungeonData.colour(id)
 		tab.add_theme_color_override("font_color", colour)
 		tab.add_theme_color_override("font_pressed_color", Color.WHITE)
-		var chosen := HudKit.button_box("pressed").duplicate() as StyleBoxFlat
-		chosen.bg_color = colour.darkened(0.62)
-		chosen.border_color = colour
-		chosen.set_border_width_all(2)
+		# the chosen difficulty: its plate lit in the difficulty's colour
+		var chosen := UIKit.plate("steel", "hover", Color(colour, 0.8))
 		tab.add_theme_stylebox_override("pressed", chosen)
 		tab.add_theme_stylebox_override("hover_pressed", chosen)
 		tab.pressed.connect(pick_difficulty.bind(id))

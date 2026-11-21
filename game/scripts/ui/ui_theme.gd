@@ -37,7 +37,10 @@ static func logo(height: float) -> TextureRect:
 const DIR := "res://assets/ui/"
 const ICON_DIR := "res://assets/ui/icons/"
 const FONT_DIR := "res://assets/fonts/"
-const THEME_PATH := DIR + "hpmmo.tres"
+## The theme resource (also the project's gui/theme/custom_theme). Until
+## 2026-11-21 this named "hpmmo.tres", a file the rebuild never had, so every
+## surface fell back to `_minimal_theme()`: one flat box for every button state.
+const THEME_PATH := DIR + "realm.tres"
 
 ## Type-variation names. A widget asks for a role by setting
 ## `theme_type_variation` to one of these; the styles themselves are in the .tres.
@@ -512,6 +515,7 @@ static func get_theme() -> Theme:
 	_theme = loaded
 	_install_fonts(_theme)
 	ArcaneSkin.install(_theme)
+	UIKit.install(_theme)
 	return _theme
 
 
@@ -540,7 +544,7 @@ static func _install_fonts(t: Theme) -> void:
 		engine.set_font("font", "Label3D", world_font(W_BODY))
 
 
-## The last-resort theme, used only when `hpmmo.tres` cannot be loaded.
+## The last-resort theme, used only when `realm.tres` cannot be loaded.
 static func _minimal_theme() -> Theme:
 	var t := Theme.new()
 	var body := font_body()

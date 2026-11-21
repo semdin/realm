@@ -298,14 +298,11 @@ class MedalBar extends Control:
 				queue_redraw()
 
 	func _init() -> void:
-		custom_minimum_size = Vector2(0, 7)
+		custom_minimum_size = Vector2(0, 8)
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 
 	func _draw() -> void:
-		var r := Rect2(Vector2.ZERO, size)
-		draw_rect(r, Color(0, 0, 0, 0.55))
-		draw_rect(Rect2(Vector2.ZERO, Vector2(size.x * fraction, size.y)), plain.darkened(0.1))
-		draw_rect(Rect2(Vector2.ZERO, Vector2(size.x * fraction, 1.0)), plain.lightened(0.35))
+		UIKit.draw_gauge(self, Rect2(Vector2.ZERO, size), fraction, plain)
 		for i in marks.size():
 			var x := size.x * float(marks[i])
 			draw_line(Vector2(x, -2), Vector2(x, size.y + 2), HudDungeonRun.MEDAL_TINTS["gold" if i == 0 else "silver"], 2.0)
