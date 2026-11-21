@@ -1187,12 +1187,11 @@ func _connect_taskbar() -> void:
 	(buttons["menu"] as Button).pressed.connect(func(): game_menu.close() if game_menu.visible else game_menu.open())
 	hud.quests_ready = func() -> bool: return quests.needs_attention()
 
-## The social pieces the HUD holds: the party frames know this map and push
-## the tracker down when they grow; the player menu measures from the
-## player's body. `--check-social` / `--social-guest` add their check.
+## The social pieces the HUD holds: the party frames know this map (the
+## tracker stands under them: HUD.left_rail_band); the player menu measures
+## from the player's body. `--check-social` / `--social-guest` add their check.
 func _build_social_ui() -> void:
 	hud.party_frames.map_name = map_name
-	hud.party_frames.rows_changed.connect(_on_party_rows)
 	hud.player_menu.player = player
 	hud.duel_view.player = player
 	hud.duel_view.heroes = heroes
@@ -1212,14 +1211,6 @@ func _build_social_ui() -> void:
 		check.invite_from = _arg("--check-invite-from", "")
 		add_child(check)
 
-## The tracker sits on the left edge above the middle; a party of five would
-## run into it, so it moves below the last row.
-func _on_party_rows(bottom: float) -> void:
-	var middle := get_viewport().get_visible_rect().size.y * 0.5
-	var top := maxf(HudTracker.AT.y, bottom + 10.0 - middle)
-	tracker.offset_top = top
-	tracker.offset_bottom = top + 10.0
-
 ## The quest log's view and windows: the tracker on the left edge, the NPC
 ## dialogue card, the log (J) and, over every window, the quest scroll.
 func _build_quest_ui(root: Control) -> void:
@@ -1232,6 +1223,7 @@ func _build_quest_ui(root: Control) -> void:
 	tracker.quests = quests
 	root.add_child(tracker)
 	root.move_child(tracker, hud.get_index() + 1)
+	tracker.follow(hud)
 	dialogue = load(DialogueScript).new()
 	dialogue.quests = quests
 	dialogue.can_serve = _can_serve

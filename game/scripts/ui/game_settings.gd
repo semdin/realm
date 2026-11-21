@@ -185,6 +185,8 @@ var graphics_quality := GRAPHICS_DEFAULT
 var time_of_day := TIME_OF_DAY_DEFAULT
 ## The controls introduction was finished or skipped on this machine.
 var intro_done := false
+## The quest tracker is folded to its header (HudTracker).
+var tracker_collapsed := false
 ## action -> physical keycode
 var bindings: Dictionary = {}
 var _by_key: Dictionary = {}
@@ -340,6 +342,7 @@ func load_from_disk() -> void:
 	graphics_quality = GRAPHICS_DEFAULT
 	time_of_day = TIME_OF_DAY_DEFAULT
 	intro_done = false
+	tracker_collapsed = false
 	bindings.clear()
 	for action: String in BINDABLE:
 		bindings[action] = default_key(action)
@@ -369,6 +372,7 @@ func load_from_disk() -> void:
 		render_scale = pixels if RENDER_SCALE_CHOICES.has(pixels) else "auto"
 		show_fps = bool(config.get_value(GENERAL, "show_fps", false))
 		intro_done = bool(config.get_value(GENERAL, "intro_done", false))
+		tracker_collapsed = bool(config.get_value(GENERAL, "tracker_collapsed", false))
 		var quality := String(config.get_value(GENERAL, "graphics_quality", GRAPHICS_DEFAULT))
 		graphics_quality = quality if GRAPHICS_CHOICES.has(quality) else GRAPHICS_DEFAULT
 		var hour := String(config.get_value(GENERAL, "time_of_day", TIME_OF_DAY_DEFAULT))
@@ -414,6 +418,7 @@ func save_to_disk() -> void:
 	config.set_value(GENERAL, "render_scale", render_scale)
 	config.set_value(GENERAL, "show_fps", show_fps)
 	config.set_value(GENERAL, "intro_done", intro_done)
+	config.set_value(GENERAL, "tracker_collapsed", tracker_collapsed)
 	config.set_value(GENERAL, "keys_version", KEYS_VERSION)
 	config.set_value(GENERAL, "graphics_quality", graphics_quality)
 	config.set_value(GENERAL, "time_of_day", time_of_day)
@@ -681,6 +686,13 @@ func set_intro_done(done: bool) -> void:
 	intro_done = done
 	save_to_disk()
 	changed.emit("intro")
+
+func set_tracker_collapsed(on: bool) -> void:
+	if tracker_collapsed == on:
+		return
+	tracker_collapsed = on
+	save_to_disk()
+	changed.emit("tracker")
 
 ## "auto" or a preset name; main.gd applies the result to the live world.
 func set_graphics_quality(choice: String) -> void:

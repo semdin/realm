@@ -116,6 +116,13 @@ var _hit_hold_until := 0.0
 ## rank-up.
 var _house_rank := 0
 
+## The left rail's free band moved (the party grew or shrank, the chat
+## opened, the window changed): the quest tracker lays itself out again.
+signal left_rail_changed
+
+## Where the chat's top stands on the canvas (set by `_layout`).
+var _chat_top := 0.0
+
 func _init() -> void:
 	name = "HUD"
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -284,6 +291,7 @@ func _build_social() -> void:
 	chat.add_system_line(tr("Duel: right-click a player, or /duel Name (/gduel Name for parties, /yield to give up)."))
 	party_frames = load(PartyScript).new()
 	add_child(party_frames)
+	party_frames.rows_changed.connect(func(_bottom: float): left_rail_changed.emit())
 	duel_view = load(DuelScript).new()
 	duel_view.session = session
 	duel_view.chat_sink = chat.add_system_line
@@ -559,8 +567,25 @@ func _layout() -> void:
 	if tray_left < 12.0 + chat_w + 8.0:
 		chat_bottom = tray_top + 8.0
 	_place(chat, Vector2(0.0, 1.0), Vector2(12, -chat_bottom - chat_h), Vector2(chat_w, chat_h))
+	_chat_top = canvas.y - chat_bottom - chat_h
 	var card_w := 300.0 if compact else 360.0
 	_place(target_panel, Vector2(0.5, 0.0), Vector2(-card_w * 0.5, 10), Vector2(card_w, TARGET_CARD_H))
+
+## The left rail between the party frames (or, with no party, the buffs
+## under the unit frame) and the chat, [top, bottom] on the canvas: the quest
+## tracker stands in it (HudTracker.follow).
+func left_rail_band() -> Vector2:
+	var top := buff_bar.position.y + 36.0
+	if party_frames != null and party_frames.row_count() > 0:
+		top = maxf(top, party_frames.rows_bottom())
+	return Vector2(top, _chat_top if _chat_top > 0.0 else get_viewport().get_visible_rect().size.y)
+
+## The party frames' rows on the canvas (empty with no party): the tracker
+## stands beside them when they leave no room under them.
+func left_rail_party() -> Rect2:
+	if party_frames == null or party_frames.row_count() == 0:
+		return Rect2()
+	return Rect2(party_frames.position, Vector2(HudParty.ROW_W, party_frames.rows_bottom() - party_frames.position.y))
 
 ## Where the taskbar stands on the canvas (a tall window beside it keeps clear).
 func tray_rect() -> Rect2:

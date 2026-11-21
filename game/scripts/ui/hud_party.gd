@@ -72,6 +72,10 @@ func member_named(who: String) -> Dictionary:
 func row_count() -> int:
 	return _row_bars.size()
 
+## Where the last row ends on the canvas (the frames' top with no rows).
+func rows_bottom() -> float:
+	return position.y + (_rows.get_combined_minimum_size().y if _rows.get_child_count() > 0 else 0.0)
+
 func _rebuild() -> void:
 	var key := ""
 	if in_party():
