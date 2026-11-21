@@ -367,7 +367,7 @@ func _build_merchant() -> void:
 	_cancel_button = Button.new()
 	_cancel_button.text = tr("Cancel")
 	_cancel_button.focus_mode = Control.FOCUS_NONE
-	_cancel_button.custom_minimum_size = Vector2(0, 40)
+	_cancel_button.custom_minimum_size = Vector2(0, UIKit.H_MAIN)
 	_cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_cancel_button.pressed.connect(_clear_offer)
 	buttons.add_child(_cancel_button)

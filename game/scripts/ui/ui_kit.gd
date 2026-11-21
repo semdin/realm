@@ -36,10 +36,10 @@ const SPEC := {
 	"bar_spark": [Vector2(16, 24), [], 0],
 	"bar_track": [Vector2(64, 12), [2, 2, 2, 2], 0],
 	"bar_track_thin": [Vector2(48, 6), [1.5, 1.5, 1.5, 1.5], 0],
-	"btn": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
-	"btn_accent": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
-	"btn_blood": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
-	"btn_gold": [Vector2(76, 42), [16.5, 12.5, 16.5, 12.5], 6],
+	"btn": [Vector2(76, 42), [16, 12, 16, 12], 6],
+	"btn_accent": [Vector2(76, 42), [16, 12, 16, 12], 6],
+	"btn_blood": [Vector2(76, 42), [16, 12, 16, 12], 6],
+	"btn_gold": [Vector2(76, 42), [16, 12, 16, 12], 6],
 	"btn_icon": [Vector2(38, 38), [15, 11, 15, 11], 5],
 	"check_off": [Vector2(22, 22), [], 0],
 	"check_off_disabled": [Vector2(22, 22), [], 0],
@@ -99,6 +99,13 @@ const TEXT_DISABLED := Color(0.52, 0.50, 0.46)
 const GOLD_TEXT := Color(1.0, 0.925, 0.72)
 ## Room a plate's ornaments need beside it (CTA flourishes).
 const WING_ROOM := 34.0
+## Control sizes at 1:1 pixels (1080p), compact like Lost Ark's and AION 2's:
+## a plate button, a window's main action, the screen's call to action.
+const H_BUTTON := 32.0
+const H_MAIN := 38.0
+const H_CTA := 50.0
+const FS_BUTTON := 14
+const FS_MAIN := 15
 
 static var _tex: Dictionary = {}
 static var _boxes: Dictionary = {}
@@ -165,7 +172,7 @@ static func available() -> bool:
 ## "blood" (an action that cannot be undone), "icon" (square picture
 ## buttons); `state` one of STATES. `accent` tints a light inside the plate
 ## (a house or a difficulty colour); `pad` is the content margin.
-static func plate(kind: String, state: String, accent := Color(0, 0, 0, 0), pad := Vector2(18, 6)) -> StyleBox:
+static func plate(kind: String, state: String, accent := Color(0, 0, 0, 0), pad := Vector2(16, 5)) -> StyleBox:
 	var key := "%s/%s/%s/%s" % [kind, state, accent.to_html(), pad]
 	if _boxes.has(key):
 		return _boxes[key]
@@ -229,7 +236,7 @@ static func _flat_plate(kind: String, state: String) -> StyleBoxFlat:
 	return sb
 
 ## Give `b` the plates of `kind` (and the text colours that go with them).
-static func style_button(b: Button, kind := "steel", font_size := 15, accent := Color(0, 0, 0, 0)) -> void:
+static func style_button(b: Button, kind := "steel", font_size := FS_BUTTON, accent := Color(0, 0, 0, 0)) -> void:
 	for state in STATES:
 		b.add_theme_stylebox_override(state, plate(kind, state, accent))
 	b.add_theme_stylebox_override("hover_pressed", plate(kind, "pressed", accent))
@@ -246,10 +253,11 @@ static func style_button(b: Button, kind := "steel", font_size := 15, accent := 
 	b.add_theme_color_override("font_outline_color", Color(0.02, 0.02, 0.03, 0.85))
 	b.add_theme_constant_override("outline_size", 3)
 
-static func button(text: String, kind := "steel", font_size := 15) -> Button:
+static func button(text: String, kind := "steel", font_size := FS_BUTTON) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size.y = H_BUTTON
 	style_button(b, kind, font_size)
 	return b
 

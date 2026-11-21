@@ -325,7 +325,7 @@ func _tab_button(text: String) -> Button:
 	b.toggle_mode = true
 	b.focus_mode = Control.FOCUS_NONE
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.custom_minimum_size = Vector2(0, 40)
+	b.custom_minimum_size = Vector2(0, 34)
 	b.add_theme_font_override("font", UITheme.font_title())
 	b.add_theme_font_size_override("font_size", 14)
 	b.add_theme_color_override("font_color", UITheme.c("text_dim"))

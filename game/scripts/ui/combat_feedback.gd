@@ -130,13 +130,13 @@ func _build() -> void:
 	_death_panel.add_child(choices)
 	_revive_here = HudKit.button(tr("Revive Here"), 16)
 	_revive_here.name = "ReviveHere"
-	_revive_here.custom_minimum_size = Vector2(210, 44)
+	_revive_here.custom_minimum_size = Vector2(200, UIKit.H_MAIN)
 	_revive_here.tooltip_text = tr("Get up where you fell with half health")
 	_revive_here.pressed.connect(request_respawn.bind(true))
 	choices.add_child(_revive_here)
 	_revive_town = HudKit.button(tr("Return to Town"), 16)
 	_revive_town.name = "ReviveTown"
-	_revive_town.custom_minimum_size = Vector2(210, 44)
+	_revive_town.custom_minimum_size = Vector2(200, UIKit.H_MAIN)
 	_revive_town.tooltip_text = tr("Wake at this map's respawn point with full health")
 	_revive_town.pressed.connect(request_respawn.bind(false))
 	choices.add_child(_revive_town)

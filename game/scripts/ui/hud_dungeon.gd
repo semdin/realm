@@ -152,7 +152,7 @@ func _ready() -> void:
 	row.add_child(start_button)
 	rejoin_button = HudKit.button(tr("Return to the dungeon"), 15)
 	rejoin_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	rejoin_button.custom_minimum_size = Vector2(0, 44)
+	rejoin_button.custom_minimum_size = Vector2(0, UIKit.H_MAIN)
 	rejoin_button.pressed.connect(_on_rejoin)
 	row.add_child(rejoin_button)
 	if sheet != null:

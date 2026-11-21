@@ -291,7 +291,7 @@ class Consent extends Dialog:
 		accept_btn.pressed.connect(_accept)
 		row.add_child(accept_btn)
 		var out := HudKit.button(tr("Log Out"), 14)
-		out.custom_minimum_size = Vector2(120, 40)
+		out.custom_minimum_size = Vector2(120, UIKit.H_BUTTON)
 		out.pressed.connect(func():
 			close()
 			declined.emit())
@@ -458,13 +458,13 @@ class ConfirmDelete extends Dialog:
 		row.add_theme_constant_override("separation", 12)
 		delete_btn = AccountDialogs.danger_button(tr("Delete forever"))
 		delete_btn.name = "ConfirmDeleteButton"
-		delete_btn.custom_minimum_size = Vector2(180, 38)
+		delete_btn.custom_minimum_size = Vector2(170, UIKit.H_MAIN)
 		delete_btn.pressed.connect(func():
 			delete_btn.disabled = true
 			confirmed.emit())
 		row.add_child(delete_btn)
 		var cancel := HudKit.button(tr("Cancel"), 14)
-		cancel.custom_minimum_size = Vector2(110, 38)
+		cancel.custom_minimum_size = Vector2(110, UIKit.H_MAIN)
 		cancel.pressed.connect(close)
 		row.add_child(cancel)
 		body.add_child(row)

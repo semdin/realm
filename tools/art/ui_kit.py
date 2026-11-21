@@ -225,9 +225,11 @@ PLATES = {
 }
 
 
-def plate(kind, state, w, h, pad, cham, frame_w=1.6, name=None, studs=False):
+def plate(kind, state, w, h, pad, cham, frame_w=1, name=None, studs=False):
     """A chamfered button plate `w` x `h` (interface units) with `pad` of
-    room around it for the halo and the drop shadow."""
+    room around it for the halo and the drop shadow. Every line is a whole
+    unit wide on whole units (a black rim, `frame_w` of gold, a dark
+    hairline, the fill), so at 1:1 (1080p) each lands on whole pixels."""
     p = PLATES[kind][state]
     cv = Canvas(w + pad * 2, h + pad * 2)
     x, y = cv.x, cv.y
@@ -248,15 +250,15 @@ def plate(kind, state, w, h, pad, cham, frame_w=1.6, name=None, studs=False):
     fr = ramp(ty, [(0.0, p["frame"][0]), (0.45, p["frame"][1]), (1.0, p["frame"][2])])
     fr = shade(fr, grain(cv, 0.9, 11), 0.10)
     fw = frame_w
-    cv.over(fr, band(d, -0.7 - fw, -0.7))
+    cv.over(fr, band(d, -1.0 - fw, -1.0))
     # the chamfers catch the light: their frame is brighter
     corner = np.clip(1.0 - np.abs((np.abs(x - (x0 + x1) / 2) + np.abs(y - (y0 + y1) / 2))
                                   - ((x1 - x0) / 2 + (y1 - y0) / 2 - cham * 0.5)) / (cham * 0.55), 0, 1)
-    cv.add(hexc("#fff4cc")[:3] * 0.6, band(d, -0.7 - fw, -0.7) * corner * (0.6 if not sunk else 0.25))
+    cv.add(hexc("#fff4cc")[:3] * 0.6, band(d, -1.0 - fw, -1.0) * corner * (0.6 if not sunk else 0.25))
     # a hairline of shadow inside the frame
-    cv.over(hexc("#06080c"), band(d, -1.4 - fw, -0.7 - fw))
+    cv.over(hexc("#06080c"), band(d, -2.0 - fw, -1.0 - fw))
     # the fill: a vertical ramp, a little darker toward both ends, grain
-    inner = -1.4 - fw
+    inner = -2.0 - fw
     fill = ramp(ty, [(0.0, p["fill"][0]), (1.0, p["fill"][1])])
     tx = (x - x0) / (x1 - x0)
     ends = 1.0 - 0.18 * (np.abs(tx - 0.5) * 2.0) ** 2
@@ -278,18 +280,18 @@ def plate(kind, state, w, h, pad, cham, frame_w=1.6, name=None, studs=False):
         top = np.clip(1.0 - (y - (y0 + 2.5)) / (h * 0.42), 0, 1) ** 1.6
         cv.add(np.array([1.0, 0.97, 0.9], np.float32), cov(d - inner) * top * p["gloss"])
         cv.add(np.array([1.0, 0.95, 0.85], np.float32),
-               band(d, inner - 0.75, inner) * (y < (y0 + y1) / 2) * p["gloss"] * 1.8)
+               band(d, inner - 1.0, inner) * (y < (y0 + y1) / 2) * p["gloss"] * 1.4)
     # a second, faint gold line inset from the frame: the classic double rule
     if not sunk:
         hair = 0.30 if kind != "steel" else 0.20
         cv.over(ramp(ty, [(0.0, p["frame"][0]), (1.0, p["frame"][2])]),
-                band(d, inner - 2.6, inner - 2.0) * hair)
+                band(d, inner - 3.0, inner - 2.0) * hair)
     if p.get("dim"):
         cv.px[..., :3] *= p["dim"]
     return cv
 
 
-def write_plate(name, kind, w, h, pad, cham, frame_w=1.6, slice_lr=None, slice_tb=None):
+def write_plate(name, kind, w, h, pad, cham, frame_w=1, slice_lr=None, slice_tb=None):
     for state in ("normal", "hover", "pressed", "disabled"):
         cv = plate(kind, state, w, h, pad, cham, frame_w)
         save(cv.image(), "%s_%s" % (name, state))
@@ -298,13 +300,13 @@ def write_plate(name, kind, w, h, pad, cham, frame_w=1.6, slice_lr=None, slice_t
     record(name, (w + pad * 2, h + pad * 2), (lr, tb, lr, tb), {"expand": pad})
 
 
-def accent(name, w, h, pad, cham, frame_w=1.6):
+def accent(name, w, h, pad, cham, frame_w=1):
     """White light inside a plate (tinted in the game by a house or a
     difficulty colour): a glow rising from the bottom and an inner rule."""
     cv = Canvas(w + pad * 2, h + pad * 2)
     x0, y0, x1, y1 = pad, pad, pad + w, pad + h
     d = sd_chamfer(cv.x, cv.y, x0, y0, x1, y1, cham)
-    inner = -1.4 - frame_w
+    inner = -2.0 - frame_w
     rise = np.exp(-np.maximum(y1 - 2.0 - cv.y, 0) / (h * 0.42))
     cv.add(np.array([1, 1, 1], np.float32), cov(d - inner) * rise * 0.55)
     cv.add(np.array([1, 1, 1], np.float32), cov(d - inner) * 0.10)
@@ -410,7 +412,7 @@ def plaque(name, w=96, h=30, focus=False):
     inset with gold hairlines top and bottom that fade out at the ends."""
     cv = Canvas(w, h)
     x, y = cv.x, cv.y
-    d = sd_chamfer(x, y, 0.5, 0.5, w - 0.5, h - 0.5, 3.0)
+    d = sd_chamfer(x, y, 0.0, 0.0, w, h, 3.0)
     ty = y / h
     fill = ramp(ty, [(0.0, "#04060a"), (1.0, "#0e141d")])
     fill = shade(fill, grain(cv, 1.4, 31, 4), 0.10)
@@ -433,7 +435,7 @@ def field(name, w=96, h=34, state="normal"):
     """A text field: a recessed well with a full thin frame."""
     cv = Canvas(w, h)
     x, y = cv.x, cv.y
-    d = sd_chamfer(x, y, 0.5, 0.5, w - 0.5, h - 0.5, 3.0)
+    d = sd_chamfer(x, y, 0.0, 0.0, w, h, 3.0)
     fill = ramp(y / h, [(0.0, "#03050a"), (1.0, "#0c121b")])
     fill = shade(fill, grain(cv, 1.4, 41, 4), 0.08)
     cv.over(fill, cov(d) * 0.95)
@@ -474,11 +476,11 @@ def track(name, w=64, h=12, thin=False):
     of its top lip inside and a faint lit line along its foot. No frame."""
     cv = Canvas(w, h)
     x, y = cv.x, cv.y
-    d = sd_round(x, y, 0.5, 0.5, w - 0.5, h - 0.5, 1.0)
+    d = sd_round(x, y, 0.0, 0.0, w, h, 1.0)
     glass = ramp(y / h, [(0.0, "#161b24"), (1.0, "#1d232d")] if thin else [(0.0, "#070a10"), (1.0, "#0d121a")])
     cv.over(glass, cov(d) * np.interp(y / h, [0, 1], [0.82, 0.70] if thin else [0.78, 0.62]).astype(np.float32))
-    cv.over(hexc("#000000"), band(d, -0.75, 0.0) * 0.85)
-    cv.over(hexc("#000000"), cov(d + 0.75) * np.exp(-np.maximum(y - 0.9, 0) / (0.9 if thin else 1.4)) * 0.45)
+    cv.over(hexc("#000000"), band(d, -1.0, 0.0) * 0.85)
+    cv.over(hexc("#000000"), cov(d + 1.0) * np.exp(-np.maximum(y - 0.9, 0) / (0.9 if thin else 1.4)) * 0.45)
     if not thin:
         cv.add(np.array([1, 0.95, 0.85], np.float32), cov(d + 0.75) * np.exp(-((y - (h - 1.4)) / 0.35) ** 2) * 0.07)
     save(cv.image(), name)
@@ -791,11 +793,11 @@ def check_parts():
 # ------------------------------------------------------------------ main
 
 def build():
-    write_plate("btn", "steel", 64, 30, 6, 4.5)
-    write_plate("btn_gold", "gold", 64, 30, 6, 4.5, frame_w=2.0)
-    write_plate("btn_blood", "blood", 64, 30, 6, 4.5, frame_w=1.8)
-    write_plate("btn_icon", "steel", 28, 28, 5, 4.0)
-    accent("btn_accent", 64, 30, 6, 4.5)
+    write_plate("btn", "steel", 64, 30, 6, 4)
+    write_plate("btn_gold", "gold", 64, 30, 6, 4, frame_w=2)
+    write_plate("btn_blood", "blood", 64, 30, 6, 4, frame_w=2)
+    write_plate("btn_icon", "steel", 28, 28, 5, 4)
+    accent("btn_accent", 64, 30, 6, 4)
     stud("stud", 3.5)
     stud("stud_lit", 3.5, glow=True)
     wing("wing_l", mirror=True)

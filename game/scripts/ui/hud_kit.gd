@@ -136,14 +136,15 @@ static func empty() -> StyleBoxEmpty:
 static func button_box(state: String) -> StyleBox:
 	return UIKit.plate("steel", state)
 
-static func style_button(b: Button, size: int = 15) -> void:
-	UIKit.style_button(b, "steel", size)
+static func style_button(b: Button, size: int = UIKit.FS_BUTTON) -> void:
+	UIKit.style_button(b, "steel", mini(size, UIKit.FS_MAIN))
 
 ## The window's main action (Upgrade, Enter, Sell): the kit's gilt plate with
 ## its gold studs; greyed out while disabled.
-static func gold_button(text: String, height: float = 44.0, font_size: int = 17) -> Button:
-	var b := UIKit.button(text, "gold", font_size)
-	b.custom_minimum_size = Vector2(0, height)
+static func gold_button(text: String, height: float = UIKit.H_MAIN, font_size: int = UIKit.FS_MAIN) -> Button:
+	# compact like the Korean MMOs' main buttons: never taller than H_MAIN
+	var b := UIKit.button(text, "gold", mini(font_size, 16))
+	b.custom_minimum_size = Vector2(0, minf(height, UIKit.H_MAIN))
 	b.add_theme_font_override("font", title())
 	return b
 
@@ -157,7 +158,7 @@ static func gold_button_small(text: String) -> Button:
 		b.add_theme_stylebox_override(state, UIKit.plate("gold", state, Color(0, 0, 0, 0), Vector2(11, 3)))
 	return b
 
-static func button(text: String, size: int = 15) -> Button:
+static func button(text: String, size: int = UIKit.FS_BUTTON) -> Button:
 	var b := Button.new()
 	b.text = text
 	b.focus_mode = Control.FOCUS_NONE

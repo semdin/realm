@@ -379,22 +379,22 @@ func _build_ui() -> void:
 	top.add_child(slot_label)
 	account_btn = HudKit.button(tr("Account"), 15)
 	account_btn.name = "AccountButton"
-	account_btn.custom_minimum_size = Vector2(130, 40)
+	account_btn.custom_minimum_size = Vector2(116, UIKit.H_BUTTON)
 	account_btn.pressed.connect(open_account)
 	top.add_child(account_btn)
 	var help_btn := HudKit.button(tr("Help & Support"), 15)
 	help_btn.name = "HelpButton"
-	help_btn.custom_minimum_size = Vector2(170, 40)
+	help_btn.custom_minimum_size = Vector2(150, UIKit.H_BUTTON)
 	help_btn.pressed.connect(AccountDialogs.open_support)
 	top.add_child(help_btn)
 	var settings_btn := HudKit.button(tr("Settings"), 15)
 	settings_btn.name = "SettingsButton"
-	settings_btn.custom_minimum_size = Vector2(120, 40)
+	settings_btn.custom_minimum_size = Vector2(110, UIKit.H_BUTTON)
 	settings_btn.pressed.connect(func(): settings_requested.emit())
 	top.add_child(settings_btn)
 	logout_btn = HudKit.button(tr("Log Out"), 15)
 	logout_btn.name = "LogoutButton"
-	logout_btn.custom_minimum_size = Vector2(130, 40)
+	logout_btn.custom_minimum_size = Vector2(116, UIKit.H_BUTTON)
 	logout_btn.pressed.connect(_on_logout_pressed)
 	top.add_child(logout_btn)
 
@@ -486,11 +486,11 @@ func _build_ui() -> void:
 	root.add_child(bottom)
 	edit_btn = HudKit.button(tr("Edit Appearance"), 15)
 	edit_btn.name = "EditLookButton"
-	edit_btn.custom_minimum_size = Vector2(220, 38)
+	edit_btn.custom_minimum_size = Vector2(200, UIKit.H_BUTTON)
 	edit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	edit_btn.pressed.connect(open_edit)
 	bottom.add_child(edit_btn)
-	enter_btn = UIKit.cta_button(tr("ENTER WORLD"), Vector2(360, 58), 22)
+	enter_btn = UIKit.cta_button(tr("ENTER WORLD"), Vector2(340, UIKit.H_CTA), 20)
 	enter_btn.name = "EnterWorldButton"
 	enter_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	enter_btn.pressed.connect(_on_enter_world_pressed)
@@ -559,13 +559,13 @@ func _build_create_modal() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
 	buttons.add_theme_constant_override("separation", 16)
 	v.add_child(buttons)
-	confirm_btn = HudKit.gold_button(tr("Create"), 44.0, 17)
+	confirm_btn = HudKit.gold_button(tr("Create"))
 	confirm_btn.name = "ConfirmCreate"
 	confirm_btn.custom_minimum_size.x = 180
 	confirm_btn.pressed.connect(_on_confirm_create_pressed)
 	buttons.add_child(confirm_btn)
 	cancel_btn = HudKit.button(tr("Cancel"), 16)
-	cancel_btn.custom_minimum_size = Vector2(150, 44)
+	cancel_btn.custom_minimum_size = Vector2(140, UIKit.H_MAIN)
 	cancel_btn.pressed.connect(_close_create)
 	buttons.add_child(cancel_btn)
 	create_modal.hide()

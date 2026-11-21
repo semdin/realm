@@ -48,7 +48,7 @@ func _ready() -> void:
 			["character", tr("Change Character")], ["quit", tr("Quit Game")]]:
 		var b := HudKit.button(String(spec[1]), 15)
 		b.name = String(spec[0]).capitalize().replace(" ", "")
-		b.custom_minimum_size = Vector2(0, 36)
+		b.custom_minimum_size = Vector2(0, UIKit.H_BUTTON + 2.0)
 		b.pressed.connect(_on_pressed.bind(String(spec[0])))
 		body.add_child(b)
 		buttons[String(spec[0])] = b

@@ -247,7 +247,7 @@ class InviteCard extends PanelContainer:
 		b.text = text
 		b.focus_mode = Control.FOCUS_NONE
 		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		b.custom_minimum_size = Vector2(0, 36)
+		b.custom_minimum_size = Vector2(0, UIKit.H_BUTTON)
 		# the kit's plate lit from inside in the answer's colour
 		UIKit.style_button(b, "steel", 15, Color(tint, 0.75))
 		return b

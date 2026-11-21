@@ -269,7 +269,7 @@ func show_problem(title: String, detail: String, go_on := Callable(), go_on_text
 		reconnect_button.hide()
 	var help := HudKit.button(tr("Help & Support"), 16)
 	help.name = "Help"
-	help.custom_minimum_size = Vector2(170, 42)
+	help.custom_minimum_size = Vector2(160, UIKit.H_MAIN)
 	help.pressed.connect(AccountDialogs.open_support)
 	reconnect_button.get_parent().add_child(help)
 	reconnect_button.get_parent().move_child(help, quit_button.get_index())

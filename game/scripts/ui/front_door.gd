@@ -280,7 +280,7 @@ static func line_edit(placeholder: String) -> LineEdit:
 static func primary_button(text: String) -> Button:
 	if UIKit.available():
 		# centred and narrower than the card, so its flourishes stay inside it
-		var cta := UIKit.cta_button(text, Vector2(232, 52), 19)
+		var cta := UIKit.cta_button(text, Vector2(232, 46), 18)
 		cta.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		return cta
 	return _flat_primary_button(text)
