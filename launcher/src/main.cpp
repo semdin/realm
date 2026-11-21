@@ -221,6 +221,27 @@ void StrokeRound(Graphics& g, const RectF& r, float radius, const Color& c, floa
 
 Color WithAlpha(const Color& c, BYTE a) { return Color(a, c.GetR(), c.GetG(), c.GetB()); }
 
+// GDI+ tiles a LinearGradientBrush past its end points (WrapModeTile): a shape
+// that reaches beyond them takes its colour from the opposite end. The Play
+// button's highlight band ran 2 px past its gradient, so those rows came back
+// at the band's brightest - the light line across the middle of the button,
+// whatever its label. Every gradient is made here: its line runs a pixel past
+// both ends and mirrors there (TileFlipXY), so a shape's edge rows stay on the
+// end colour.
+struct Gradient {
+    LinearGradientBrush brush;
+    Gradient(PointF from, PointF to, const Color& a, const Color& b)
+        : brush(Past(from, to, -1.0f), Past(to, from, -1.0f), a, b) {
+        brush.SetWrapMode(WrapModeTileFlipXY);
+    }
+    // `p` moved `by` px along from `p` towards `q` (negative: away from it).
+    static PointF Past(PointF p, PointF q, float by) {
+        float dx = q.X - p.X, dy = q.Y - p.Y;
+        float len = std::max(std::sqrt(dx * dx + dy * dy), 1e-3f);
+        return PointF(p.X + dx / len * by, p.Y + dy / len * by);
+    }
+};
+
 void DrawStr(Graphics& g, const std::wstring& text, Font* font, const RectF& box, const Color& color,
               StringAlignment h = StringAlignmentNear, StringAlignment v = StringAlignmentNear,
               bool ellipsis = false) {
@@ -316,26 +337,20 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         g.FillRectangle(&ink, 0, 0, cw, ch);
     }
     {
-        // Gradient vectors overshoot their fill rectangles by a few pixels and
-        // flip at the ends: GDI+ otherwise wraps the first colour onto the last
-        // pixel row and draws a visible seam.
         // Left shade behind the text column.
         float shadeW = L.w * 0.62f;
-        LinearGradientBrush left(PointF(-4, 0), PointF(shadeW + 4, 0), Color(235, 6, 7, 11), Color(0, 6, 7, 11));
+        Gradient left(PointF(0, 0), PointF(shadeW, 0), Color(235, 6, 7, 11), Color(0, 6, 7, 11));
         Color colors[] = {Color(235, 6, 7, 11), Color(190, 6, 7, 11), Color(0, 6, 7, 11)};
         REAL pos[] = {0.0f, 0.5f, 1.0f};
-        left.SetInterpolationColors(colors, pos, 3);
-        left.SetWrapMode(WrapModeTileFlipXY);
-        g.FillRectangle(&left, RectF(0, 0, shadeW, L.h));
+        left.brush.SetInterpolationColors(colors, pos, 3);
+        g.FillRectangle(&left.brush, RectF(0, 0, shadeW, L.h));
         // Bottom deck.
         float deckTop = L.h - SF(170);
-        LinearGradientBrush deck(PointF(0, deckTop - 4), PointF(0, L.h + 4), Color(0, 5, 6, 10), Color(245, 5, 6, 10));
-        deck.SetWrapMode(WrapModeTileFlipXY);
-        g.FillRectangle(&deck, RectF(0, deckTop, L.w, L.h - deckTop));
+        Gradient deck(PointF(0, deckTop), PointF(0, L.h), Color(0, 5, 6, 10), Color(245, 5, 6, 10));
+        g.FillRectangle(&deck.brush, RectF(0, deckTop, L.w, L.h - deckTop));
         // Top bar wash.
-        LinearGradientBrush top(PointF(0, -4), PointF(0, SF(70) + 4), Color(170, 0, 0, 0), Color(0, 0, 0, 0));
-        top.SetWrapMode(WrapModeTileFlipXY);
-        g.FillRectangle(&top, RectF(0, 0, L.w, SF(70)));
+        Gradient top(PointF(0, 0), PointF(0, SF(70)), Color(170, 0, 0, 0), Color(0, 0, 0, 0));
+        g.FillRectangle(&top.brush, RectF(0, 0, L.w, SF(70)));
     }
 
     // --- top bar
@@ -376,10 +391,9 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         }
         DrawStr(g, kGameTitle, title, RectF(titleBox.X + SF(2), titleBox.Y + SF(3), titleBox.Width, titleBox.Height),
                  Color(200, 20, 8, 2));
-        LinearGradientBrush gold(PointF(0, titleBox.Y + SF(10)), PointF(0, titleBox.Y + SF(60)), Pal::GoldHi,
-                                 Pal::GoldLt);
+        Gradient gold(PointF(0, titleBox.Y + SF(10)), PointF(0, titleBox.Y + SF(60)), Pal::GoldHi, Pal::GoldLt);
         StringFormat fmt;
-        g.DrawString(kGameTitle, -1, title, titleBox, &fmt, &gold);
+        g.DrawString(kGameTitle, -1, title, titleBox, &fmt, &gold.brush);
     }
     Font* subtitle = MakeFont(g_TitleFamily, 15, FontStyleBold);
     DrawStrHalo(g, realm::app::SubtitleText(), subtitle, RectF(SF(54), SF(204), SF(520), SF(26)),
@@ -490,19 +504,18 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
                 fill.Width = std::max(0.0f, x1 - x0);
             }
             if (fill.Width > 0.5f) {
-                LinearGradientBrush fb(PointF(fill.X, 0), PointF(fill.X + std::max(fill.Width, 1.0f), 0), Pal::Gold,
-                                       Pal::GoldHi);
-                FillRound(g, fill, fill.Height / 2, fb);
+                Gradient fb(PointF(fill.X, 0), PointF(fill.X + std::max(fill.Width, 1.0f), 0), Pal::Gold, Pal::GoldHi);
+                FillRound(g, fill, fill.Height / 2, fb.brush);
                 if (frac > 0.0f && frac < 1.0f) {
                     // A travelling sheen on the filled part while downloading.
                     float sx = fill.X + std::fmod(g_Anim * SF(160), std::max(fill.Width, 1.0f));
-                    LinearGradientBrush sheen(PointF(sx - SF(30), 0), PointF(sx + SF(30), 0), Color(0, 255, 255, 255),
-                                              Color(0, 255, 255, 255));
+                    Gradient sheen(PointF(sx - SF(30), 0), PointF(sx + SF(30), 0), Color(0, 255, 255, 255),
+                                   Color(0, 255, 255, 255));
                     Color sc[] = {Color(0, 255, 255, 255), Color(120, 255, 250, 220), Color(0, 255, 255, 255)};
                     REAL sp[] = {0.0f, 0.5f, 1.0f};
-                    sheen.SetInterpolationColors(sc, sp, 3);
+                    sheen.brush.SetInterpolationColors(sc, sp, 3);
                     g.SetClip(fill);
-                    g.FillRectangle(&sheen, RectF(sx - SF(30), fill.Y, SF(60), fill.Height));
+                    g.FillRectangle(&sheen.brush, RectF(sx - SF(30), fill.Y, SF(60), fill.Height));
                     g.ResetClip();
                 }
             }
@@ -544,12 +557,13 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         }
         Color top = enabled ? (hover ? Pal::BloodLt : Pal::Blood) : Color(255, 34, 34, 38);
         Color bottom = enabled ? (pressed ? Pal::BloodDk : Color(255, 58, 12, 20)) : Color(255, 24, 24, 28);
-        LinearGradientBrush fill(PointF(0, r.Y), PointF(0, r.Y + r.Height), top, bottom);
-        FillRound(g, r, SF(9), fill);
-        // Inner bevel highlight.
-        LinearGradientBrush bevel(PointF(0, r.Y), PointF(0, r.Y + r.Height * 0.5f), Color(enabled ? 60 : 20, 255, 230, 200),
-                                  Color(0, 255, 230, 200));
-        FillRound(g, RectF(r.X + SF(2), r.Y + SF(2), r.Width - SF(4), r.Height * 0.5f), SF(8), bevel);
+        Gradient fill(PointF(0, r.Y), PointF(0, r.Y + r.Height), top, bottom);
+        FillRound(g, r, SF(9), fill.brush);
+        // Inner bevel highlight: the upper half, fading out by the middle.
+        RectF band(r.X + SF(2), r.Y + SF(2), r.Width - SF(4), r.Height * 0.5f - SF(2));
+        Gradient bevel(PointF(0, band.Y), PointF(0, band.Y + band.Height), Color(enabled ? 60 : 20, 255, 230, 200),
+                       Color(0, 255, 230, 200));
+        FillRound(g, band, SF(8), bevel.brush);
         StrokeRound(g, r, SF(9), enabled ? (hover ? Pal::GoldHi : Pal::GoldLt) : Pal::Steel, SF(1.5f));
         StrokeRound(g, RectF(r.X + SF(4), r.Y + SF(4), r.Width - SF(8), r.Height - SF(8)), SF(6),
                     WithAlpha(enabled ? Pal::Gold : Pal::Steel, 110), SF(1));
