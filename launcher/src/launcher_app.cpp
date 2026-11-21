@@ -7,6 +7,7 @@
 #include <atomic>
 #include <chrono>
 #include <cstdlib>
+#include <cwctype>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -108,11 +109,54 @@ std::wstring PanelCaption(const Snapshot& s) {
     return caption;
 }
 
+// Release notes come in both languages, each part opened by "TR:" or "EN:" at
+// the start of a line; the launcher shows its own language's part. Notes
+// without the markers are shown whole.
+std::wstring LocalizedNotes(const std::wstring& notes) {
+    const wchar_t* want = i18n::Current() == i18n::Lang::Turkish ? L"TR:" : L"EN:";
+    auto marker = [](const std::wstring& line) -> std::wstring {
+        size_t i = line.find_first_not_of(L" \t");
+        if (i == std::wstring::npos || line.size() < i + 3 || line[i + 2] != L':') return L"";
+        std::wstring tag = line.substr(i, 3);
+        for (wchar_t& c : tag) c = (wchar_t)towupper(c);
+        return (tag == L"TR:" || tag == L"EN:") ? tag : L"";
+    };
+    std::wstring out, current;
+    bool any = false;
+    size_t start = 0;
+    while (start <= notes.size()) {
+        size_t end = notes.find(L'\n', start);
+        if (end == std::wstring::npos) end = notes.size();
+        std::wstring line = notes.substr(start, end - start);
+        if (!line.empty() && line.back() == L'\r') line.pop_back();
+        std::wstring tag = marker(line);
+        if (!tag.empty()) {
+            any = true;
+            current = tag;
+            line = line.substr(line.find(L':') + 1);
+            size_t first = line.find_first_not_of(L" \t");
+            line = first == std::wstring::npos ? L"" : line.substr(first);
+        }
+        if (current == want) {
+            if (!out.empty()) out += L"\n";
+            out += line;
+        }
+        start = end + 1;
+    }
+    if (!any) return notes;
+    size_t last = out.find_last_not_of(L" \t\r\n");
+    out = last == std::wstring::npos ? L"" : out.substr(0, last + 1);
+    return out.empty() ? notes : out;
+}
+
 std::wstring PanelBody(const Snapshot& s) {
     if (!s.advice.empty()) return s.advice;
-    if (!s.notes.empty()) return s.notes;
+    if (!s.notes.empty()) return LocalizedNotes(s.notes);
     return Tx(L"Bu sürüm için not eklenmemiş.", L"No notes for this version.");
 }
+
+const wchar_t* ReadMoreLabel() { return Tx(L"Devamını oku", L"Read more"); }
+const wchar_t* CloseLabel() { return Tx(L"Kapat", L"Close"); }
 
 std::wstring VersionLine(const Snapshot& s) {
     std::wstring line = L"Launcher v" + realm::Utf8ToWide(realm::kLauncherVersion);
@@ -753,6 +797,23 @@ bool ShowTestState(const std::string& name) {
         ShowGameEnded(true, crash);
     } else if (name == "early") {
         ShowGameEnded(false, GameExit{});
+    } else if (name == "notes") {
+        // Notes as a release writes them: both languages, longer than the panel.
+        {
+            std::lock_guard<std::mutex> lock(g_Mutex);
+            g_InstalledVersion = g_ReleaseVersion = "2.0.24";
+            g_Notes =
+                L"TR: Yeni ölüm ekranı: dünya grileşip kararır, seni kimin alt ettiği yazar, zindanda ölüm cezası ve "
+                L"kaçıncı ölüm olduğu görünür; \"Burada Diril\" ve \"Girişe/Şehre Dön\" geri sayım halkalı kartlarla "
+                L"seçilir. Dirilince 3 saniye mavi, saydam bir ruh olursun ve kalkarken yürüyemezsin. Öldüğünde "
+                L"canavarlar saldırıyı bırakıp oldukları yerde bekler, eve kaçmaz.\n"
+                L"EN: New death screen: the world drains to grey, it names who struck you down, and in a dungeon shows "
+                L"the death penalty and which death this is; \"Revive Here\" and \"Return to the Entrance/Town\" are "
+                L"cards with a countdown ring. For 3 seconds after rising you are a translucent blue spirit and cannot "
+                L"walk while you stand up. When you fall, creatures stop attacking and wait where they are instead of "
+                L"running home.";
+        }
+        ShowReady();
     } else {
         return false;
     }

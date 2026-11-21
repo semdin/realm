@@ -87,7 +87,7 @@ constexpr int kBaseW = 980;
 constexpr int kBaseH = 580;
 constexpr int kTopBar = 44;
 
-enum class Hit { None, Play, Close, Minimize, Repair, Support, Licenses, Logs };
+enum class Hit { None, Play, Close, Minimize, Repair, Support, Licenses, Logs, Notes, SheetClose, Sheet, Backdrop };
 
 struct View {
     float scale = 1.0f;
@@ -103,6 +103,18 @@ Canvas g_Base;          // background + static decoration, rebuilt on resize
 Canvas g_Frame;
 
 float SF(const View& v, float x) { return x * v.scale; }
+
+// The notes sheet (as in main.cpp): the whole "what's new" text over the
+// shaded launcher, opened from the panel when its text does not fit there.
+struct Sheet {
+    bool open = false;
+    float openedAt = 0;               // View::anim when it opened (fade in)
+    float scroll = 0, scrollTo = 0;   // px, eased
+    float scrollMax = 0, page = 0;    // set by the paint
+    RectF card, close;                // where the paint put them (hit tests)
+};
+Sheet g_Sheet;
+bool g_NotesCut = false;   // the panel had to cut its text (set by the paint)
 
 struct Layout {
     float w = 0, h = 0;
@@ -130,6 +142,13 @@ Hit HitTest(const View& v, int cw, int ch, float x, float y) {
     Layout L = ComputeLayout(v, cw, ch);
     if (L.close.Contains(x, y)) return Hit::Close;
     if (L.minimize.Contains(x, y)) return Hit::Minimize;
+    if (g_Sheet.open) {
+        // The sheet takes everything under the top bar; a click beside it closes it.
+        if (g_Sheet.close.Contains(x, y)) return Hit::SheetClose;
+        if (g_Sheet.card.Contains(x, y)) return Hit::Sheet;
+        return y >= SF(v, kTopBar) ? Hit::Backdrop : Hit::None;
+    }
+    if (g_NotesCut && L.notes.Contains(x, y)) return Hit::Notes;
     if (L.play.Contains(x, y)) return Hit::Play;
     if (L.repair.Contains(x, y)) return Hit::Repair;
     if (L.support.Contains(x, y)) return Hit::Support;
@@ -212,26 +231,101 @@ void BuildBase(const View& v, int cw, int ch) {
     g_Base.FillDiamond(SF(v, 211), y, SF(v, 5), SF(v, 5), Pal::GoldLt);
 }
 
+Color Faded(Color c, float a) { return c.WithAlpha((uint8_t)std::lround(c.a * std::clamp(a, 0.0f, 1.0f))); }
+
+// The notes sheet: all of the panel's text on a card over the shaded
+// launcher, scrolled by the wheel or the keys when it is long. Fades and
+// rises in as it opens.
+void PaintSheet(Canvas& g, const View& v, const Layout& L, const realm::app::Snapshot& s) {
+    float t = std::clamp((v.anim - g_Sheet.openedAt) / 0.18f, 0.0f, 1.0f);
+    float a = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+    g.FillRect(RectF(0, 0, L.w, L.h), Solid(Color((uint8_t)(165 * a), 3, 4, 7)));
+
+    TextStyle head = Style(g_TitleFont, SF(v, 15), Align::Near, Align::Center);
+    TextStyle body = Style(g_BodyFont, SF(v, 14));
+    body.wrap = true;
+    body.pitch = SF(v, 23);
+    std::wstring text = realm::app::PanelBody(s);
+    float cardW = std::min(SF(v, 600), L.w - SF(v, 64));
+    float padX = SF(v, 32), top = SF(v, 76), bottom = SF(v, 30), bar = SF(v, 14);
+    float viewW = cardW - padX * 2 - bar;
+    float contentH = g.WrappedHeight(text, viewW, body);
+    float maxH = L.h - SF(v, kTopBar) - SF(v, 64);
+    float cardH = std::min(maxH, top + contentH + bottom);
+    RectF card((L.w - cardW) / 2, SF(v, kTopBar) + (L.h - SF(v, kTopBar) - cardH) / 2 + (1.0f - a) * SF(v, 12), cardW,
+               cardH);
+    g_Sheet.card = card;
+
+    // A soft drop shadow, then the card.
+    for (int i = 3; i >= 1; i--) {
+        RectF sh(card.x - SF(v, i * 3.0f), card.y - SF(v, i * 3.0f) + SF(v, 4), card.w + SF(v, i * 6.0f),
+                 card.h + SF(v, i * 6.0f));
+        g.FillRound(sh, SF(v, 12 + i * 3.0f), Solid(Color((uint8_t)(26 * a), 0, 0, 0)));
+    }
+    g.FillRound(card, SF(v, 10),
+                Linear(0, card.y, 0, card.y + card.h,
+                       {{0.0f, Faded(Color(250, 15, 17, 24), a)}, {1.0f, Faded(Color(250, 9, 10, 15), a)}}));
+    g.StrokeRound(card, SF(v, 10), Faded(Pal::Steel.WithAlpha(230), a), SF(v, 1));
+
+    // Caption with its accent, and a gold hairline fading to the right.
+    g.FillRect(RectF(card.x, card.y + SF(v, 26), SF(v, 3), SF(v, 20)),
+               Solid(Faded(s.advice.empty() ? Pal::Gold : Pal::Warn, a)));
+    g.DrawText(realm::app::PanelCaption(s),
+               RectF(card.x + padX, card.y + SF(v, 24), cardW - padX * 2 - SF(v, 40), SF(v, 24)), head,
+               Solid(Faded(Pal::GoldLt, a)));
+    g.FillRect(RectF(card.x + padX, card.y + SF(v, 60), card.w - padX * 2, SF(v, 1)),
+               Linear(card.x + padX, 0, card.x + card.w - padX, 0,
+                      {{0.0f, Faded(Pal::Gold.WithAlpha(150), a)}, {1.0f, Faded(Pal::Gold.WithAlpha(0), a)}}));
+
+    // Close.
+    g_Sheet.close = RectF(card.x + card.w - SF(v, 48), card.y + SF(v, 18), SF(v, 34), SF(v, 34));
+    {
+        bool hover = v.hover == Hit::SheetClose;
+        if (hover) g.FillRound(g_Sheet.close, SF(v, 6), Solid(Faded(Color(40, 255, 255, 255), a)));
+        Color pen = Faded(hover ? Pal::Parchment : Pal::Dim, a);
+        float cx = g_Sheet.close.x + g_Sheet.close.w / 2, cy = g_Sheet.close.y + g_Sheet.close.h / 2, k = SF(v, 5);
+        g.Line(cx - k, cy - k, cx + k, cy + k, pen, SF(v, 1.4f));
+        g.Line(cx - k, cy + k, cx + k, cy - k, pen, SF(v, 1.4f));
+    }
+
+    // Body, scrolled and clipped, fading out at a cut edge.
+    RectF view(card.x + padX, card.y + top, viewW, card.h - top - bottom);
+    g_Sheet.page = view.h;
+    g_Sheet.scrollMax = std::max(0.0f, contentH - view.h);
+    g_Sheet.scrollTo = std::clamp(g_Sheet.scrollTo, 0.0f, g_Sheet.scrollMax);
+    g_Sheet.scroll = std::clamp(g_Sheet.scroll, 0.0f, g_Sheet.scrollMax);
+    RectF clip(view.x - SF(v, 4), view.y, view.w + SF(v, 8), view.h);
+    g.SetClip(clip);
+    g.DrawText(text, RectF(view.x, view.y - std::round(g_Sheet.scroll), view.w, contentH + 1), body,
+               Solid(Faded(Pal::Text, a)));
+    g.ResetClip();
+    float fadeH = SF(v, 20);
+    Color edge(250, 12, 13, 19);
+    if (g_Sheet.scroll > 0.5f)
+        g.FillRect(RectF(clip.x, view.y, clip.w, fadeH),
+                   Linear(0, view.y, 0, view.y + fadeH, {{0.0f, Faded(edge, a)}, {1.0f, Faded(edge.WithAlpha(0), a)}}));
+    if (g_Sheet.scroll < g_Sheet.scrollMax - 0.5f) {
+        float y = view.y + view.h - fadeH;
+        g.FillRect(RectF(clip.x, y, clip.w, fadeH),
+                   Linear(0, y, 0, y + fadeH, {{0.0f, Faded(edge.WithAlpha(0), a)}, {1.0f, Faded(edge, a)}}));
+    }
+
+    // Scroll bar: a slim steel track with a gold thumb.
+    if (g_Sheet.scrollMax > 0.5f) {
+        RectF track(card.x + card.w - padX + SF(v, 6), view.y, SF(v, 3), view.h);
+        g.FillRound(track, SF(v, 1.5f), Solid(Faded(Pal::Steel.WithAlpha(120), a)));
+        float thumbH = std::max(SF(v, 28), track.h * view.h / std::max(contentH, 1.0f));
+        float thumbY = track.y + (track.h - thumbH) * (g_Sheet.scroll / g_Sheet.scrollMax);
+        g.FillRound(RectF(track.x, thumbY, track.w, thumbH), SF(v, 1.5f), Solid(Faded(Pal::GoldLt.WithAlpha(200), a)));
+    }
+}
+
 void Paint(const View& v, int cw, int ch) {
     if (g_Base.width() != cw || g_Base.height() != ch) BuildBase(v, cw, ch);
     Canvas& g = g_Frame;
     g.CopyFrom(g_Base);
     Layout L = ComputeLayout(v, cw, ch);
     realm::app::Snapshot s = realm::app::TakeSnapshot();
-
-    // --- window buttons
-    for (Hit which : {Hit::Minimize, Hit::Close}) {
-        const RectF& r = which == Hit::Close ? L.close : L.minimize;
-        if (v.hover == which) g.FillRect(r, Solid(which == Hit::Close ? Color(230, 180, 32, 40) : Color(60, 255, 255, 255)));
-        Color pen = v.hover == which ? Pal::Parchment : Pal::Text;
-        float cx = r.x + r.w / 2, cy = r.y + r.h / 2, k = SF(v, 5.5f);
-        if (which == Hit::Close) {
-            g.Line(cx - k, cy - k, cx + k, cy + k, pen, SF(v, 1.4f));
-            g.Line(cx - k, cy + k, cx + k, cy - k, pen, SF(v, 1.4f));
-        } else {
-            g.Line(cx - k, cy, cx + k, cy, pen, SF(v, 1.4f));
-        }
-    }
 
     // --- server pill
     {
@@ -250,10 +344,12 @@ void Paint(const View& v, int cw, int ch) {
                    Style(g_BodyFont, SF(v, 14), Align::Near, Align::Center), Solid(Pal::Text));
     }
 
-    // --- what's new
-    if (!s.notes.empty() || !s.release.empty() || !s.advice.empty()) {
+    // --- what's new: as many whole lines as fit; when the text goes on, the
+    // panel opens the sheet with all of it
+    bool panel = !s.notes.empty() || !s.release.empty() || !s.advice.empty();
+    g_NotesCut = false;
+    if (panel) {
         g.FillRound(L.notes, SF(v, 8), Solid(Color(170, 8, 10, 15)));
-        g.StrokeRound(L.notes, SF(v, 8), Pal::Steel.WithAlpha(200), SF(v, 1));
         g.FillRect(RectF(L.notes.x, L.notes.y + SF(v, 12), SF(v, 3), L.notes.h - SF(v, 24)),
                    Solid(s.advice.empty() ? Pal::Gold : Pal::Warn));
         std::wstring caption = realm::app::PanelCaption(s);
@@ -262,8 +358,18 @@ void Paint(const View& v, int cw, int ch) {
         std::wstring notes = realm::app::PanelBody(s);
         TextStyle body = Style(g_BodyFont, SF(v, 13));
         body.wrap = true;
-        g.DrawText(notes, RectF(L.notes.x + SF(v, 18), L.notes.y + SF(v, 38), L.notes.w - SF(v, 32), L.notes.h - SF(v, 48)),
-                   body, Solid(Pal::Text));
+        body.pitch = SF(v, 18);
+        g_NotesCut = g.DrawText(
+            notes, RectF(L.notes.x + SF(v, 18), L.notes.y + SF(v, 38), L.notes.w - SF(v, 32), L.notes.h - SF(v, 48)),
+            body, Solid(Pal::Text));
+        bool hover = g_NotesCut && v.hover == Hit::Notes && !g_Sheet.open;
+        if (g_NotesCut) {
+            std::wstring more = std::wstring(realm::app::ReadMoreLabel()) + L"  \u203A";
+            g.DrawText(more, RectF(L.notes.x + SF(v, 18), L.notes.y + SF(v, 12), L.notes.w - SF(v, 34), SF(v, 20)),
+                       Style(g_BodyFont, SF(v, 12), Align::Far),
+                       Solid(hover ? Pal::GoldHi : Pal::GoldLt.WithAlpha(170)));
+        }
+        g.StrokeRound(L.notes, SF(v, 8), hover ? Pal::Gold.WithAlpha(230) : Pal::Steel.WithAlpha(200), SF(v, 1));
     }
 
     // --- status block
@@ -373,6 +479,29 @@ void Paint(const View& v, int cw, int ch) {
         g.DrawText(label, r, pf, Solid(enabled ? Pal::GoldHi : Pal::Dim));
     }
 
+    if (g_Sheet.open && panel) {
+        PaintSheet(g, v, L, s);
+        // The top bar stays over the shade: the window is still movable and closable.
+        g.DrawText(L"THOUSAND REALMS  \u00B7  LAUNCHER", RectF(SF(v, 22), SF(v, 12), SF(v, 300), SF(v, 22)),
+                   Style(g_BodyFont, SF(v, 13)), Solid(Pal::GoldLt.WithAlpha(220)));
+    } else {
+        g_Sheet.open = false;
+    }
+
+    // --- window buttons
+    for (Hit which : {Hit::Minimize, Hit::Close}) {
+        const RectF& r = which == Hit::Close ? L.close : L.minimize;
+        if (v.hover == which) g.FillRect(r, Solid(which == Hit::Close ? Color(230, 180, 32, 40) : Color(60, 255, 255, 255)));
+        Color pen = v.hover == which ? Pal::Parchment : Pal::Text;
+        float cx = r.x + r.w / 2, cy = r.y + r.h / 2, k = SF(v, 5.5f);
+        if (which == Hit::Close) {
+            g.Line(cx - k, cy - k, cx + k, cy + k, pen, SF(v, 1.4f));
+            g.Line(cx - k, cy + k, cx + k, cy - k, pen, SF(v, 1.4f));
+        } else {
+            g.Line(cx - k, cy, cx + k, cy, pen, SF(v, 1.4f));
+        }
+    }
+
     // Window edge.
     g.StrokeRound(RectF(0.5f, 0.5f, (float)cw - 1, (float)ch - 1), 0, Pal::GoldDk, 1.0f);
 }
@@ -450,6 +579,11 @@ int AcquireSingleInstance(bool waitForOld) {
     return -1;
 }
 
+// --screenshot-hover notes / --screenshot-sheet <top|end|px>: the notes panel
+// under the pointer, or the notes sheet open and scrolled.
+const char* g_ShotHover = nullptr;
+const char* g_ShotSheet = nullptr;
+
 // --screenshot: run the real workers, paint their state into a PNG, exit.
 int RunScreenshot(const char* out, int afterMs, const char* state) {
     View v;
@@ -464,7 +598,18 @@ int RunScreenshot(const char* out, int afterMs, const char* state) {
         std::this_thread::sleep_for(std::chrono::milliseconds(afterMs));
     }
     v.anim = afterMs / 1000.0f;
+    if (g_ShotHover && strcmp(g_ShotHover, "notes") == 0) v.hover = Hit::Notes;
     Paint(v, kBaseW, kBaseH);
+    if (g_ShotSheet) {
+        g_Sheet.open = true;
+        g_Sheet.openedAt = v.anim - 1.0f;
+        v.hover = Hit::None;
+        Paint(v, kBaseW, kBaseH);   // lays the sheet out: its scroll range
+        std::string at = g_ShotSheet;
+        g_Sheet.scroll = at == "end" ? g_Sheet.scrollMax : at == "top" ? 0.0f : (float)atof(at.c_str());
+        g_Sheet.scrollTo = g_Sheet.scroll;
+        Paint(v, kBaseW, kBaseH);
+    }
     bool ok = g_Frame.WritePng(out);
     realm::app::Cancel();
     printf("%s %s\n", ok ? "wrote" : "FAILED", out);
@@ -565,6 +710,8 @@ int main(int argc, char** argv) {
 
     if (const char* shot = ArgValue(argc, argv, "--screenshot")) {
         const char* after = ArgValue(argc, argv, "--screenshot-after");
+        g_ShotHover = ArgValue(argc, argv, "--screenshot-hover");
+        g_ShotSheet = ArgValue(argc, argv, "--screenshot-sheet");
         return RunScreenshot(shot, after ? atoi(after) : 4000, ArgValue(argc, argv, "--screenshot-state"));
     }
 
@@ -680,8 +827,18 @@ int main(int argc, char** argv) {
             case Hit::Support: realm::app::OpenSupport(); break;
             case Hit::Licenses: realm::app::OpenLicenses(); break;
             case Hit::Logs: realm::app::OpenLogs(); break;
+            case Hit::Notes:
+                g_Sheet.open = true;
+                g_Sheet.openedAt = g_View.anim;
+                g_Sheet.scroll = g_Sheet.scrollTo = 0.0f;
+                break;
+            case Hit::SheetClose:
+            case Hit::Backdrop: g_Sheet.open = false; break;
             default: break;
         }
+    };
+    auto scrollSheet = [&](float by) {
+        g_Sheet.scrollTo = std::clamp(g_Sheet.scrollTo + by, 0.0f, g_Sheet.scrollMax);
     };
     auto quitRequested = [&]() {
         Phase p = realm::app::CurrentPhase();
@@ -705,8 +862,10 @@ int main(int argc, char** argv) {
                 SDL_RaiseWindow(g_Window);
             } else if (e.type == SDL_EVENT_MOUSE_MOTION) {
                 g_View.hover = hitAt(e.motion.x, e.motion.y);
-                bool handCursor = g_View.hover == Hit::Play ? realm::app::PlayEnabled(realm::app::CurrentPhase())
-                                                           : g_View.hover != Hit::None;
+                bool handCursor = g_View.hover == Hit::Play
+                                      ? realm::app::PlayEnabled(realm::app::CurrentPhase())
+                                      : g_View.hover != Hit::None && g_View.hover != Hit::Sheet &&
+                                            g_View.hover != Hit::Backdrop;
                 SDL_SetCursor(handCursor ? hand : arrow);
             } else if (e.type == SDL_EVENT_WINDOW_MOUSE_LEAVE) {
                 g_View.hover = Hit::None;
@@ -718,6 +877,22 @@ int main(int argc, char** argv) {
                 Hit pressed = g_View.pressed;
                 g_View.pressed = Hit::None;
                 if (h == pressed) activate(h);
+            } else if (e.type == SDL_EVENT_MOUSE_WHEEL) {
+                if (g_Sheet.open) scrollSheet(-e.wheel.y * SF(g_View, 23) * 3);
+            } else if (e.type == SDL_EVENT_KEY_DOWN && g_Sheet.open) {
+                float line = SF(g_View, 23) * 2;
+                switch (e.key.key) {
+                    case SDLK_ESCAPE:
+                    case SDLK_RETURN: g_Sheet.open = false; break;
+                    case SDLK_UP: scrollSheet(-line); break;
+                    case SDLK_DOWN: scrollSheet(line); break;
+                    case SDLK_PAGEUP: scrollSheet(-g_Sheet.page * 0.9f); break;
+                    case SDLK_PAGEDOWN:
+                    case SDLK_SPACE: scrollSheet(g_Sheet.page * 0.9f); break;
+                    case SDLK_HOME: scrollSheet(-1e9f); break;
+                    case SDLK_END: scrollSheet(1e9f); break;
+                    default: break;
+                }
             } else if (e.type == SDL_EVENT_KEY_DOWN) {
                 if (e.key.key == SDLK_RETURN || e.key.key == SDLK_SPACE) activate(Hit::Play);
                 if (e.key.key == SDLK_ESCAPE) SDL_MinimizeWindow(g_Window);
@@ -751,6 +926,8 @@ int main(int argc, char** argv) {
             g_Base.Resize(0, 0);   // rebuild the static layer at the new density
         }
         g_View.anim = (now - start) / 1000.0f;
+        if (std::fabs(g_Sheet.scrollTo - g_Sheet.scroll) < 0.5f) g_Sheet.scroll = g_Sheet.scrollTo;
+        else g_Sheet.scroll += (g_Sheet.scrollTo - g_Sheet.scroll) * 0.35f;
         Paint(g_View, pw, ph);
         if (!tex || texW != pw || texH != ph) {
             if (tex) SDL_DestroyTexture(tex);

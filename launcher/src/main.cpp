@@ -24,6 +24,8 @@
 #include <atomic>
 #include <cmath>
 #include <cstdio>
+#include <map>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
@@ -100,7 +102,7 @@ constexpr UINT kStatusPollMs = 30000;
 constexpr UINT kRecheckMs = 10 * 60 * 1000;   // look for a new release while idle
 
 // ------------------------------------------------------------------ state
-enum class Hit { None, Play, Close, Minimize, Repair, Support, Licenses, Logs };
+enum class Hit { None, Play, Close, Minimize, Repair, Support, Licenses, Logs, Notes, SheetClose, Sheet, Backdrop };
 
 HWND g_Wnd = NULL;
 float g_Scale = 1.0f;
@@ -109,14 +111,27 @@ Hit g_Pressed = Hit::None;
 float g_Anim = 0.0f;
 bool g_Tracking = false;
 
+// The notes sheet: the whole "what's new" text over the dimmed launcher,
+// opened from the panel when its text does not fit there.
+bool g_NotesCut = false;          // the panel had to cut the text (set by the paint)
+bool g_SheetOpen = false;
+float g_SheetOpenedAt = 0.0f;     // g_Anim when it opened (fade in)
+float g_SheetScroll = 0.0f;       // px, eased towards g_SheetScrollTo
+float g_SheetScrollTo = 0.0f;
+float g_SheetScrollMax = 0.0f;    // set by the paint
+float g_SheetPage = 0.0f;         // visible body height, for Page Up/Down
+Gdiplus::RectF g_SheetCard, g_SheetClose;   // where the paint put them (hit tests)
+
 ULONG_PTR g_GdiToken = 0;
 PrivateFontCollection* g_Fonts = nullptr;
 FontFamily* g_TitleFamily = nullptr;
 FontFamily* g_BodyFamily = nullptr;
 Bitmap* g_Background = nullptr;
-Bitmap* g_BackgroundScaled = nullptr;   // cover-scaled to the client size
+// Everything that changes only with the window size, the scale or the
+// language (key art, shades, crest, subtitle), painted once (BuildBase).
+Bitmap* g_Base = nullptr;
+std::wstring g_BaseKey;
 Bitmap* g_Logo = nullptr;               // the crest: horizontal game logo
-int g_ScaledW = 0, g_ScaledH = 0;
 
 
 int S(float v) { return (int)std::lround(v * g_Scale); }
@@ -174,23 +189,31 @@ void LoadAssets() {
 }
 
 void FreeAssets() {
-    delete g_BackgroundScaled;
+    delete g_Base;
+    g_Base = nullptr;
     delete g_Background;
     delete g_Logo;
     g_Logo = nullptr;
     delete g_TitleFamily;
     delete g_BodyFamily;
     delete g_Fonts;
-    g_BackgroundScaled = g_Background = nullptr;
+    g_Background = nullptr;
     g_TitleFamily = g_BodyFamily = nullptr;
     g_Fonts = nullptr;
 }
 
-// A font of the family's first available style (the title face only ships Bold).
-Font* MakeFont(FontFamily* fam, float px, INT wanted = FontStyleRegular) {
+// A face at a size: the family's first available style (the title face only
+// ships Bold), `px` already in client pixels.
+struct TextFont {
+    FontFamily* family = nullptr;
+    INT style = FontStyleRegular;
+    float px = 12.0f;
+};
+
+TextFont MakeFont(FontFamily* fam, float px, INT wanted = FontStyleRegular) {
     INT style = wanted;
     if (!fam->IsStyleAvailable(style)) style = fam->IsStyleAvailable(FontStyleBold) ? FontStyleBold : FontStyleRegular;
-    return new Font(fam, SF(px), style, UnitPixel);
+    return TextFont{fam, style, SF(px)};
 }
 
 // ------------------------------------------------------------------ drawing
@@ -243,9 +266,26 @@ struct Gradient {
     }
 };
 
-void DrawStr(Graphics& g, const std::wstring& text, Font* font, const RectF& box, const Color& color,
-              StringAlignment h = StringAlignmentNear, StringAlignment v = StringAlignmentNear,
-              bool ellipsis = false) {
+// ------------------------------------------------------------------ text
+// Every string is filled as glyph outlines (GraphicsPath::AddString) with the
+// 8x8 geometry antialiasing. GDI+'s own text rasteriser (DrawString with
+// AntiAliasGridFit) snaps the glyphs to the pixel grid and shades them with
+// only a few grey levels: the 12-13 px type of the top bar and the footer came
+// out stair-stepped and uneven in weight, worst at 125 % where the sizes fall
+// between whole pixels. Outlines keep the face's own shapes at every size, the
+// way a browser draws text. Laying a string out costs more than filling it,
+// so the paths are kept between frames.
+std::map<std::wstring, std::unique_ptr<GraphicsPath>> g_TextPaths;
+
+const GraphicsPath* TextPath(const std::wstring& text, const TextFont& f, const RectF& box, StringAlignment h,
+                             StringAlignment v, bool ellipsis) {
+    wchar_t head[192];
+    swprintf(head, 192, L"%p|%d|%.3f|%.2f|%.2f|%.2f|%.2f|%d|%d|%d|", (void*)f.family, (int)f.style, f.px, box.X,
+             box.Y, box.Width, box.Height, (int)h, (int)v, ellipsis ? 1 : 0);
+    std::wstring key = head + text;
+    auto it = g_TextPaths.find(key);
+    if (it != g_TextPaths.end()) return it->second.get();
+    if (g_TextPaths.size() > 400) g_TextPaths.clear();   // a resize or a long download: start over
     StringFormat fmt;
     fmt.SetAlignment(h);
     fmt.SetLineAlignment(v);
@@ -253,21 +293,151 @@ void DrawStr(Graphics& g, const std::wstring& text, Font* font, const RectF& box
         fmt.SetTrimming(StringTrimmingEllipsisCharacter);
         fmt.SetFormatFlags(StringFormatFlagsNoWrap);
     }
-    SolidBrush brush(color);
-    g.DrawString(text.c_str(), (INT)text.size(), font, box, &fmt, &brush);
+    auto path = std::make_unique<GraphicsPath>();
+    path->AddString(text.c_str(), (INT)text.size(), f.family, f.style, f.px, box, &fmt);
+    return (g_TextPaths[key] = std::move(path)).get();
 }
 
-// Text with a soft dark halo, for type laid straight over the key art.
-void DrawStrHalo(Graphics& g, const std::wstring& text, Font* font, const RectF& box, const Color& color,
-                  StringAlignment h = StringAlignmentNear) {
+// Fills an outline path smoothly, moved by (dx, dy).
+void FillOutline(Graphics& g, const GraphicsPath* path, const Brush& brush, float dx = 0, float dy = 0,
+                 SmoothingMode mode = SmoothingModeAntiAlias8x8) {
+    GraphicsState state = g.Save();
+    g.SetSmoothingMode(mode);
+    if (dx != 0 || dy != 0) g.TranslateTransform(dx, dy);
+    g.FillPath(&brush, path);
+    g.Restore(state);
+}
+
+void DrawStr(Graphics& g, const std::wstring& text, const TextFont& font, const RectF& box, const Color& color,
+             StringAlignment h = StringAlignmentNear, StringAlignment v = StringAlignmentNear, bool ellipsis = false) {
+    if (text.empty()) return;
+    SolidBrush brush(color);
+    FillOutline(g, TextPath(text, font, box, h, v, ellipsis), brush);
+}
+
+// Text with a soft dark halo, for type laid straight over the key art. The
+// halo is the same outline stamped around it (the coarser antialiasing is
+// plenty for a shadow and keeps the frame cheap).
+void DrawStrHalo(Graphics& g, const std::wstring& text, const TextFont& font, const RectF& box, const Color& color,
+                 StringAlignment h = StringAlignmentNear) {
+    if (text.empty()) return;
+    const GraphicsPath* path = TextPath(text, font, box, h, StringAlignmentNear, false);
+    SolidBrush shade(Color(70, 0, 0, 0));
     for (int dx = -2; dx <= 2; dx++) {
         for (int dy = -2; dy <= 2; dy++) {
             if (dx == 0 && dy == 0) continue;
-            RectF b(box.X + dx * g_Scale * 0.6f, box.Y + dy * g_Scale * 0.6f, box.Width, box.Height);
-            DrawStr(g, text, font, b, Color(70, 0, 0, 0), h);
+            FillOutline(g, path, shade, dx * g_Scale * 0.6f, dy * g_Scale * 0.6f, SmoothingModeAntiAlias);
         }
     }
-    DrawStr(g, text, font, box, color, h);
+    SolidBrush brush(color);
+    FillOutline(g, path, brush);
+}
+
+// Width of `text` as the outline path draws it (typographic, unhinted).
+float MeasureWidth(const std::wstring& text, const TextFont& f) {
+    if (text.empty()) return 0;
+    static Bitmap* scratch = new Bitmap(4, 4, PixelFormat32bppPARGB);
+    Graphics g(scratch);
+    g.SetTextRenderingHint(TextRenderingHintAntiAlias);
+    Font font(f.family, f.px, f.style, UnitPixel);
+    StringFormat fmt(StringFormat::GenericTypographic());
+    fmt.SetFormatFlags(fmt.GetFormatFlags() | StringFormatFlagsMeasureTrailingSpaces);
+    RectF bounds;
+    g.MeasureString(text.c_str(), (INT)text.size(), &font, PointF(0, 0), &fmt, &bounds);
+    return bounds.Width;
+}
+
+// Word-wraps `text` (its own line breaks kept) into lines no wider than
+// `width`. With `maxLines` (0: no limit) the last line kept ends with an
+// ellipsis when text is left over; `cut` says whether any was.
+std::vector<std::wstring> WrapText(const std::wstring& text, const TextFont& f, float width, size_t maxLines,
+                                   bool* cut) {
+    std::vector<std::wstring> all;
+    size_t start = 0;
+    while (start <= text.size()) {
+        size_t end = text.find(L'\n', start);
+        if (end == std::wstring::npos) end = text.size();
+        std::wstring para = text.substr(start, end - start);
+        if (!para.empty() && para.back() == L'\r') para.pop_back();
+        start = end + 1;
+        std::wstring line;
+        size_t i = 0;
+        while (i <= para.size()) {
+            size_t sp = para.find(L' ', i);
+            if (sp == std::wstring::npos) sp = para.size();
+            std::wstring word = para.substr(i, sp - i);
+            i = sp + 1;
+            std::wstring trial = line.empty() ? word : line + L" " + word;
+            if (line.empty() || MeasureWidth(trial, f) <= width) {
+                line = trial;
+            } else {
+                all.push_back(line);
+                line = word;
+            }
+        }
+        all.push_back(line);
+    }
+    bool more = maxLines && all.size() > maxLines;
+    if (more) {
+        all.resize(maxLines);
+        std::wstring& last = all.back();
+        while (!last.empty() && MeasureWidth(last + L"\u2026", f) > width) {
+            size_t sp = last.find_last_of(L' ');
+            last.erase(sp == std::wstring::npos ? last.size() - 1 : sp);
+        }
+        while (!last.empty() && (last.back() == L' ' || last.back() == L',' || last.back() == L';' ||
+                                 last.back() == L':'))
+            last.pop_back();
+        last += L"\u2026";
+    }
+    if (cut) *cut = more;
+    return all;
+}
+
+// Paragraph text broken into lines by hand (GDI+ cannot space lines), laid out
+// once per text and width and kept.
+struct TextBlock {
+    size_t lines = 0;
+    float lineH = 0;
+    bool cut = false;
+    std::unique_ptr<GraphicsPath> path;   // every line, the block's top-left at (0, 0)
+    float height() const { return lines * lineH; }
+};
+
+std::map<std::wstring, TextBlock> g_TextBlocks;
+
+const TextBlock& LayoutBlock(const std::wstring& text, const TextFont& f, float width, float lineH, size_t maxLines) {
+    auto& blocks = g_TextBlocks;
+    wchar_t head[160];
+    swprintf(head, 160, L"%p|%d|%.3f|%.2f|%.2f|%u|", (void*)f.family, (int)f.style, f.px, width, lineH,
+             (unsigned)maxLines);
+    std::wstring key = head + text;
+    auto it = blocks.find(key);
+    if (it != blocks.end()) return it->second;
+    if (blocks.size() > 16) blocks.clear();
+    // Inset 1/6 em at both ends like DrawString (and the single-line text
+    // beside it); each line sits in the middle of its pitch.
+    float inset = f.px / 6.0f;
+    TextBlock b;
+    std::vector<std::wstring> lines = WrapText(text, f, std::max(0.0f, width - 2 * inset), maxLines, &b.cut);
+    b.lines = lines.size();
+    b.lineH = lineH;
+    b.path = std::make_unique<GraphicsPath>();
+    StringFormat fmt(StringFormat::GenericTypographic());
+    float pad = std::max(0.0f, (lineH - f.px * 1.2f) * 0.5f);
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (lines[i].empty()) continue;
+        b.path->AddString(lines[i].c_str(), (INT)lines[i].size(), f.family, f.style, f.px,
+                          PointF(inset, i * lineH + pad), &fmt);
+    }
+    return blocks.emplace(key, std::move(b)).first->second;
+}
+
+// The kept text is GDI+ objects: gone before GdiplusShutdown, not after it in
+// the static destructors.
+void FreeTextCaches() {
+    g_TextPaths.clear();
+    g_TextBlocks.clear();
 }
 
 // Layout rectangles in client pixels.
@@ -303,36 +473,32 @@ bool Contains(const RectF& r, int x, int y) {
     return x >= r.X && y >= r.Y && x < r.X + r.Width && y < r.Y + r.Height;
 }
 
-void EnsureScaledBackground(int cw, int ch) {
-    if (!g_Background || (g_BackgroundScaled && g_ScaledW == cw && g_ScaledH == ch)) return;
-    delete g_BackgroundScaled;
-    g_BackgroundScaled = new Bitmap(cw, ch, PixelFormat32bppPARGB);
-    Graphics g(g_BackgroundScaled);
-    g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
-    float iw = (float)g_Background->GetWidth(), ih = (float)g_Background->GetHeight();
-    float scale = std::max(cw / iw, ch / ih);
-    float dw = iw * scale, dh = ih * scale;
-    // Anchor slightly right of centre: the hero stays in view on the right.
-    float dx = (cw - dw) * 0.65f, dy = (ch - dh) * 0.5f;
-    g.DrawImage(g_Background, RectF(dx, dy, dw, dh));
-    g_ScaledW = cw;
-    g_ScaledH = ch;
-}
 
 
-void PaintFrame(Bitmap& frame, int cw, int ch) {
-    Graphics g(&frame);
+void BuildBase(int cw, int ch) {
+    wchar_t head[64];
+    swprintf(head, 64, L"%d|%d|%.3f|", cw, ch, g_Scale);
+    std::wstring key = head + std::wstring(realm::app::SubtitleText());
+    if (g_Base && key == g_BaseKey) return;
+    delete g_Base;
+    g_Base = new Bitmap(cw, ch, PixelFormat32bppPARGB);
+    g_BaseKey = key;
+    Graphics g(g_Base);
     g.SetSmoothingMode(SmoothingModeAntiAlias);
-    g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
     g.SetPixelOffsetMode(PixelOffsetModeHalf);
-
     Layout L = ComputeLayout(cw, ch);
-    Snapshot s = TakeSnapshot();
 
     // --- backdrop
-    EnsureScaledBackground(cw, ch);
-    if (g_BackgroundScaled) {
-        g.DrawImage(g_BackgroundScaled, 0, 0);
+    if (g_Background) {
+        g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
+        float iw = (float)g_Background->GetWidth(), ih = (float)g_Background->GetHeight();
+        float scale = std::max(cw / iw, ch / ih);
+        float dw = iw * scale, dh = ih * scale;
+        // Anchor slightly right of centre: the hero stays in view on the right.
+        float dx = (cw - dw) * 0.65f, dy = (ch - dh) * 0.5f;
+        g.SetPixelOffsetMode(PixelOffsetModeDefault);
+        g.DrawImage(g_Background, RectF(dx, dy, dw, dh));
+        g.SetPixelOffsetMode(PixelOffsetModeHalf);
     } else {
         SolidBrush ink(Pal::Ink);
         g.FillRectangle(&ink, 0, 0, cw, ch);
@@ -354,28 +520,8 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         g.FillRectangle(&top.brush, RectF(0, 0, L.w, SF(70)));
     }
 
-    // --- top bar
-    Font* small = MakeFont(g_BodyFamily, 13);
-    Font* tiny = MakeFont(g_BodyFamily, 12);
-    DrawStr(g, L"THOUSAND REALMS  ·  LAUNCHER", small, RectF(SF(22), SF(12), SF(300), SF(22)), WithAlpha(Pal::GoldLt, 220));
-    for (Hit which : {Hit::Minimize, Hit::Close}) {
-        const RectF& r = which == Hit::Close ? L.close : L.minimize;
-        if (g_Hover == which) {
-            SolidBrush hb(which == Hit::Close ? Color(230, 180, 32, 40) : Color(60, 255, 255, 255));
-            g.FillRectangle(&hb, r);
-        }
-        Pen pen(g_Hover == which ? Pal::Parchment : Pal::Text, SF(1.4f));
-        float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, k = SF(5.5f);
-        if (which == Hit::Close) {
-            g.DrawLine(&pen, cx - k, cy - k, cx + k, cy + k);
-            g.DrawLine(&pen, cx - k, cy + k, cx + k, cy - k);
-        } else {
-            g.DrawLine(&pen, cx - k, cy, cx + k, cy);
-        }
-    }
-
     // --- crest
-    Font* title = MakeFont(g_TitleFamily, 48, FontStyleBold);
+    TextFont title = MakeFont(g_TitleFamily, 48, FontStyleBold);
     RectF titleBox(SF(44), SF(130), SF(560), SF(74));
     if (g_Logo) {
         g.SetInterpolationMode(InterpolationModeHighQualityBicubic);
@@ -393,10 +539,10 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         DrawStr(g, kGameTitle, title, RectF(titleBox.X + SF(2), titleBox.Y + SF(3), titleBox.Width, titleBox.Height),
                  Color(200, 20, 8, 2));
         Gradient gold(PointF(0, titleBox.Y + SF(10)), PointF(0, titleBox.Y + SF(60)), Pal::GoldHi, Pal::GoldLt);
-        StringFormat fmt;
-        g.DrawString(kGameTitle, -1, title, titleBox, &fmt, &gold.brush);
+        FillOutline(g, TextPath(kGameTitle, title, titleBox, StringAlignmentNear, StringAlignmentNear, false),
+                    gold.brush);
     }
-    Font* subtitle = MakeFont(g_TitleFamily, 15, FontStyleBold);
+    TextFont subtitle = MakeFont(g_TitleFamily, 15, FontStyleBold);
     DrawStrHalo(g, realm::app::SubtitleText(), subtitle, RectF(SF(54), SF(204), SF(520), SF(26)),
                  Pal::GoldLt);
     {
@@ -411,6 +557,125 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         SolidBrush gb(Pal::GoldLt);
         g.FillPath(&gb, &gem);
     }
+}
+
+Color Faded(const Color& c, float a) { return WithAlpha(c, (BYTE)std::lround(c.GetA() * std::clamp(a, 0.0f, 1.0f))); }
+
+// The notes sheet: all of the panel's text on a card over the shaded
+// launcher, scrolled by the wheel or the keys when it is long. Fades and
+// rises in as it opens.
+void PaintSheet(Graphics& g, const Layout& L, const Snapshot& s) {
+    float t = std::clamp((g_Anim - g_SheetOpenedAt) / 0.18f, 0.0f, 1.0f);
+    float a = 1.0f - (1.0f - t) * (1.0f - t) * (1.0f - t);
+
+    SolidBrush shade(Color((BYTE)(165 * a), 3, 4, 7));
+    g.FillRectangle(&shade, RectF(0, 0, L.w, L.h));
+
+    TextFont head = MakeFont(g_TitleFamily, 15, FontStyleBold);
+    TextFont body = MakeFont(g_BodyFamily, 14);
+    float cardW = std::min(SF(600), L.w - SF(64));
+    float padX = SF(32), top = SF(76), bottom = SF(30), bar = SF(14);
+    float pitch = SF(23);
+    const TextBlock& block = LayoutBlock(realm::app::PanelBody(s), body, cardW - padX * 2 - bar, pitch, 0);
+    float maxH = L.h - SF(kTopBar) - SF(64);
+    float cardH = std::min(maxH, top + block.height() + bottom);
+    RectF card((L.w - cardW) / 2, SF(kTopBar) + (L.h - SF(kTopBar) - cardH) / 2 + (1.0f - a) * SF(12), cardW, cardH);
+    g_SheetCard = card;
+
+    // A soft drop shadow, then the card.
+    for (int i = 3; i >= 1; i--) {
+        RectF sh(card.X - SF(i * 3.0f), card.Y - SF(i * 3.0f) + SF(4), card.Width + SF(i * 6.0f),
+                 card.Height + SF(i * 6.0f));
+        SolidBrush sb(Color((BYTE)(26 * a), 0, 0, 0));
+        FillRound(g, sh, SF(12 + i * 3.0f), sb);
+    }
+    Gradient fill(PointF(0, card.Y), PointF(0, card.Y + card.Height), Faded(Color(250, 15, 17, 24), a),
+                  Faded(Color(250, 9, 10, 15), a));
+    FillRound(g, card, SF(10), fill.brush);
+    StrokeRound(g, card, SF(10), Faded(WithAlpha(Pal::Steel, 230), a), SF(1));
+
+    // Caption with its accent, and a gold hairline fading to the right.
+    Color accentColor = s.advice.empty() ? Pal::Gold : Pal::Warn;
+    SolidBrush accent(Faded(accentColor, a));
+    g.FillRectangle(&accent, RectF(card.X, card.Y + SF(26), SF(3), SF(20)));
+    DrawStr(g, realm::app::PanelCaption(s), head, RectF(card.X + padX, card.Y + SF(24), cardW - padX * 2 - SF(40), SF(24)),
+            Faded(Pal::GoldLt, a), StringAlignmentNear, StringAlignmentCenter);
+    {
+        float y = card.Y + SF(60);
+        Gradient rule(PointF(card.X + padX, 0), PointF(card.X + card.Width - padX, 0), Faded(WithAlpha(Pal::Gold, 150), a),
+                      Faded(WithAlpha(Pal::Gold, 0), a));
+        g.FillRectangle(&rule.brush, RectF(card.X + padX, y, card.Width - padX * 2, SF(1)));
+    }
+
+    // Close.
+    g_SheetClose = RectF(card.X + card.Width - SF(48), card.Y + SF(18), SF(34), SF(34));
+    {
+        bool hover = g_Hover == Hit::SheetClose;
+        if (hover) {
+            SolidBrush hb(Faded(Color(40, 255, 255, 255), a));
+            FillRound(g, g_SheetClose, SF(6), hb);
+        }
+        Pen pen(Faded(hover ? Pal::Parchment : Pal::Dim, a), SF(1.4f));
+        float cx = g_SheetClose.X + g_SheetClose.Width / 2, cy = g_SheetClose.Y + g_SheetClose.Height / 2, k = SF(5);
+        g.DrawLine(&pen, cx - k, cy - k, cx + k, cy + k);
+        g.DrawLine(&pen, cx - k, cy + k, cx + k, cy - k);
+    }
+
+    // Body, scrolled and clipped, fading out at a cut edge.
+    RectF view(card.X + padX, card.Y + top, cardW - padX * 2 - bar, card.Height - top - bottom);
+    g_SheetPage = view.Height;
+    g_SheetScrollMax = std::max(0.0f, block.height() - view.Height);
+    g_SheetScrollTo = std::clamp(g_SheetScrollTo, 0.0f, g_SheetScrollMax);
+    g_SheetScroll = std::clamp(g_SheetScroll, 0.0f, g_SheetScrollMax);
+    {
+        GraphicsState st = g.Save();
+        g.SetClip(RectF(view.X - SF(4), view.Y, view.Width + SF(8), view.Height));
+        SolidBrush tb(Faded(Pal::Text, a));
+        FillOutline(g, block.path.get(), tb, view.X, view.Y - std::round(g_SheetScroll));
+        g.Restore(st);
+        float fadeH = SF(20);
+        Color edge(250, 12, 13, 19);
+        if (g_SheetScroll > 0.5f) {
+            Gradient f(PointF(0, view.Y), PointF(0, view.Y + fadeH), Faded(edge, a), Faded(WithAlpha(edge, 0), a));
+            g.FillRectangle(&f.brush, RectF(view.X - SF(4), view.Y, view.Width + SF(8), fadeH));
+        }
+        if (g_SheetScroll < g_SheetScrollMax - 0.5f) {
+            float y = view.Y + view.Height - fadeH;
+            Gradient f(PointF(0, y), PointF(0, y + fadeH), Faded(WithAlpha(edge, 0), a), Faded(edge, a));
+            g.FillRectangle(&f.brush, RectF(view.X - SF(4), y, view.Width + SF(8), fadeH));
+        }
+    }
+
+    // Scroll bar: a slim steel track with a gold thumb.
+    if (g_SheetScrollMax > 0.5f) {
+        RectF track(card.X + card.Width - padX + SF(6), view.Y, SF(3), view.Height);
+        SolidBrush tr(Faded(WithAlpha(Pal::Steel, 120), a));
+        FillRound(g, track, SF(1.5f), tr);
+        float thumbH = std::max(SF(28), track.Height * view.Height / block.height());
+        float thumbY = track.Y + (track.Height - thumbH) * (g_SheetScroll / g_SheetScrollMax);
+        SolidBrush th(Faded(WithAlpha(Pal::GoldLt, 200), a));
+        FillRound(g, RectF(track.X, thumbY, track.Width, thumbH), SF(1.5f), th);
+    }
+}
+
+void PaintFrame(Bitmap& frame, int cw, int ch) {
+    Graphics g(&frame);
+    g.SetSmoothingMode(SmoothingModeAntiAlias);
+    g.SetTextRenderingHint(TextRenderingHintAntiAliasGridFit);
+    g.SetPixelOffsetMode(PixelOffsetModeHalf);
+
+    Layout L = ComputeLayout(cw, ch);
+    Snapshot s = TakeSnapshot();
+
+    // --- backdrop, crest, subtitle: the static layer, copied as it is
+    BuildBase(cw, ch);
+    if (g_Base) {
+        g.SetCompositingMode(CompositingModeSourceCopy);
+        g.DrawImage(g_Base, 0, 0);
+        g.SetCompositingMode(CompositingModeSourceOver);
+    }
+
+    TextFont tiny = MakeFont(g_BodyFamily, 12);
 
     // --- server pill
     {
@@ -428,40 +693,43 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         float cx = L.pill.X + SF(18), cy = L.pill.Y + L.pill.Height / 2;
         g.FillEllipse(&halo, cx - SF(8), cy - SF(8), SF(16), SF(16));
         g.FillEllipse(&db, cx - SF(4.5f), cy - SF(4.5f), SF(9), SF(9));
-        Font* pf = MakeFont(g_BodyFamily, 14);
+        TextFont pf = MakeFont(g_BodyFamily, 14);
         DrawStr(g, text, pf, RectF(L.pill.X + SF(34), L.pill.Y, L.pill.Width - SF(40), L.pill.Height), Pal::Text,
                  StringAlignmentNear, StringAlignmentCenter);
-        delete pf;
     }
 
-    // --- what's new
-    if (!s.notes.empty() || !s.release.empty() || !s.advice.empty()) {
+    // --- what's new: as many whole lines as fit; when the text goes on, the
+    // panel opens the sheet with all of it
+    bool panel = !s.notes.empty() || !s.release.empty() || !s.advice.empty();
+    g_NotesCut = false;
+    if (panel) {
         SolidBrush bg(Color(170, 8, 10, 15));
         FillRound(g, L.notes, SF(8), bg);
-        StrokeRound(g, L.notes, SF(8), WithAlpha(Pal::Steel, 200), SF(1));
         SolidBrush accent(s.advice.empty() ? Pal::Gold : Pal::Warn);
         g.FillRectangle(&accent, RectF(L.notes.X, L.notes.Y + SF(12), SF(3), L.notes.Height - SF(24)));
-        Font* head = MakeFont(g_TitleFamily, 13, FontStyleBold);
-        std::wstring caption = realm::app::PanelCaption(s);
-        DrawStr(g, caption, head, RectF(L.notes.X + SF(18), L.notes.Y + SF(12), L.notes.Width - SF(30), SF(20)),
-                 Pal::GoldLt);
-        Font* body = MakeFont(g_BodyFamily, 13);
-        std::wstring notes = realm::app::PanelBody(s);
-        StringFormat fmt;
-        fmt.SetTrimming(StringTrimmingEllipsisWord);
-        // whole lines only: without it GDI+ draws the top half of a line that
-        // does not fit below the last one
-        fmt.SetFormatFlags(StringFormatFlagsLineLimit);
-        SolidBrush tb(Pal::Text);
+        TextFont head = MakeFont(g_TitleFamily, 13, FontStyleBold);
+        DrawStr(g, realm::app::PanelCaption(s), head,
+                RectF(L.notes.X + SF(18), L.notes.Y + SF(12), L.notes.Width - SF(30), SF(20)), Pal::GoldLt);
+        TextFont body = MakeFont(g_BodyFamily, 13);
         RectF nb(L.notes.X + SF(18), L.notes.Y + SF(38), L.notes.Width - SF(32), L.notes.Height - SF(48));
-        g.DrawString(notes.c_str(), (INT)notes.size(), body, nb, &fmt, &tb);
-        delete head;
-        delete body;
+        float pitch = SF(18);
+        size_t fit = std::max<size_t>(1, (size_t)(nb.Height / pitch));
+        const TextBlock& block = LayoutBlock(realm::app::PanelBody(s), body, nb.Width, pitch, fit);
+        SolidBrush tb(Pal::Text);
+        FillOutline(g, block.path.get(), tb, nb.X, nb.Y);
+        g_NotesCut = block.cut;
+        bool hover = g_NotesCut && (g_Hover == Hit::Notes) && !g_SheetOpen;
+        if (g_NotesCut) {
+            std::wstring more = std::wstring(realm::app::ReadMoreLabel()) + L"  \u203A";
+            DrawStr(g, more, tiny, RectF(L.notes.X + SF(18), L.notes.Y + SF(12), L.notes.Width - SF(34), SF(20)),
+                    hover ? Pal::GoldHi : WithAlpha(Pal::GoldLt, 170), StringAlignmentFar, StringAlignmentNear);
+        }
+        StrokeRound(g, L.notes, SF(8), hover ? WithAlpha(Pal::Gold, 230) : WithAlpha(Pal::Steel, 200), SF(1));
     }
 
     // --- status block
-    Font* statusTitle = MakeFont(g_BodyFamily, 19);
-    Font* statusDetail = MakeFont(g_BodyFamily, 14);
+    TextFont statusTitle = MakeFont(g_BodyFamily, 19);
+    TextFont statusDetail = MakeFont(g_BodyFamily, 14);
     float statusY = L.h - SF(120);
     DrawStrHalo(g, s.title, statusTitle, RectF(SF(48), statusY, L.progress.Width, SF(28)), Pal::Parchment);
     Color detailColor = Pal::Dim;
@@ -569,23 +837,39 @@ void PaintFrame(Bitmap& frame, int cw, int ch) {
         StrokeRound(g, RectF(r.X + SF(4), r.Y + SF(4), r.Width - SF(8), r.Height - SF(8)), SF(6),
                     WithAlpha(enabled ? Pal::Gold : Pal::Steel, 110), SF(1));
         std::wstring label = PlayLabel(s.phase);
-        Font* pf = MakeFont(g_TitleFamily, label.size() > 6 ? 19.0f : 28.0f, FontStyleBold);
-        DrawStr(g, label, pf, RectF(r.X, r.Y + SF(1), r.Width, r.Height), Color(160, 20, 4, 4), StringAlignmentCenter,
-                 StringAlignmentCenter);
-        DrawStr(g, label, pf, r, enabled ? Pal::GoldHi : Pal::Dim, StringAlignmentCenter, StringAlignmentCenter);
-        delete pf;
+        TextFont pf = MakeFont(g_TitleFamily, label.size() > 6 ? 19.0f : 28.0f, FontStyleBold);
+        const GraphicsPath* lp = TextPath(label, pf, r, StringAlignmentCenter, StringAlignmentCenter, false);
+        SolidBrush shadow(Color(160, 20, 4, 4));
+        FillOutline(g, lp, shadow, 0, SF(1));
+        SolidBrush lb(enabled ? Pal::GoldHi : Pal::Dim);
+        FillOutline(g, lp, lb);
+    }
+
+    if (g_SheetOpen && panel) PaintSheet(g, L, s);
+    else g_SheetOpen = false;
+
+    // --- top bar (over the sheet's shade: the window stays movable and closable)
+    DrawStr(g, L"THOUSAND REALMS  \u00B7  LAUNCHER", MakeFont(g_BodyFamily, 13), RectF(SF(22), SF(12), SF(300), SF(22)),
+            WithAlpha(Pal::GoldLt, 220));
+    for (Hit which : {Hit::Minimize, Hit::Close}) {
+        const RectF& r = which == Hit::Close ? L.close : L.minimize;
+        if (g_Hover == which) {
+            SolidBrush hb(which == Hit::Close ? Color(230, 180, 32, 40) : Color(60, 255, 255, 255));
+            g.FillRectangle(&hb, r);
+        }
+        Pen pen(g_Hover == which ? Pal::Parchment : Pal::Text, SF(1.4f));
+        float cx = r.X + r.Width / 2, cy = r.Y + r.Height / 2, k = SF(5.5f);
+        if (which == Hit::Close) {
+            g.DrawLine(&pen, cx - k, cy - k, cx + k, cy + k);
+            g.DrawLine(&pen, cx - k, cy + k, cx + k, cy - k);
+        } else {
+            g.DrawLine(&pen, cx - k, cy, cx + k, cy);
+        }
     }
 
     // Window edge.
     Pen edge(WithAlpha(Pal::GoldDk, 255), 1.0f);
     g.DrawRectangle(&edge, 0, 0, cw - 1, ch - 1);
-
-    delete small;
-    delete tiny;
-    delete title;
-    delete subtitle;
-    delete statusTitle;
-    delete statusDetail;
 }
 
 void Paint(HDC hdc, int cw, int ch) {
@@ -602,10 +886,34 @@ void Repaint() {
 
 // ------------------------------------------------------------------ actions
 
+void OpenSheet() {
+    g_SheetOpen = true;
+    g_SheetOpenedAt = g_Anim;
+    g_SheetScroll = g_SheetScrollTo = 0.0f;
+    Repaint();
+}
+
+void CloseSheet() {
+    g_SheetOpen = false;
+    Repaint();
+}
+
+void ScrollSheet(float by) {
+    g_SheetScrollTo = std::clamp(g_SheetScrollTo + by, 0.0f, g_SheetScrollMax);
+    Repaint();
+}
+
 Hit HitTest(int x, int y) {
     Layout L = CurrentLayout();
     if (Contains(L.close, x, y)) return Hit::Close;
     if (Contains(L.minimize, x, y)) return Hit::Minimize;
+    if (g_SheetOpen) {
+        // The sheet takes everything under the top bar; a click beside it closes it.
+        if (Contains(g_SheetClose, x, y)) return Hit::SheetClose;
+        if (Contains(g_SheetCard, x, y)) return Hit::Sheet;
+        return y >= S(kTopBar) ? Hit::Backdrop : Hit::None;
+    }
+    if (g_NotesCut && Contains(L.notes, x, y)) return Hit::Notes;
     if (Contains(L.play, x, y)) return Hit::Play;
     if (Contains(L.repair, x, y)) return Hit::Repair;
     if (Contains(L.support, x, y)) return Hit::Support;
@@ -630,6 +938,9 @@ void Activate(Hit h) {
         case Hit::Support: realm::app::OpenSupport(); break;
         case Hit::Licenses: realm::app::OpenLicenses(); break;
         case Hit::Logs: realm::app::OpenLogs(); break;
+        case Hit::Notes: OpenSheet(); break;
+        case Hit::SheetClose:
+        case Hit::Backdrop: CloseSheet(); break;
         default: break;
     }
 }
@@ -647,6 +958,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_TIMER:
             if (wParam == kTimerAnim) {
                 g_Anim += 0.033f;
+                if (std::fabs(g_SheetScrollTo - g_SheetScroll) < 0.5f) g_SheetScroll = g_SheetScrollTo;
+                else g_SheetScroll += (g_SheetScrollTo - g_SheetScroll) * 0.35f;
                 if (!IsIconic(hWnd)) Repaint();
             } else if (wParam == kTimerStatus) {
                 StartStatusPoll();
@@ -695,7 +1008,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         case WM_SETCURSOR: {
             if (LOWORD(lParam) == HTCLIENT) {
-                bool hand = g_Hover == Hit::Play ? PlayEnabled(CurrentPhase()) : g_Hover != Hit::None;
+                bool hand = g_Hover == Hit::Play ? PlayEnabled(CurrentPhase())
+                                                 : g_Hover != Hit::None && g_Hover != Hit::Sheet && g_Hover != Hit::Backdrop;
                 SetCursor(LoadCursor(NULL, hand ? IDC_HAND : IDC_ARROW));
                 return TRUE;
             }
@@ -716,8 +1030,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
         }
         case WM_KEYDOWN:
+            if (g_SheetOpen) {
+                float line = SF(23) * 2;
+                switch (wParam) {
+                    case VK_ESCAPE:
+                    case VK_RETURN: CloseSheet(); break;
+                    case VK_UP: ScrollSheet(-line); break;
+                    case VK_DOWN: ScrollSheet(line); break;
+                    case VK_PRIOR: ScrollSheet(-g_SheetPage * 0.9f); break;
+                    case VK_NEXT:
+                    case VK_SPACE: ScrollSheet(g_SheetPage * 0.9f); break;
+                    case VK_HOME: ScrollSheet(-1e9f); break;
+                    case VK_END: ScrollSheet(1e9f); break;
+                    default: break;
+                }
+                return 0;
+            }
             if (wParam == VK_RETURN || wParam == VK_SPACE) Activate(Hit::Play);
             if (wParam == VK_ESCAPE) ShowWindow(hWnd, SW_MINIMIZE);
+            return 0;
+        case WM_MOUSEWHEEL:
+            if (g_SheetOpen) ScrollSheet(-(float)GET_WHEEL_DELTA_WPARAM(wParam) / WHEEL_DELTA * SF(23) * 3);
             return 0;
         case WM_ERASEBKGND:
             return 1;
@@ -853,10 +1186,26 @@ int RunScreenshot(const std::wstring& out) {
         std::wstring after = ArgValue(L"--screenshot-after");
         Sleep(after.empty() ? 4000 : (DWORD)_wtoi(after.c_str()));
     }
-    g_Scale = 1.0f;
+    // --screenshot-scale 1.25: the frame a 120 DPI screen gets.
+    std::wstring scale = ArgValue(L"--screenshot-scale");
+    g_Scale = scale.empty() ? 1.0f : std::clamp((float)_wtof(scale.c_str()), 1.0f, 4.0f);
     g_Anim = 1.0f;
-    Bitmap frame(kBaseW, kBaseH, PixelFormat32bppPARGB);
-    PaintFrame(frame, kBaseW, kBaseH);
+    int w = S(kBaseW), h = S(kBaseH);
+    Bitmap frame(w, h, PixelFormat32bppPARGB);
+    // --screenshot-hover notes: the notes panel under the pointer.
+    if (ArgValue(L"--screenshot-hover") == L"notes") g_Hover = Hit::Notes;
+    PaintFrame(frame, w, h);
+    // --screenshot-sheet <top|end|px>: the notes sheet open, scrolled.
+    std::wstring sheet = ArgValue(L"--screenshot-sheet");
+    if (!sheet.empty()) {
+        g_SheetOpen = true;
+        g_SheetOpenedAt = g_Anim - 1.0f;
+        g_Hover = Hit::None;
+        PaintFrame(frame, w, h);   // lays the sheet out: its scroll range
+        g_SheetScroll = sheet == L"end" ? g_SheetScrollMax : sheet == L"top" ? 0.0f : (float)_wtof(sheet.c_str());
+        g_SheetScrollTo = g_SheetScroll;
+        PaintFrame(frame, w, h);
+    }
     static const CLSID kPng = {0x557cf406, 0x1a04, 0x11d3, {0x9a, 0x73, 0x00, 0x00, 0xf8, 0x1e, 0xf3, 0x2e}};
     bool ok = frame.Save(out.c_str(), &kPng, NULL) == Ok;
     fflush(nullptr);
@@ -990,6 +1339,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE, LPSTR, int nCmdShow) {
     }
 
     realm::app::Cancel();
+    FreeTextCaches();
     FreeAssets();
     GdiplusShutdown(g_GdiToken);
     WSACleanup();

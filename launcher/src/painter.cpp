@@ -343,9 +343,47 @@ void Canvas::DrawLine(const std::wstring& line, float x, float baseline, const F
     }
 }
 
-void Canvas::DrawText(const std::wstring& text, const RectF& box, const TextStyle& st, const Fill& fill) {
-    if (!st.font || !st.font->ok() || text.empty()) return;
+// Every paragraph word-wrapped into lines no wider than `avail`.
+std::vector<std::wstring> Canvas::Wrap(const std::wstring& text, const Font& font, float px, float avail) const {
+    std::vector<std::wstring> all;
+    size_t start = 0;
+    while (start <= text.size()) {
+        size_t nl = text.find(L'\n', start);
+        std::wstring para = text.substr(start, nl == std::wstring::npos ? std::wstring::npos : nl - start);
+        if (!para.empty() && para.back() == L'\r') para.pop_back();
+        std::wstring line;
+        size_t pos = 0;
+        while (pos <= para.size()) {
+            size_t sp = para.find(L' ', pos);
+            std::wstring word = para.substr(pos, sp == std::wstring::npos ? std::wstring::npos : sp - pos);
+            std::wstring cand = line.empty() ? word : line + L" " + word;
+            if (!line.empty() && MeasureText(cand, font, px) > avail) {
+                all.push_back(line);
+                line = word;
+            } else {
+                line = cand;
+            }
+            if (sp == std::wstring::npos) break;
+            pos = sp + 1;
+        }
+        all.push_back(line);
+        if (nl == std::wstring::npos) break;
+        start = nl + 1;
+    }
+    return all;
+}
+
+float Canvas::WrappedHeight(const std::wstring& text, float width, const TextStyle& st) const {
+    if (!st.font || !st.font->ok() || text.empty()) return 0;
+    float pad = st.px / 6.0f;
+    float pitch = st.pitch > 0 ? st.pitch : st.font->LineHeight(st.px);
+    return pitch * Wrap(text, *st.font, st.px, std::max(0.0f, width - 2 * pad)).size();
+}
+
+bool Canvas::DrawText(const std::wstring& text, const RectF& box, const TextStyle& st, const Fill& fill) {
+    if (!st.font || !st.font->ok() || text.empty()) return false;
     const Font& font = *st.font;
+    bool cut = false;
     // GDI+ DrawString keeps ~1/6 em of padding at both line ends.
     float pad = st.px / 6.0f;
     float avail = std::max(0.0f, box.w - 2 * pad);
@@ -359,36 +397,16 @@ void Canvas::DrawText(const std::wstring& text, const RectF& box, const TextStyl
 
     std::vector<std::wstring> lines;
     float lh = font.LineHeight(st.px);
+    float pitch = lh;
     if (st.wrap) {
         // Wrap every paragraph, then keep what fits; the last kept line ends
         // with an ellipsis at a word boundary when text was cut
         // (StringTrimmingEllipsisWord).
-        std::vector<std::wstring> all;
-        size_t start = 0;
-        while (start <= text.size()) {
-            size_t nl = text.find(L'\n', start);
-            std::wstring para = text.substr(start, nl == std::wstring::npos ? std::wstring::npos : nl - start);
-            std::wstring line;
-            size_t pos = 0;
-            while (pos <= para.size()) {
-                size_t sp = para.find(L' ', pos);
-                std::wstring word = para.substr(pos, sp == std::wstring::npos ? std::wstring::npos : sp - pos);
-                std::wstring cand = line.empty() ? word : line + L" " + word;
-                if (!line.empty() && MeasureText(cand, font, st.px) > avail) {
-                    all.push_back(line);
-                    line = word;
-                } else {
-                    line = cand;
-                }
-                if (sp == std::wstring::npos) break;
-                pos = sp + 1;
-            }
-            all.push_back(line);
-            if (nl == std::wstring::npos) break;
-            start = nl + 1;
-        }
-        size_t maxLines = std::max<size_t>(1, (size_t)std::floor(box.h / lh));
+        if (st.pitch > 0) pitch = st.pitch;
+        std::vector<std::wstring> all = Wrap(text, font, st.px, avail);
+        size_t maxLines = std::max<size_t>(1, (size_t)std::floor(box.h / pitch + 1e-3f));
         if (all.size() > maxLines) {
+            cut = true;
             all.resize(maxLines);
             // Drop whole words until "line…" fits.
             std::wstring s = all.back();
@@ -396,29 +414,35 @@ void Canvas::DrawText(const std::wstring& text, const RectF& box, const TextStyl
                 size_t sp = s.find_last_of(L' ');
                 s = sp == std::wstring::npos ? s.substr(0, s.size() - 1) : s.substr(0, sp);
             }
-            while (!s.empty() && s.back() == L' ') s.pop_back();
+            while (!s.empty() && (s.back() == L' ' || s.back() == L',' || s.back() == L';' || s.back() == L':'))
+                s.pop_back();
             all.back() = s + ell;
         }
         lines = std::move(all);
     } else {
         std::wstring line = text;
-        if (st.ellipsis && MeasureText(line, font, st.px) > avail) line = fitEllipsis(line);
+        if (st.ellipsis && MeasureText(line, font, st.px) > avail) {
+            line = fitEllipsis(line);
+            cut = true;
+        }
         lines.push_back(line);
     }
 
-    float blockH = lh * lines.size();
+    float blockH = pitch * lines.size();
     float y = box.y;
     if (st.v == Align::Center) y = box.y + (box.h - blockH) * 0.5f;
     if (st.v == Align::Far) y = box.y + box.h - blockH;
-    float ascent = font.Ascent(st.px);
+    // Each line sits in the middle of its pitch.
+    float ascent = font.Ascent(st.px) + (pitch - lh) * 0.5f;
     for (const auto& line : lines) {
         float w = MeasureText(line, font, st.px);
         float x = box.x + pad;
         if (st.h == Align::Center) x = box.x + (box.w - w) * 0.5f;
         if (st.h == Align::Far) x = box.x + box.w - pad - w;
         DrawLine(line, x, y + ascent, font, st.px, fill);
-        y += lh;
+        y += pitch;
     }
+    return cut;
 }
 
 bool Canvas::WritePng(const std::string& path) const {

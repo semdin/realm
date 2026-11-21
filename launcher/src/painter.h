@@ -75,6 +75,7 @@ struct TextStyle {
     Align v = Align::Near;
     bool ellipsis = false;   // single line, "…" when it does not fit
     bool wrap = false;       // word wrap; the last visible line ends with "…"
+    float pitch = 0;         // wrapped line pitch (0: the font's line height)
 };
 
 class Canvas {
@@ -102,7 +103,10 @@ public:
     void DrawImage(const Image& img, const RectF& dst);
 
     float MeasureText(const std::wstring& text, const Font& font, float px) const;
-    void DrawText(const std::wstring& text, const RectF& box, const TextStyle& st, const Fill& fill);
+    // True when the text did not fit and was cut ("…").
+    bool DrawText(const std::wstring& text, const RectF& box, const TextStyle& st, const Fill& fill);
+    // Height of `text` word-wrapped into `width` (st.wrap layout, no line limit).
+    float WrappedHeight(const std::wstring& text, float width, const TextStyle& st) const;
 
     bool WritePng(const std::string& path) const;
 
@@ -111,6 +115,7 @@ private:
     template <typename CoverageFn>
     void Shade(float x0, float y0, float x1, float y1, const Fill& fill, CoverageFn cov);
     void DrawLine(const std::wstring& line, float x, float baseline, const Font& font, float px, const Fill& fill);
+    std::vector<std::wstring> Wrap(const std::wstring& text, const Font& font, float px, float avail) const;
 
     int w_ = 0, h_ = 0;
     std::vector<uint8_t> px_;

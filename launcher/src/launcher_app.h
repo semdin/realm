@@ -83,7 +83,10 @@ uint64_t ProgressTotal();
 // Text the shells draw, in the launcher's language.
 std::wstring ServerLabel(const std::wstring& server);
 std::wstring PanelCaption(const Snapshot& s);
-std::wstring PanelBody(const Snapshot& s);
+std::wstring PanelBody(const Snapshot& s);   // the notes in the launcher's language
+std::wstring LocalizedNotes(const std::wstring& notes);
+const wchar_t* ReadMoreLabel();
+const wchar_t* CloseLabel();
 std::wstring VersionLine(const Snapshot& s);
 const wchar_t* SubtitleText();
 const wchar_t* RepairLabel();
@@ -111,7 +114,7 @@ void OpenLogs();
 
 // Screenshot hook: shows one state without touching the network. Names:
 // ready, checking, downloading, network, disk, maintenance, offline, verify,
-// start, crash, early. False for an unknown name.
+// start, crash, early, notes (long two-language notes). False for an unknown name.
 bool ShowTestState(const std::string& name);
 
 }  // namespace app
