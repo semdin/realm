@@ -165,8 +165,9 @@ void LoadAssets() {
     DWORD size = 0;
     if (LoadResourceBytes(IDR_FONT_TITLE, &data, &size)) g_Fonts->AddMemoryFont(data, (INT)size);
     if (LoadResourceBytes(IDR_FONT_BODY, &data, &size)) g_Fonts->AddMemoryFont(data, (INT)size);
-    g_TitleFamily = FamilyOrFallback(L"Literata", L"Georgia");
-    g_BodyFamily = FamilyOrFallback(L"Literata Medium", L"Georgia");
+    // The game's face (Pretendard Std, official static Bold and Medium).
+    g_TitleFamily = FamilyOrFallback(L"Pretendard Std", L"Segoe UI");
+    g_BodyFamily = FamilyOrFallback(L"Pretendard Std Medium", L"Segoe UI");
 
     g_Background = LoadResourceBitmap(IDR_BACKGROUND);
     g_Logo = LoadResourceBitmap(IDR_LOGO);

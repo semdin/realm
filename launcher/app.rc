@@ -13,8 +13,8 @@ IDI_MAIN ICON "assets/thousand_realms.ico"
 // Embedded art and fonts: a lone ThousandRealms_Launcher.exe renders the full design.
 // Fonts are SIL OFL 1.1 (assets/OFL-*.txt).
 IDR_BACKGROUND RCDATA "assets/launcher_bg.jpg"
-IDR_FONT_TITLE RCDATA "assets/Literata-Bold.ttf"
-IDR_FONT_BODY  RCDATA "assets/Literata-Medium.ttf"
+IDR_FONT_TITLE RCDATA "assets/PretendardStd-Bold.ttf"
+IDR_FONT_BODY  RCDATA "assets/PretendardStd-Medium.ttf"
 // The horizontal Thousand Realms logo drawn as the crest.
 IDR_LOGO       RCDATA "assets/thousand_realms_logo.png"
 // The "Licenses" link shows this text.

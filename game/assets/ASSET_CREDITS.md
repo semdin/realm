@@ -10,7 +10,7 @@ able to confirm yet; it is a question for the owner, not a statement of the term
 | Family | Where | Source | Terms |
 | --- | --- | --- | --- |
 | Terrain3D addon | `addons/terrain_3d` | Cory Petkovsek, Roope Palmroos and contributors | MIT, notice shipped |
-| Interface font | `fonts/` | Literata | SIL OFL 1.1, licence beside it |
+| Interface font | `fonts/` | Pretendard Std (Literata: castle clock numerals) | SIL OFL 1.1, licences beside them |
 | Table food and kitchenware | `models/feast/` | NVIDIA SimReady (packages in `credits/credits.json`), decimated, re-baked, packed into one atlas | CC BY 4.0, credited with the changes |
 | Skin pores, iris | `models/characters/skin_micro.png`, `eye_iris.png` | Human Shaders, MatMADNESS | CC BY 4.0, credited |
 | Hero body, outfits, many clips | `models/characters/hero_wizard.glb` | Quaternius Modular Character Outfits, Universal Base Characters, Universal Animation Library | CC0 |

@@ -125,8 +125,8 @@ if(NOT WIN32)
     set(REALM_EMBEDDED ${CMAKE_CURRENT_BINARY_DIR}/embedded_assets.cpp)
     realm_embed_assets(${REALM_EMBEDDED}
         Background ${CMAKE_CURRENT_SOURCE_DIR}/assets/launcher_bg.jpg
-        FontTitle ${CMAKE_CURRENT_SOURCE_DIR}/assets/Literata-Bold.ttf
-        FontBody ${CMAKE_CURRENT_SOURCE_DIR}/assets/Literata-Medium.ttf
+        FontTitle ${CMAKE_CURRENT_SOURCE_DIR}/assets/PretendardStd-Bold.ttf
+        FontBody ${CMAKE_CURRENT_SOURCE_DIR}/assets/PretendardStd-Medium.ttf
         IconPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_256.png
         LogoPng ${CMAKE_CURRENT_SOURCE_DIR}/assets/thousand_realms_logo.png
         Notices ${CMAKE_CURRENT_SOURCE_DIR}/THIRD_PARTY_NOTICES.txt)

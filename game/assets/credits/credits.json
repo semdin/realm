@@ -37,9 +37,14 @@
       "title": "Fonts",
       "entries": [
         {
+          "name": "Pretendard", "by": "© 2021 Kil Hyung-jin",
+          "licence": "SIL OFL 1.1", "url": "https://github.com/orioncactus/pretendard",
+          "what": "Interface lettering (Pretendard Std). Its licence is in the full licence texts."
+        },
+        {
           "name": "Literata", "by": "© 2017 The Literata Project Authors",
           "licence": "SIL OFL 1.1", "url": "https://github.com/googlefonts/literata",
-          "what": "Interface lettering. Its licence is in the full licence texts."
+          "what": "The numerals of the castle clock. Its licence is in the full licence texts."
         }
       ]
     },

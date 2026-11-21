@@ -14,7 +14,7 @@ changes, and commit the result. It reads:
   * the engine            its licence, component copyrights and licence texts
                           (tools/release/engine_notices.gd; without --godot the
                           engine section of the existing file is kept);
-  * licence files in the repository (Terrain3D, Literata, KayKit, Kenney, launcher).
+  * licence files in the repository (Terrain3D, Pretendard, Literata, KayKit, Kenney, launcher).
 """
 from __future__ import annotations
 
@@ -201,6 +201,7 @@ def main() -> int:
              "The same text is in the game under Settings > Credits.\n\n", credits_section(credits)]
     parts.append(file_section("Terrain3D (MIT)", ROOT / "game/addons/terrain_3d/LICENSE.txt"))
     parts.append(heading("godot-cpp (MIT), built into the Terrain3D library") + GODOT_CPP_MIT + "\n")
+    parts.append(file_section("Pretendard (SIL Open Font License 1.1)", ROOT / "game/assets/fonts/OFL-Pretendard.txt"))
     parts.append(file_section("Literata (SIL Open Font License 1.1)", ROOT / "game/assets/fonts/OFL-Literata.txt"))
     parts.append(file_section("NVIDIA SimReady Assets", ROOT / "game/assets/models/feast/LICENSE.txt"))
     parts.append(file_section("KayKit", ROOT / "game/assets/models/KayKit-LICENSE.txt"))

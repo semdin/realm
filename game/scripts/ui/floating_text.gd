@@ -8,7 +8,7 @@ class_name FloatingText
 ## render scale and no fog, tonemap or glow reaches them. One canvas item draws
 ## them all from a fixed pool (MAX_POPS): no node, material or shader per
 ## number; each is shaped once (a TextLine kept with its pool slot) and then
-## only moved. The face is the distance-field Literata with tabular lining
+## only moved. The face is the distance-field game face with tabular lining
 ## figures, so a figure scales and slides smoothly and a total that grows does
 ## not jitter.
 ##

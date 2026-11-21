@@ -385,13 +385,17 @@ static func set_button_icon(button: Button, id: String, px: float = 15.0) -> voi
 ## titles, place names, world labels - is a weight of this single variable
 ## family, so the interface reads as one voice; a role differs only in weight
 ## and size. Numbers use lining figures (`lnum`) so counts and stats sit on
-## the baseline instead of dipping like old-style digits.
-## Literata: a text face drawn for reading on screens, with an optical-size
-## axis, so small interface text keeps open counters and sturdy strokes.
-const FONT_FILE := "Literata-Variable.ttf"
+## the baseline.
+## Pretendard Std (since 2026-11-21, the owner's pick over Literata after a
+## side-by-side): the clean sans the Korean MMOs he plays use, Inter-based
+## Latin with every Turkish letter, the official Hangul-free build shipped
+## unmodified (its Reserved Font Name forbids renaming a changed copy).
+## Literata stays in assets/fonts only for the numerals baked into the castle
+## clock (tools/art/clock_dial.py).
+const FONT_FILE := "PretendardStdVariable.ttf"
 
 ## Role weights on the family's `wght` axis.
-const W_BODY := 500
+const W_BODY := 400
 const W_BOLD := 700
 const W_TITLE := 700
 const W_DECO := 800

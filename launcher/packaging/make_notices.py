@@ -37,7 +37,7 @@ def main(argv: list[str]) -> int:
            "software is freely granted, provided that this notice\n"
            "is preserved.")
     sections = [
-        ("Literata (fonts, all platforms)", text(LAUNCHER / "assets/OFL-Literata.txt")),
+        ("Pretendard (fonts, all platforms)", text(LAUNCHER / "assets/OFL-Pretendard.txt")),
         ("ed25519 by Orson Peters (update signature checks, all platforms)",
          text(LAUNCHER / "vendor/ed25519/LICENSE")),
         ("libdeflate (update decompression, all platforms)", text(LAUNCHER / "vendor/libdeflate/COPYING")),
