@@ -112,11 +112,23 @@ func register(user: String, password: String) -> Dictionary:
 		"terms_version": version, "terms_accepted": true, "age_confirmed": true}), false)
 
 ## A good answer keeps the token (and the name the service spells).
-func login(user: String, password: String) -> Dictionary:
-	var res: Dictionary = await _call("/api/login", _with_protocol({"username": user, "password": password}), false)
+## `remember` asks for a saved login ("Remember my password"); `saved` logs
+## in with one instead of the password. A saved login the service refuses
+## (run out, or the password changed since) answers reason
+## "remember_refused".
+func login(user: String, password: String, remember := false, saved := "") -> Dictionary:
+	var body := {"username": user, "password": password, "remember": remember}
+	if saved != "":
+		body = {"username": user, "remember_token": saved}
+	var res: Dictionary = await _call("/api/login", _with_protocol(body), false)
 	if res.ok:
 		token = String(res.body.get("token", ""))
 		username = String(res.body.get("username", user))
+		var renewed := String(res.body.get("remember_token", ""))
+		if renewed != "" and (remember or saved != ""):
+			keep_saved_login(username, renewed)
+	elif saved != "" and String(res.reason) == "remember_refused":
+		forget_saved_login()
 		terms_required = bool(res.body.get("terms_required", false))
 		terms_version = String(res.body.get("terms_version", ""))
 		has_recovery_code = bool(res.body.get("has_recovery_code", true))
@@ -149,6 +161,8 @@ func change_password(current: String, new_password: String, playing_character :=
 		"new_password": new_password, "keep_character": playing_character}, true)
 	if res.ok:
 		token = String(res.body.get("token", token))
+		# a new password ends every saved login on the service
+		forget_saved_login()
 	return res
 
 func new_recovery_code(password: String) -> Dictionary:
@@ -158,8 +172,11 @@ func new_recovery_code(password: String) -> Dictionary:
 	return res
 
 func recover(user: String, code: String, new_password: String) -> Dictionary:
-	return await _call("/api/account/recover", {"username": user, "recovery_code": code,
+	var res: Dictionary = await _call("/api/account/recover", {"username": user, "recovery_code": code,
 		"new_password": new_password}, false)
+	if res.ok:
+		forget_saved_login()
+	return res
 
 func delete_character(character_id: int, typed_name: String) -> Dictionary:
 	return await _call("/api/characters/delete", {"character_id": character_id, "confirm_name": typed_name}, true)
@@ -171,7 +188,40 @@ func delete_account(password: String, typed_username: String) -> Dictionary:
 	if res.ok:
 		token = ""
 		username = ""
+		forget_saved_login()
 	return res
+
+## ================================================================ saved login
+
+## "Remember my password" keeps the service's signed saved login (never the
+## password) for this computer only: encrypted with a key from this
+## machine's id, so the file is no use copied elsewhere. It runs out after
+## the service's REMEMBER_DAYS, renewed by each use; a new password ends it.
+const SAVED_LOGIN_PATH := "user://saved_login.bin"
+
+static func _saved_key() -> String:
+	return ("realm-saved-login:" + OS.get_unique_id()).sha256_text()
+
+## {username, token}, or {} when there is none (or it cannot be read).
+static func saved_login() -> Dictionary:
+	if not FileAccess.file_exists(SAVED_LOGIN_PATH):
+		return {}
+	var file := FileAccess.open_encrypted_with_pass(SAVED_LOGIN_PATH, FileAccess.READ, _saved_key())
+	if file == null:
+		return {}
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	if not (parsed is Dictionary) or String(parsed.get("token", "")) == "" or String(parsed.get("username", "")) == "":
+		return {}
+	return {"username": String(parsed["username"]), "token": String(parsed["token"])}
+
+static func keep_saved_login(user: String, saved: String) -> void:
+	var file := FileAccess.open_encrypted_with_pass(SAVED_LOGIN_PATH, FileAccess.WRITE, _saved_key())
+	if file != null:
+		file.store_string(JSON.stringify({"username": user, "token": saved}))
+
+static func forget_saved_login() -> void:
+	if FileAccess.file_exists(SAVED_LOGIN_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SAVED_LOGIN_PATH))
 
 ## The language the legal documents are shown in.
 static func legal_language() -> String:

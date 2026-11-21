@@ -6341,3 +6341,12 @@ msgstr "%s sonra girişe dönülüyor"
 
 msgid "%s until you return to town"
 msgstr "%s sonra şehre dönülüyor"
+
+msgid "Remember my password"
+msgstr "Şifremi hatırla"
+
+msgid "Not your password: a secure login key that works only on this computer for 30 days. Changing your password ends it."
+msgstr "Şifren saklanmaz: yalnızca bu bilgisayarda 30 gün geçerli güvenli bir giriş anahtarı saklanır. Şifreni değiştirince geçersiz olur."
+
+msgid "Your saved login has run out. Please enter your password."
+msgstr "Kayıtlı girişinin süresi doldu. Lütfen şifreni gir."

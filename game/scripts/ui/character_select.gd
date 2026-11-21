@@ -37,8 +37,9 @@ signal play_granted(map: String, address: String, ticket: String)
 
 const MAX_CHARACTERS := 2
 const ROSTER_RETRY_SECONDS := 5.0
-const DEFAULT_CLOAK := "cloak_wool"
-const DEFAULT_WAND := "wand_ashwood"
+## What a new wizard starts with in its hand (content characters.json
+## starter: the wand, no cloak), drawn while one is being made.
+const STARTER_GEAR := [{"slot": 4, "id": "wand_ashwood", "tier": 0}]
 ## The camera's swing over (+) or under (-) the character, radians.
 const PITCH_MIN := -0.25
 const PITCH_MAX := 0.7
@@ -756,7 +757,7 @@ func _update_slot_display() -> void:
 		enter_btn.disabled = false
 		enter_btn.text = tr("ENTER WORLD")
 		delete_btn.visible = true
-		_spawn_podium_character(house, look_for(c))
+		_spawn_podium_character(house, look_for(c), c.get("gear", []))
 	else:
 		name_label.text = tr("Empty Slot")
 		house_label.text = tr("Create a new wizard")
@@ -831,7 +832,10 @@ static func look_for(c: Dictionary) -> Dictionary:
 		return pending_looks[id]
 	return LoginApi.look_of(c.get("look", []))
 
-func _spawn_podium_character(house: String, look: Dictionary) -> void:
+## The character on the dais in what it wears: `gear` is the roster's worn
+## pieces ([{slot, id, tier}], the wand and the chest piece's cloak; none
+## drawn for an empty slot).
+func _spawn_podium_character(house: String, look: Dictionary, gear: Array) -> void:
 	_clear_podium_character()
 	# the same body and the same house tint the world draws, so the character
 	# on the dais is the one the player is about to play
@@ -839,8 +843,9 @@ func _spawn_podium_character(house: String, look: Dictionary) -> void:
 	if current_body == null:
 		return
 	HeroAppearance.apply_look(current_body, look)
-	HeroAppearance.show_cloak(current_body, {"id": DEFAULT_CLOAK})
-	HeroAppearance.show_equipped_wand(current_body, {"id": DEFAULT_WAND})
+	var worn := HeroView.equipment_of_gear(gear)
+	HeroAppearance.show_cloak(current_body, worn.get("chest", {}))
+	HeroAppearance.show_equipped_wand(current_body, worn.get("main_hand", {}))
 
 func _clear_podium_character() -> void:
 	if is_instance_valid(current_body):
@@ -860,7 +865,7 @@ func open_create() -> void:
 	look_editor.set_look(Looks.default_look())
 	look_editor._show_tab("look")
 	_select_house(selected_house)
-	_spawn_podium_character(selected_house, look_editor.look)
+	_spawn_podium_character(selected_house, look_editor.look, STARTER_GEAR)
 	model_anchor.rotation.y = 0.0
 	_layout()
 	name_input.grab_focus.call_deferred()

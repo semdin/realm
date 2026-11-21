@@ -42,10 +42,10 @@ use realm_proto::control::FrameReader;
 use realm_proto::coord::Board;
 use realm_proto::persist::{
     AccountRow, CharacterSummary, DELETED_NAME, FIRST_PLAYER_CHARACTER, PersistMsg, PersistReply,
-    PersistStats, decode_msg, encode_reply, forget_board_names,
+    PersistStats, decode_msg, encode_reply, forget_board_names, roster_gear,
 };
-use realm_rules::CharacterSheet;
 use realm_rules::names::name_key;
+use realm_rules::{CharacterSheet, Item};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio_postgres::error::SqlState;
@@ -507,7 +507,8 @@ async fn characters(client: &Client, account: u64) -> Result<Vec<CharacterSummar
     let rows = client
         .query(
             "SELECT id, sheet->>'name', sheet->>'house', (sheet->>'level')::integer,
-                    sheet->'place'->>'map', COALESCE(sheet->'look', '[]'::jsonb)
+                    sheet->'place'->>'map', COALESCE(sheet->'look', '[]'::jsonb),
+                    COALESCE(sheet->'equipment', '[]'::jsonb)
              FROM characters WHERE account_id = $1 ORDER BY created_at, id",
             &[&id_of(account, "account")?],
         )
@@ -520,6 +521,11 @@ async fn characters(client: &Client, account: u64) -> Result<Vec<CharacterSummar
             let house: Option<String> = row.try_get(2).map_err(|e| text(&e))?;
             let level: Option<i32> = row.try_get(3).map_err(|e| text(&e))?;
             let Json(look): Json<Vec<(String, f32)>> = row.try_get(5).map_err(|e| text(&e))?;
+            // the worn pieces; a cell the roster cannot read only goes undrawn
+            let gear = row
+                .try_get::<_, Json<Vec<Option<Item>>>>(6)
+                .map(|Json(equipment)| roster_gear(&equipment))
+                .unwrap_or_default();
             Ok(CharacterSummary {
                 id: u64::try_from(id).map_err(|_| "character id out of range".to_owned())?,
                 name: name.unwrap_or_default(),
@@ -527,6 +533,7 @@ async fn characters(client: &Client, account: u64) -> Result<Vec<CharacterSummar
                 level: level.and_then(|l| u16::try_from(l).ok()).unwrap_or(1),
                 map: row.try_get(4).map_err(|e| text(&e))?,
                 look,
+                gear,
             })
         })
         .collect()

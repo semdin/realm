@@ -11,7 +11,7 @@
 
 use std::collections::HashSet;
 
-use realm_rules::CharacterSheet;
+use realm_rules::{CharacterSheet, Item, Slot};
 use serde::{Deserialize, Serialize};
 
 use crate::coord::Board;
@@ -65,6 +65,25 @@ pub struct CharacterSummary {
     /// None: never placed (the start map).
     pub map: Option<String>,
     pub look: Vec<(String, f32)>,
+    /// What the character select draws on it (`roster_gear`).
+    pub gear: RosterGear,
+}
+
+/// The worn pieces a roster shows on the character: the wand in its hand
+/// and the chest piece (its cloak), each (slot index in `Slot::ALL`, item
+/// id, tier).
+pub type RosterGear = Vec<(u8, String, u8)>;
+
+/// A sheet's `equipment` as the roster shows it.
+#[must_use]
+pub fn roster_gear(equipment: &[Option<Item>]) -> RosterGear {
+    [Slot::MainHand, Slot::Chest]
+        .into_iter()
+        .filter_map(|slot| {
+            let item = equipment.get(slot as usize)?.as_ref()?;
+            Some((slot as u8, item.id.clone(), item.tier))
+        })
+        .collect()
 }
 
 /// The persistence service's numbers (`PersistMsg::Stats`), for the

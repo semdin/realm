@@ -821,15 +821,16 @@ impl Sim {
         }
         for (mob, pack, pos) in chasers {
             let anchor = self.packs[pack].anchor;
-            let (leash, reach) = (self.game.packs[pack].leash, self.game.packs[pack].assist_radius);
+            let (leash, reach) = (
+                self.game.packs[pack].leash,
+                self.game.packs[pack].assist_radius,
+            );
             let next = living
                 .iter()
                 .filter(|(_, at)| {
                     planar_distance(*at, anchor) <= leash && planar_distance(*at, pos) <= reach
                 })
-                .min_by(|a, b| {
-                    planar_distance(a.1, pos).total_cmp(&planar_distance(b.1, pos))
-                })
+                .min_by(|a, b| planar_distance(a.1, pos).total_cmp(&planar_distance(b.1, pos)))
                 .map(|(e, _)| *e);
             match next {
                 Some(other) => {

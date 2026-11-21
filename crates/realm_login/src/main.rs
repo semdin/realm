@@ -60,7 +60,7 @@ use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use realm_http::{Request, read_request, respond_raw, same};
 use realm_proto::SigningKey;
 use realm_proto::persist::client::PersistClient;
-use realm_proto::persist::{PersistMsg, PersistReply};
+use realm_proto::persist::{PersistMsg, PersistReply, RosterGear, roster_gear};
 use realm_proto::ticket::Ticket;
 use realm_rules::names::{name_key, name_problem};
 use realm_rules::{CharacterSheet, Rules};
@@ -98,6 +98,9 @@ const RELEASE_TIMEOUT: Duration = Duration::from_secs(9);
 const CODE_SYMBOLS: &[u8; 32] = b"0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 
 const BAD_LOGIN: &str = "Invalid username or password.";
+const SAVED_LOGIN_GONE: &str = "Your saved login has run out. Please enter your password.";
+/// How long a saved login ("Remember my password") lasts; each use renews it.
+const REMEMBER_DAYS: u64 = 30;
 const BAD_RECOVERY: &str = "Invalid username or recovery code.";
 const BAD_PASSWORD: &str = "Your current password is not correct.";
 const TOO_MANY_LOGINS: &str = "Too many failed logins. Try again in a few minutes.";
@@ -142,6 +145,77 @@ pub struct App {
     /// Verified when a name has no account, so an unknown name takes as long
     /// as a wrong password.
     dummy_hash: String,
+    /// Signs saved logins (`remember_token`), derived from the ticket key.
+    remember_key: [u8; 32],
+}
+
+/// HMAC-SHA256 (RFC 2104) of `parts` under `key`.
+fn hmac(key: &[u8; 32], parts: &[&[u8]]) -> [u8; 32] {
+    let mut inner_pad = [0x36_u8; 64];
+    let mut outer_pad = [0x5c_u8; 64];
+    for (i, k) in key.iter().enumerate() {
+        inner_pad[i] ^= k;
+        outer_pad[i] ^= k;
+    }
+    let mut inner = Sha256::new();
+    inner.update(inner_pad);
+    for part in parts {
+        inner.update(part);
+    }
+    let mut outer = Sha256::new();
+    outer.update(outer_pad);
+    outer.update(inner.finalize());
+    outer.finalize().into()
+}
+
+/// A saved login's signature: the account, when it runs out, and the
+/// account's password hash, so a new password (a change, a recovery) ends
+/// every saved login at once.
+fn remember_mac(key: &[u8; 32], account: u64, expires: u64, hash: &str) -> [u8; 32] {
+    hmac(
+        key,
+        &[
+            b"realm-remember-v1",
+            &account.to_be_bytes(),
+            &expires.to_be_bytes(),
+            hash.as_bytes(),
+        ],
+    )
+}
+
+/// "Remember my password": what the game keeps instead of the password,
+/// `<expires unix>.<signature hex>`, good for `REMEMBER_DAYS`.
+fn remember_token(key: &[u8; 32], found: &Found, now: u64) -> String {
+    let expires = now + REMEMBER_DAYS * 86_400;
+    format!(
+        "{expires}.{}",
+        hex(&remember_mac(key, found.id, expires, &found.hash))
+    )
+}
+
+/// Whether `token` is a saved login of `found` that has not run out.
+fn remember_valid(key: &[u8; 32], found: &Found, token: &str, now: u64) -> bool {
+    let Some((expires, mac)) = token.split_once('.') else {
+        return false;
+    };
+    let Ok(expires) = expires.parse::<u64>() else {
+        return false;
+    };
+    if expires <= now || expires > now + REMEMBER_DAYS * 86_400 + 3_600 || mac.len() != 64 {
+        return false;
+    }
+    let want = hex(&remember_mac(key, found.id, expires, &found.hash));
+    // the whole signature compared, whatever the first wrong byte
+    want.bytes()
+        .zip(mac.bytes())
+        .fold(0_u8, |acc, (a, b)| acc | (a ^ b))
+        == 0
+}
+
+fn unix_now() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs())
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -524,6 +598,10 @@ async fn login(app: &App, who: Caller, body: &Value) -> Reply {
     let password = text(body, "password");
     // Too long to be anyone's: it simply will not match.
     let password = if password.len() > 256 { "" } else { password }.to_owned();
+    // A saved login ("Remember my password") stands in for the password.
+    let saved = text(body, "remember_token");
+    let saved = if saved.len() > 128 { "" } else { saved }.to_owned();
+    let now = unix_now();
     {
         let mut s = app.state.lock().await;
         if !s.guard.request_allowed(who) || s.guard.blocked(Secret::Login, who, &name) {
@@ -538,12 +616,18 @@ async fn login(app: &App, who: Caller, body: &Value) -> Reply {
             Err(e) => return store_down("login", &e),
         }
     };
-    let hash = found
-        .as_ref()
-        .map_or_else(|| app.dummy_hash.clone(), |f| f.hash.clone());
-    let right = match app.verified(hash, password).await {
-        Ok(right) => right,
-        Err(refused) => return refused,
+    let right = if saved.is_empty() {
+        let hash = found
+            .as_ref()
+            .map_or_else(|| app.dummy_hash.clone(), |f| f.hash.clone());
+        match app.verified(hash, password).await {
+            Ok(right) => right,
+            Err(refused) => return refused,
+        }
+    } else {
+        found
+            .as_ref()
+            .is_some_and(|f| remember_valid(&app.remember_key, f, &saved, now))
     };
     let Some(found) = found.filter(|_| right) else {
         app.state
@@ -551,8 +635,19 @@ async fn login(app: &App, who: Caller, body: &Value) -> Reply {
             .await
             .guard
             .failed(Secret::Login, who, &name);
+        if !saved.is_empty() {
+            // the game forgets it and asks for the password
+            return coded(401, "remember_refused", SAVED_LOGIN_GONE);
+        }
         return error(401, BAD_LOGIN);
     };
+    // a saved login asked for, or renewed by its use
+    let remember =
+        if !saved.is_empty() || body.get("remember").and_then(Value::as_bool) == Some(true) {
+            remember_token(&app.remember_key, &found, now)
+        } else {
+            String::new()
+        };
     if let Some(refused) = banned(app, found.id).await {
         return refused;
     }
@@ -578,6 +673,8 @@ async fn login(app: &App, who: Caller, body: &Value) -> Reply {
             "terms_required": !terms_ok,
             "terms_version": legal::VERSION,
             "has_recovery_code": found.recovery_hash.is_some(),
+            "remember_token": remember,
+            "remember_days": REMEMBER_DAYS,
         }),
     )
 }
@@ -824,10 +921,19 @@ async fn list_persist(client: &PersistClient, start_map: &str, account: u64) -> 
                 "level": c.level,
                 "map": c.map.unwrap_or_else(|| start_map.to_owned()),
                 "look": look,
+                "gear": gear_json(&c.gear),
             })
         })
         .collect();
     (200, json!({"success": true, "characters": characters}))
+}
+
+/// A roster entry's worn pieces as the client reads them (a player info's
+/// `gear`: [{slot, id, tier}]).
+fn gear_json(gear: &RosterGear) -> Vec<Value> {
+    gear.iter()
+        .map(|(slot, id, tier)| json!({"slot": slot, "id": id, "tier": tier}))
+        .collect()
 }
 
 /// A new character's name, house and look as asked for.
@@ -952,6 +1058,7 @@ fn list(state: &State, account: u64) -> Reply {
                 "level": sheet.level,
                 "map": map,
                 "look": look,
+                "gear": gear_json(&roster_gear(&sheet.equipment)),
             })
         })
         .collect();
@@ -1458,6 +1565,12 @@ async fn main() -> AnyResult<()> {
         }),
         gate: HashGate::new(),
         dummy_hash,
+        remember_key: {
+            let mut derive = Sha256::new();
+            derive.update(b"realm-remember-key-v1:");
+            derive.update(secret);
+            derive.finalize().into()
+        },
     });
     let listener = TcpListener::bind(o.bind).await?;
     let slots = Arc::new(Semaphore::new(MAX_CONNECTIONS));

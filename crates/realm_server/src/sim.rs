@@ -1651,8 +1651,11 @@ impl Sim {
                 // The dead still consume their inputs (without effect), so the
                 // client's sequence and acknowledgements keep moving, and so
                 // does their tick label: the rise's hold starts from it.
-                if let Some((newest, label)) =
-                    player.pending.iter().next_back().map(|(&seq, f)| (seq, f.tick))
+                if let Some((newest, label)) = player
+                    .pending
+                    .iter()
+                    .next_back()
+                    .map(|(&seq, f)| (seq, f.tick))
                 {
                     player.last_seq = newest;
                     player.last_input_tick = label.clamp(

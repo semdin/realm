@@ -15,8 +15,10 @@ class_name LoginScreen
 ## straight in; an older account that has not accepted the current terms is
 ## asked first. "Forgot your password?" takes a recovery code. The service's
 ## status decides the notice on the card (maintenance, the realm unreachable,
-## this game too old). Only the username is remembered (PREFS_PATH), never the
-## password; the token stays in memory (LoginApi).
+## this game too old). The username is remembered (PREFS_PATH) and, with
+## "Remember my password", the service's signed saved login (LoginApi
+## saved_login, never the password itself); the session token stays in
+## memory (LoginApi).
 
 signal signed_in
 signal settings_requested
@@ -49,6 +51,13 @@ var confirm_input: LineEdit
 var confirm_block: Control
 var reveal_btn: Button
 var remember_check: CheckBox
+var remember_pass_check: CheckBox
+## The password field stands for a saved login (SAVED_FILL in it): Enter
+## logs in with it; typing replaces it with a real password.
+var _using_saved := false
+var _saved_user := ""
+var _saved_token := ""
+const SAVED_FILL := "••••••••••"
 var consent: AccountDialogs.ConsentBoxes
 var forgot_btn: Button
 var reader: AccountDialogs.Reader
@@ -255,20 +264,23 @@ func _build_card() -> Control:
 	confirm_block = _field(tr("PASSWORD (AGAIN)"), confirm_input)
 	v.add_child(confirm_block)
 
-	remember_check = CheckBox.new()
+	remember_check = _check(tr("Remember my username"))
 	remember_check.name = "RememberCheck"
-	remember_check.text = tr("Remember my username")
 	remember_check.button_pressed = true
-	remember_check.focus_mode = Control.FOCUS_NONE
-	remember_check.add_theme_font_size_override("font_size", 14)
-	remember_check.add_theme_color_override("font_color", UITheme.c("text_dim"))
-	remember_check.add_theme_color_override("font_hover_color", UITheme.c("text"))
-	remember_check.add_theme_color_override("font_pressed_color", UITheme.c("text"))
-	remember_check.add_theme_color_override("font_hover_pressed_color", UITheme.c("text"))
-	# The theme gives every Button-derived control a plate; a checkbox wants none.
-	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
-		remember_check.add_theme_stylebox_override(state, StyleBoxEmpty.new())
 	v.add_child(remember_check)
+	remember_pass_check = _check(tr("Remember my password"))
+	remember_pass_check.name = "RememberPassCheck"
+	remember_pass_check.tooltip_text = tr("Not your password: a secure login key that works only on this computer for 30 days. Changing your password ends it.")
+	v.add_child(remember_pass_check)
+	# the password is remembered with its username; no username, no password
+	remember_pass_check.toggled.connect(func(on: bool):
+		if on:
+			remember_check.button_pressed = true
+		elif _using_saved:
+			_forget_saved())
+	remember_check.toggled.connect(func(on: bool):
+		if not on:
+			remember_pass_check.button_pressed = false)
 
 	consent = AccountDialogs.ConsentBoxes.new()
 	consent.name = "Consent"
@@ -297,6 +309,11 @@ func _build_card() -> Control:
 	forgot_btn.pressed.connect(func(): recover_dialog.start(username_input.text.strip_edges()))
 	v.add_child(forgot_btn)
 
+	password_input.text_changed.connect(_on_password_typed)
+	username_input.text_changed.connect(func(_t: String):
+		# another account: the saved login is not its
+		if _using_saved and username_input.text.strip_edges() != _saved_user:
+			_leave_saved(""))
 	username_input.text_submitted.connect(func(_t: String): password_input.grab_focus())
 	password_input.text_submitted.connect(func(_t: String):
 		if register_mode:
@@ -305,6 +322,20 @@ func _build_card() -> Control:
 			_on_submit())
 	confirm_input.text_submitted.connect(func(_t: String): _on_submit())
 	return card
+
+func _check(text: String) -> CheckBox:
+	var check := CheckBox.new()
+	check.text = text
+	check.focus_mode = Control.FOCUS_NONE
+	check.add_theme_font_size_override("font_size", 14)
+	check.add_theme_color_override("font_color", UITheme.c("text_dim"))
+	check.add_theme_color_override("font_hover_color", UITheme.c("text"))
+	check.add_theme_color_override("font_pressed_color", UITheme.c("text"))
+	check.add_theme_color_override("font_hover_pressed_color", UITheme.c("text"))
+	# The theme gives every Button-derived control a plate; a checkbox wants none.
+	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
+		check.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+	return check
 
 func _field(caption: String, input: Control) -> Control:
 	var box := VBoxContainer.new()
@@ -512,11 +543,41 @@ func _set_mode(p_register: bool) -> void:
 	confirm_block.visible = register_mode
 	consent.visible = register_mode
 	remember_check.visible = not register_mode
+	remember_pass_check.visible = not register_mode
 	forgot_btn.visible = not register_mode
 	submit_btn.text = tr("CREATE ACCOUNT") if register_mode else tr("ENTER GAME")
 	password_input.placeholder_text = tr("8+ characters, letters and digits") if register_mode else tr("Your password")
 	confirm_input.text = ""
 	set_status("")
+
+## The saved login stands in the password field (dots, Enter logs in).
+func _show_saved() -> void:
+	_using_saved = true
+	password_input.text = SAVED_FILL
+	password_input.select_all_on_focus = true
+	reveal_btn.visible = false
+	remember_pass_check.set_pressed_no_signal(true)
+
+## The field becomes a real password field again; `typed` is what the
+## player has typed into it so far.
+func _leave_saved(typed: String) -> void:
+	_using_saved = false
+	password_input.select_all_on_focus = false
+	password_input.text = typed
+	password_input.caret_column = typed.length()
+	reveal_btn.visible = true
+
+func _forget_saved() -> void:
+	_leave_saved("")
+	_saved_token = ""
+	_saved_user = ""
+	if keep_prefs:
+		LoginApi.forget_saved_login()
+
+func _on_password_typed(text: String) -> void:
+	if _using_saved:
+		# typing over the dots: only what was typed is kept
+		_leave_saved(text.replace("•", ""))
 
 func _toggle_reveal() -> void:
 	password_input.secret = not password_input.secret
@@ -694,6 +755,9 @@ func _on_submit() -> void:
 		return
 	var user := username_input.text.strip_edges()
 	var pass_w := password_input.text
+	if _using_saved and not register_mode and user == _saved_user:
+		_do_login(user, "", _saved_token)
+		return
 	if user.is_empty() or pass_w.is_empty():
 		set_status(tr("Please enter your username and password."), "error")
 		(username_input if user.is_empty() else password_input).grab_focus()
@@ -745,14 +809,21 @@ func _do_register(user: String, pass_w: String) -> void:
 	# Straight in: nobody wants to type the password they just chose twice more.
 	_do_login(user, pass_w)
 
-func _do_login(user: String, pass_w: String) -> void:
+func _do_login(user: String, pass_w: String, saved := "") -> void:
 	_set_busy(true, tr("Logging in…"))
-	var res: Dictionary = await api.login(user, pass_w)
+	var remember := remember_pass_check.button_pressed and keep_prefs
+	var res: Dictionary = await api.login(user, pass_w, remember, saved)
 	if not is_inside_tree():
 		return
 	_set_busy(false)
 	if not res.ok:
-		if res.update_required:
+		if String(res.reason) == "remember_refused":
+			# run out, or the password was changed: the password is needed
+			_forget_saved()
+			remember_pass_check.button_pressed = true
+			set_status(tr("Your saved login has run out. Please enter your password."), "warn")
+			password_input.grab_focus()
+		elif res.update_required:
 			show_update_notice()
 			set_status("")
 		elif res.maintenance:
@@ -765,7 +836,10 @@ func _do_login(user: String, pass_w: String) -> void:
 		return
 	_save_prefs(user)
 	set_status("")
-	password_input.text = ""
+	if saved == "" and not remember and keep_prefs:
+		# logged in with the password and not asked to keep it
+		LoginApi.forget_saved_login()
+	_leave_saved("")
 	if LoginApi.terms_required:
 		consent_dialog.open()
 		return
@@ -785,8 +859,9 @@ func _on_recovered(new_code: String, user: String) -> void:
 
 ## ================================================================ prefs
 
-## Only the username is remembered - never the password.
+## The username, and with it a saved login (never the password).
 func _load_prefs() -> void:
+	_load_saved()
 	if not FileAccess.file_exists(PREFS_PATH):
 		return
 	var file := FileAccess.open(PREFS_PATH, FileAccess.READ)
@@ -799,6 +874,21 @@ func _load_prefs() -> void:
 	remember_check.button_pressed = remember
 	if remember and str(parsed.get("username", "")) != "":
 		username_input.text = str(parsed["username"])
+	if _using_saved:
+		# the saved login names its own account
+		username_input.text = _saved_user
+		remember_check.set_pressed_no_signal(true)
+
+func _load_saved() -> void:
+	if not keep_prefs:
+		return
+	var saved := LoginApi.saved_login()
+	if saved.is_empty():
+		return
+	_saved_user = String(saved["username"])
+	_saved_token = String(saved["token"])
+	username_input.text = _saved_user
+	_show_saved()
 
 func _save_prefs(user: String) -> void:
 	if not keep_prefs:
