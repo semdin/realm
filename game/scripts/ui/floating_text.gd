@@ -402,6 +402,9 @@ func _add(style: int, value: int, text: String, key: int, at: Vector3, body: Nod
 	_shape(pop, text)
 	var joins := value > 0 and float(data["merge"]) > 0.0 \
 		and _live.any(func(other: Pop) -> bool: return other.key == key and other.style == style)
+	# the lane chosen below is what _base keeps on screen; a slot's old one
+	# must not count while choosing
+	pop.lane = Vector2.ZERO
 	pop.lane = _lane(cam, pop, at, girth, side, plate, CLEAR_STEPS if joins else CLEAR_STEPS + DEEP_STEPS)
 	if _crowded and joins and _join(style, key, value):
 		pop.body = null
@@ -614,7 +617,9 @@ func _drift(pop: Pop, lane: Vector2, t: float) -> Vector2:
 ## head out of view, or a body under the bars, keeps its figures in sight.
 func _base(pop: Pop, raw: Vector2, canvas: Vector2) -> Vector2:
 	var floor_y := canvas.y - (UITheme.DECK_BOTTOM + UITheme.DECK_H + 12.0)
-	var low := HUD_TOP + HUD_FADE + pop.rise * _unit
+	# low enough that the whole rise (from its row over the anchor) ends under
+	# the HUD's band: a figure set high on a tall body faded out at once
+	var low := HUD_TOP + HUD_FADE + (pop.rise + DRIFT * pop.life) * _unit - minf(pop.lane.y, 0.0)
 	raw.y = clampf(raw.y, low, maxf(floor_y - HUD_FADE, low))
 	return raw
 

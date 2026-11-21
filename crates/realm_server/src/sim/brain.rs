@@ -1154,7 +1154,32 @@ impl Sim {
                 .map(|(e, name)| (self.net_id_of(*e), name.clone()))
                 .collect(),
             part_of: m.part_of.map_or(0, |b| self.net_id_of(b)),
+            max_hp: m.max_hp.round().max(1.0) as u32,
         })
+    }
+
+    /// `mob`'s info again to the players near it (its whole health changed).
+    pub(super) fn refresh_creature_info(&mut self, mob: Entity) {
+        let id = self.net_id_of(mob);
+        let Some(at) = self.world.get::<Mob>(mob).map(|m| m.pos) else {
+            return;
+        };
+        let Some(msg) = self.creature_info(id) else {
+            return;
+        };
+        let conns: Vec<super::ConnId> = self
+            .clients
+            .iter()
+            .filter(|(_, c)| {
+                self.world
+                    .get::<Player>(c.entity)
+                    .is_some_and(|p| planar_distance(p.body.pos, at) <= super::INTEREST_RADIUS)
+            })
+            .map(|(conn, _)| *conn)
+            .collect();
+        for conn in conns {
+            self.send_control(conn, &msg);
+        }
     }
 
     /// A Dark Shard under attack calls a wave each time its health drops past

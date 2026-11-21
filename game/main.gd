@@ -1913,6 +1913,9 @@ func _show_target_card(i: int) -> void:
 		look["bar"] = card[1]
 		look["icon"] = card[2]
 	_target_kind = kind
+	# the creature's whole health (the server's answer to Inspect): the card
+	# shows health in points next to the share
+	look["max_hp"] = int(info.get("max_hp", 0))
 	hud.set_target(target, title, (others["hp"] as PackedInt32Array)[i], look)
 
 ## A creature's name as the player reads it: its own (a boss's) or its
@@ -2150,6 +2153,8 @@ func _take_creature_info() -> void:
 			continue
 		infos[id] = info
 		check_infos += 1
+		if id == target and _creature_index(id) >= 0:
+			_show_target_card(_creature_index(id))
 		var beast: Node = beasts.get(id)
 		if beast != null:
 			beast.apply_info(info)
@@ -2305,7 +2310,7 @@ func _chest_distance(id: int) -> float:
 	return Vector2(chest.position.x - me.x, chest.position.z - me.z).length()
 
 ## A right click on the world: a chest under the cursor opens, another
-## player gets the player menu.
+## player gets the player menu, a creature becomes the target.
 func right_click_world(at: Vector2) -> void:
 	var hit := pick_at(at)
 	if hit.is_empty():
@@ -2315,6 +2320,8 @@ func right_click_world(at: Vector2) -> void:
 		open_chest_window(entity)
 	elif heroes.has(entity):
 		open_player_menu(entity, at)
+	elif entity != 0 and _creature_index(entity) >= 0:
+		select_target(entity)
 
 ## The player menu on player `id` at screen point `at`: within
 ## HudPlayerMenu.RANGE of the player's body (the range that keeps it open),

@@ -20,11 +20,28 @@ const HOTSPOTS := {
 	IBEAM: Vector2(18, 18),
 	ROTATE: Vector2(18, 18),
 }
-## The shapes the game draws itself, and the pointer each one normally shows.
+## The shapes the game draws itself, and the pointer each one normally shows:
+## every shape a control or a drag can ask for, so the system's pointer never
+## shows (a dragged item asks for can-drop / forbidden / drag, a window's
+## title bar for move, a splitter for a resize arrow).
 const SHAPES := {
 	Input.CURSOR_ARROW: ARROW,
 	Input.CURSOR_POINTING_HAND: HAND,
 	Input.CURSOR_IBEAM: IBEAM,
+	Input.CURSOR_DRAG: HAND,
+	Input.CURSOR_CAN_DROP: HAND,
+	Input.CURSOR_FORBIDDEN: ARROW,
+	Input.CURSOR_MOVE: HAND,
+	Input.CURSOR_CROSS: ARROW,
+	Input.CURSOR_WAIT: ARROW,
+	Input.CURSOR_BUSY: ARROW,
+	Input.CURSOR_HELP: ARROW,
+	Input.CURSOR_VSIZE: ARROW,
+	Input.CURSOR_HSIZE: ARROW,
+	Input.CURSOR_BDIAGSIZE: ARROW,
+	Input.CURSOR_FDIAGSIZE: ARROW,
+	Input.CURSOR_VSPLIT: ARROW,
+	Input.CURSOR_HSPLIT: ARROW,
 }
 
 static var _rotating := false

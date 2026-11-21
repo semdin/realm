@@ -420,6 +420,7 @@ func set_target(id: int, title := "", hp := 255, look := {}) -> void:
 		target_ga.size = mark
 	target_rank.text = I18n.upper(String(look.get("rank", tr("Creature"))))
 	target_rank.add_theme_color_override("font_color", tint.darkened(0.12))
+	_target_max_hp = int(look.get("max_hp", 0))
 	var level := int(look.get("level", 0))
 	target_level.text = (tr("Lv. %d") % level) if level > 0 else ""
 	_target_flow.set_colour(bar)
@@ -441,10 +442,19 @@ func on_hit(event: Dictionary) -> void:
 		_hit_hold_until = Time.get_ticks_msec() / 1000.0 + HIT_HOLD_SECONDS
 		_show_target_health(int(event.get("hp", 0)))
 
+## The target's whole health in points (0: not known, the share alone).
+var _target_max_hp := 0
+
 func _show_target_health(hp: int) -> void:
 	_target_stat.set_value(hp, 255)
 	var pct := 100.0 * float(hp) / 255.0
-	target_hp_text.text = tr("%s%%") % (I18n.num(pct) if pct < 10.0 and pct > 0.0 else str(roundi(pct)))
+	var share := tr("%s%%") % (I18n.num(pct) if pct < 10.0 and pct > 0.0 else str(roundi(pct)))
+	if _target_max_hp > 0:
+		# the snapshot's byte to points: whole at 255, never 0 while alive
+		var points := _target_max_hp if hp >= 255 else maxi(1 if hp > 0 else 0, roundi(_target_max_hp * hp / 255.0))
+		target_hp_text.text = "%s / %s  ·  %s" % [I18n.whole(points), I18n.whole(_target_max_hp), share]
+	else:
+		target_hp_text.text = share
 
 ## ------------------------------------------------------------------ update
 

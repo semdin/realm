@@ -23,6 +23,10 @@ const CHEST := 1.15
 ## A body's nameplate stands this much over its head_height (where the view
 ## has one); damage numbers on any body but the player's stand over the plate.
 const PLATE_OVER_HEAD := 0.45
+## A body whose plate stands higher than this (metres) is tall: its numbers
+## stand over the middle of it, at this share of the plate's height.
+const TALL_PLATE := 3.2
+const TALL_SHARE := 0.62
 ## The local player's numbers stand at the chest (the nameplate holds the space
 ## over the head): blows on the camera's right, healing on its left.
 const OWN_NUMBER_HEIGHT := 1.3
@@ -321,11 +325,14 @@ func _number(event: Dictionary) -> void:
 	var body := _body(target)
 	var own := target == own_id
 	# the player's own wounds beside it; every other body's over its nameplate
-	# (a number set beside a far body, under its plate, landed by the player)
-	var height := OWN_NUMBER_HEIGHT if own else _plate_of(body)
+	# (a number set beside a far body, under its plate, landed by the player),
+	# but a tall one's (a troll, a boss) at its upper body: over its plate the
+	# figure started near the top of the screen and rose into the HUD's band
+	var tall := not own and _plate_of(body) > TALL_PLATE
+	var height := OWN_NUMBER_HEIGHT if own else (_plate_of(body) * TALL_SHARE if tall else _plate_of(body))
 	var at := feet + Vector3.UP * height
 	var girth := HERO_GIRTH if own else _girth_of(body)
-	var plate := _plate_of(body) - height if own else -FloatingText.PLATE_AT
+	var plate := _plate_of(body) - height if own or tall else -FloatingText.PLATE_AT
 	var side := 1 if own else FloatingText.OVER
 	# a blow shrugged off (walking home) or blocked shows no word: no figure
 	if (flags & FLAG_EVADE) != 0:

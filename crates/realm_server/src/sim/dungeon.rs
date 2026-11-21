@@ -1964,12 +1964,18 @@ impl Sim {
             speed *= a.num("enrage", "speed", 1.15);
         }
         let (entity, base_hp) = (m.entity, m.base_hp);
+        let mut grew = false;
         if let Some(mut x) = self.world.get_mut::<Mob>(entity) {
             let share = if x.max_hp > 0.0 { x.hp / x.max_hp } else { 1.0 };
-            x.max_hp = base_hp * hp_mult;
+            let max_hp = base_hp * hp_mult;
+            grew = (max_hp - x.max_hp).abs() >= 0.5;
+            x.max_hp = max_hp;
             x.hp = x.max_hp * share;
             x.attack_power = attack;
             x.move_speed = speed;
+        }
+        if grew {
+            self.refresh_creature_info(entity);
         }
     }
 

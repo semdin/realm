@@ -217,6 +217,8 @@ func _build_inventory() -> void:
 	_merchant_button.focus_mode = Control.FOCUS_NONE
 	_merchant_button.tooltip_text = tr("Open the merchant to sell items")
 	_merchant_button.toggled.connect(func(on: bool): _set_merchant_open(on))
+	# a bag item dropped on the button opens the merchant with it to sell
+	_merchant_button.set_drag_forwarding(Callable(), _merchant_can_drop, _merchant_button_drop)
 	footer.add_child(_merchant_button)
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -908,6 +910,15 @@ func _merchant_can_drop(_at: Vector2, payload: Variant) -> bool:
 
 func _merchant_drop(_at: Vector2, payload: Variant) -> void:
 	if _merchant_can_drop(_at, payload): _offer(payload)
+
+## A bag item dropped on the footer's Merchant button: the merchant opens with
+## it on his counter.
+func _merchant_button_drop(at: Vector2, payload: Variant) -> void:
+	if not _merchant_can_drop(at, payload):
+		return
+	if not _merchant.visible:
+		_set_merchant_open(true)
+	_offer(payload)
 
 func _offer(entry: Dictionary) -> void:
 	var held := _bag_entry(entry)

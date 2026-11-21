@@ -1482,6 +1482,7 @@ impl RealmSession {
                 boss,
                 parts,
                 part_of,
+                max_hp,
             } = msg
             {
                 let mut d = VarDictionary::new();
@@ -1500,6 +1501,7 @@ impl RealmSession {
                 }
                 d.set("parts", &list.to_variant());
                 d.set("part_of", &i64::from(part_of).to_variant());
+                d.set("max_hp", &i64::from(max_hp).to_variant());
                 out.push(&d.to_variant());
             }
         }

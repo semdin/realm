@@ -119,6 +119,10 @@ pub enum ServerMsg {
         parts: Vec<(u32, String)>,
         /// A part: the boss it belongs to (0: none).
         part_of: u32,
+        /// Its whole health now (the target card shows health in points:
+        /// the snapshot's byte is a share of this). Sent again when it
+        /// changes (a dungeon curse's bolster).
+        max_hp: u32,
     },
     /// What a kill or a quest paid this player: experience, oril, items
     /// (from a chest or a quest), the levels it gained, house reputation.
