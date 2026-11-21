@@ -2,21 +2,28 @@ extends CanvasLayer
 class_name MapLoadingScreen
 
 ## The loading screen of a map transfer (the castle door, a hearth to another
-## map, a Waylink): the dark frame, the realm's emblem, the gold bar, a tip and
-## the turning rune, so stepping through a door looks like part of the game
-## rather than a black flash, and the bar says what is happening: leaving the
-## old map, joining the new one, building it.
+## map, a Waylink): the painting of the map ahead (assets/ui/loading/<map>.jpg,
+## drifting slowly closer) with the realm's emblem in its corner, the gold bar,
+## a tip and the turning rune, so stepping through a door looks like part of
+## the game rather than a black flash, and the bar says what is happening:
+## leaving the old map, joining the new one, building it. A map without a
+## painting gets the emblem large over the dark.
 ##
 ## A trip to another map rebuilds the whole scene (main.gd reloads it for the
 ## new map's session), so the one screen lives on the scene tree's root, not
 ## in the scene: `shared()` finds it (or makes it) and it stays up across the
 ## reload until the new scene has joined and drawn its map.
 ##
-##   await MapLoadingScreen.shared(tree).open("KAF CASTLE", "Entering Kaf Castle...")
+##   await MapLoadingScreen.shared(tree).open("KAF CASTLE", "Entering Kaf Castle...", "castle_interior")
 ##   MapLoadingScreen.shared(tree).set_progress(40.0, "Waiting for the server…")
 ##   await MapLoadingScreen.shared(tree).close()
 
 const ART := "res://assets/branding/thousand_realms_logo.png"
+## Each map's painting (Seedream 5.5 from the map's own look, 2560x1440).
+const MAP_ART := "res://assets/ui/loading/%s.jpg"
+## The painting drifts this much closer over DRIFT_SECONDS while the screen is up.
+const DRIFT := 0.04
+const DRIFT_SECONDS := 20.0
 const FADE := 0.25
 ## Never flash: once shown, the screen stays at least this long.
 const MIN_SHOW := 0.8
@@ -37,6 +44,10 @@ const TIPS := [
 const STUCK_SECONDS := 60.0
 
 var _root: Control
+var _scene: TextureRect   # the map's painting
+var _logo: TextureRect
+var _shade: ShadeRect
+var _scene_from := 0      # ticks when the painting came up (its drift)
 var _stuck_row: Control
 var _progress_at := 0
 var _title: Label
@@ -52,6 +63,8 @@ var closed_count := 0
 var last_title := ""
 var last_status := ""
 var last_notice := ""
+## The map whose painting is up ("" for none).
+var last_art := ""
 
 ## The one loading screen, on the root of `tree` (it outlives a scene reload).
 static func shared(tree: SceneTree) -> MapLoadingScreen:
@@ -75,22 +88,25 @@ func _ready() -> void:
 	black.color = Color(0.01, 0.012, 0.02)
 	black.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.add_child(black)
+	_scene = TextureRect.new()
+	_scene.name = "MapArt"
+	_scene.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_scene.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	_scene.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_scene.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scene.visible = false
+	_root.add_child(_scene)
+	_shade = ShadeRect.new()
+	_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_root.add_child(_shade)
 	if ResourceLoader.exists(ART):
-		var art := TextureRect.new()
-		art.texture = load(ART)
-		art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		art.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-		art.offset_left = -260
-		art.offset_right = 260
-		art.offset_top = -300
-		art.offset_bottom = 60
-		art.modulate = Color(0.82, 0.8, 0.86)
-		art.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_root.add_child(art)
-	var shade := ShadeRect.new()
-	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_root.add_child(shade)
+		_logo = TextureRect.new()
+		_logo.texture = load(ART)
+		_logo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		_logo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		_logo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_root.add_child(_logo)
+		_place_logo(false)
 	_title = HudKit.label("", 52, HudKit.GOLD_HI, HudKit.deco(), 10)
 	_title.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
 	_title.offset_left = -560
@@ -174,7 +190,9 @@ func is_covering() -> bool:
 	return is_open() and _root.modulate.a >= 1.0 and _fading >= 0.0
 
 ## Show the screen (fades in; awaitable). The world behind keeps running.
-func open(title: String, status: String) -> void:
+## `map_id` picks the painting of the map ahead.
+func open(title: String, status: String, map_id := "") -> void:
+	_show_art(map_id)
 	_title.text = title
 	_status.text = status
 	last_title = title
@@ -227,12 +245,65 @@ func dismiss() -> void:
 	_fading = 0.0
 	_root.modulate.a = 0.0
 	_root.visible = false
+	_drop_art()
 	closed_count += 1
+
+## The painting of `map_id` behind everything, or none (the emblem large over
+## the dark). Loaded when the screen opens, let go when it is gone: one
+## 2560x1440 picture held only while it shows.
+func _show_art(map_id: String) -> void:
+	if map_id == last_art and (map_id == "" or _scene.texture != null):
+		return
+	var path := MAP_ART % map_id
+	var art: Texture2D = null
+	if map_id != "" and ResourceLoader.exists(path):
+		art = load(path) as Texture2D
+	_scene.texture = art
+	_scene.visible = art != null
+	_scene.scale = Vector2.ONE
+	_scene_from = Time.get_ticks_msec()
+	last_art = map_id if art != null else ""
+	_shade.art = art != null
+	_shade.queue_redraw()
+	_place_logo(art != null)
+
+func _drop_art() -> void:
+	_scene.texture = null
+	_scene.visible = false
+	last_art = ""
+	_shade.art = false
+	_shade.queue_redraw()
+	_place_logo(false)
+
+## Over a painting the emblem sits small in the top-left corner; alone it
+## stands large above the title.
+func _place_logo(corner: bool) -> void:
+	if _logo == null:
+		return
+	if corner:
+		_logo.set_anchors_preset(Control.PRESET_TOP_LEFT)
+		_logo.offset_left = 44
+		_logo.offset_top = 30
+		_logo.offset_right = 44 + 250
+		_logo.offset_bottom = 30 + 107
+		_logo.modulate = Color(1, 1, 1, 0.94)
+	else:
+		_logo.set_anchors_preset(Control.PRESET_CENTER)
+		_logo.offset_left = -260
+		_logo.offset_right = 260
+		_logo.offset_top = -300
+		_logo.offset_bottom = 60
+		_logo.modulate = Color(0.82, 0.8, 0.86)
 
 func _process(delta: float) -> void:
 	if _root == null or not _root.visible:
 		return
 	_bar.value = lerpf(_bar.value, _target, minf(1.0, delta * 8.0))
+	if _scene.visible:
+		# a slow push-in, easing out
+		var t := clampf((Time.get_ticks_msec() - _scene_from) / (DRIFT_SECONDS * 1000.0), 0.0, 1.0)
+		_scene.pivot_offset = _scene.size * 0.5
+		_scene.scale = Vector2.ONE * (1.0 + DRIFT * (1.0 - (1.0 - t) * (1.0 - t)))
 	if not _stuck_row.visible and _fading >= 0.0 and Time.get_ticks_msec() - _progress_at > int(STUCK_SECONDS * 1000.0):
 		_stuck_row.visible = true
 	if _fading != 0.0:
@@ -242,17 +313,25 @@ func _process(delta: float) -> void:
 		elif _fading < 0.0 and _root.modulate.a <= 0.0:
 			_fading = 0.0
 			_root.visible = false
+			_drop_art()
 
-## The lower half darkens toward the bar and the tip.
+## The lower half darkens toward the bar and the tip; over a painting the
+## top edge darkens too, under the emblem.
 class ShadeRect extends Control:
+	var art := false
 	func _init() -> void:
 		mouse_filter = Control.MOUSE_FILTER_IGNORE
 	func _draw() -> void:
-		var top := Color(0, 0, 0, 0.0)
-		var bottom := Color(0.0, 0.0, 0.02, 0.88)
-		var y0 := size.y * 0.45
+		var clear := Color(0, 0, 0, 0.0)
+		var bottom := Color(0.0, 0.0, 0.02, 0.92 if art else 0.88)
+		var y0 := size.y * (0.4 if art else 0.45)
 		draw_polygon(PackedVector2Array([Vector2(0, y0), Vector2(size.x, y0), Vector2(size.x, size.y), Vector2(0, size.y)]),
-			PackedColorArray([top, top, bottom, bottom]))
+			PackedColorArray([clear, clear, bottom, bottom]))
+		if art:
+			var top := Color(0.0, 0.0, 0.02, 0.55)
+			var y1 := size.y * 0.24
+			draw_polygon(PackedVector2Array([Vector2(0, 0), Vector2(size.x, 0), Vector2(size.x, y1), Vector2(0, y1)]),
+				PackedColorArray([top, top, clear, clear]))
 
 ## The turning rune in the corner.
 class Spinner extends Control:

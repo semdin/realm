@@ -119,7 +119,7 @@ func begin_arrival() -> void:
 	arrived_by_trip = true
 	var screen := MapLoadingScreen.shared(get_tree())
 	if not screen.is_open():
-		screen.open(_loading_title(map_name), _loading_text(map_name))
+		screen.open(_loading_title(map_name), _loading_text(map_name), map_name)
 	screen.set_progress(35.0, tr("Waiting for the server…"))
 	RealmGuard.set_phase("joining %s" % map_name)
 	if ShaderWarmup.wanted():
@@ -429,7 +429,7 @@ func _leave(to_map: String) -> void:
 	waylink_window.close()
 	game.dungeon.gate_window.close()
 	var screen := MapLoadingScreen.shared(get_tree())
-	await screen.open(_loading_title(to_map), _loading_text(to_map))
+	await screen.open(_loading_title(to_map), _loading_text(to_map), to_map)
 	screen.set_progress(10.0, tr("Leaving %s…") % _place_name(map_name))
 
 ## The new map's ticket came: the scene is rebuilt for it (main.gd joins with

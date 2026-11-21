@@ -140,7 +140,7 @@ func _enter_world(map: String, address: String, ticket: String) -> void:
 	join_retries = 0
 	entering_world.emit(map)
 	var screen := MapLoadingScreen.shared(get_tree())
-	await screen.open(I18n.upper(TravelData.display_name(map)), tr("Entering the realm…"))
+	await screen.open(I18n.upper(TravelData.display_name(map)), tr("Entering the realm…"), map)
 	screen.set_progress(20.0, tr("Entering the realm…"))
 	get_tree().reload_current_scene()
 
