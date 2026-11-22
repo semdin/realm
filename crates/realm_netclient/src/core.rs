@@ -8,6 +8,7 @@
 //! bit; a reconciliation that changes anything is a real disagreement (a
 //! server-side effect such as a knock-back or a respawn), and is counted.
 
+use std::cell::Cell;
 use std::collections::VecDeque;
 
 use realm_proto::{EntitySet, EntityState, InputBatch, InputFrame, Snapshot};
@@ -24,6 +25,17 @@ const KEEP_SNAPSHOTS: usize = 40;
 /// Remote entities are drawn this many ticks behind the newest snapshot
 /// (two snapshot intervals at 15 Hz plus margin).
 pub const INTERPOLATION_TICKS: f64 = 5.0;
+/// The clock remote entities are drawn at never jumps: it runs at up to this
+/// much faster or slower than real time to reach (server tick -
+/// INTERPOLATION_TICKS), per tick it is off by (`CATCH_UP_GAIN`). A late
+/// burst of snapshots (a network delay spike) then plays as a short
+/// fast-forward instead of every creature leaping metres in one frame, and
+/// a stall in their arrival as a short slow-down at the newest snapshot.
+const CATCH_UP_GAIN: f64 = 0.05;
+const MIN_RATE: f64 = 0.75;
+const MAX_RATE: f64 = 1.3;
+/// Further off than this (a stall of seconds, the first snapshots) it jumps.
+const SNAP_TICKS: f64 = 24.0;
 
 struct Predicted {
     seq: u32,
@@ -57,7 +69,7 @@ pub struct RemoteEntity {
     pub state: u8,
     pub hp: u8,
     /// STATUS_* bits.
-    pub status: u8,
+    pub status: u16,
 }
 
 pub struct ClientCore {
@@ -83,6 +95,8 @@ pub struct ClientCore {
     confirmed: u32,
     /// Server tick estimate as `local_ticks + offset` (see `server_tick_at`).
     clock_offset: Option<f64>,
+    /// (render tick, local_ticks it was taken at): see `render_tick`.
+    render_clock: Cell<Option<(f64, f64)>>,
     own_hp: u8,
     /// Health, maximum health, mana, maximum mana from the newest snapshot.
     own_vitals: [u32; 4],
@@ -92,7 +106,7 @@ pub struct ClientCore {
     /// The newest snapshot's holds on the body (stunned, thrown, webbed),
     /// and its STATUS_* bits.
     restraint: Restraint,
-    own_status: u8,
+    own_status: u16,
     /// The newest snapshot's death/respawn count.
     life: Option<u8>,
     pub stats: ClientStats,
@@ -120,6 +134,7 @@ impl ClientCore {
             acked: 0,
             confirmed: 0,
             clock_offset: None,
+            render_clock: Cell::new(None),
             own_hp: 255,
             own_vitals: [0; 4],
             dead: false,
@@ -179,7 +194,7 @@ impl ClientCore {
 
     /// STATUS_* bits on the player's own body.
     #[must_use]
-    pub fn own_status(&self) -> u8 {
+    pub fn own_status(&self) -> u16 {
         self.own_status
     }
 
@@ -447,14 +462,39 @@ impl ClientCore {
         self.clock_offset.map(|o| local_ticks + o)
     }
 
+    /// The tick remote entities are drawn at, `local_ticks`: (server tick -
+    /// INTERPOLATION_TICKS) reached smoothly (see `CATCH_UP_GAIN`), never past
+    /// the newest snapshot (nothing is guessed beyond it).
+    #[must_use]
+    pub fn render_tick(&self, local_ticks: f64) -> Option<f64> {
+        let target = self.server_tick_at(local_ticks)? - INTERPOLATION_TICKS;
+        let newest = f64::from(self.snapshots.back()?.0);
+        let render = match self.render_clock.get() {
+            Some((r, at)) if local_ticks >= at && (target - r).abs() < SNAP_TICKS => {
+                // Real time passes; the gap to the target closes by a share
+                // of itself per tick, never faster or slower than the rate
+                // limits allow and never past the target.
+                let dt = local_ticks - at;
+                let ahead = r + dt;
+                let gap = target - ahead;
+                let step = (gap * CATCH_UP_GAIN * dt)
+                    .clamp((MIN_RATE - 1.0) * dt, (MAX_RATE - 1.0) * dt);
+                ahead + if step.abs() > gap.abs() { gap } else { step }
+            }
+            _ => target,
+        }
+        .min(newest);
+        self.render_clock.set(Some((render, local_ticks)));
+        Some(render)
+    }
+
     /// Every remote entity drawn at `local_ticks`: interpolated between the
-    /// two snapshots around (server tick - INTERPOLATION_TICKS).
+    /// two snapshots around `render_tick`.
     #[must_use]
     pub fn remote_entities(&self, local_ticks: f64) -> Vec<RemoteEntity> {
-        let Some(now) = self.server_tick_at(local_ticks) else {
+        let Some(render) = self.render_tick(local_ticks) else {
             return Vec::new();
         };
-        let render = now - INTERPOLATION_TICKS;
         let Some(newest) = self.snapshots.back() else {
             return Vec::new();
         };

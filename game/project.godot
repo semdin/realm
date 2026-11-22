@@ -49,6 +49,12 @@ textures/vram_compression/import_etc2_astc=true
 ; icons sparkle. Linear with mipmaps reads the level nearest the drawn size;
 ; textures without mipmaps (glyphs, map sheets drawn larger) are unaffected.
 textures/canvas_textures/default_texture_filter=2
+; Godot saves the pipeline cache on a worker thread each time it grows by this
+; much, while other threads still create pipelines into it; Intel's Vulkan
+; driver (igvk64.dll 32.0.101.8991) crashed in vkGetPipelineCacheData doing so
+; during a map's shader warm-up (2026-11-22, Karaağ entry, 0xC0000005). The
+; cache now grows in memory and is written once at quit, when nothing compiles.
+rendering_device/pipeline_cache/save_chunk_size_mb=100000.0
 
 [editor_plugins]
 
