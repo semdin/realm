@@ -41,6 +41,10 @@ const CHEST_TICKS: u32 = 90 * SIM_HZ;
 const CHEST_REACH: f32 = 7.0;
 /// Expired chests are cleared this often.
 const CHEST_SWEEP_TICKS: u32 = SIM_HZ;
+/// Chests never stand in one another (one would hide the other and take
+/// its clicks): a new kill chest lands at least this far (m, flat) from any
+/// other, and a dungeon's own chest moves kill chests off its spot.
+const CHEST_SPACING: f32 = 1.4;
 
 /// A kill's leftovers.
 #[derive(Component)]
@@ -220,9 +224,40 @@ impl Sim {
         }
     }
 
+    /// Where chests stand now (flat positions).
+    fn chest_spots(&mut self) -> Vec<(Entity, Vec3, u64)> {
+        let mut q = self.world.query::<(Entity, &Chest)>();
+        q.iter(&self.world)
+            .map(|(e, c)| (e, c.pos, c.owner))
+            .collect()
+    }
+
+    /// `at`, or the first spot round it (CHEST_SPACING out) with no chest
+    /// within CHEST_SPACING.
+    fn free_chest_spot(&mut self, at: Vec3) -> Vec3 {
+        let spots = self.chest_spots();
+        let clear = |p: Vec3| {
+            spots
+                .iter()
+                .all(|(_, c, _)| planar_distance(*c, p) >= CHEST_SPACING)
+        };
+        if clear(at) {
+            return at;
+        }
+        let start = (xorshift(&mut self.dice_state) % 628) as f32 / 100.0;
+        (0..8)
+            .map(|k| {
+                let a = start + k as f32 * core::f32::consts::FRAC_PI_4;
+                at + Vec3::new(libm::cosf(a), 0.0, libm::sinf(a)) * CHEST_SPACING
+            })
+            .find(|p| clear(*p))
+            .unwrap_or(at)
+    }
+
     /// A chest of `items` at `at` (rare when one carries bonuses).
     pub(super) fn drop_chest(&mut self, at: Vec3, items: Vec<Item>) {
         let tick = self.tick;
+        let at = self.free_chest_spot(at);
         let rare = items.iter().any(|i| !i.bonuses.is_empty());
         let chest = self
             .world
@@ -242,6 +277,21 @@ impl Sim {
     /// as long as the copy may (five minutes).
     pub(super) fn drop_owned_chest(&mut self, at: Vec3, items: Vec<Item>, owner: u64) {
         let tick = self.tick;
+        // It stands where its dungeon puts it: a kill chest on that spot (the
+        // boss's, fallen there) steps aside.
+        for (entity, pos, chest_owner) in self.chest_spots() {
+            let flat = Vec3::new(pos.x - at.x, 0.0, pos.z - at.z);
+            if chest_owner == 0 && flat.length() < CHEST_SPACING {
+                let away = if flat.length_squared() > 1.0e-4 {
+                    flat.normalize()
+                } else {
+                    Vec3::X
+                };
+                if let Some(mut c) = self.world.get_mut::<Chest>(entity) {
+                    c.pos = Vec3::new(at.x, pos.y, at.z) + away * CHEST_SPACING;
+                }
+            }
+        }
         let rare = items.iter().any(|i| !i.bonuses.is_empty());
         let chest = self
             .world
