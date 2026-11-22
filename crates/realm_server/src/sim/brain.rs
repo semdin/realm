@@ -21,7 +21,7 @@ use realm_proto::control::CombatEvent;
 use realm_rules::creatures::{
     AGGRO_SCAN_MS, AbilityDef, BOLT_REACH, BOSS_TARGET_LOCK_MS, ENRAGE_ATTACK, ENRAGE_COOLDOWN,
     ENRAGE_SPEED, HOME_RADIUS, LEAD_REACH, LEASH_HOT_MS, LEASH_HOT_SCALE, MELEE_LUNGE, MELEE_SLACK,
-    RETURN_REGEN_SHARE, RING_PACE, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
+    RETURN_REGEN_SHARE, RING_PACE, Riders, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
 };
 use realm_sim::nav::{NavQuery, NavScratch, OBSTACLE_CLEARANCE};
 use realm_sim::world::World as Terrain;
@@ -59,6 +59,14 @@ const WANDER_REST_MS: (u32, u32) = (2000, 5000);
 const WANDER_RANGE: (f32, f32) = (2.5, 6.0);
 const WANDER_PACE: f32 = 0.3;
 const WANDER_GIVE_UP_MS: u32 = 7000;
+/// A caster between its bolts steps to a new spot round its target: this far
+/// round (radians, either way), at its pace times STRAFE_PACE, at most once
+/// in STRAFE_MS (from, to) after it last set off.
+const STRAFE_TURN: (f32, f32) = (0.45, 1.1);
+const STRAFE_PACE: f32 = 0.85;
+const STRAFE_MS: (u32, u32) = (900, 2200);
+/// Nearest a strafing caster stands to its target (m).
+const STRAFE_NEAR: f32 = 7.0;
 /// A creature off a ledge falls at most this far to the ground (m).
 const FALL_REACH: f32 = 80.0;
 /// A creature's body when it looks for walls on a straight walk: its
@@ -91,6 +99,10 @@ pub(super) struct PackState {
     pub waves_done: usize,
     /// A world boss: "it comes soon" was said for this respawn.
     pub announced: bool,
+    /// A Dark Shard: no reinforcements before this tick, and how many it
+    /// called this life (each one's turn through its `reinforce` list).
+    pub reinforce_at: u32,
+    pub reinforced: u32,
 }
 
 /// An attack between its first windup tick and the end of its recovery.
@@ -121,6 +133,9 @@ pub(super) struct Mind {
     pub rush_ready: u32,
     /// It keeps its target until then, whoever else hits it.
     pub locked_until: u32,
+    /// A caster's next spot round its target, and when it may pick another.
+    pub strafe: Option<Vec3>,
+    pub strafe_ready: u32,
 }
 
 /// A caster's bolt in flight: straight, flat damage.
@@ -419,7 +434,13 @@ impl Sim {
             }
             let brain = &species.brain;
             let rage = mob.enraged;
-            let move_speed = mob.move_speed * if rage { ENRAGE_SPEED } else { 1.0 };
+            // Bound where it stands (its own web thrown back): it still
+            // strikes, it does not walk.
+            let move_speed = if mob.status.rooted(tick) {
+                0.0
+            } else {
+                mob.move_speed * if rage { ENRAGE_SPEED } else { 1.0 }
+            };
             let attack_range = mob.attack_range;
             let boss = pack.boss_setup.as_ref().filter(|_| mob.boss);
             let boss_def = boss.and_then(|b| rules.mobs.bosses.get(&b.key));
@@ -664,6 +685,7 @@ impl Sim {
                         brain.windup_ms > 0 || !brain.abilities.is_empty() || boss.is_some();
                     // A target out of reach draws a thrown ability.
                     if can_act && mob.attack_cd <= 0.0 && dist > attack_range {
+                        let elite = mob.elite;
                         let throw = brain.abilities.iter().chain(extras).copied().find(|&i| {
                             rules.mobs.ability(i).is_some_and(|ab| match ab.trigger {
                                 Trigger::Thrown {
@@ -673,10 +695,25 @@ impl Sim {
                                 } => {
                                     dist >= min_range
                                         && dist <= max_range
+                                        && (elite || !ab.elite_only)
                                         && mob.thrown_ready(i) <= tick
                                 }
                                 _ => false,
                             })
+                        });
+                        // Not every chance is taken: a missed one comes
+                        // round again after a third of its cooldown.
+                        let throw = throw.filter(|&i| {
+                            let Some(ab) = rules.mobs.ability(i) else {
+                                return false;
+                            };
+                            if ab.chance >= 1.0 || unit(&mut mob.rng) < ab.chance {
+                                return true;
+                            }
+                            if let Trigger::Thrown { cooldown_ms, .. } = ab.trigger {
+                                mob.set_thrown_ready(i, tick + ticks(cooldown_ms / 3));
+                            }
+                            false
                         });
                         if let Some(i) = throw
                             && clear(eye, chest)
@@ -767,12 +804,18 @@ impl Sim {
                     }
                     if can_act && in_reach && ring.is_none() && mob.attack_cd <= 0.0 {
                         mob.attacks_made += 1;
-                        // Every Nth attack is one of the species' abilities.
+                        // Every Nth attack may be one of the species' abilities
+                        // (an elite's own ones too), each on its own odds.
+                        let elite = mob.elite;
+                        let made = mob.attacks_made;
                         let every = brain.abilities.iter().copied().find(|&i| {
                             rules.mobs.ability(i).is_some_and(|ab| {
-                                matches!(ab.trigger, Trigger::Every(n) if mob.attacks_made.is_multiple_of(n))
+                                matches!(ab.trigger, Trigger::Every(n) if made.is_multiple_of(n))
+                                    && (elite || !ab.elite_only)
+                                    && (ab.chance >= 1.0 || unit(&mut mob.rng) < ab.chance)
                             })
                         });
+                        mob.mind.strafe = None;
                         mob.yaw = yaw_of(flat_dir(mob.pos, tpos));
                         if let Some(ab) = every.and_then(|i| rules.mobs.ability(i)) {
                             let aim = lead_aim(terrain, tpos, tvel, ab.lead_ms);
@@ -806,6 +849,41 @@ impl Sim {
                         tuning.separation_radius,
                         tuning.separation_weight,
                     );
+                    // A caster does not stand still between its bolts: it
+                    // shifts round its target to a new spot it can see it
+                    // from.
+                    if ranged
+                        && in_reach
+                        && ring.is_none()
+                        && mob.mind.strafe.is_none()
+                        && tick >= mob.mind.strafe_ready
+                    {
+                        let wait = STRAFE_MS.0
+                            + (unit(&mut mob.rng) * (STRAFE_MS.1 - STRAFE_MS.0) as f32) as u32;
+                        mob.mind.strafe_ready = tick + ticks(wait);
+                        let side = if unit(&mut mob.rng) < 0.5 { -1.0 } else { 1.0 };
+                        let turn = side
+                            * (STRAFE_TURN.0
+                                + unit(&mut mob.rng) * (STRAFE_TURN.1 - STRAFE_TURN.0));
+                        let away = flat_dir(tpos, mob.pos);
+                        let (sin, cos) = (libm::sinf(turn), libm::cosf(turn));
+                        let round = Vec3::new(
+                            away.x * cos - away.z * sin,
+                            0.0,
+                            away.x * sin + away.z * cos,
+                        );
+                        let far = (dist + (unit(&mut mob.rng) - 0.5) * 4.0)
+                            .clamp(STRAFE_NEAR, BOLT_REACH - 1.5);
+                        let spot = tpos + round * far;
+                        mob.mind.strafe = terrain
+                            .ray_down(Vec3::new(spot.x, mob.pos.y + 1.5, spot.z), 4.0)
+                            .map(|g| g.point)
+                            .filter(|to| walk.nav.on_ground(terrain, *to))
+                            .filter(|to| !terrain.in_obstacle(*to, OBSTACLE_CLEARANCE))
+                            .filter(|to| terrain.walk_clear(mob.pos, *to, BODY_RADIUS, CLIMB))
+                            .filter(|to| clear(*to + Vec3::new(0.0, CHEST, 0.0), chest));
+                    }
+                    let strafe = mob.mind.strafe.filter(|_| ranged && ring.is_none());
                     let moved = match ring {
                         Some(spot) => walk.step(
                             &mut mob,
@@ -815,6 +893,21 @@ impl Sim {
                             tick,
                             push,
                         ),
+                        None if strafe.is_some() => {
+                            let to = strafe.unwrap_or(tpos);
+                            let going = walk.step(
+                                &mut mob,
+                                to,
+                                move_speed * STRAFE_PACE * pace,
+                                0.4,
+                                tick,
+                                push,
+                            );
+                            if !going {
+                                mob.mind.strafe = None;
+                            }
+                            going
+                        }
                         None if in_reach => false,
                         None => {
                             let stop = if ranged { 0.3 } else { attack_range * 0.8 };
@@ -1312,26 +1405,34 @@ impl Sim {
         };
         // The stone's waves are the next pack (game.rs puts them there).
         let waves = pack + 1;
+        let tick = self.tick;
+        // Struck again and again, it calls more than its waves.
+        if let Some(r) = t.reinforce.as_ref().filter(|r| !r.mobs.is_empty())
+            && self.packs[pack].reinforce_at <= tick
+        {
+            let first = self.packs[pack].reinforce_at == 0;
+            self.packs[pack].reinforce_at = tick + (r.every_ms * realm_sim::SIM_HZ).div_ceil(1000);
+            // The first blow only starts the clock.
+            if !first {
+                let room = r.cap.saturating_sub(self.packs[waves].alive);
+                for _ in 0..r.count.min(room) {
+                    let k = self.packs[pack].reinforced as usize % r.mobs.len();
+                    self.packs[pack].reinforced += 1;
+                    let (species, level) = &r.mobs[k];
+                    let at = self.round_stone(pos, t.spawn_distance);
+                    self.summon(waves, species, *level, at, attacker, false);
+                }
+            }
+        }
         while self.packs[pack].waves_done < t.waves.len()
             && share <= t.waves[self.packs[pack].waves_done].ratio
         {
             let wave = &t.waves[self.packs[pack].waves_done];
             self.packs[pack].waves_done += 1;
-            for (species, count, level) in &wave.spawns {
-                for _ in 0..*count {
-                    let a = unit(&mut self.dice_state) * core::f32::consts::TAU;
-                    let (lo, hi) = t.spawn_distance;
-                    let r = lo + unit(&mut self.dice_state) * (hi - lo).max(0.0);
-                    // On the ground (not on a roof, in a trunk or a
-                    // spire): step round the stone.
-                    let at = (0..8)
-                        .find_map(|k| {
-                            let a = a + 0.4 * k as f32;
-                            let (x, z) = (pos.x + libm::cosf(a) * r, pos.z + libm::sinf(a) * r);
-                            self.nav.creature_spot(&self.terrain, x, z)
-                        })
-                        .unwrap_or(pos);
-                    self.summon(waves, species, *level, at, attacker);
+            for (species, count, level, elites) in &wave.spawns {
+                for k in 0..*count {
+                    let at = self.round_stone(pos, t.spawn_distance);
+                    self.summon(waves, species, *level, at, attacker, k < *elites);
                 }
             }
             let (wave, of) = (self.packs[pack].waves_done as u32, t.waves.len() as u32);
@@ -1345,13 +1446,43 @@ impl Sim {
         }
     }
 
-    /// A creature of `species` at `level` comes into the summons pack at
-    /// `at` and turns on `target`.
-    fn summon(&mut self, pack: usize, species: &str, level: u32, at: Vec3, target: Entity) {
+    /// A spot on the ground round a stone at `pos`, `spread` (from, to)
+    /// metres out (not on a roof, in a trunk or a spire); the stone's own
+    /// spot when none is.
+    fn round_stone(&mut self, pos: Vec3, spread: (f32, f32)) -> Vec3 {
+        let a = unit(&mut self.dice_state) * core::f32::consts::TAU;
+        let (lo, hi) = spread;
+        let r = lo + unit(&mut self.dice_state) * (hi - lo).max(0.0);
+        (0..8)
+            .find_map(|k| {
+                let a = a + 0.4 * k as f32;
+                let (x, z) = (pos.x + libm::cosf(a) * r, pos.z + libm::sinf(a) * r);
+                self.nav.creature_spot(&self.terrain, x, z)
+            })
+            .unwrap_or(pos)
+    }
+
+    /// A creature of `species` at `level` (an elite when `elite`) comes into
+    /// the summons pack at `at` and turns on `target`.
+    fn summon(
+        &mut self,
+        pack: usize,
+        species: &str,
+        level: u32,
+        at: Vec3,
+        target: Entity,
+        elite: bool,
+    ) {
         let Some(index) = self.game.species.iter().position(|s| s.id == species) else {
             return;
         };
         let (hp, power) = self.game.stats_at(index, level);
+        let mods = self.game.rules.mobs.elite;
+        let (hp, power) = if elite {
+            (hp * mods.hp_mult, power * mods.attack_mult)
+        } else {
+            (hp, power)
+        };
         let sp = &self.game.species[index];
         let mob = Mob {
             pack,
@@ -1365,11 +1496,11 @@ impl Sim {
             attack_power: power,
             attack_range: sp.attack_range,
             move_speed: sp.move_speed,
-            elite: false,
+            elite,
             boss: false,
             enraged: false,
             mind: Mind::default(),
-            exp_reward: self.game.rules.progress.creature_exp(species, level, false),
+            exp_reward: self.game.rules.progress.creature_exp(species, level, elite),
             credit: Vec::new(),
             mode: MobMode::Chase(target),
             attack_cd: 0.0,
@@ -1696,6 +1827,8 @@ impl Sim {
         state.respawn_at = None;
         state.waves_done = 0;
         state.announced = false;
+        state.reinforce_at = 0;
+        state.reinforced = 0;
         // A Dark Shard back on its feet clears the waves left idle.
         if matches!(kind, PackKind::Stone(_)) {
             let waves = pack + 1;
@@ -1831,6 +1964,11 @@ impl Sim {
         }
         let mut drained = 0.0;
         for victim in victims {
+            // A ward raised just in time throws the blow back.
+            if self.perfect_ward(victim) {
+                self.throw_back(victim, mob, damage, &ability.riders);
+                continue;
+            }
             let dealt = self.hit_player(victim, mob, damage, name, level);
             if dealt > 0 {
                 let from = match ability.shape {
@@ -1883,6 +2021,11 @@ impl Sim {
         self.mob_bolts = bolts;
         let rules = self.rules();
         for (player, owner, damage, spell, level) in hits {
+            // A ward raised just in time sends the bolt back at its caster.
+            if self.perfect_ward(player) {
+                self.throw_back(player, owner, damage, &Riders::default());
+                continue;
+            }
             let name = rules
                 .combat
                 .spell_order

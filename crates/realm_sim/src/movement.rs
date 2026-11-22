@@ -113,12 +113,21 @@ pub struct Restraint {
     pub ride_until: u32,
     /// The broom's speed, centimetres per second.
     pub ride_speed: u16,
+    /// Bound where it stands (a creature's web or hex): no steering, no
+    /// jump; unlike a lock, the player still casts.
+    pub root_from: u32,
+    pub root_until: u32,
 }
 
 impl Restraint {
     #[must_use]
     pub fn locked(&self, tick: u32) -> bool {
         self.lock_from <= tick && tick < self.lock_until
+    }
+
+    #[must_use]
+    pub fn rooted(&self, tick: u32) -> bool {
+        self.root_from <= tick && tick < self.root_until
     }
 
     #[must_use]
@@ -154,6 +163,9 @@ impl Restraint {
         if self.web_until <= now {
             (self.web_from, self.web_until, self.web_pct) = (0, 0, 0);
         }
+        if self.root_until <= now {
+            (self.root_from, self.root_until) = (0, 0);
+        }
         if self.ride_until <= now {
             (self.ride_from, self.ride_until, self.ride_speed) = (0, 0, 0);
         }
@@ -166,6 +178,15 @@ impl Restraint {
             self.lock_from = now;
         }
         self.lock_until = self.lock_until.max(until);
+    }
+
+    /// Roots from `now` (or keeps an earlier start of a root still running)
+    /// until at least `until`.
+    pub fn root(&mut self, now: u32, until: u32) {
+        if self.root_until <= now {
+            self.root_from = now;
+        }
+        self.root_until = self.root_until.max(until);
     }
 
     /// Slows to `pct` percent from `now` until at least `until` (a running
@@ -184,7 +205,7 @@ impl Restraint {
     #[must_use]
     pub fn params(&self, base: &MoveParams, tick: u32) -> MoveParams {
         let mut p = *base;
-        if self.locked(tick) {
+        if self.locked(tick) || self.rooted(tick) {
             p.can_steer = false;
             p.can_jump = false;
         }

@@ -21,6 +21,9 @@ class_name StatusFX
 ##   poison   a faint green sheen, green vapour rising, bubbles
 ##   knocked  dust where the throw starts and where it lands
 ##   weak     (disarmed) only its name
+##   rooted   bound where it stands: strands of silk wound round its legs
+##            and waist over a torn milky film (web_bind.gdshader), pale
+##            flecks drifting off it; the silk tears away when the hold ends
 ##
 ## No words over the body: the look says it, and the player's own effects
 ## and the target's stand as icons in the HUD (HudBuffBar). Bodies call
@@ -44,6 +47,12 @@ const STATUS_BURN := 16
 const STATUS_POISON := 32
 const STATUS_KNOCKED := 64
 const STATUS_WEAK := 128
+const STATUS_ROOTED := 256
+## The silk a rooted body is bound in, how see-through it is, and how much of
+## the body's height it covers.
+const WEB_SHADER := preload("res://assets/shaders/web_bind.gdshader")
+const WEB_COVER := 0.55
+const WEB_WIND := 0.18
 
 const GLOW_TEX := "res://assets/vfx/tex/soft_glow_512.png"
 const FLAME_ATLAS := "res://assets/vfx/atlases/flame_loop_8x8_1k.png"
@@ -74,7 +83,7 @@ const SLOW_PACE := 0.55
 const MAX_SPLATS := 5
 
 const BITS := [STATUS_STUN, STATUS_FREEZE, STATUS_SLOW, STATUS_BLEED, STATUS_BURN,
-	STATUS_POISON, STATUS_KNOCKED, STATUS_WEAK]
+	STATUS_POISON, STATUS_KNOCKED, STATUS_WEAK, STATUS_ROOTED]
 
 
 static var _materials: Dictionary = {}
@@ -240,6 +249,8 @@ func _begin(bit: int) -> void:
 				_make_mist(Color(0.45, 0.75, 0.3, 0.12), 0.3, 3, 0.55)])
 		STATUS_KNOCKED:
 			_dust(1.0)
+		STATUS_ROOTED:
+			_parts[bit] = _make_web()
 
 func _end(bit: int) -> void:
 	for parts in [_parts, _world_parts]:
@@ -264,6 +275,10 @@ func _end(bit: int) -> void:
 		STATUS_KNOCKED:
 			if is_inside_tree() and not _is_dead():
 				_dust(1.35)
+		STATUS_ROOTED:
+			if is_inside_tree() and not _is_dead():
+				var size := Vector2(minf(_radius * 1.4, 1.2), minf(_bounds.size.y * WEB_COVER, 1.1) * 0.6)
+				SilkBurst.play(body.get_parent(), body.global_position + Vector3.UP * 0.05, size, Color(0, 0, 0, 0))
 
 func _is_dead() -> bool:
 	return body.get("is_dead") == true
@@ -329,6 +344,40 @@ func _refresh_pace() -> void:
 # ------------------------------------------------------------------ the looks
 
 ## Several looks under one node, freed together with their status.
+## Bound where it stands: silk wound round the lower body (web_bind.gdshader
+## on an open tube, wider at the feet), winding on over WEB_WIND seconds,
+## and a few flecks of silk drifting off it.
+func _make_web() -> Node3D:
+	var holder := Node3D.new()
+	holder.name = "Web"
+	add_child(holder)
+	var height := clampf(_bounds.size.y * WEB_COVER, 0.45, 2.4)
+	var wide := _bounds.size.y < _radius * 1.6
+	var tube := CylinderMesh.new()
+	tube.top_radius = _radius * (1.15 if wide else 0.78)
+	tube.bottom_radius = _radius * (1.35 if wide else 1.05)
+	tube.height = height
+	tube.cap_top = false
+	tube.cap_bottom = false
+	tube.radial_segments = 20
+	tube.rings = 3
+	var mesh := MeshInstance3D.new()
+	mesh.name = "Silk"
+	mesh.mesh = tube
+	mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mesh.material_override = _material("web")
+	mesh.position = Vector3(0.0, height * 0.5 - 0.03, 0.0)
+	mesh.set_instance_shader_parameter("wound", 0.0)
+	holder.add_child(mesh)
+	var wind := holder.create_tween()
+	wind.tween_method(func(v: float) -> void: mesh.set_instance_shader_parameter("wound", v), 0.0, 1.0, WEB_WIND)
+	var flecks := RisingMotes.make(_radius * 0.9, 1.6, Color(0.92, 0.9, 0.96, 0.8), 8, 1.4,
+		Vector2(0.15, 0.5), Vector2(0.01, 0.025), false)
+	flecks.position = Vector3(0, height * 0.6, 0)
+	holder.add_child(flecks)
+	flecks.emitting = true
+	return holder
+
 func _holder(holder_name: String, parts: Array) -> Node3D:
 	var holder := Node3D.new()
 	holder.name = holder_name
@@ -674,6 +723,12 @@ static func _material(kind: String) -> Material:
 		skin.set_shader_parameter("reach", 0.85)
 		_materials[kind] = skin
 		return skin
+	if kind == "web":
+		var web := ShaderMaterial.new()
+		web.shader = WEB_SHADER
+		web.set_shader_parameter("noise_tex", SpellEffect.asset(NOISE_TEX))
+		_materials[kind] = web
+		return web
 	if kind == "dizzy":
 		# the stun's comets: white-hot heads cooling to pale gold, then amber
 		var dizzy := ShaderMaterial.new()

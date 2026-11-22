@@ -1,21 +1,31 @@
 extends Node3D
 class_name StoneView
 
-## A Dark Shard (or a Webbound Seal Stone) as the server reports it: a
-## carved standing stone (creature_views.json `stone_<type>`) whose emerald
-## runes and cracks are painted into its albedo, breathing in its own green
-## light, motes drifting up off it and a light column over it, its name, level
-## and health over its head. It never moves or attacks.
+## A Dark Shard (or a Webbound Seal Stone, a Venomcap or Broodclutch Stone) as
+## the server reports it: its body (creature_views.json `stone_<type>`: a
+## carved standing stone whose runes are painted into its albedo, or a scene
+## composed from the caverns' own art) breathing in its own light, its name,
+## level and health over its head. It never moves or attacks.
+##
+## Its light rises off it into the sky so it can be found from afar: a soft
+## shaft of its glow standing on its crown (stone_beam.gdshader: the erosion
+## cloud climbing through a haze, ragged at its sides, thinning with height,
+## never thinner on screen than a few pixels), and embers lifting off its
+## crown into the shaft and off the ground round its foot (RisingMotes). The
+## embers and the light are for the near eye only: they rest past MOTE_RANGE
+## and LIGHT_FADE.
 ##
 ##   a blow      the stone flashes and the label counts down (on_hit)
-##   a wave      its light flares and a ring of its glow runs over the ground
-##               as the creatures it calls come up around it (on_wave)
-##   shattered   the replicated death: it bursts into shards (MonolithShatter)
-##               and is gone
+##   a wave      its light flares, the shaft surges higher and a ring of its
+##               glow runs over the ground as the creatures it calls come up
+##               around it (on_wave)
+##   shattered   the replicated death: it bursts (MonolithShatter, or with
+##               creature_views `burst` "silk" the silk splitting open with
+##               its `fluid`, SilkBurst) and is gone
 ##   back        the same entity alive again on a new spot: it falls out of
 ##               the sky (FALL_HEIGHT over FALL_TIME) with a tail of its glow,
-##               lands with a shockwave and dust and shakes the camera of a
-##               player within SHAKE_RANGE
+##               lands with a shockwave and dust, its shaft surging up out of
+##               it, and shakes the camera of a player within SHAKE_RANGE
 ##
 ## The health shown is exact: the hits it is seen to take, kept inside what
 ## the snapshot's hp byte allows. Presentation only.
@@ -27,9 +37,21 @@ const FALL_TIME := 0.85
 const FALL_DELAY := 0.25
 const SHAKE_RANGE := 45.0
 const SHAKE_STRENGTH := 0.6
-const MOTE_TEX := "res://assets/vfx/spark_01.png"
 const BEAM_SHADER := preload("res://assets/shaders/stone_beam.gdshader")
+const BEAM_NOISE := "res://assets/vfx/tex/noise_erosion_512.png"
 const LANDING_SOUND := "spell_shockwave_impact"
+## The embers rest farther than this from the camera (m; they are specks by
+## then), and the stone's light fades out over LIGHT_FADE (begin, length).
+const MOTE_RANGE := 55.0
+const LIGHT_FADE := Vector2(40.0, 15.0)
+## How often the camera's distance is read for that (s).
+const RANGE_PERIOD := 0.3
+## The shaft's surge on a wave and on landing, and how fast it settles (/s).
+const WAVE_SURGE := 1.5
+const LAND_SURGE := 1.2
+const SURGE_DECAY := 0.55
+## The shafts' quads (and materials) by look: stones of one kind share one.
+static var _beams: Dictionary = {}
 ## A hit's hp byte stands this long before the (older) snapshot byte may
 ## correct the count again.
 const HIT_HOLD_SECONDS := 0.5
@@ -62,9 +84,14 @@ var shake := Callable()
 
 var model: Node3D
 var _light: OmniLight3D
+var _shaft: MeshInstance3D
+var _motes: Array[GPUParticles3D] = []
 var _label_height := 0.0
 var _body_height := 7.0
 var _burst := 0.0
+var _surge := 0.0
+var _range_in := 0.0
+var _motes_on := true
 var _seen := false
 var _hit_hold_until := 0.0
 var _fall: Tween
@@ -101,72 +128,83 @@ func setup(kind: int) -> bool:
 	visible = false
 	return true
 
-## The breathing light, the motes and the light column (eyes only).
+## The breathing light, the embers and the shaft of light (eyes only).
 func _build_glow() -> void:
 	_light = OmniLight3D.new()
 	_light.light_color = glow
 	_light.light_energy = 2.2
 	_light.omni_range = 11.0
+	_light.shadow_enabled = false
+	_light.distance_fade_enabled = true
+	_light.distance_fade_begin = LIGHT_FADE.x
+	_light.distance_fade_length = LIGHT_FADE.y
 	_light.position = Vector3(0, float(view.get("light_height", 3.0)), body_radius + 0.1)
 	add_child(_light)
-	var motes := CPUParticles3D.new()
-	motes.name = "AuraParticles"
-	motes.position.y = _body_height * 0.36
-	motes.amount = 28
-	motes.lifetime = 2.4
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.18, 0.18)
-	var mote := StandardMaterial3D.new()
-	mote.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mote.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mote.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	mote.vertex_color_use_as_albedo = true
-	mote.albedo_color = glow
-	mote.billboard_mode = BaseMaterial3D.BILLBOARD_PARTICLES
-	if ResourceLoader.exists(MOTE_TEX):
-		mote.albedo_texture = load(MOTE_TEX)
-	quad.material = mote
-	motes.mesh = quad
-	motes.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-	motes.emission_box_extents = Vector3(body_radius * 0.87, _body_height * 0.34, body_radius * 0.67)
-	motes.direction = Vector3.UP
-	motes.spread = 25.0
-	motes.gravity = Vector3(0, 0.6, 0)
-	motes.initial_velocity_min = 0.2
-	motes.initial_velocity_max = 0.6
-	motes.scale_amount_min = 0.5
-	motes.scale_amount_max = 1.4
-	var ramp := Gradient.new()
-	ramp.offsets = PackedFloat32Array([0.0, 0.2, 1.0])
-	ramp.colors = PackedColorArray([Color(glow, 0.0), Color(glow, 0.8), Color(glow.darkened(0.4), 0.0)])
-	motes.color_ramp = ramp
-	add_child(motes)
-	var radius := float(view.get("beam_radius", 2.2))
-	var beam := _column(float(view.get("beam_height", 160.0)), radius, radius * 0.35, 0.4)
-	beam.name = "SkyBeam"
-	beam.position.y += 5.5
-	add_child(beam)
+	var share := clampf(float(QualityPreset.value("particle_scale", 1.0)), 0.25, 1.0)
+	var crown := _body_height * 0.8
+	# off the crown, up into the shaft
+	var rising := RisingMotes.make(body_radius * 0.45, 4.0, glow, maxi(4, int(round(18.0 * share))), 4.5,
+		Vector2(1.0, 2.8), Vector2(0.035, 0.085))
+	rising.name = "CrownEmbers"
+	rising.position.y = crown
+	(rising.process_material as ShaderMaterial).set_shader_parameter("inner", 0.75)
+	# off the ground round its foot, drifting up its sides
+	var drifting := RisingMotes.make(body_radius * 1.05, 4.0, glow, maxi(4, int(round(16.0 * share))), 3.6,
+		Vector2(0.3, 1.0), Vector2(0.025, 0.06))
+	drifting.name = "FootEmbers"
+	for motes: GPUParticles3D in [rising, drifting]:
+		motes.emitting = true
+		add_child(motes)
+		_motes.append(motes)
+	var height := float(view.get("beam_height", 160.0))
+	_shaft = _beam(height, float(view.get("beam_radius", 2.2)), false)
+	_shaft.name = "SkyBeam"
+	_shaft.position.y = crown
+	add_child(_shaft)
 
-## An open light column `height` tall from its base, `bottom` and `top` wide
-## (stone_beam.gdshader).
-func _column(height: float, bottom: float, top: float, alpha: float) -> MeshInstance3D:
-	var mesh := CylinderMesh.new()
-	mesh.top_radius = top
-	mesh.bottom_radius = bottom
-	mesh.height = height
-	mesh.radial_segments = 16
-	mesh.rings = 1
-	mesh.cap_top = false
-	mesh.cap_bottom = false
-	var material := ShaderMaterial.new()
-	material.shader = BEAM_SHADER
-	material.set_shader_parameter("colour", Color(glow.r, glow.g, glow.b, alpha))
-	mesh.material = material
+## A shaft of the stone's light (stone_beam.gdshader) standing `height`
+## metres on its foot, `radius` its half width; with `tail` the falling
+## stone's comet tail. One quad turned to the eye in the shader; stones of one
+## look share its mesh and material, a stone's own surge is an instance
+## uniform.
+func _beam(height: float, radius: float, tail: bool) -> MeshInstance3D:
+	var key := "%s|%.1f|%.2f|%s" % [glow.to_html(false), height, radius, tail]
+	var quad: QuadMesh = _beams.get(key)
+	if quad == null:
+		var material := ShaderMaterial.new()
+		material.shader = BEAM_SHADER
+		material.set_shader_parameter("colour", glow)
+		material.set_shader_parameter("erosion", load(BEAM_NOISE))
+		material.set_shader_parameter("height", height)
+		material.set_shader_parameter("radius", radius)
+		material.set_shader_parameter("tail", tail)
+		material.set_shader_parameter("strength", 1.6 if tail else 1.0)
+		# in a cave (a short shaft) the light is spent under the roof
+		material.set_shader_parameter("falloff", clampf(height * 0.3, 6.0, 38.0))
+		quad = QuadMesh.new()
+		quad.size = Vector2.ONE
+		quad.center_offset = Vector3(0, 0.5, 0)
+		quad.subdivide_depth = 12
+		quad.material = material
+		_beams[key] = quad
 	var node := MeshInstance3D.new()
-	node.mesh = mesh
+	node.mesh = quad
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.position = Vector3(0, height * 0.5, 0)
+	node.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	# the shader places the quad: its bounds are the whole shaft's
+	var side := radius * 7.0
+	node.custom_aabb = AABB(Vector3(-side, -radius * 1.5, -side), Vector3(side * 2.0, height + radius * 2.5, side * 2.0))
 	return node
+
+func _set_surge(node: MeshInstance3D, surge: float) -> void:
+	if node != null and is_instance_valid(node):
+		node.set_instance_shader_parameter("flare", surge)
+
+## The near eye's parts (the embers) on or off; they finish their flight.
+func _show_motes(on: bool) -> void:
+	_motes_on = on
+	for motes in _motes:
+		motes.emitting = on
 
 ## What the server said it is (its own name and level).
 func apply_info(info: Dictionary) -> void:
@@ -233,6 +271,7 @@ func _within_byte(value: int, byte: int) -> int:
 ## take_wave.
 func on_wave() -> void:
 	_burst = 6.0
+	_surge = WAVE_SURGE
 	FlipbookFX.play(get_parent(), global_position, [
 		{"atlas": "shockwave_8x8_1k", "size": _body_height * 3.4, "flat": true, "height": 0.2, "fps": 22.0, "tint": glow},
 	], {"life": 2.2, "light": glow, "light_energy": 6.0, "light_range": 18.0, "light_height": _body_height * 0.5})
@@ -255,22 +294,40 @@ func _update_label() -> void:
 func _shatter() -> void:
 	if _fall != null:
 		_fall.kill()
+	_drop_tail()
 	visible = false
+	if String(view.get("burst", "")) == "silk":
+		# a web thing splits open: torn silk and what was inside it
+		var tint: Variant = view.get("fluid", null)
+		var fluid := Color(float(tint[0]), float(tint[1]), float(tint[2])) if tint is Array and (tint as Array).size() >= 3 \
+			else Color(0, 0, 0, 0)
+		FlipbookFX.play(get_parent(), global_position, [
+			{"atlas": "burst_green_8x8_2k", "size": _body_height * 1.7, "height": _body_height * 0.45, "fps": 30.0,
+				"tint": glow.lightened(0.2)},
+			{"atlas": "shockwave_8x8_1k", "size": _body_height * 2.8, "flat": true, "height": 0.15, "fps": 26.0, "tint": glow},
+		], {"life": 3.0, "light": glow, "light_energy": 8.0, "light_range": 18.0, "light_height": _body_height * 0.5,
+			"sound": MonolithShatter.SOUND})
+		SilkBurst.play(get_parent(), global_position, Vector2(body_radius * 1.8, _body_height * 0.85), fluid)
+		return
 	MonolithShatter.play(get_parent(), global_position, glow, _body_height)
 
 ## Down out of the sky onto where it stands now: a falling tail of its glow,
-## then the landing.
+## then the landing; its shaft and embers wait for it to land.
 func _fall_in(yaw: float) -> void:
 	if _fall != null:
 		_fall.kill()
+	_drop_tail()
 	visible = false
 	model.position.y = FALL_HEIGHT
 	model.rotation.y = yaw - 0.6
 	model.scale = Vector3.ONE
 	Nameplates.hide_own(self, true)
-	var tail := _column(26.0, 1.1, 0.05, 0.5)
+	if _shaft != null:
+		_shaft.visible = false
+		_show_motes(false)
+	var tail := _beam(26.0, maxf(1.0, body_radius * 1.3), true)
 	tail.name = "FallStreak"
-	tail.position.y = _body_height + 13.0
+	tail.position.y = _body_height * 0.75
 	model.add_child(tail)
 	_fall = create_tween()
 	_fall.tween_interval(FALL_DELAY)
@@ -285,6 +342,13 @@ func _fall_in(yaw: float) -> void:
 	_fall.tween_property(model, "scale", Vector3.ONE, 0.25).set_trans(Tween.TRANS_ELASTIC).set_ease(Tween.EASE_OUT)
 	_fall.tween_callback(func(): Nameplates.hide_own(self, false))
 
+## A fall cut short (broken again on the way down) leaves no tail behind.
+func _drop_tail() -> void:
+	var tail := model.get_node_or_null("FallStreak")
+	if tail != null:
+		model.remove_child(tail)
+		tail.queue_free()
+
 func _land() -> void:
 	FlipbookFX.play(get_parent(), global_position, [
 		{"atlas": "shockwave_8x8_1k", "size": _body_height * 3.0, "flat": true, "height": 0.15, "fps": 26.0, "tint": glow},
@@ -293,14 +357,31 @@ func _land() -> void:
 	], {"life": 2.6, "light": glow, "light_energy": 7.0, "light_range": 20.0, "light_height": _body_height * 0.4,
 		"sound": LANDING_SOUND})
 	_burst = 4.0
+	_surge = LAND_SURGE
+	if _shaft != null:
+		_shaft.visible = true
+		_show_motes(true)
+		_range_in = 0.0
 	if shake.is_valid() and observer != null and is_instance_valid(observer) \
 			and observer.global_position.distance_to(global_position) < SHAKE_RANGE:
 		shake.call(SHAKE_STRENGTH)
 
 func _process(delta: float) -> void:
-	if _light == null:
+	if _light == null or not visible:
 		return
 	# The runes breathe: a slow pulse on the green light.
 	var pulse := 0.5 + 0.5 * sin(Time.get_ticks_msec() * 0.0021)
 	_burst = maxf(0.0, _burst - delta * 5.0)
 	_light.light_energy = 1.2 + 0.8 * pulse + _burst
+	if _surge > 0.0:
+		_surge = maxf(0.0, _surge - delta * SURGE_DECAY)
+		_set_surge(_shaft, _surge)
+	# the embers only for an eye near enough to see them
+	_range_in -= delta
+	if _range_in <= 0.0 and _shaft != null and _shaft.visible:
+		_range_in = RANGE_PERIOD
+		var camera := get_viewport().get_camera_3d()
+		if camera != null:
+			var near := camera.global_position.distance_to(global_position) < MOTE_RANGE
+			if near != _motes_on:
+				_show_motes(near)

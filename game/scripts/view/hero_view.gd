@@ -44,8 +44,6 @@ const SPELL_CLIPS := {
 	"ward_shield": {"clip": "Cast_Ward_Shield", "release": 0.128, "hold": 0.9, "aim": false},
 	"ultimate": {"clip": "Cast_Ultimate", "release": 0.158, "hold": 0.85},
 	"hushing_gale": {"clip": "Cast_Flame_Wave", "release": 0.25, "hold": 0.62, "aim": false},
-	"starnail": {"clip": "Cast_Stun_Bolt", "release": 0.226, "hold": 0.68},
-	"shardglass_ward": {"clip": "Cast_Ward_Shield", "release": 0.128, "hold": 0.95, "aim": false},
 	"dawnbreak": {"clip": "Cast_Ultimate", "release": 0.158, "hold": 0.85},
 	"basic_cast:0": {"clip": "Cast_Basic1", "release": 0.222, "hold": 0.36},
 	"basic_cast:1": {"clip": "Cast_Basic2", "release": 0.231, "hold": 0.4, "aim": false},

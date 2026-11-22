@@ -1099,6 +1099,21 @@ msgstr "Ağa Takıldı"
 msgid "Sticky silk: you move at half speed."
 msgstr "Yapışkan ipek: yarı hızda hareket ediyorsun."
 
+msgid "Bound"
+msgstr "Bağlandın"
+
+msgid "Held where you stand: you cannot move or jump, but you can still cast."
+msgstr "Olduğun yere bağlandın: yürüyemez, zıplayamazsın ama büyü yapabilirsin."
+
+msgid "Thrown back!"
+msgstr "Geri yansıttın!"
+
+msgid "Venomcap Stone"
+msgstr "Zehir Mantarı Taşı"
+
+msgid "Broodclutch Stone"
+msgstr "Kuluçka Taşı"
+
 msgid "Vitality"
 msgstr "Dayanıklılık"
 

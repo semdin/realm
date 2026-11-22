@@ -1392,7 +1392,7 @@ impl RealmSession {
     }
 
     /// What lasts on the player now: [{`kind` (stun, knock, web, despair,
-    /// venom, freeze, burn, bleed, weak, ward, shardglass_ward), `seconds`
+    /// venom, freeze, burn, bleed, weak, root, ward), `seconds`
     /// left}], the ended ones left out.
     #[func]
     fn effects(&self) -> VarArray {

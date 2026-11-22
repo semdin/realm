@@ -1245,6 +1245,8 @@ impl Sim {
             respawn_at: None,
             waves_done: 0,
             announced: false,
+            reinforce_at: 0,
+            reinforced: 0,
         };
         let index = if let Some(free) = self.free_packs.pop() {
             self.game.packs[free] = pack;

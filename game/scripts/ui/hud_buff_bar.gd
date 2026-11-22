@@ -37,11 +37,11 @@ const UNDER := 14.0
 # i18n-begin
 const KINDS := {
 	"ward": ["ward_shield", "Ward Shield", "Reflects projectiles; other damage reduced by 60%.", false],
-	"shardglass_ward": ["shardglass_ward", "Shardglass Ward", "Reflects a duel foe's bolts; other damage reduced by 35%.", false],
 	"stun": ["status_stun", "Stunned", "You cannot cast or move.", true],
 	"knock": ["shockwave", "Knocked back", "Thrown off your feet: no casting until you land.", true],
 	"freeze": ["frost_grip", "Frozen", "Encased in ice: you cannot cast or move.", true],
 	"web": ["status_slow", "Webbed", "Sticky silk: you move at half speed.", true],
+	"root": ["status_slow", "Bound", "Held where you stand: you cannot move or jump, but you can still cast.", true],
 	"despair": ["status_despair", "Despair", "A Pallid's cold: no natural health recovery.", true],
 	"venom": ["mat_weaver_venom", "Poisoned", "Spider venom: damage over time.", true],
 	"burn": ["status_burn", "Burning", "Taking fire damage over time.", true],

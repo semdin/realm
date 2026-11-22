@@ -66,8 +66,7 @@ var gesture_strength := 0.0
 var gesture_side := 1.0
 var gesture_spell := ""
 ## Spells that reuse another spell's arm gesture (same cast clip).
-const GESTURE_ALIAS := {"frost_grip": "shockwave", "hushing_gale": "flame_wave", "starnail": "stun_bolt",
-	"shardglass_ward": "ward_shield", "dawnbreak": "ultimate"}
+const GESTURE_ALIAS := {"frost_grip": "shockwave", "hushing_gale": "flame_wave", "dawnbreak": "ultimate"}
 ## Basic-attack chain step: 0 forehand flick, 1 backhand, 2 overhead finisher.
 var gesture_combo := 0
 

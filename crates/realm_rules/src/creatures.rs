@@ -94,6 +94,8 @@ pub struct Riders {
     pub stun_ms: u32,
     /// Slowed on foot (WEB_FACTOR).
     pub web_ms: u32,
+    /// Bound where it stands (a web, a hex): no walking, casting still free.
+    pub root_ms: u32,
     /// No natural health or mana regeneration.
     pub despair_ms: u32,
     /// Thrown: metres per second away from the creature, and up.
@@ -144,6 +146,12 @@ pub struct AbilityDef {
     pub lead_ms: u32,
     /// A boss pattern's own rest after it was picked (ms; 0: none).
     pub rest_ms: u32,
+    /// Only an elite of the species uses it.
+    pub elite_only: bool,
+    /// Odds it is used when its trigger comes round (1: always); missed, a
+    /// thrown one tries again after a third of its cooldown, a mixed-in one
+    /// leaves the plain attack.
+    pub chance: f32,
 }
 
 /// A pallid's cold: players near a fighting one lose health and hope.
@@ -266,8 +274,8 @@ pub const ENRAGE_COOLDOWN: f32 = 0.8;
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Wave {
     pub ratio: f32,
-    /// (species, count, level).
-    pub spawns: Vec<(String, u32, u32)>,
+    /// (species, count, level, how many of the count come as elites).
+    pub spawns: Vec<(String, u32, u32, u32)>,
 }
 
 /// A kind of Dark Shard (spawn_tables.json monolith_types).
@@ -285,6 +293,19 @@ pub struct StoneType {
     /// It comes back within this far of its site (m).
     pub roam: f32,
     pub waves: Vec<Wave>,
+    /// More creatures while players keep striking it.
+    pub reinforce: Option<Reinforce>,
+}
+
+/// A stone under attack calls `count` creatures (picked in turn from `mobs`:
+/// species, level) every `every_ms`, while fewer than `cap` it called that
+/// way still live.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Reinforce {
+    pub every_ms: u32,
+    pub mobs: Vec<(String, u32)>,
+    pub count: u32,
+    pub cap: u32,
 }
 
 /// A Dark Shard's site (spawn_tables.json monoliths).
@@ -398,6 +419,7 @@ fn ability(index: u16, key: String, a: &Value, pattern: bool) -> Result<AbilityD
         riders: Riders {
             stun_ms: ms_of_seconds(&a["stun_s"]),
             web_ms: ms_of_seconds(&a["web_s"]),
+            root_ms: ms_of_seconds(&a["root_s"]),
             despair_ms: ms_of_seconds(&a["despair_s"]),
             push: f(&a["push"], 0.0),
             lift: f(&a["lift"], 0.0),
@@ -425,6 +447,8 @@ fn ability(index: u16, key: String, a: &Value, pattern: bool) -> Result<AbilityD
         weight: f(&a["weight"], 1.0).max(0.0),
         lead_ms: ms_of_seconds(&a["lead"]),
         rest_ms: ms_of_seconds(&a["rest"]),
+        elite_only: a["elite_only"].as_bool().unwrap_or(false),
+        chance: f(&a["chance"], 1.0).clamp(0.0, 1.0),
     })
 }
 
@@ -645,6 +669,7 @@ impl CreatureRules {
                             text(&s["mob"]),
                             s["count"].as_u64().unwrap_or(1) as u32,
                             s["level"].as_u64().unwrap_or(1) as u32,
+                            s["elite"].as_u64().unwrap_or(0) as u32,
                         )
                     })
                     .collect();
@@ -670,6 +695,22 @@ impl CreatureRules {
                     ),
                     roam: f(&t["roam"], 30.0),
                     waves,
+                    reinforce: t["reinforce"].is_object().then(|| {
+                        let r = &t["reinforce"];
+                        Reinforce {
+                            every_ms: r["every_ms"].as_u64().unwrap_or(15_000).max(1000) as u32,
+                            mobs: r["mobs"]
+                                .as_array()
+                                .into_iter()
+                                .flatten()
+                                .filter_map(|m| {
+                                    Some((m[0].as_str()?.to_owned(), m[1].as_u64()? as u32))
+                                })
+                                .collect(),
+                            count: r["count"].as_u64().unwrap_or(1) as u32,
+                            cap: r["cap"].as_u64().unwrap_or(4) as u32,
+                        }
+                    }),
                 },
             );
         }

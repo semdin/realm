@@ -27,7 +27,7 @@ use bits::{BitReader, BitWriter, DecodeError};
 pub use ed25519_dalek::{SigningKey, VerifyingKey};
 
 /// Bumped whenever a message layout changes.
-pub const PROTOCOL_VERSION: u16 = 24;
+pub const PROTOCOL_VERSION: u16 = 25;
 
 /// QUIC application protocol name, checked during the TLS handshake.
 pub const ALPN: &[u8] = b"realm/22";
@@ -132,7 +132,7 @@ pub struct EntityState {
     /// Health as a fraction of 255.
     pub hp: u8,
     /// Crowd control and damage over time on the body (STATUS_* bits).
-    pub status: u8,
+    pub status: u16,
 }
 
 /// A player's `EntityState::state` carries this bit while it rides its
@@ -140,16 +140,18 @@ pub struct EntityState {
 pub const STATE_MOUNTED: u8 = 1 << 4;
 
 /// Status bits (`EntityState::status`).
-pub const STATUS_STUN: u8 = 1 << 0;
-pub const STATUS_FREEZE: u8 = 1 << 1;
-pub const STATUS_SLOW: u8 = 1 << 2;
-pub const STATUS_BLEED: u8 = 1 << 3;
-pub const STATUS_BURN: u8 = 1 << 4;
-pub const STATUS_POISON: u8 = 1 << 5;
-pub const STATUS_KNOCKED: u8 = 1 << 6;
-pub const STATUS_WEAK: u8 = 1 << 7;
+pub const STATUS_STUN: u16 = 1 << 0;
+pub const STATUS_FREEZE: u16 = 1 << 1;
+pub const STATUS_SLOW: u16 = 1 << 2;
+pub const STATUS_BLEED: u16 = 1 << 3;
+pub const STATUS_BURN: u16 = 1 << 4;
+pub const STATUS_POISON: u16 = 1 << 5;
+pub const STATUS_KNOCKED: u16 = 1 << 6;
+pub const STATUS_WEAK: u16 = 1 << 7;
+/// Bound where it stands (a web, a hex): it cannot walk, it can still act.
+pub const STATUS_ROOTED: u16 = 1 << 8;
 /// A body that cannot act while any of these runs.
-pub const STATUS_LOCKED: u8 = STATUS_STUN | STATUS_FREEZE | STATUS_KNOCKED;
+pub const STATUS_LOCKED: u16 = STATUS_STUN | STATUS_FREEZE | STATUS_KNOCKED;
 
 /// `EntityState::kind` of a creature: its species + 1 in the low bits, and
 /// these marks over them.
@@ -180,7 +182,7 @@ pub struct Snapshot {
     /// so a replay applies it to the same inputs.
     pub own_restraint: Restraint,
     /// STATUS_* bits on the owner (what the others see on it).
-    pub own_status: u8,
+    pub own_status: u16,
     /// Counts the owner's deaths and respawns (wrapping): a change means
     /// the server moved the body, even when two of them fell between the
     /// snapshots the client got (a respawn and an instant death).
@@ -384,13 +386,15 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
             r.web_until,
             r.ride_from,
             r.ride_until,
+            r.root_from,
+            r.root_until,
         ] {
             w.unsigned(v);
         }
         w.u8(r.web_pct);
         w.unsigned(u32::from(r.ride_speed));
     }
-    w.u8(snapshot.own_status);
+    w.u16(snapshot.own_status);
     w.u8(snapshot.own_life);
 
     let base = baseline.unwrap_or(&[]);
@@ -469,7 +473,7 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
                 }
                 w.bool(state.status != old.status);
                 if state.status != old.status {
-                    w.u8(state.status);
+                    w.u16(state.status);
                 }
             }
             None => {
@@ -481,7 +485,7 @@ pub fn encode_snapshot(snapshot: &Snapshot, baseline: Option<&[(u32, EntityState
                 w.u8(state.state);
                 w.unsigned(u32::from(state.kind));
                 w.u8(state.hp);
-                w.u8(state.status);
+                w.u16(state.status);
             }
         }
     }
@@ -512,13 +516,15 @@ pub fn decode_snapshot<'a>(
             web_until: r.unsigned()?,
             ride_from: r.unsigned()?,
             ride_until: r.unsigned()?,
+            root_from: r.unsigned()?,
+            root_until: r.unsigned()?,
             web_pct: r.u8()?,
             ride_speed: u16::try_from(r.unsigned()?).map_err(|_| DecodeError("ride speed"))?,
         }
     } else {
         Restraint::default()
     };
-    let own_status = r.u8()?;
+    let own_status = r.u16()?;
     let own_life = r.u8()?;
     let base: &[(u32, EntityState)] = if baseline_tick == 0 {
         &[]
@@ -578,7 +584,7 @@ pub fn decode_snapshot<'a>(
             };
             let state = if r.bool()? { r.u8()? } else { old.state };
             let hp = if r.bool()? { r.u8()? } else { old.hp };
-            let status = if r.bool()? { r.u8()? } else { old.status };
+            let status = if r.bool()? { r.u16()? } else { old.status };
             EntityState {
                 pos: from_grid(pos),
                 yaw,
@@ -598,7 +604,7 @@ pub fn decode_snapshot<'a>(
                 state,
                 kind,
                 hp: r.u8()?,
-                status: r.u8()?,
+                status: r.u16()?,
             }
         };
         changed.push((id, state));

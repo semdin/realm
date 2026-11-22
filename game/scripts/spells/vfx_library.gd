@@ -272,9 +272,8 @@ const SPELLS := {
 	"ward_shield": {
 		"colour": Color(0.25, 0.62, 1.0),
 		"stages": {
+			# the shell's own raise (WardShield) is the look: only its light and sound here
 			"cast": {"layers": [
-				{"kind": "flipbook", "atlas": "vfx_ripple_blue", "blend": "add", "core": true,
-					"size": 2.8, "life": 0.5, "fit": true},
 				{"kind": "light", "colour": true, "energy": 2.5, "range": 5.0, "life": 0.3},
 			], "length": 0.5, "audio": "spell_ward_shield_cast"},
 		},
@@ -372,61 +371,6 @@ const SPELLS := {
 					"amount": 26, "life": 0.6, "speed": [2.0, 5.0], "size": [0.006, 0.014], "spread": 50.0,
 					"gravity": 1.0, "drag": 1.8, "turbulence": 3.0, "radius": 0.15, "energy": 0.8},
 			], "length": 0.6, "audio": "spell_hushing_gale_impact"},
-		},
-	},
-	# Starnail: a white-blue splinter of starlight, small and fast, a long thin
-	# streak behind it and star dust shed in flight; it strikes in a hard white
-	# flash and a spray of sparks that skitter on the floor.
-	"starnail": {
-		"colour": Color(0.7, 0.82, 1.0),
-		"stages": {
-			"cast": {"layers": [
-				{"kind": "sprite", "energy_shape": 0, "blend": "add", "core": true, "colour": "accent",
-					"size": 0.7, "life": 0.12, "fade": "out"},
-				{"kind": "flipbook", "atlas": "vfx_wand_flash", "blend": "add", "core": true, "colour": true,
-					"size": 0.8, "life": 0.18, "fit": true, "roll": true, "grow": [0.6, 1.2]},
-				{"kind": "particles", "embers": true, "optional": true, "colour": true, "dir": "aim",
-					"amount": 18, "life": 0.5, "speed": [3.0, 9.0], "size": [0.006, 0.014], "spread": 18.0,
-					"gravity": 3.0, "drag": 2.0},
-				{"kind": "light", "colour": true, "energy": 1.6, "range": 3.0, "life": 0.16},
-			], "length": 0.3, "audio": "spell_starnail_cast"},
-			"travel": {"layers": [
-				{"kind": "flipbook", "atlas": "vfx_energy_orb", "blend": "add", "core": true, "colour": "accent",
-					"size": 0.95, "life": 0.0, "loop": true, "roll": true, "spin": true},
-				{"kind": "ribbon", "tex": "vfx_energy_streak", "blend": "add", "core": true, "colour": true,
-					"width": 0.22, "length": 7.0, "life": 0.0},
-				{"kind": "particles", "embers": true, "core": true, "colour": true, "continuous": true,
-					"amount": 40, "life": 0.6, "speed": [0.1, 0.8], "size": [0.005, 0.012], "spread": 180.0,
-					"gravity": 0.5, "drag": 1.4, "turbulence": 3.0, "radius": 0.06, "energy": 1.0},
-			], "length": 0.0, "audio": "spell_starnail_travel", "loop_audio": true},
-			"impact": {"layers": [
-				{"kind": "sprite", "energy_shape": 0, "blend": "add", "core": true, "colour": "accent",
-					"size": 1.2, "life": 0.08, "fade": "out"},
-				{"kind": "flipbook", "atlas": "vfx_spark_burst", "blend": "add", "core": true, "colour": true,
-					"size": 1.6, "life": 0.35, "fit": true, "roll": true},
-				{"kind": "particles", "embers": true, "core": true, "colour": true, "dir": "back", "lift": 0.3,
-					"amount": 80, "life": 1.1, "speed": [2.5, 8.0], "size": [0.007, 0.02], "spread": 60.0,
-					"gravity": 9.0, "drag": 1.4, "floor": true, "bounce": 0.4, "radius": 0.08},
-				{"kind": "flipbook", "atlas": "vfx_smoke_puff", "blend": "alpha", "optional": true,
-					"size": 1.1, "life": 0.7, "fit": true, "roll": true, "opacity": 0.22, "grow": [0.7, 1.3]},
-				{"kind": "light", "colour": true, "energy": 2.4, "range": 4.0, "life": 0.14},
-			], "length": 1.2, "audio": "spell_starnail_impact"},
-		},
-	},
-	# Shardglass Ward's raise (the shell itself is WardShield with the
-	# shard-glass surface): a mint-pale ripple and glints of glass rising round
-	# the caster.
-	"shardglass_ward": {
-		"colour": Color(0.55, 0.95, 0.85),
-		"stages": {
-			"cast": {"layers": [
-				{"kind": "flipbook", "atlas": "vfx_ripple_blue", "blend": "add", "core": true, "colour": true,
-					"size": 3.2, "life": 0.55, "fit": true},
-				{"kind": "particles", "embers": true, "core": true, "colour": true, "dir": "up",
-					"amount": 40, "life": 1.0, "speed": [0.8, 2.6], "size": [0.008, 0.02], "spread": 70.0,
-					"gravity": -0.4, "drag": 1.6, "turbulence": 2.0, "radius": 0.7, "energy": 1.0},
-				{"kind": "light", "colour": true, "energy": 2.5, "range": 5.0, "life": 0.35},
-			], "length": 0.6, "audio": "spell_shardglass_ward_cast"},
 		},
 	},
 	# Dawnbreak: a narrow beam of warm dawn light. A flash at the wand, golden

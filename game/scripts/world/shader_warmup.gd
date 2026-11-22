@@ -229,6 +229,16 @@ func _plan_creatures(map_id: String) -> void:
 				_work.append(_add_creature.bind(kind))
 			"stone":
 				_work.append(_add_model.bind(String(view.get("model", ""))))
+				# and its light: the shaft and the embers (StoneView)
+				_work.append(func() -> void:
+					var stone := StoneView.new()
+					add_child(stone)
+					if not stone.setup(kind):
+						stone.queue_free()
+						return
+					stone.visible = true
+					Nameplates.hide_own(stone, true)
+					_place(stone))
 
 func _add_creature(kind: int, burning := false) -> void:
 	var body := CreatureView.new()
@@ -406,6 +416,10 @@ func _add_combat_extras() -> void:
 	_add_model(BOULDER_MODEL)
 	_add_blood()
 	_add_wards()
+	# the level-up moment's own shaders (its column, comets, ground light,
+	# glitter, and the light it lays over the body)
+	if is_instance_valid(_hero):
+		LevelUpFX.warm(self, _hero)
 
 ## A bleeding body's spot of blood on the ground (StatusFX): the warmed body
 ## carries every status, knocked down included, and a knocked body leaves no
@@ -443,14 +457,13 @@ func _fight_moments() -> void:
 	edge.visible = true
 	(edge.material as ShaderMaterial).set_shader_parameter("strength", 0.5)
 
-## Both wards' shells on the warm-up hero (their own meshes and shaders; the
+## The ward's shell on the warm-up hero (its own meshes and shaders; the
 ## first ward raised in play compiled them).
 func _add_wards() -> void:
 	if not is_instance_valid(_hero):
 		return
-	for spell_id: String in ["ward_shield", "shardglass_ward"]:
-		if HudActionBar.spells().has(spell_id):
-			WardShield.raise(self, _hero, REVEAL_LIMIT, spell_id)
+	if HudActionBar.spells().has("ward_shield"):
+		WardShield.raise(self, _hero, REVEAL_LIMIT, "ward_shield")
 
 func _grid(i: int) -> Vector3:
 	const COLUMNS := 7

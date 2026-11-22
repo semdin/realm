@@ -466,6 +466,8 @@ fn wire_round_trip(body: &Body, input: MoveInput, tick: u32) {
             ride_from: tick + 5,
             ride_until: u32::MAX,
             ride_speed: 1300,
+            root_from: tick + 3,
+            root_until: tick + 40,
         },
         own_status: realm_proto::STATUS_STUN | realm_proto::STATUS_POISON,
         own_life: 3,

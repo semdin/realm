@@ -401,6 +401,8 @@ pub struct Stats {
     /// Creature abilities wound up, and holds they put on players.
     pub telegraphs: u64,
     pub player_holds: u64,
+    /// Creature blows a ward raised just in time threw back.
+    pub thrown_back: u64,
     /// Since start (never reset by the status window): saves handed to the
     /// store, answered, and answered as not landed.
     pub saves_queued: u64,
@@ -844,6 +846,8 @@ impl Sim {
                 respawn_at: None,
                 waves_done: 0,
                 announced: false,
+                reinforce_at: 0,
+                reinforced: 0,
             });
             self.pack_views.push(Vec::new());
         }

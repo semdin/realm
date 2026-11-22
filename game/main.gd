@@ -346,6 +346,16 @@ const CARD_DUMMY := [Color(0.78, 0.95, 0.78), Color(0.30, 0.66, 0.24), "ui_targe
 ## A camera shake's swing (old SkillFX.shake_camera) and how fast it settles.
 const SHAKE_SWING := 0.4
 const SHAKE_SETTLE := 0.3
+## A blow on the player (`hurt_shake`): a very small, quick tremble, its
+## strength HURT_SHAKE_MIN plus HURT_SHAKE_PER_SHARE per share of the
+## player's whole health the blow took (at most HURT_SHAKE_MAX), gone within
+## HURT_SHAKE_SETTLE; Settings' shake scales it like every other.
+const HURT_SHAKE_MIN := 0.05
+const HURT_SHAKE_PER_SHARE := 0.9
+const HURT_SHAKE_MAX := 0.22
+const HURT_SHAKE_SETTLE := 0.2
+## The tremble's rates (Hz-ish), different on each axis so it never draws a line.
+const SHAKE_RATES := Vector2(41.0, 53.0)
 ## Where a cast aims on a creature, above its feet (the server's chest height).
 const CHEST := 1.15
 ## How far the cursor's pick ray reaches, and how near Tab looks for creatures.
@@ -503,7 +513,11 @@ var infos := {}
 ## World bosses by their name: {region, level} from the content (the notices
 ## name only the boss).
 var _boss_sites := {}
-var _shaking: Tween
+## The camera shake running: its swing (m), how long it settles and how far
+## through it is.
+var _shake := 0.0
+var _shake_settle := SHAKE_SETTLE
+var _shake_t := 0.0
 var house_color := Color(0.85, 0.4, 0.11)
 var crowd: MultiMeshInstance3D
 var camera: Camera3D
@@ -950,6 +964,7 @@ func _build_view() -> void:
 	camera.far = 3000.0
 	add_child(camera)
 	combat = CombatView.new()
+	combat.hurt_shake = hurt_shake
 	combat.player = player
 	combat.heroes = heroes
 	combat.beasts = beasts
@@ -2484,16 +2499,40 @@ func _stone_named(stone_name: String) -> StoneView:
 
 ## A jolt of the camera that settles back (a Dark Shard landing close by).
 func shake_camera(strength: float) -> void:
-	if _shaking != null and _shaking.is_running():
+	_add_shake(strength * SHAKE_SWING, SHAKE_SETTLE)
+
+## The player took a blow of `share` of its whole health: the camera
+## trembles a very little, more for a heavier blow.
+func hurt_shake(share: float) -> void:
+	var strength := clampf(HURT_SHAKE_MIN + share * HURT_SHAKE_PER_SHARE, HURT_SHAKE_MIN, HURT_SHAKE_MAX)
+	_add_shake(strength * SHAKE_SWING, HURT_SHAKE_SETTLE)
+
+## A shake of `swing` metres settling over `settle` seconds; a weaker one
+## while a stronger runs adds nothing.
+func _add_shake(swing: float, settle: float) -> void:
+	swing *= GameSettings.shake_value()
+	var left := _shake * (1.0 - _shake_t / maxf(0.01, _shake_settle))
+	if swing <= 0.0 or swing <= left:
 		return
-	strength *= GameSettings.shake_value()
-	if strength <= 0.0:
+	_shake = swing
+	_shake_settle = settle
+	_shake_t = 0.0
+
+## The running shake's offset on the camera this frame (it fades out on a
+## square, trembling on two rates).
+func _drive_shake(delta: float) -> void:
+	if _shake <= 0.0:
 		return
-	camera.h_offset = randf_range(-strength, strength) * SHAKE_SWING
-	camera.v_offset = randf_range(-strength, strength) * SHAKE_SWING
-	_shaking = create_tween()
-	_shaking.tween_property(camera, "h_offset", 0.0, SHAKE_SETTLE)
-	_shaking.parallel().tween_property(camera, "v_offset", 0.0, SHAKE_SETTLE)
+	_shake_t += delta
+	var left := 1.0 - _shake_t / maxf(0.01, _shake_settle)
+	if left <= 0.0:
+		_shake = 0.0
+		camera.h_offset = 0.0
+		camera.v_offset = 0.0
+		return
+	var swing := _shake * left * left
+	camera.h_offset = swing * sin(_shake_t * SHAKE_RATES.x + 1.3)
+	camera.v_offset = swing * 0.8 * sin(_shake_t * SHAKE_RATES.y)
 
 ## Stunned or thrown (own_body `held`): the server refuses every cast, so none
 ## is sent and the notice band says why, at most every HELD_NOTICE_SECONDS.
@@ -3036,6 +3075,7 @@ func _process(delta: float) -> void:
 	var offset := Vector3(0, 0, cam_distance).rotated(Vector3.RIGHT, cam_pitch).rotated(Vector3.UP, cam_yaw + cam_side)
 	camera.position = look_at_point + offset.normalized() * _camera_room(look_at_point, offset, delta)
 	camera.look_at(look_at_point)
+	_drive_shake(delta)
 
 	others = session.remote()
 	var ids: PackedInt32Array = others["ids"]

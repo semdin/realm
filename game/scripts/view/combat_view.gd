@@ -44,6 +44,16 @@ const FLAG_CRIT := 1
 const FLAG_FINISHER := 2
 ## A creature walking home shrugged the blow off (amount 0).
 const FLAG_EVADE := 64
+## A ward raised just in time threw a creature's blow back (the hit is on
+## the creature, its attacker the warded player).
+const FLAG_REFLECTED := 128
+## How hard a blow jolts the creature it lands on (CreatureView.flinch):
+## [push, shake]. A basic bolt by its combo step; a combo's finisher and a
+## critical hit shake the body; any other spell a firm jolt.
+const FLINCH_BASIC := [[1.0, 0.0], [1.25, 0.35], [1.7, 1.0]]
+const FLINCH_CRIT := [1.5, 0.7]
+const FLINCH_SPELL := [1.35, 0.45]
+const FLINCH_REFLECTED := [1.8, 1.0]
 ## What an area ability's release plays when its data names no impact (the
 ## old game's default), and what a cone's plays from the creature's chest.
 const AREA_IMPACT := "shockwave"
@@ -94,6 +104,11 @@ var telegraphs_cancelled := 0
 var boulders_thrown := 0
 var creature_bolts := 0
 var evades_shown := 0
+## main.gd's camera: `hurt_shake.call(share)` jolts it a little when the
+## player's own health drops by `share` of its maximum.
+var hurt_shake := Callable()
+## Blows thrown back by the player's ward (the check reads it).
+var thrown_back := 0
 static var _boulder_scene: PackedScene = null
 
 static func spell(id: String) -> Dictionary:
@@ -155,7 +170,7 @@ func _cast_started(event: Dictionary) -> void:
 	var caster := int(event["caster"])
 	var spell_id := String(event["spell"])
 	var aim: Vector3 = event.get("aim", Vector3.ZERO)
-	_cast_targets[caster] = {"spell": spell_id, "target": int(event.get("target", 0)), "aim": aim}
+	_cast_targets[caster] = {"spell": spell_id, "target": int(event.get("target", 0)), "aim": aim, "step": 0}
 	var data := spell(spell_id)
 	var now := Time.get_ticks_msec() / 1000.0
 	var step := 0
@@ -164,6 +179,7 @@ func _cast_started(event: Dictionary) -> void:
 		step = int(chain["next"]) if now <= float(chain["until"]) else 0
 		var steps := maxi(1, (data.get("combo_multipliers", [1]) as Array).size())
 		_chain[caster] = {"next": (step + 1) % steps, "until": now + float(data.get("combo_window", 1.2))}
+		(_cast_targets[caster] as Dictionary)["step"] = step
 	else:
 		_chain.erase(caster)
 	var hero := _hero(caster)
@@ -290,20 +306,66 @@ func _hit(event: Dictionary, dir: Vector3) -> void:
 	var target := int(event["target"])
 	var attacker := int(event["attacker"])
 	var spell_id := String(event["spell"])
+	var flags := int(event.get("flags", 0))
+	if flags & FLAG_REFLECTED:
+		_thrown_back(event, dir)
 	_number(event)
-	if target == own_id or (attacker == own_id and (int(event.get("flags", 0)) & FLAG_CRIT) != 0):
+	if target == own_id or (attacker == own_id and (flags & FLAG_CRIT) != 0):
 		AudioManager.play_hit()
+	if target == own_id and int(event.get("amount", 0)) > 0 and _seen_max > 0 and hurt_shake.is_valid():
+		hurt_shake.call(float(event["amount"]) / float(_seen_max))
 	if not drawn.has(target):
 		return
+	var beast: Variant = beasts.get(target)
+	if beast is CreatureView and int(event.get("amount", 0)) > 0 and _hero(attacker) != null:
+		var jolt: Array = _jolt(spell_id, attacker, flags)
+		(beast as CreatureView).flinch(dir, float(jolt[0]), float(jolt[1]))
 	var feet: Vector3 = drawn[target]
 	# a Dark Shard is far wider than a creature: the impact lands on its face
 	var body := _body(target)
 	var radius: Variant = body.get("body_radius") if body != null else null
 	var contact := SkillFX.body_contact(feet, CHEST, float(radius) if radius != null else BODY_RADIUS, dir)
 	if is_instance_valid(_wards.get(target)):
-		(_wards[target] as WardShield).on_hit(contact)
+		# a warded body is struck on its shell, not on its chest inside it
+		var ward := _wards[target] as WardShield
+		contact = ward.shell_point(-dir)
+		ward.on_hit(contact)
 	if VFXLibrary.has_spell(spell_id) and _delivery(spell_id) != "projectile_aoe":
 		SkillFX.play_hit_on(self, _body(target), contact, feet.y, spell_id, dir, _house(attacker))
+
+## How hard a hero's blow jolts the creature: [push, shake] (FLINCH_*).
+func _jolt(spell_id: String, attacker: int, flags: int) -> Array:
+	if flags & FLAG_REFLECTED:
+		return FLINCH_REFLECTED
+	var jolt: Array = FLINCH_SPELL
+	if spell_id == "basic_cast":
+		var step := int((_cast_targets.get(attacker, {}) as Dictionary).get("step", 0))
+		jolt = FLINCH_BASIC[clampi(step, 0, FLINCH_BASIC.size() - 1)]
+		if flags & FLAG_FINISHER:
+			jolt = FLINCH_BASIC[FLINCH_BASIC.size() - 1]
+	if flags & FLAG_CRIT:
+		jolt = [maxf(float(jolt[0]), float(FLINCH_CRIT[0])), maxf(float(jolt[1]), float(FLINCH_CRIT[1]))]
+	return jolt
+
+## A ward raised just in time threw a creature's blow back: the ward flares
+## toward the creature and a bolt of the ward's light flies at it.
+func _thrown_back(event: Dictionary, dir: Vector3) -> void:
+	var hero := _hero(int(event["attacker"]))
+	var target := int(event["target"])
+	if hero == null or not drawn.has(target):
+		return
+	if int(event["attacker"]) == own_id:
+		thrown_back += 1
+		var at := (drawn[own_id] as Vector3) + Vector3.UP * (OWN_NUMBER_HEIGHT + 0.6)
+		FloatingText.word(at, tr("Thrown back!"), Color(0.62, 0.86, 1.0), 1.15, 1.3)
+	var from := hero.position + Vector3.UP * WAND_HEIGHT
+	var to := (drawn[target] as Vector3) + Vector3.UP * CHEST
+	var ward: Variant = _wards.get(int(event["attacker"]))
+	if is_instance_valid(ward) and ward.has_method("flash_reflect"):
+		ward.call("flash_reflect", (to - from).normalized())
+	if DisplayServer.get_name() != "headless":
+		SkillFX.play_impact(self, to, "basic_cast", (to - from).normalized(), _floor_under(to),
+			Vector3.UP, _house(int(event["attacker"])))
 
 ## Which way a blow without a bolt came: from the attacker to the target.
 func _incoming(event: Dictionary) -> Vector3:

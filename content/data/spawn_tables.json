@@ -154,15 +154,15 @@
         "recovery": 0.2,
         "radius": 3.5,
         "damage_multiplier": 0.6,
-        "web_s": 2.5,
         "lead": 0.55,
         "use": [
           6.0,
-          20.0
+          32.0
         ],
         "rest": 7.0,
         "then": "web_spit",
-        "gap": 0.2
+        "gap": 0.2,
+        "root_s": 1.6
       },
       {
         "id": "web_spit",
@@ -291,7 +291,7 @@
         "recovery": 1.0,
         "use": [
           6.0,
-          22.0
+          32.0
         ],
         "rest": 5.0
       },
@@ -307,7 +307,7 @@
         "anticipation": 1.0,
         "use": [
           4.0,
-          22.0
+          32.0
         ],
         "rest": 11.0,
         "weight": 1.5,
@@ -455,7 +455,7 @@
         "lead": 0.6,
         "use": [
           6.5,
-          26.0
+          32.0
         ],
         "rest": 4.5
       },
@@ -469,7 +469,7 @@
         "min_phase": 2,
         "use": [
           6.0,
-          26.0
+          32.0
         ],
         "weight": 1.5,
         "rest": 12.0,
@@ -580,7 +580,7 @@
         "lead": 0.5,
         "use": [
           5.0,
-          22.0
+          32.0
         ],
         "rest": 6.0
       },
@@ -597,13 +597,14 @@
         "anticipation": 1.0,
         "use": [
           3.0,
-          22.0
+          32.0
         ],
         "rest": 11.0,
         "weight": 1.5,
         "recovery": 0.2,
         "then": "grasp_2",
-        "gap": 0.15
+        "gap": 0.15,
+        "root_s": 1.2
       },
       {
         "id": "grasp_2",
@@ -706,9 +707,10 @@
         "lead": 0.55,
         "use": [
           7.0,
-          22.0
+          32.0
         ],
-        "rest": 6.0
+        "rest": 6.0,
+        "stun_s": 0.8
       },
       {
         "id": "onslaught",
@@ -811,9 +813,10 @@
         "recovery": 1.0,
         "use": [
           4.0,
-          20.0
+          32.0
         ],
-        "rest": 4.0
+        "rest": 4.0,
+        "root_s": 1.5
       },
       {
         "id": "spores",
@@ -845,7 +848,7 @@
         "anticipation": 1.0,
         "use": [
           3.0,
-          20.0
+          32.0
         ],
         "rest": 10.0,
         "weight": 1.5,
@@ -976,7 +979,7 @@
         "lead": 0.5,
         "use": [
           6.0,
-          26.0
+          32.0
         ],
         "rest": 5.0
       }
@@ -24736,7 +24739,7 @@
       "exp_reward": 600,
       "scale": 1.0,
       "name": "Black Widow",
-      "move_speed": 3.0,
+      "move_speed": 3.45,
       "walk_speed": 0.82,
       "phases": [
         {
@@ -24753,10 +24756,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 2.2,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "commander": {
@@ -24766,7 +24769,7 @@
       "exp_reward": 600,
       "scale": 1.0,
       "name": "Bandit Chief",
-      "move_speed": 3.6,
+      "move_speed": 4.14,
       "walk_speed": 1.5,
       "phases": [
         {
@@ -24783,10 +24786,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 2.0,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "grak": {
@@ -24796,7 +24799,7 @@
       "exp_reward": 2500,
       "scale": 1.0,
       "name": "Grak, Mountain Troll Chieftain",
-      "move_speed": 3.5,
+      "move_speed": 4.02,
       "walk_speed": 1.17,
       "label_y": 6.0,
       "phases": [
@@ -24814,10 +24817,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 2.2,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "warden": {
@@ -24827,7 +24830,7 @@
       "exp_reward": 4000,
       "scale": 1.0,
       "name": "The Morhal Warden",
-      "move_speed": 4.5,
+      "move_speed": 5.17,
       "walk_speed": 0.0,
       "label_y": 4.0,
       "phases": [
@@ -24845,10 +24848,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 2.0,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "trial_warden": {
@@ -24877,10 +24880,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 1.8,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "cursed_commander": {
@@ -24891,7 +24894,7 @@
       "exp_reward": 3000,
       "scale": 1.0,
       "name": "The Cursed Armour Commander",
-      "move_speed": 2.8,
+      "move_speed": 3.22,
       "walk_speed": 0.706,
       "label_y": 3.7,
       "phases": [
@@ -24909,10 +24912,10 @@
         }
       ],
       "rush": {
-        "beyond": 9.0,
+        "beyond": 8.0,
         "speed": 2.2,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "snare_root": {
@@ -24936,16 +24939,16 @@
       "exp_reward": 9000,
       "scale": 1.0,
       "name": "Threehead",
-      "move_speed": 2.6,
+      "move_speed": 2.99,
       "walk_speed": 0.0,
       "label_y": 8.4,
       "part_hp": 6500,
       "enrage_s": 480.0,
       "rush": {
-        "beyond": 12.0,
+        "beyond": 8.0,
         "speed": 1.8,
-        "seconds": 1.8,
-        "cooldown": 8.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "brood_guardian": {
@@ -24956,7 +24959,7 @@
       "exp_reward": 2000,
       "scale": 1.35,
       "name": "Brood Guardian",
-      "move_speed": 3.6,
+      "move_speed": 4.14,
       "walk_speed": 0.9,
       "label_y": 3.6,
       "phases": [
@@ -24974,10 +24977,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 2.2,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     },
     "web_queen": {
@@ -24988,7 +24991,7 @@
       "exp_reward": 6000,
       "scale": 1.6,
       "name": "Web Mother",
-      "move_speed": 3.2,
+      "move_speed": 3.68,
       "walk_speed": 0.82,
       "label_y": 5.2,
       "phases": [
@@ -25006,10 +25009,10 @@
         }
       ],
       "rush": {
-        "beyond": 10.0,
+        "beyond": 8.0,
         "speed": 2.2,
-        "seconds": 1.8,
-        "cooldown": 7.0
+        "seconds": 2.4,
+        "cooldown": 4.5
       }
     }
   },
@@ -25099,31 +25102,251 @@
         83.0
       ],
       "zone": "caverns_f2"
+    },
+    {
+      "id": 10,
+      "type": "dark",
+      "pos": [
+        -963.8,
+        0.0,
+        -3.6
+      ],
+      "zone": "dark_thicket"
+    },
+    {
+      "id": 11,
+      "type": "dark",
+      "pos": [
+        -971.5,
+        0.0,
+        895.9
+      ],
+      "zone": "troll_hollow"
+    },
+    {
+      "id": 12,
+      "type": "dark",
+      "pos": [
+        681.6,
+        0.0,
+        -562.8
+      ],
+      "zone": "pitch_woods"
+    },
+    {
+      "id": 13,
+      "type": "dark",
+      "pos": [
+        -491.9,
+        0.0,
+        483.1
+      ],
+      "zone": "lakeside_glade"
+    },
+    {
+      "id": 14,
+      "type": "dark_ridge",
+      "pos": [
+        -731.5,
+        0.0,
+        -908.4
+      ],
+      "zone": "ridge_path"
+    },
+    {
+      "id": 15,
+      "type": "dark_ridge",
+      "pos": [
+        -430.1,
+        0.0,
+        -874.3
+      ],
+      "zone": "ridge_path"
+    },
+    {
+      "id": 16,
+      "type": "dark_ridge",
+      "pos": [
+        -141.2,
+        0.0,
+        864.2
+      ],
+      "zone": "southern_barrows"
+    },
+    {
+      "id": 17,
+      "type": "dark_ridge",
+      "pos": [
+        -946.3,
+        0.0,
+        -592.6
+      ],
+      "zone": "crypt_gate"
+    },
+    {
+      "id": 18,
+      "type": "dark_moor",
+      "pos": [
+        194.1,
+        0.0,
+        -899.8
+      ],
+      "zone": "highland_moor"
+    },
+    {
+      "id": 19,
+      "type": "dark_moor",
+      "pos": [
+        948.0,
+        0.0,
+        -843.4
+      ],
+      "zone": "eastern_moor"
+    },
+    {
+      "id": 20,
+      "type": "dark_moor",
+      "pos": [
+        559.2,
+        0.0,
+        -910.2
+      ],
+      "zone": "eastern_moor"
+    },
+    {
+      "id": 21,
+      "type": "dark_moor",
+      "pos": [
+        919.6,
+        0.0,
+        -10.7
+      ],
+      "zone": "orvell_heights"
+    },
+    {
+      "id": 22,
+      "type": "dark_mist",
+      "pos": [
+        357.3,
+        0.0,
+        613.6
+      ],
+      "zone": "fog_barrens"
+    },
+    {
+      "id": 23,
+      "type": "dark_mist",
+      "pos": [
+        730.4,
+        0.0,
+        381.7
+      ],
+      "zone": "station_mist"
+    },
+    {
+      "id": 24,
+      "type": "dark_mist",
+      "pos": [
+        941.6,
+        0.0,
+        798.4
+      ],
+      "zone": "misty_shore"
+    },
+    {
+      "id": 25,
+      "type": "dark_mist",
+      "pos": [
+        677.9,
+        0.0,
+        681.0
+      ],
+      "zone": "grey_marsh"
+    },
+    {
+      "id": 26,
+      "type": "mushroom",
+      "pos": [
+        -126.8,
+        1548.5,
+        -55.6
+      ],
+      "zone": "caverns_f1"
+    },
+    {
+      "id": 27,
+      "type": "mushroom",
+      "pos": [
+        -103.3,
+        1549.06,
+        -184.5
+      ],
+      "zone": "caverns_f1"
+    },
+    {
+      "id": 28,
+      "type": "mushroom",
+      "pos": [
+        87.6,
+        1546.94,
+        -180.8
+      ],
+      "zone": "caverns_f1"
+    },
+    {
+      "id": 29,
+      "type": "egg",
+      "pos": [
+        -151.4,
+        1525.04,
+        164.0
+      ],
+      "zone": "caverns_f2"
+    },
+    {
+      "id": 30,
+      "type": "egg",
+      "pos": [
+        186.3,
+        1522.04,
+        196.6
+      ],
+      "zone": "caverns_f2"
+    },
+    {
+      "id": 31,
+      "type": "egg",
+      "pos": [
+        58.2,
+        1526.1,
+        15.5
+      ],
+      "zone": "caverns_f2"
     }
   ],
   "monolith_config": {
-    "max_hp": 15000,
+    "max_hp": 21000,
     "respawn_ms": 30000,
     "exp_reward": 850,
     "wave_thresholds": [
       {
-        "ratio": 0.75,
+        "ratio": 0.8,
         "wave": 1,
         "spawns": [
           {
             "mob": "black_weaver",
             "count": 3,
-            "level": 12
+            "level": 13
           },
           {
             "mob": "drowned_one",
             "count": 2,
-            "level": 12
+            "level": 13
           }
         ]
       },
       {
-        "ratio": 0.5,
+        "ratio": 0.6,
         "wave": 2,
         "spawns": [
           {
@@ -25139,14 +25362,26 @@
         ]
       },
       {
-        "ratio": 0.25,
+        "ratio": 0.4,
         "wave": 3,
         "spawns": [
           {
             "mob": "black_weaver",
-            "count": 4,
-            "level": 16
+            "count": 3,
+            "level": 15
           },
+          {
+            "mob": "dark_bandit",
+            "count": 2,
+            "level": 15,
+            "elite": 1
+          }
+        ]
+      },
+      {
+        "ratio": 0.2,
+        "wave": 4,
+        "spawns": [
           {
             "mob": "drowned_one",
             "count": 4,
@@ -25156,6 +25391,12 @@
             "mob": "dark_bandit",
             "count": 2,
             "level": 16
+          },
+          {
+            "mob": "black_weaver",
+            "count": 1,
+            "level": 16,
+            "elite": 1
           }
         ]
       }
@@ -25201,31 +25442,31 @@
     "goblin_hexer": "res://scenes/entities/mobs/mob_goblin_hexer.tscn"
   },
   "_density_note": "Metin2-style density v2 (2026-10-17): packs on a ~40 m jittered grid over the whole grounds (terrain-filtered: no lake, cliffs or safe zones); each belongs to its nearest hunting region. Generated by a one-off script, edit freely.",
-  "_monolith_types_note": "Dark Shard stones by type. Each monoliths[] entry names its `type` (default dark). A type: name, level, max_hp, exp_reward, respawn_ms, loot_table (loot_tables.json key), scene, spawn distances and the HP-threshold waves. monolith_config is the dark type's legacy block (kept for older readers).",
+  "_monolith_types_note": "Dark Shard stones by type. Each monoliths[] entry names its `type` (default dark). A type: name, level, max_hp, exp_reward, respawn_ms, loot_table (loot_tables.json key), scene, spawn distances, the HP-threshold waves (a spawn's `elite` = how many of its count come as elites) and `reinforce` {every_ms, mobs [[species, level]], count, cap}: while players keep striking it, the stone calls `count` more every `every_ms`, never more than `cap` of its reinforcements alive at once. monolith_config is the dark type's legacy block (kept for older readers).",
   "monolith_types": {
     "dark": {
-      "max_hp": 15000,
+      "max_hp": 21000,
       "respawn_ms": 30000,
       "exp_reward": 850,
       "wave_thresholds": [
         {
-          "ratio": 0.75,
+          "ratio": 0.8,
           "wave": 1,
           "spawns": [
             {
               "mob": "black_weaver",
               "count": 3,
-              "level": 12
+              "level": 13
             },
             {
               "mob": "drowned_one",
               "count": 2,
-              "level": 12
+              "level": 13
             }
           ]
         },
         {
-          "ratio": 0.5,
+          "ratio": 0.6,
           "wave": 2,
           "spawns": [
             {
@@ -25241,14 +25482,26 @@
           ]
         },
         {
-          "ratio": 0.25,
+          "ratio": 0.4,
           "wave": 3,
           "spawns": [
             {
               "mob": "black_weaver",
-              "count": 4,
-              "level": 16
+              "count": 3,
+              "level": 15
             },
+            {
+              "mob": "dark_bandit",
+              "count": 2,
+              "level": 15,
+              "elite": 1
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
+          "spawns": [
             {
               "mob": "drowned_one",
               "count": 4,
@@ -25258,6 +25511,12 @@
               "mob": "dark_bandit",
               "count": 2,
               "level": 16
+            },
+            {
+              "mob": "black_weaver",
+              "count": 1,
+              "level": 16,
+              "elite": 1
             }
           ]
         }
@@ -25268,12 +25527,27 @@
       "level": 15,
       "loot_table": "monolith",
       "scene": "res://scenes/entities/monolith/dark_monolith.tscn",
-      "roam": 30.0
+      "roam": 30.0,
+      "reinforce": {
+        "every_ms": 14000,
+        "mobs": [
+          [
+            "drowned_one",
+            15
+          ],
+          [
+            "black_weaver",
+            15
+          ]
+        ],
+        "count": 2,
+        "cap": 6
+      }
     },
     "spider": {
       "name": "Webbound Seal Stone",
       "level": 30,
-      "max_hp": 20000,
+      "max_hp": 28000,
       "exp_reward": 2600,
       "respawn_ms": 180000,
       "loot_table": "monolith_spider",
@@ -25282,7 +25556,7 @@
       "spawn_distance_max": 8.0,
       "wave_thresholds": [
         {
-          "ratio": 0.75,
+          "ratio": 0.8,
           "wave": 1,
           "spawns": [
             {
@@ -25293,7 +25567,7 @@
           ]
         },
         {
-          "ratio": 0.5,
+          "ratio": 0.6,
           "wave": 2,
           "spawns": [
             {
@@ -25309,8 +25583,25 @@
           ]
         },
         {
-          "ratio": 0.25,
+          "ratio": 0.4,
           "wave": 3,
+          "spawns": [
+            {
+              "mob": "black_weaver",
+              "count": 4,
+              "level": 28
+            },
+            {
+              "mob": "venomfang_weaver",
+              "count": 1,
+              "level": 30,
+              "elite": 1
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
           "spawns": [
             {
               "mob": "broodguard",
@@ -25318,14 +25609,480 @@
               "level": 31
             },
             {
-              "mob": "black_weaver",
-              "count": 4,
-              "level": 28
+              "mob": "venomfang_weaver",
+              "count": 2,
+              "level": 30
+            },
+            {
+              "mob": "broodguard",
+              "count": 1,
+              "level": 31,
+              "elite": 1
             }
           ]
         }
       ],
-      "roam": 12.0
+      "roam": 12.0,
+      "reinforce": {
+        "every_ms": 13000,
+        "mobs": [
+          [
+            "venomfang_weaver",
+            29
+          ],
+          [
+            "black_weaver",
+            29
+          ]
+        ],
+        "count": 2,
+        "cap": 6
+      }
+    },
+    "dark_ridge": {
+      "name": "Dark Shard",
+      "level": 24,
+      "max_hp": 30000,
+      "exp_reward": 1800,
+      "respawn_ms": 45000,
+      "loot_table": "monolith",
+      "spawn_distance_min": 4.0,
+      "spawn_distance_max": 9.0,
+      "wave_thresholds": [
+        {
+          "ratio": 0.8,
+          "wave": 1,
+          "spawns": [
+            {
+              "mob": "dark_bandit",
+              "count": 3,
+              "level": 22
+            },
+            {
+              "mob": "drowned_one",
+              "count": 2,
+              "level": 22
+            }
+          ]
+        },
+        {
+          "ratio": 0.6,
+          "wave": 2,
+          "spawns": [
+            {
+              "mob": "drowned_warden",
+              "count": 2,
+              "level": 23
+            },
+            {
+              "mob": "dark_bandit",
+              "count": 2,
+              "level": 23
+            }
+          ]
+        },
+        {
+          "ratio": 0.4,
+          "wave": 3,
+          "spawns": [
+            {
+              "mob": "dark_bandit",
+              "count": 3,
+              "level": 24,
+              "elite": 1
+            },
+            {
+              "mob": "drowned_one",
+              "count": 3,
+              "level": 24
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
+          "spawns": [
+            {
+              "mob": "drowned_warden",
+              "count": 2,
+              "level": 25,
+              "elite": 1
+            },
+            {
+              "mob": "dark_bandit",
+              "count": 3,
+              "level": 25
+            }
+          ]
+        }
+      ],
+      "reinforce": {
+        "every_ms": 13000,
+        "mobs": [
+          [
+            "dark_bandit",
+            24
+          ],
+          [
+            "drowned_one",
+            24
+          ]
+        ],
+        "count": 2,
+        "cap": 6
+      },
+      "roam": 30.0,
+      "scene": "res://scenes/entities/monolith/dark_monolith.tscn"
+    },
+    "dark_moor": {
+      "name": "Dark Shard",
+      "level": 34,
+      "max_hp": 42000,
+      "exp_reward": 3150,
+      "respawn_ms": 60000,
+      "loot_table": "monolith",
+      "spawn_distance_min": 4.0,
+      "spawn_distance_max": 9.0,
+      "wave_thresholds": [
+        {
+          "ratio": 0.8,
+          "wave": 1,
+          "spawns": [
+            {
+              "mob": "dark_bandit",
+              "count": 3,
+              "level": 32
+            },
+            {
+              "mob": "goblin_guard",
+              "count": 1,
+              "level": 32
+            }
+          ]
+        },
+        {
+          "ratio": 0.6,
+          "wave": 2,
+          "spawns": [
+            {
+              "mob": "troll_mountain",
+              "count": 1,
+              "level": 33
+            },
+            {
+              "mob": "dark_bandit",
+              "count": 3,
+              "level": 33
+            }
+          ]
+        },
+        {
+          "ratio": 0.4,
+          "wave": 3,
+          "spawns": [
+            {
+              "mob": "goblin_guard",
+              "count": 2,
+              "level": 34,
+              "elite": 1
+            },
+            {
+              "mob": "dark_bandit",
+              "count": 2,
+              "level": 34
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
+          "spawns": [
+            {
+              "mob": "troll_mountain",
+              "count": 2,
+              "level": 35,
+              "elite": 1
+            },
+            {
+              "mob": "dark_bandit",
+              "count": 2,
+              "level": 35
+            }
+          ]
+        }
+      ],
+      "reinforce": {
+        "every_ms": 13000,
+        "mobs": [
+          [
+            "dark_bandit",
+            34
+          ],
+          [
+            "goblin_guard",
+            34
+          ]
+        ],
+        "count": 2,
+        "cap": 5
+      },
+      "roam": 30.0,
+      "scene": "res://scenes/entities/monolith/dark_monolith.tscn"
+    },
+    "dark_mist": {
+      "name": "Dark Shard",
+      "level": 46,
+      "max_hp": 58000,
+      "exp_reward": 5110,
+      "respawn_ms": 75000,
+      "loot_table": "monolith",
+      "spawn_distance_min": 4.0,
+      "spawn_distance_max": 9.0,
+      "wave_thresholds": [
+        {
+          "ratio": 0.8,
+          "wave": 1,
+          "spawns": [
+            {
+              "mob": "pallid",
+              "count": 2,
+              "level": 44
+            }
+          ]
+        },
+        {
+          "ratio": 0.6,
+          "wave": 2,
+          "spawns": [
+            {
+              "mob": "pallid",
+              "count": 3,
+              "level": 45
+            }
+          ]
+        },
+        {
+          "ratio": 0.4,
+          "wave": 3,
+          "spawns": [
+            {
+              "mob": "pallid",
+              "count": 2,
+              "level": 46,
+              "elite": 1
+            },
+            {
+              "mob": "pallid",
+              "count": 1,
+              "level": 46
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
+          "spawns": [
+            {
+              "mob": "pallid",
+              "count": 3,
+              "level": 47
+            },
+            {
+              "mob": "pallid",
+              "count": 1,
+              "level": 47,
+              "elite": 1
+            }
+          ]
+        }
+      ],
+      "reinforce": {
+        "every_ms": 15000,
+        "mobs": [
+          [
+            "pallid",
+            46
+          ]
+        ],
+        "count": 1,
+        "cap": 4
+      },
+      "roam": 30.0,
+      "scene": "res://scenes/entities/monolith/dark_monolith.tscn"
+    },
+    "mushroom": {
+      "name": "Venomcap Stone",
+      "level": 27,
+      "max_hp": 26000,
+      "exp_reward": 2180,
+      "respawn_ms": 150000,
+      "loot_table": "monolith_spider",
+      "spawn_distance_min": 4.0,
+      "spawn_distance_max": 8.0,
+      "wave_thresholds": [
+        {
+          "ratio": 0.8,
+          "wave": 1,
+          "spawns": [
+            {
+              "mob": "venomfang_weaver",
+              "count": 3,
+              "level": 26
+            }
+          ]
+        },
+        {
+          "ratio": 0.6,
+          "wave": 2,
+          "spawns": [
+            {
+              "mob": "black_weaver",
+              "count": 4,
+              "level": 25
+            },
+            {
+              "mob": "venomfang_weaver",
+              "count": 1,
+              "level": 27
+            }
+          ]
+        },
+        {
+          "ratio": 0.4,
+          "wave": 3,
+          "spawns": [
+            {
+              "mob": "venomfang_weaver",
+              "count": 3,
+              "level": 27
+            },
+            {
+              "mob": "venomfang_weaver",
+              "count": 1,
+              "level": 27,
+              "elite": 1
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
+          "spawns": [
+            {
+              "mob": "venomfang_weaver",
+              "count": 3,
+              "level": 28
+            },
+            {
+              "mob": "black_weaver",
+              "count": 2,
+              "level": 27,
+              "elite": 1
+            }
+          ]
+        }
+      ],
+      "reinforce": {
+        "every_ms": 12000,
+        "mobs": [
+          [
+            "venomfang_weaver",
+            26
+          ],
+          [
+            "black_weaver",
+            26
+          ]
+        ],
+        "count": 2,
+        "cap": 6
+      },
+      "roam": 10.0
+    },
+    "egg": {
+      "name": "Broodclutch Stone",
+      "level": 31,
+      "max_hp": 34000,
+      "exp_reward": 2720,
+      "respawn_ms": 180000,
+      "loot_table": "monolith_spider",
+      "spawn_distance_min": 4.0,
+      "spawn_distance_max": 8.0,
+      "wave_thresholds": [
+        {
+          "ratio": 0.8,
+          "wave": 1,
+          "spawns": [
+            {
+              "mob": "black_weaver",
+              "count": 5,
+              "level": 28
+            }
+          ]
+        },
+        {
+          "ratio": 0.6,
+          "wave": 2,
+          "spawns": [
+            {
+              "mob": "venomfang_weaver",
+              "count": 3,
+              "level": 30
+            },
+            {
+              "mob": "broodguard",
+              "count": 1,
+              "level": 31
+            }
+          ]
+        },
+        {
+          "ratio": 0.4,
+          "wave": 3,
+          "spawns": [
+            {
+              "mob": "black_weaver",
+              "count": 4,
+              "level": 29
+            },
+            {
+              "mob": "broodguard",
+              "count": 1,
+              "level": 31,
+              "elite": 1
+            }
+          ]
+        },
+        {
+          "ratio": 0.2,
+          "wave": 4,
+          "spawns": [
+            {
+              "mob": "broodguard",
+              "count": 2,
+              "level": 32
+            },
+            {
+              "mob": "venomfang_weaver",
+              "count": 2,
+              "level": 31,
+              "elite": 1
+            }
+          ]
+        }
+      ],
+      "reinforce": {
+        "every_ms": 11000,
+        "mobs": [
+          [
+            "black_weaver",
+            29
+          ]
+        ],
+        "count": 3,
+        "cap": 8
+      },
+      "roam": 10.0
     }
   },
   "_map_note": "Each pack names the map it lives on (added 2026-11-13; the old game told them apart by zone name: caverns_* zones are the Blackweb Caverns).",

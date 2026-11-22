@@ -1,30 +1,88 @@
 extends Node3D
 class_name LevelUpFX
 
-## The level-up moment: a golden light pillar and a rising sparkle helix around
-## the character, a rune seal and shockwave on the ground, a warm light pulse,
-## and a big "LEVEL N" banner on screen.
+## The level-up moment, about three seconds, seen from the play camera:
+##   0.00  the ground under the hero flares (a warm pool), a shockwave of light
+##         and dust races out over the ground with light skidding out in it;
+##         a column of gold light shoots up round the hero into the sky,
+##         sparks are thrown up out of it and fall back as glitter, a flash
+##         and a band of light sweep up the body from the feet to the crown;
+##   0.08  three comets of light leave the ground and wind up round the body,
+##         shedding glitter, and meet over the head;
+##   0.7   where they meet the crown bursts: a flash and a spray of gold
+##         sparkle over the head;
+##   1.5+  the column draws in and lifts off into the sky, its foot burning
+##         away first; the pool, the glitter and the body's light fade;
+##   3.3   all freed.
+## Plus the big "LEVEL N" banner on screen.
+##
+## Built from the game's rendered VFX material only (the erosion cloud, the
+## burst_gold clip, the soft glow, GPU embers), never drawn shapes: the
+## column, the comets and the ground light are shaders on one cylinder, one
+## strip mesh and one projected box; the motes and sparks run on the GPU.
+## One `age` drives the shaders, so _process only sets a few values. No
+## shadow casters; one shadowless warm light. Bloom is off on the low preset,
+## so every glow is painted in its shader.
 ##
 ## Presentation only - the server already applied the level. One call from
-## the feedback layer (`LevelUpFX.play(player, level, overlay)`) does all of it.
-## Art: the levelup_pillar / levelup_spiral flipbooks; the sound is ui_levelup.
+## the feedback layer (`LevelUpFX.play(player, level, overlay)`) does all of
+## it; the chime is the feedback layer's (AudioManager.play_levelup).
 
-const SHADER_ADD := "res://assets/shaders/spell_layer_add.gdshader"
-const PILLAR := "res://assets/vfx/atlases/levelup_pillar_8x8_1k.png"
-const SPIRAL := "res://assets/vfx/atlases/levelup_spiral_8x8_1k.png"
-const SHOCKWAVE := "res://assets/vfx/atlases/shockwave_8x8_1k.png"
-const RUNE := "res://assets/vfx/tex/rune_seal_512.png"
+const COLUMN_SHADER := "res://assets/shaders/level_up_column.gdshader"
+const GROUND_SHADER := "res://assets/shaders/level_up_ground.gdshader"
+const HELIX_SHADER := "res://assets/shaders/level_up_helix.gdshader"
+const BODY_SHADER := "res://assets/shaders/level_up_body.gdshader"
+const MOTES_SHADER := "res://assets/shaders/level_up_motes.gdshader"
+const EMBER_PROCESS := "res://assets/shaders/ember_particles.gdshader"
+const SPARK_DRAW := "res://assets/shaders/ember_spark.gdshader"
+const LAYER_ADD := "res://assets/shaders/spell_layer_add.gdshader"
+const NOISE := "res://assets/vfx/tex/noise_erosion_512.png"
+const CROWN := "res://assets/vfx/atlases/burst_gold_8x8_1k.png"
+const GLOW := "res://assets/vfx/tex/soft_glow_512.png"
 const FLARE := "res://assets/vfx/tex/star_flare_256.png"
-const GOLD := Color(1.0, 0.82, 0.38)
-const LENGTH := 3.2
-const FPS := 22.0
+const GOLD := Color(1.0, 0.74, 0.32)
+const HOT := Color(1.0, 0.95, 0.8)
+const LENGTH := 3.3
+const COLUMN_HEIGHT := 9.0
+const SHOCK_REACH := 4.6
+const GROUND_HALF_HEIGHT := 0.8
+## The comets' helix, shared by their strip (level_up_helix.gdshader) and the
+## glitter they shed (level_up_motes.gdshader mode 0).
+const HELIX := {"launch": 0.08, "stagger": 0.06, "climb": 1.25, "tail": 0.5, "turns": 1.6,
+	"top": 2.35, "foot_radius": 0.78, "crown_radius": 0.22}
+const HELIX_SEGMENTS := 64
+## The crown bursts as the comets reach it (a head reaches the top a little
+## under half way through its climb; the tail then follows it out).
+const CROWN_AT := 0.08 + 0.06 + 1.25 * 0.47
+const CROWN_FPS := 30.0
+const CROWN_FIRST_FRAME := 16.0
+const CROWN_HEIGHT := 2.4
+const BODY_LIT := 1.6
 
 var target: Node3D
 var quality := "high"
 var _age := 0.0
-## {node, kind, delay, ...} - ticked in _process.
-var _layers: Array = []
+## Warm-up copy (ShaderWarmup): held mid-moment, never freed by itself.
+var _hold := false
+var _column: ShaderMaterial
+var _ground: ShaderMaterial
+var _helix: ShaderMaterial
+var _shed: GPUParticles3D
+var _shed_process: ShaderMaterial
+var _body: ShaderMaterial
+var _crown: MeshInstance3D
+var _crown_material: ShaderMaterial
+var _crown_sparks: GPUParticles3D
+var _flash_node: MeshInstance3D
+var _flash: ShaderMaterial
 var _light: OmniLight3D
+## The body pieces wearing the light (their overlay was empty and is ours).
+var _lit: Array[GeometryInstance3D] = []
+
+## The shaders, meshes, ramps and textures, kept for the session: a level-up
+## every few minutes would otherwise read them again and, freed with their
+## last user, compile their pipelines again in the middle of play.
+static var _kept: Dictionary = {}
 
 ## Spawn the whole moment. `overlay` is a full-rect Control for the banner;
 ## either half is skipped when its anchor is missing.
@@ -33,7 +91,7 @@ static func play(player: Node3D, level: int, overlay: Control = null) -> Node3D:
 		_banner(overlay, level)
 	if player == null or not is_instance_valid(player) or not player.is_inside_tree():
 		return null
-	# several levels from one reward arrive in one frame: one pillar is enough
+	# several levels from one reward arrive in one frame: one moment is enough
 	for child in player.get_parent().get_children():
 		if child is LevelUpFX and (child as LevelUpFX).target == player and (child as LevelUpFX)._age < 0.5:
 			return child
@@ -46,155 +104,379 @@ static func play(player: Node3D, level: int, overlay: Control = null) -> Node3D:
 	fx._build()
 	return fx
 
-func _build() -> void:
-	var full := quality != "low"
-	# core (every preset): pillar, helix, rune seal
-	_add_flipbook(PILLAR, 4.2, 1.95, 0.0)
-	_add_flipbook(SPIRAL, 3.0, 1.35, 0.15)
-	_add_flat(RUNE, Vector2(0.8, 2.8), 0.0, 2.4, true)
-	if full:
-		_add_flat(SHOCKWAVE, Vector2(3.6, 3.6), 0.05, 64.0 / 33.0, false)
-		_add_particles()
-	_light = OmniLight3D.new()
-	_light.light_color = GOLD
-	_light.omni_range = 6.0
-	_light.light_energy = 0.0
-	_light.shadow_enabled = false
-	_light.position = Vector3(0, 1.4, 0)
-	add_child(_light)
+## The moment held mid-way, every layer showing, on `body` under `parent`
+## (ShaderWarmup: its pipelines compile behind the loading screen). Freed
+## with its parent.
+static func warm(parent: Node3D, body: Node3D) -> Node3D:
+	if parent == null or not is_instance_valid(parent) or body == null or not is_instance_valid(body):
+		return null
+	var fx := LevelUpFX.new()
+	fx.name = "LevelUpFXWarm"
+	fx.target = body
+	fx._hold = true
+	fx._age = 0.4
+	parent.add_child(fx)
+	fx.global_position = body.global_position
+	fx._build()
+	fx._tick()
+	return fx
 
-func _material(texture_path: String, grid: Vector2, billboard: bool) -> ShaderMaterial:
+static func _res(path: String) -> Resource:
+	var res: Resource = _kept.get(path)
+	if res == null:
+		res = load(path)
+		_kept[path] = res
+	return res
+
+func _build() -> void:
+	var more := 1.0 if quality == "low" else (1.25 if quality == "medium" else 1.5)
+	_add_ground()
+	_add_column()
+	_add_helix()
+	_add_shed(int(96 * more))
+	_add_skid(int(30 * more))
+	_add_sparks(int(34 * more))
+	_add_crown_sparks(int(40 * more))
+	_add_crown()
+	_add_flash()
+	_light_body()
+	if not _hold:
+		_light = OmniLight3D.new()
+		_light.light_color = Color(1.0, 0.8, 0.5)
+		_light.omni_range = 5.5
+		_light.omni_attenuation = 1.4
+		_light.light_energy = 0.0
+		_light.light_specular = 0.3
+		_light.shadow_enabled = false
+		_light.position = Vector3(0, 1.1, 0)
+		add_child(_light)
+
+# ------------------------------------------------------------------- layers
+
+func _add_column() -> void:
+	var mesh: CylinderMesh = _kept.get("column_mesh")
+	if mesh == null:
+		mesh = CylinderMesh.new()
+		mesh.top_radius = 1.0
+		mesh.bottom_radius = 1.0
+		mesh.height = 1.0
+		mesh.radial_segments = 28
+		mesh.rings = 12
+		mesh.cap_top = false
+		mesh.cap_bottom = false
+		_kept["column_mesh"] = mesh
+	_column = ShaderMaterial.new()
+	_column.shader = _res(COLUMN_SHADER)
+	_column.set_shader_parameter("noise", _res(NOISE))
+	_column.set_shader_parameter("tint", GOLD)
+	_column.set_shader_parameter("hot", HOT)
+	_column.set_shader_parameter("height", COLUMN_HEIGHT)
+	var node := MeshInstance3D.new()
+	node.name = "Column"
+	node.mesh = mesh
+	node.material_override = _column
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# the shader shapes the unit cylinder: cull by what it can become
+	node.custom_aabb = AABB(Vector3(-3.0, -0.5, -3.0), Vector3(6.0, COLUMN_HEIGHT + 1.0, 6.0))
+	add_child(node)
+
+func _add_ground() -> void:
+	var box := BoxMesh.new()
+	var span := (SHOCK_REACH + 0.8) * 2.0
+	box.size = Vector3(span, GROUND_HALF_HEIGHT * 2.0, span)
+	_ground = ShaderMaterial.new()
+	_ground.shader = _res(GROUND_SHADER)
+	_ground.set_shader_parameter("noise", _res(NOISE))
+	_ground.set_shader_parameter("tint", GOLD)
+	_ground.set_shader_parameter("hot", HOT)
+	_ground.set_shader_parameter("reach", SHOCK_REACH)
+	_ground.set_shader_parameter("half_height", GROUND_HALF_HEIGHT)
+	var node := MeshInstance3D.new()
+	node.name = "Ground"
+	node.mesh = box
+	node.material_override = _ground
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(node)
+
+## The three comets winding up round the body: one strip mesh; the helix and
+## the turn toward the camera are the shader's.
+func _add_helix() -> void:
+	_helix = ShaderMaterial.new()
+	_helix.shader = _res(HELIX_SHADER)
+	_helix.set_shader_parameter("noise", _res(NOISE))
+	_helix.set_shader_parameter("tint", GOLD)
+	_helix.set_shader_parameter("hot", HOT)
+	for key: String in HELIX:
+		_helix.set_shader_parameter(key, HELIX[key])
+	var node := MeshInstance3D.new()
+	node.name = "Comets"
+	node.mesh = _helix_mesh()
+	node.material_override = _helix
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.custom_aabb = AABB(Vector3(-1.5, -0.2, -1.5), Vector3(3.0, 3.2, 3.0))
+	add_child(node)
+
+## Three strips of HELIX_SEGMENTS quads: UV.x along (0..1), UV.y across,
+## UV2.x the strand. The positions are placeholders; the shader places them.
+static func _helix_mesh() -> ArrayMesh:
+	var mesh: ArrayMesh = _kept.get("helix_mesh")
+	if mesh != null:
+		return mesh
+	var verts := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var uv2s := PackedVector2Array()
+	var index := PackedInt32Array()
+	for strand in 3:
+		var base := verts.size()
+		for i in HELIX_SEGMENTS + 1:
+			var u := float(i) / HELIX_SEGMENTS
+			for side in 2:
+				verts.append(Vector3(0.0, u * 2.0, 0.0))
+				uvs.append(Vector2(u, float(side)))
+				uv2s.append(Vector2(float(strand), 0.0))
+		for i in HELIX_SEGMENTS:
+			var a := base + i * 2
+			index.append_array([a, a + 1, a + 2, a + 1, a + 3, a + 2])
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TEX_UV2] = uv2s
+	arrays[Mesh.ARRAY_INDEX] = index
+	mesh = ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_kept["helix_mesh"] = mesh
+	return mesh
+
+## Glitter shed by the comets (level_up_motes.gdshader mode 0, the same
+## helix); it starts with them.
+func _add_shed(amount: int) -> void:
+	_shed = _particles("Glitter", amount, 0.95, true)
+	_shed.explosiveness = 0.0
+	_shed_process = ShaderMaterial.new()
+	_shed_process.shader = _res(MOTES_SHADER)
+	_shed_process.set_shader_parameter("mode", 0)
+	for key: String in HELIX:
+		_shed_process.set_shader_parameter(key, HELIX[key])
+	_shed_process.set_shader_parameter("size_min", 0.009)
+	_shed_process.set_shader_parameter("size_max", 0.024)
+	_shed_process.set_shader_parameter("stretch", 0.03)
+	_shed_process.set_shader_parameter("energy", 0.9)
+	_shed_process.set_shader_parameter("ramp", _ramp())
+	_shed.process_material = _shed_process
+	_shed.emitting = false
+
+## Light skidding out over the ground with the shockwave (mode 1).
+func _add_skid(amount: int) -> void:
+	var particles := _particles("Skid", amount, 1.1, false)
+	particles.explosiveness = 1.0
+	var process := ShaderMaterial.new()
+	process.shader = _res(MOTES_SHADER)
+	process.set_shader_parameter("mode", 1)
+	process.set_shader_parameter("radius", 0.5)
+	process.set_shader_parameter("speed_min", 3.5)
+	process.set_shader_parameter("speed_max", 8.0)
+	process.set_shader_parameter("size_min", 0.01)
+	process.set_shader_parameter("size_max", 0.022)
+	process.set_shader_parameter("stretch", 0.02)
+	process.set_shader_parameter("energy", 0.8)
+	process.set_shader_parameter("ramp", _ramp())
+	particles.process_material = process
+	particles.emitting = true
+
+## Sparks thrown up out of the column that fall back as gold glitter
+## (the spells' ember process).
+func _add_sparks(amount: int) -> void:
+	var particles := _particles("Sparks", amount, 2.2, false)
+	particles.explosiveness = 0.9
+	particles.position = Vector3(0, 0.3, 0)
+	particles.process_material = _ember_process(24.0, Vector2(4.5, 10.0), 4.0, 1.6, 0.35)
+	particles.emitting = true
+
+## The crown's spray: sparks flung out all round where the comets meet,
+## drifting down as glitter. Fired by _tick at CROWN_AT.
+func _add_crown_sparks(amount: int) -> void:
+	_crown_sparks = _particles("CrownSparks", amount, 1.6, false)
+	_crown_sparks.explosiveness = 1.0
+	_crown_sparks.position = Vector3(0, CROWN_HEIGHT, 0)
+	_crown_sparks.process_material = _ember_process(110.0, Vector2(1.6, 4.6), 2.2, 2.4, 0.12)
+	_crown_sparks.emitting = false
+
+func _ember_process(spread: float, speed: Vector2, gravity: float, drag: float, radius: float) -> ShaderMaterial:
+	var process := ShaderMaterial.new()
+	process.shader = _res(EMBER_PROCESS)
+	process.set_shader_parameter("dir", Vector3.UP)
+	process.set_shader_parameter("spread_deg", spread)
+	process.set_shader_parameter("speed_min", speed.x)
+	process.set_shader_parameter("speed_max", speed.y)
+	process.set_shader_parameter("gravity", gravity)
+	process.set_shader_parameter("drag", drag)
+	process.set_shader_parameter("turbulence", 2.0)
+	process.set_shader_parameter("turb_freq", 4.0)
+	process.set_shader_parameter("size_min", 0.01)
+	process.set_shader_parameter("size_max", 0.026)
+	process.set_shader_parameter("stretch", 0.03)
+	process.set_shader_parameter("emit_radius", radius)
+	process.set_shader_parameter("energy", 1.0)
+	process.set_shader_parameter("floor_y", global_position.y if is_inside_tree() else -100000.0)
+	process.set_shader_parameter("ramp", _ramp())
+	return process
+
+func _particles(node_name: String, amount: int, lifetime: float, local: bool) -> GPUParticles3D:
+	var particles := GPUParticles3D.new()
+	particles.name = node_name
+	particles.amount = maxi(1, amount)
+	particles.lifetime = lifetime
+	particles.one_shot = true
+	particles.randomness = 0.0
+	particles.fixed_fps = 0
+	particles.local_coords = local
+	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	particles.visibility_aabb = AABB(Vector3(-7, -2, -7), Vector3(14, 12, 14))
+	var quad: QuadMesh = _kept.get("spark_quad")
+	if quad == null:
+		quad = QuadMesh.new()
+		var draw := ShaderMaterial.new()
+		draw.shader = _res(SPARK_DRAW)
+		quad.material = draw
+		_kept["spark_quad"] = quad
+	particles.draw_pass_1 = quad
+	add_child(particles)
+	return particles
+
+## White-hot -> pale gold -> gold -> a dim amber, fading out.
+static func _ramp() -> GradientTexture1D:
+	var ramp: GradientTexture1D = _kept.get("ramp")
+	if ramp != null:
+		return ramp
+	var gradient := Gradient.new()
+	gradient.offsets = PackedFloat32Array([0.0, 0.1, 0.4, 0.8, 1.0])
+	gradient.colors = PackedColorArray([Color(1.0, 0.93, 0.74, 1.0), Color(1.0, 0.84, 0.5, 1.0),
+		Color(1.0, 0.72, 0.3, 0.95), Color(0.85, 0.48, 0.16, 0.7), Color(0.55, 0.26, 0.08, 0.0)])
+	ramp = GradientTexture1D.new()
+	ramp.gradient = gradient
+	ramp.width = 64
+	_kept["ramp"] = ramp
+	return ramp
+
+## A camera-facing flipbook/glow card (spell_layer_add.gdshader).
+func _card(node_name: String, texture_path: String, grid: Vector2, size: float, height: float) -> MeshInstance3D:
+	var quad := QuadMesh.new()
+	quad.size = Vector2.ONE
 	var material := ShaderMaterial.new()
-	material.shader = load(SHADER_ADD)
-	material.set_shader_parameter("atlas", load(texture_path))
+	material.shader = _res(LAYER_ADD)
+	material.set_shader_parameter("atlas", _res(texture_path))
 	material.set_shader_parameter("grid", grid)
 	material.set_shader_parameter("frame", 0.0)
-	material.set_shader_parameter("billboard", billboard)
+	material.set_shader_parameter("billboard", true)
 	material.set_shader_parameter("tint", Color.WHITE)
-	material.set_shader_parameter("opacity", 1.0)
-	material.set_shader_parameter("soft_fade", 0.35)
-	return material
-
-## An upright flipbook that turns to face the camera around the vertical axis
-## only, so the column stays a column under the high MMO camera.
-func _add_flipbook(path: String, size: float, height: float, delay: float) -> void:
-	var quad := QuadMesh.new()
-	quad.size = Vector2(size, size)
-	quad.material = _material(path, Vector2(8, 8), false)
+	material.set_shader_parameter("opacity", 0.0)
+	material.set_shader_parameter("soft_fade", 0.3)
+	quad.material = material
 	var node := MeshInstance3D.new()
+	node.name = node_name
 	node.mesh = quad
 	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	node.position = Vector3(0, height, 0)
-	node.visible = delay <= 0.0
+	node.scale = Vector3.ONE * size
 	add_child(node)
-	_layers.append({"node": node, "kind": "flipbook", "delay": delay, "material": quad.material})
+	return node
 
-## A ground layer: either a still that grows/spins (rune) or a flipbook.
-func _add_flat(path: String, sizes: Vector2, delay: float, life: float, still: bool) -> void:
-	var quad := QuadMesh.new()
-	quad.size = Vector2.ONE
-	var material := _material(path, Vector2.ONE if still else Vector2(8, 8), false)
-	material.set_shader_parameter("soft_fade", 0.0)
-	material.set_shader_parameter("tint", GOLD if not still else Color(1.0, 0.88, 0.5))
-	quad.material = material
-	var node := MeshInstance3D.new()
-	node.mesh = quad
-	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-	node.position = Vector3(0, 0.06 if still else 0.08, 0)
-	node.scale = Vector3.ONE * sizes.x
-	node.visible = delay <= 0.0
-	add_child(node)
-	_layers.append({"node": node, "kind": "rune" if still else "ring", "delay": delay,
-		"life": life, "sizes": sizes, "material": material})
+## The spray of gold sparkle over the head where the comets meet.
+func _add_crown() -> void:
+	_crown = _card("Crown", CROWN, Vector2(8, 8), 2.0, CROWN_HEIGHT)
+	_crown_material = (_crown.mesh as QuadMesh).material as ShaderMaterial
+	_crown_material.set_shader_parameter("tint", Color(1.0, 0.88, 0.62))
+	_crown.visible = false
 
-func _add_particles() -> void:
-	var particles := GPUParticles3D.new()
-	particles.amount = 20
-	particles.lifetime = 1.8
-	particles.one_shot = true
-	particles.explosiveness = 0.7
-	particles.randomness = 0.6
-	particles.local_coords = false
-	particles.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var quad := QuadMesh.new()
-	quad.size = Vector2(0.18, 0.18)
-	var material := StandardMaterial3D.new()
-	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
-	material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	material.vertex_color_use_as_albedo = true
-	material.albedo_texture = load(FLARE)
-	quad.material = material
-	particles.draw_pass_1 = quad
-	var process := ParticleProcessMaterial.new()
-	process.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_RING
-	process.emission_ring_axis = Vector3.UP
-	process.emission_ring_radius = 0.9
-	process.emission_ring_inner_radius = 0.5
-	process.emission_ring_height = 0.1
-	process.direction = Vector3.UP
-	process.spread = 12.0
-	process.initial_velocity_min = 1.6
-	process.initial_velocity_max = 3.0
-	process.gravity = Vector3(0, 0.4, 0)
-	process.scale_min = 0.6
-	process.scale_max = 1.5
-	process.color = GOLD
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(1, 1, 1, 1))
-	gradient.set_color(1, Color(1, 1, 1, 0))
-	var ramp := GradientTexture1D.new()
-	ramp.gradient = gradient
-	process.color_ramp = ramp
-	particles.process_material = process
-	add_child(particles)
-	particles.position = Vector3(0, 0.1, 0)
-	particles.emitting = true
+## The flashes: round the body as it erupts, then over the head as the crown
+## bursts (one card, moved).
+func _add_flash() -> void:
+	_flash_node = _card("Flash", GLOW, Vector2.ONE, 2.8, 1.0)
+	_flash = (_flash_node.mesh as QuadMesh).material as ShaderMaterial
+	_flash.set_shader_parameter("tint", Color(1.0, 0.7, 0.35))
+
+## The light sweeping up the body: an overlay on the hero's own pieces whose
+## overlay slot is free (a status look or a rising spirit keeps its own).
+func _light_body() -> void:
+	if target == null or not is_instance_valid(target):
+		return
+	_body = ShaderMaterial.new()
+	_body.shader = _res(BODY_SHADER)
+	_body.set_shader_parameter("noise", _res(NOISE))
+	_body.set_shader_parameter("tint", GOLD)
+	_body.set_shader_parameter("hot", HOT)
+	_body.set_shader_parameter("gone_at", BODY_LIT)
+	var root: Variant = target.get("visuals")
+	var holder: Node = root if root is Node3D else target
+	for node: Node in holder.find_children("*", "GeometryInstance3D", true, false):
+		var piece := node as GeometryInstance3D
+		var piece_name := String(piece.name)
+		# the skin and clothes; not the hair cards, lashes and eyes (their
+		# cards would light up as quads)
+		if not (piece is MeshInstance3D) or not piece.is_visible_in_tree():
+			continue
+		if not (piece_name.begins_with("Hero_") or piece_name == "Face_Head"):
+			continue
+		if piece.material_overlay != null:
+			continue
+		piece.material_overlay = _body
+		_lit.append(piece)
+		if _lit.size() >= 16:
+			break
+
+func _unlight_body() -> void:
+	for piece in _lit:
+		if is_instance_valid(piece) and piece.material_overlay == _body:
+			piece.material_overlay = null
+	_lit.clear()
+
+# ------------------------------------------------------------------- timing
 
 func _process(delta: float) -> void:
-	_age += delta
+	if not _hold:
+		_age += delta
 	if target != null and is_instance_valid(target) and target.is_inside_tree():
 		global_position = target.global_position
-	var camera := get_viewport().get_camera_3d()
-	for entry in _layers:
-		_tick(entry, camera)
-	if _light != null:
-		# a quick warm swell, then a long falloff
-		var swell := clampf(_age / 0.15, 0.0, 1.0)
-		var fall := clampf(1.0 - (_age - 0.3) / 1.6, 0.0, 1.0)
-		_light.light_energy = 3.0 * minf(swell, fall)
-	if _age >= LENGTH:
+	_tick()
+	if _age >= BODY_LIT and not _lit.is_empty():
+		_unlight_body()
+	if not _hold and _age >= LENGTH:
 		queue_free()
 
-func _tick(entry: Dictionary, camera: Camera3D) -> void:
-	var node: MeshInstance3D = entry["node"]
-	var t := _age - float(entry["delay"])
-	node.visible = t >= 0.0
-	if t < 0.0:
-		return
-	var material: ShaderMaterial = entry["material"]
-	match String(entry["kind"]):
-		"flipbook":
-			var frame := minf(t * FPS, 63.0)
-			material.set_shader_parameter("frame", frame)
-			# hold the last frames out: fade over the tail of the clip
-			material.set_shader_parameter("opacity", clampf((63.0 - frame) / 10.0, 0.0, 1.0))
-			if camera != null:
-				var to_cam := camera.global_position - node.global_position
-				node.global_rotation = Vector3(0.0, atan2(to_cam.x, to_cam.z), 0.0)
-		"rune":
-			var life := float(entry["life"])
-			var k := clampf(t / life, 0.0, 1.0)
-			var sizes: Vector2 = entry["sizes"]
-			node.scale = Vector3.ONE * lerpf(sizes.x, sizes.y, 1.0 - pow(1.0 - minf(k * 2.5, 1.0), 3.0))
-			node.rotation.y = t * 0.9
-			var fade_in := clampf(t / 0.15, 0.0, 1.0)
-			material.set_shader_parameter("opacity", fade_in * clampf((1.0 - k) / 0.45, 0.0, 1.0))
-		"ring":
-			var life := float(entry["life"])
-			material.set_shader_parameter("frame", minf(t / life * 64.0, 63.0))
+func _tick() -> void:
+	_column.set_shader_parameter("age", _age)
+	_ground.set_shader_parameter("age", _age)
+	_helix.set_shader_parameter("age", _age)
+	_shed_process.set_shader_parameter("age", _age)
+	if not _shed.emitting and _age >= float(HELIX["launch"]) and _age < 0.5:
+		_shed.emitting = true
+	if _body != null:
+		_body.set_shader_parameter("age", _age)
+		_body.set_shader_parameter("feet", global_position)
+	var t := _age - CROWN_AT
+	_crown.visible = t >= 0.0
+	if t >= 0.0 and not _crown_sparks.emitting and t < 0.2:
+		_crown_sparks.emitting = true
+	if t >= 0.0:
+		var frame := minf(CROWN_FIRST_FRAME + t * CROWN_FPS, 63.0)
+		_crown_material.set_shader_parameter("frame", frame)
+		_crown_material.set_shader_parameter("opacity",
+			clampf(t / 0.1, 0.0, 1.0) * clampf((60.0 - frame) / 20.0, 0.0, 1.0) * 0.7)
+	# a flash round the body as it erupts, a smaller one at the crown
+	var first := clampf(_age / 0.04, 0.0, 1.0) * clampf(1.0 - (_age - 0.04) / 0.3, 0.0, 1.0) * 0.45
+	var second := clampf(t / 0.04, 0.0, 1.0) * clampf(1.0 - (t - 0.04) / 0.35, 0.0, 1.0) * 0.5
+	if t >= 0.0:
+		_flash_node.position.y = CROWN_HEIGHT
+		_flash_node.scale = Vector3.ONE * 1.9
+	_flash.set_shader_parameter("opacity", second if t >= 0.0 else first)
+	if _light != null:
+		var swell := clampf(_age / 0.08, 0.0, 1.0)
+		var fall := clampf(1.0 - (_age - 0.15) / 1.9, 0.0, 1.0)
+		_light.light_energy = 1.7 * swell * fall * fall
+
+func _exit_tree() -> void:
+	_unlight_body()
 
 # ------------------------------------------------------------------- banner
 

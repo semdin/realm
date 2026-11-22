@@ -482,7 +482,7 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
         0.0
     };
     println!(
-        "[tick {}] players={} creatures={} awake={} think/s={:.0} | casts/s={:.0} hits/s={:.0} kills={} deaths={} cc holds={} procs={} dots/s={:.0} | creature abilities={} player holds={} | refused={:?} paths/s={:.0} ({:.2} ms/tick) ground {:.2} ms/tick | fallen={} (last stood at {:?}) roamed={:.0}m | tick ms p50={:.2} p99={:.2} max={:.2} late={} | {} | out {:.2} KB/s per player, {:.1} snapshots/s per player",
+        "[tick {}] players={} creatures={} awake={} think/s={:.0} | casts/s={:.0} hits/s={:.0} kills={} deaths={} cc holds={} procs={} dots/s={:.0} | creature abilities={} player holds={} thrown back={} | refused={:?} paths/s={:.0} ({:.2} ms/tick) ground {:.2} ms/tick | fallen={} (last stood at {:?}) roamed={:.0}m | tick ms p50={:.2} p99={:.2} max={:.2} late={} | {} | out {:.2} KB/s per player, {:.1} snapshots/s per player",
         tick,
         players,
         creatures,
@@ -497,6 +497,7 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
         stats.dot_ticks as f64 / seconds,
         stats.telegraphs,
         stats.player_holds,
+        stats.thrown_back,
         stats.refused,
         stats.paths as f64 / seconds,
         stats.path_ms / n,
@@ -548,6 +549,7 @@ fn report(sim: &mut Sim, window: Duration, late: u32) {
     stats.dot_ticks = 0;
     stats.telegraphs = 0;
     stats.player_holds = 0;
+    stats.thrown_back = 0;
     stats.refused = [0; 3];
     stats.paths = 0;
     stats.path_ms = 0.0;

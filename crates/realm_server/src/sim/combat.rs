@@ -6,7 +6,9 @@
 //!
 //! The numbers are `realm_rules::combat`; this module only applies them.
 
-use realm_proto::control::{CombatEvent, HIT_CRIT, HIT_EVADE, HIT_FINISHER, HIT_PIERCE};
+use realm_proto::control::{
+    CombatEvent, HIT_CRIT, HIT_EVADE, HIT_FINISHER, HIT_PIERCE, HIT_REFLECTED,
+};
 use std::sync::Arc;
 
 use realm_rules::{BASIC_SPELL, CastPower, Delivery, Derived, Rules, SpellDef};
@@ -34,6 +36,13 @@ const MEET_RADIUS: f32 = 0.7;
 const WAND_HEIGHT: f32 = 1.2;
 /// Regeneration runs every this many ticks (200 ms).
 const REGEN_TICKS: u32 = 6;
+/// A ward raised at most this long before a creature's bolt or ability
+/// lands on its bearer (ticks, 0.5 s) throws the blow back at the creature:
+/// its bearer takes nothing and the creature takes the blow, its hold
+/// (a stun, a web) with it.
+pub(super) const PERFECT_WARD_TICKS: u32 = 15;
+/// A thrown-back blow strikes this much harder than it came.
+const THROWN_BACK_POWER: f32 = 1.5;
 
 /// A player's combat state.
 pub(super) struct Caster {
@@ -52,6 +61,8 @@ pub(super) struct Caster {
     /// The index of the self-cast spell that raised the ward (u8::MAX: the
     /// first ward, as a revival's).
     pub ward_spell: u8,
+    /// When the player raised it (PERFECT_WARD_TICKS).
+    pub ward_from: u32,
 }
 
 impl Caster {
@@ -67,6 +78,7 @@ impl Caster {
             queued: None,
             ward_until: 0,
             ward_spell: u8::MAX,
+            ward_from: 0,
         }
     }
 
@@ -484,6 +496,7 @@ impl Sim {
                     player.caster.ward_until =
                         tick + (ms / 1000.0 * realm_sim::SIM_HZ as f32).ceil() as u32;
                     player.caster.ward_spell = spell.index;
+                    player.caster.ward_from = tick;
                 }
             }
             Delivery::Cone => {
@@ -896,6 +909,74 @@ impl Sim {
             },
         );
         amount as u32
+    }
+
+    /// Whether `player`'s ward went up just before a creature's blow lands
+    /// now (PERFECT_WARD_TICKS): a ward cast, not a revival's.
+    pub(super) fn perfect_ward(&self, player: Entity) -> bool {
+        let tick = self.tick;
+        self.world.get::<Player>(player).is_some_and(|p| {
+            let c = &p.caster;
+            p.dead_until == 0
+                && c.ward_until > tick
+                && c.ward_spell != u8::MAX
+                && tick <= c.ward_from + PERFECT_WARD_TICKS
+                && self
+                    .game
+                    .rules
+                    .combat
+                    .spell_by_index(c.ward_spell)
+                    .is_some_and(|w| w.reflects)
+        })
+    }
+
+    /// A creature's blow (`raw` before armour, with its `riders`) that met a
+    /// ward raised just in time goes back at the creature as the player's
+    /// own hit (HIT_REFLECTED); its stun or web holds the creature instead.
+    pub(super) fn throw_back(
+        &mut self,
+        player: Entity,
+        mob: Entity,
+        raw: f32,
+        riders: &realm_rules::creatures::Riders,
+    ) {
+        let rules = self.rules();
+        let Some(ward) = self
+            .world
+            .get::<Player>(player)
+            .and_then(|p| rules.combat.spell_by_index(p.caster.ward_spell))
+        else {
+            return;
+        };
+        self.stats.thrown_back += 1;
+        let dealt = self.hit_mob(player, mob, raw * THROWN_BACK_POWER, ward, HIT_REFLECTED);
+        let tick = self.tick;
+        let hold = {
+            let Some(m) = self.world.get::<super::Mob>(mob) else {
+                return;
+            };
+            if m.mode == MobMode::Dead || dealt == 0 {
+                return;
+            }
+            rules
+                .combat
+                .hold_scale(&self.game.species[usize::from(m.species)].id)
+                * if m.boss { 0.3 } else { 1.0 }
+        };
+        if hold <= 0.0 {
+            return;
+        }
+        let ticks =
+            |ms: u32| ((ms as f32 * hold) * realm_sim::SIM_HZ as f32 / 1000.0).ceil() as u32;
+        if let Some(mut m) = self.world.get_mut::<super::Mob>(mob) {
+            if riders.stun_ms > 0 {
+                m.status.stun_until = m.status.stun_until.max(tick + ticks(riders.stun_ms));
+                m.attack = None;
+            }
+            if riders.root_ms > 0 {
+                m.status.root_until = m.status.root_until.max(tick + ticks(riders.root_ms));
+            }
+        }
     }
 
     /// A creature's hit on a player: block or dodge, armour against the

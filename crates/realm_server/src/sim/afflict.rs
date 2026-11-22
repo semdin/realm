@@ -7,8 +7,8 @@
 //! labels may run a little behind or ahead of the server's clock).
 
 use realm_proto::{
-    STATUS_BLEED, STATUS_BURN, STATUS_FREEZE, STATUS_KNOCKED, STATUS_POISON, STATUS_SLOW,
-    STATUS_STUN, STATUS_WEAK,
+    STATUS_BLEED, STATUS_BURN, STATUS_FREEZE, STATUS_KNOCKED, STATUS_POISON, STATUS_ROOTED,
+    STATUS_SLOW, STATUS_STUN, STATUS_WEAK,
 };
 use realm_rules::creatures::{Riders, shove_lock_ms};
 use realm_sim::{SIM_HZ, Vec3};
@@ -39,6 +39,7 @@ pub(super) struct Afflictions {
     pub stun_until: u32,
     pub knock_until: u32,
     pub web_until: u32,
+    pub root_until: u32,
     pub despair_until: u32,
     pub venom: Option<Venom>,
     /// A duel foe's spells: frozen, burning, bleeding, weakened.
@@ -61,6 +62,7 @@ impl Afflictions {
         put("stun", self.stun_until);
         put("knock", self.knock_until);
         put("web", self.web_until);
+        put("root", self.root_until);
         put("despair", self.despair_until);
         put("venom", self.venom.map_or(0, |v| v.until));
         put("freeze", self.freeze_until);
@@ -80,7 +82,7 @@ impl Afflictions {
     }
 
     /// The STATUS_* bits other clients see on this player.
-    pub fn bits(&self, tick: u32) -> u8 {
+    pub fn bits(&self, tick: u32) -> u16 {
         let mut bits = 0;
         if self.freeze_until > tick {
             bits |= STATUS_FREEZE;
@@ -102,6 +104,9 @@ impl Afflictions {
         }
         if self.web_until > tick {
             bits |= STATUS_SLOW;
+        }
+        if self.root_until > tick {
+            bits |= STATUS_ROOTED;
         }
         if self.venom.is_some_and(|v| v.until > tick) {
             bits |= STATUS_POISON;
@@ -164,6 +169,10 @@ impl Sim {
                 now + ticks(riders.web_ms),
                 (realm_sim::movement::WEB_FACTOR * 100.0) as u8,
             );
+        }
+        if riders.root_ms > 0 && !slow_immune {
+            p.afflictions.root_until = p.afflictions.root_until.max(tick + ticks(riders.root_ms));
+            p.restraint.root(now, now + ticks(riders.root_ms));
         }
         if riders.despair_ms > 0 {
             p.afflictions.despair_until = p

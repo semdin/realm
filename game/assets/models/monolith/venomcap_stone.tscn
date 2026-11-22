@@ -1,0 +1,41 @@
+[gd_scene format=3]
+
+[ext_resource type="Shader" path="res://assets/shaders/venomcap_stone.gdshader" id="1_6w705"]
+[ext_resource type="Texture2D" path="res://assets/models/caverns/cavern_mushrooms_chest_albedo.png" id="2_1q5s6"]
+[ext_resource type="Texture2D" path="res://assets/models/caverns/cavern_mushrooms_chest_mr.png" id="3_3nkpg"]
+[ext_resource type="Texture2D" path="res://assets/models/caverns/cavern_mushrooms_chest_normal.png" id="4_l8s45"]
+[ext_resource type="ArrayMesh" path="res://assets/models/monolith/venomcap_stone_body.res" id="5_tedic"]
+[ext_resource type="Shader" path="res://assets/shaders/stone_silk.gdshader" id="6_swfp5"]
+[ext_resource type="Texture2D" path="res://assets/vfx/tex/noise_erosion_512.png" id="7_m15rw"]
+[ext_resource type="Texture2D" path="res://assets/vfx/tex/cobweb_1024.png" id="8_mntpw"]
+[ext_resource type="ArrayMesh" path="res://assets/models/monolith/venomcap_stone_silk.res" id="9_2ap7j"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_4f0ge"]
+render_priority = 0
+shader = ExtResource("1_6w705")
+shader_parameter/albedo_tex = ExtResource("2_1q5s6")
+shader_parameter/normal_tex = ExtResource("4_l8s45")
+shader_parameter/mr_tex = ExtResource("3_3nkpg")
+shader_parameter/glow = Color(0.6, 1, 0.3, 1)
+shader_parameter/energy = 0.55
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_imlqh"]
+render_priority = 0
+shader = ExtResource("6_swfp5")
+shader_parameter/fibres = ExtResource("7_m15rw")
+shader_parameter/web = ExtResource("8_mntpw")
+shader_parameter/silk = Color(0.84, 0.87, 0.84, 1)
+shader_parameter/tint = Color(0.6, 1, 0.3, 1)
+shader_parameter/opacity = 0.62
+shader_parameter/glint = 0.12
+
+[node name="VenomcapStone" type="Node3D" unique_id=1827184206]
+
+[node name="Body" type="MeshInstance3D" parent="." unique_id=912333826]
+material_override = SubResource("ShaderMaterial_4f0ge")
+mesh = ExtResource("5_tedic")
+
+[node name="Silk" type="MeshInstance3D" parent="." unique_id=1282155754]
+material_override = SubResource("ShaderMaterial_imlqh")
+visibility_range_end = 45.0
+mesh = ExtResource("9_2ap7j")

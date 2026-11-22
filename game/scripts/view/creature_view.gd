@@ -113,6 +113,23 @@ const DISSOLVE_NO_CLIP := 0.5
 const DISSOLVE_SECONDS := 1.6
 const DEATH_CLIP_MAX := 3.6
 const DISSOLVE_SHADER := preload("res://assets/shaders/creature_dissolve.gdshader")
+## A blow's flinch (`flinch`): the body jolts away from the blow and springs
+## back through a small overshoot (a damped swing, FLINCH_PUSH metres at
+## strength 1, gone in ~0.3 s); a heavy blow (a combo's finisher, a critical
+## hit) also shakes it from side to side and holds its clip a few frames. It
+## never stops what the creature does: no clip changes, no hold.
+const FLINCH_PUSH := 0.16
+const FLINCH_DAMP := 12.0
+const FLINCH_SWING := 26.0
+const FLINCH_SECONDS := 0.32
+const SHAKE_PUSH := 0.05
+const SHAKE_RATE := 62.0
+const HITSTOP_SECONDS := 0.055
+## Heavy bodies give less (a boss barely rocks, a troll a little).
+const FLINCH_BOSS := 0.3
+## The struck surface's hot rim (hit_flash.gdshader), fading over this long.
+const FLASH_SECONDS := 0.16
+const FLASH_SHADER := preload("res://assets/shaders/hit_flash.gdshader")
 const EMBER_TINT := Color(1.0, 0.42, 0.1)
 
 static var _views := {}
@@ -184,6 +201,15 @@ var _burnt: Array = []
 var _lifted_overlays: Array = []
 var _embers: GPUParticles3D = null
 var _lingering := false
+static var _flash_material: ShaderMaterial = null
+var _flinch_dir := Vector3.ZERO
+var _flinch_push := 0.0
+var _flinch_shake := 0.0
+var _flinch_t := FLINCH_SECONDS
+var _model_rest := Vector3.ZERO
+var _hitstop_until := 0.0
+var _flashed: Array = []
+var _flash_t := FLASH_SECONDS
 
 ## The rig a species is drawn with (creature_views.json `rig`, "" none).
 static func rig_of(id: String) -> String:
@@ -235,6 +261,7 @@ func setup(kind: int) -> bool:
 	if view.has("silk_alpha"):
 		_thin_silk(float(view["silk_alpha"]))
 	model.position.y = float(view.get("offset_y", 0.0)) + float(view.get("hover_height", 0.0))
+	_model_rest = model.position
 	# the character fill (DayNight) lights the character layer: the meshes
 	# join it before they enter the world (HeroAppearance.set_character_layer)
 	HeroAppearance.set_character_layer(model)
@@ -400,7 +427,9 @@ func _update_haze() -> void:
 			haze.emitting = wanted
 	set_process(not _haze.is_empty() or _burn_at >= 0.0)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	if _flinch_t < FLINCH_SECONDS or _flash_t < FLASH_SECONDS or _hitstop_until > 0.0:
+		_tick_flinch(delta)
 	if _burn_at >= 0.0:
 		_tick_burn()
 	if _skeleton == null or _haze.is_empty():
@@ -595,8 +624,88 @@ func _play(slot: String, blend := 0.18, speed := 1.0) -> void:
 
 func _apply_speed() -> void:
 	if anim_player != null:
-		# the corpse falls at the normal pace, frozen or not
-		anim_player.speed_scale = _anim_speed * (1.0 if is_dead else _cc_pace)
+		# the corpse falls at the normal pace, frozen or not; a heavy blow
+		# holds the clip a few frames
+		var held := _hitstop_until > Time.get_ticks_msec() / 1000.0 and not is_dead
+		anim_player.speed_scale = 0.0 if held else _anim_speed * (1.0 if is_dead else _cc_pace)
+
+## ------------------------------------------------------------------ the flinch
+
+## A blow landed on the body: `travel` is the way the blow was going (world),
+## `strength` how hard it jolts (1 = a plain bolt), `shake` how much it
+## shakes from side to side (0 = none; a combo's finisher ~1).
+func flinch(travel: Vector3, strength: float, shake := 0.0) -> void:
+	if is_dead or model == null or not is_inside_tree():
+		return
+	var flat := Vector3(travel.x, 0.0, travel.z)
+	if flat.length_squared() < 0.0001:
+		flat = -global_transform.basis.z
+	var weight := FLINCH_BOSS if is_boss else (0.6 if body_radius > 1.0 else 1.0)
+	# the way in the body's own frame (it turns with its facing)
+	_flinch_dir = (global_transform.basis.inverse() * flat.normalized()).normalized()
+	_flinch_push = maxf(_flinch_push * (1.0 - _flinch_t / FLINCH_SECONDS), strength * weight)
+	_flinch_shake = maxf(_flinch_shake * (1.0 - _flinch_t / FLINCH_SECONDS), shake * weight)
+	_flinch_t = 0.0
+	if shake > 0.0:
+		_hitstop_until = Time.get_ticks_msec() / 1000.0 + HITSTOP_SECONDS * minf(shake, 1.5)
+		_apply_speed()
+	_flash(minf(1.0, 0.55 + 0.3 * strength))
+	set_process(true)
+
+func _tick_flinch(delta: float) -> void:
+	if _hitstop_until > 0.0 and Time.get_ticks_msec() / 1000.0 >= _hitstop_until:
+		_hitstop_until = 0.0
+		_apply_speed()
+	if _flinch_t < FLINCH_SECONDS:
+		_flinch_t = minf(FLINCH_SECONDS, _flinch_t + delta)
+		var t := _flinch_t
+		var fade := exp(-FLINCH_DAMP * t)
+		var swing := fade * sin(FLINCH_SWING * t) * 1.6 * FLINCH_PUSH * _flinch_push
+		var side := Vector3(-_flinch_dir.z, 0.0, _flinch_dir.x)
+		var jitter := exp(-10.0 * t) * sin(SHAKE_RATE * t) * SHAKE_PUSH * _flinch_shake
+		var done := _flinch_t >= FLINCH_SECONDS
+		model.position = _model_rest if done else _model_rest + _flinch_dir * swing + side * jitter \
+			+ Vector3.UP * absf(jitter) * 0.35
+		if done:
+			_flinch_push = 0.0
+			_flinch_shake = 0.0
+	if _flash_t < FLASH_SECONDS:
+		_flash_t = minf(FLASH_SECONDS, _flash_t + delta)
+		var left := 1.0 - _flash_t / FLASH_SECONDS
+		for entry: Array in _flashed:
+			var mesh := entry[0] as GeometryInstance3D
+			if is_instance_valid(mesh):
+				mesh.set_instance_shader_parameter("hit_flash", float(entry[1]) * left * left)
+		if _flash_t >= FLASH_SECONDS:
+			_end_flash()
+	if _flinch_t >= FLINCH_SECONDS and _flash_t >= FLASH_SECONDS and _hitstop_until <= 0.0:
+		set_process(not _haze.is_empty() or _burn_at >= 0.0)
+
+## The hot rim over every surface that wears no other overlay (a status look
+## keeps its own).
+func _flash(amount: float) -> void:
+	if DisplayServer.get_name() == "headless" or _burn >= 0.0:
+		return
+	if _flash_material == null:
+		_flash_material = ShaderMaterial.new()
+		_flash_material.shader = FLASH_SHADER
+	if _flashed.is_empty():
+		for node in model.find_children("*", "MeshInstance3D", true, false):
+			var mesh := node as MeshInstance3D
+			if mesh.visible and mesh.mesh != null and mesh.material_overlay == null:
+				mesh.material_overlay = _flash_material
+				_flashed.append([mesh, amount])
+	else:
+		for entry: Array in _flashed:
+			entry[1] = maxf(float(entry[1]) * (1.0 - _flash_t / FLASH_SECONDS), amount)
+	_flash_t = 0.0
+
+func _end_flash() -> void:
+	for entry: Array in _flashed:
+		var mesh := entry[0] as GeometryInstance3D
+		if is_instance_valid(mesh) and mesh.material_overlay == _flash_material:
+			mesh.material_overlay = null
+	_flashed.clear()
 
 # ------------------------------------------------------------------ the burn
 
@@ -658,6 +767,8 @@ func _tick_burn() -> void:
 ## values), the overlays (a status look) come off, the embers and the ash
 ## breath start.
 func _start_burn() -> void:
+	_end_flash()
+	_flash_t = FLASH_SECONDS
 	_burn = 0.0
 	for node in model.find_children("*", "MeshInstance3D", true, false):
 		var mesh := node as MeshInstance3D

@@ -138,6 +138,23 @@
       "purpose": "Dissolve / erosion noise for shield expiration and effect fade"
     },
     {
+      "id": "vfx_ward_noise",
+      "path": "tex/ward_noise_512.png",
+      "size_px": [
+        512,
+        512
+      ],
+      "colour_space": "linear data",
+      "channel_convention": "R = smooth fbm (equalised), G = smoother fbm (equalised), B = ridged domain-warped filaments, A = fine grain (equalised)",
+      "tiling": "tileable on both axes (synthesised in the frequency domain)",
+      "alpha": "data (A = fine grain)",
+      "blend_default": "n/a (data)",
+      "frames": 1,
+      "loop": false,
+      "generator": "numpy spectral synthesis (project-original, 2026-11-23)",
+      "purpose": "Ward Shield shell: filament flow, warp, erosion and glints (ward_surface.gdshaderinc)"
+    },
+    {
       "id": "vfx_distortion",
       "path": "tex/distortion_512.png",
       "size_px": [

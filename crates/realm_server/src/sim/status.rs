@@ -10,7 +10,8 @@
 
 use realm_proto::control::{CombatEvent, HIT_BURN, HIT_SLOW, HIT_STUN};
 use realm_proto::{
-    STATUS_BLEED, STATUS_BURN, STATUS_FREEZE, STATUS_KNOCKED, STATUS_SLOW, STATUS_STUN, STATUS_WEAK,
+    STATUS_BLEED, STATUS_BURN, STATUS_FREEZE, STATUS_KNOCKED, STATUS_ROOTED, STATUS_SLOW,
+    STATUS_STUN, STATUS_WEAK,
 };
 use realm_rules::SpellDef;
 use realm_rules::combat::{Dot as DotSpec, LAUNCH_GRAVITY, airborne_ms};
@@ -39,6 +40,9 @@ pub(super) struct Status {
     pub slow_factor: f32,
     pub weak_until: u32,
     pub weak_factor: f32,
+    /// Bound where it stands (its own web or hex thrown back by a ward): it
+    /// strikes but does not walk.
+    pub root_until: u32,
     pub proc_stun_ready: u32,
     pub burn: Option<Dot>,
     pub bleed: Option<Dot>,
@@ -82,7 +86,12 @@ impl Status {
     }
 
     /// The STATUS_* bits for snapshots.
-    pub fn bits(&self, tick: u32) -> u8 {
+    /// Bound where it stands.
+    pub fn rooted(&self, tick: u32) -> bool {
+        self.root_until > tick
+    }
+
+    pub fn bits(&self, tick: u32) -> u16 {
         let mut bits = 0;
         if self.stun_until > tick {
             bits |= STATUS_STUN;
@@ -104,6 +113,9 @@ impl Status {
         }
         if self.weak_until > tick {
             bits |= STATUS_WEAK;
+        }
+        if self.root_until > tick {
+            bits |= STATUS_ROOTED;
         }
         bits
     }
