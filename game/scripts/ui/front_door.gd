@@ -123,6 +123,9 @@ func _back_to_login() -> void:
 		select.queue_free()
 		select = null
 	_login_layer.visible = true
+	# the card is the one from before the character screen: the saved login
+	# kept since (Remember my password) stands in its password field again
+	login.came_back()
 	if farewell != "":
 		login.show_return_notice(farewell, "")
 		farewell = ""

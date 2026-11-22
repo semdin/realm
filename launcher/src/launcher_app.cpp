@@ -35,8 +35,19 @@ void PostRefresh() {
     if (g_Hooks.refresh) g_Hooks.refresh();
 }
 
-// A game that ends sooner than this after starting did not really run.
+// A game that ends sooner than this after starting did not really run -
+// unless it says the player quit (CleanExitMark).
 constexpr int64_t kEarlyExitMs = 20 * 1000;
+
+// The game writes this in its user folder when it shuts down in order (the
+// Quit button, the window's close: game/scripts/autoload/exit_mark.gd); it is
+// deleted before each start, so after an early end it tells a player who
+// quit at once from a game that did not start. Empty when the folder is
+// unknown.
+std::wstring CleanExitMark() {
+    std::wstring dir = realm::GameUserDataDir();
+    return dir.empty() ? L"" : realm::JoinPath(dir, L"clean_exit");
+}
 
 std::mutex g_Mutex;
 Phase g_Phase = Phase::Checking;
@@ -672,6 +683,8 @@ bool OnPlay() {
     }
     if (p != Phase::Ready && p != Phase::ReadyStale) return false;
     realm::UpdaterPaths paths = realm::ResolvePathsForGui(g_Cfg);
+    std::wstring mark = CleanExitMark();
+    if (!mark.empty()) realm::DeleteFileQuiet(mark);
     if (!realm::LaunchGameClient(paths, g_Game)) {
         ShowReport(Phase::Failed, GameStartReport(g_Game.error));
         return false;
@@ -695,7 +708,10 @@ bool PollGame() {
         // process is then followed by the scan below.
         if (realm::IsGameRunningNow(paths, g_Cfg, nullptr)) return true;
         bool crashed = ExitLooksLikeCrash(exit);
-        if (crashed || ranMs < kEarlyExitMs) {
+        std::wstring mark = CleanExitMark();
+        bool quit = !crashed && !mark.empty() && realm::FileExists(mark);
+        if (quit) realm::LogMsg("[Launcher] the game says the player quit");
+        if (crashed || (ranMs < kEarlyExitMs && !quit)) {
             ShowGameEnded(crashed, exit);
             return false;
         }

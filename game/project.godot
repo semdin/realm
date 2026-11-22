@@ -33,6 +33,7 @@ config/features=PackedStringArray("4.8", "Mobile")
 RenderCompat="*res://scripts/autoload/render_compat.gd"
 I18n="*res://scripts/autoload/i18n.gd"
 AudioManager="*res://scripts/systems/audio_manager.gd"
+ExitMark="*res://scripts/autoload/exit_mark.gd"
 
 [display]
 window/size/viewport_width=1600

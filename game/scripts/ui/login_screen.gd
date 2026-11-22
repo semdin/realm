@@ -1267,6 +1267,16 @@ func _load_prefs() -> void:
 		username_input.text = _saved_user
 		remember_check.set_pressed_no_signal(true)
 
+## Back from the character screen (logged out): the card was only hidden, so
+## the saved login kept since then (Remember my password) is read again and
+## stands in the password field; without one the field waits empty.
+func came_back() -> void:
+	_set_busy(false)
+	_load_saved()
+	if not _using_saved:
+		password_input.text = ""
+	(password_input if username_input.text != "" else username_input).grab_focus.call_deferred()
+
 func _load_saved() -> void:
 	if not keep_prefs:
 		return
