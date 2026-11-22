@@ -177,7 +177,17 @@ impl Sim {
         }
         let object = self.game.species[usize::from(mob.species)].object;
         let effect = combat.skill_effect(skill);
-        let hold = effect * combat.hold_scale(species);
+        // A boss winding up a telegraphed blow, or between a combo's blows,
+        // takes no hold: the blow comes whatever is cast at it.
+        let armoured = boss
+            && mob
+                .attack
+                .is_some_and(|a| a.ability.is_some() && (!a.released || a.then.is_some()));
+        let hold = if armoured {
+            0.0
+        } else {
+            effect * combat.hold_scale(species)
+        };
         let displace = if object {
             0.0
         } else {
@@ -300,8 +310,9 @@ impl Sim {
                 flags |= HIT_BURN;
             }
         }
-        // A hold or a throw breaks the attack it was winding up.
-        if interrupted {
+        // A hold or a throw breaks the attack it was winding up (a boss
+        // keeps its own pace).
+        if interrupted && !boss {
             mob.attack_cd = mob.attack_cd.max(f32::from(cooldown));
         }
         let ticking = mob.status.ticking();

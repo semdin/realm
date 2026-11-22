@@ -104,7 +104,7 @@
       "respawn": "pack"
     }
   },
-  "_pattern_note": "Boss attack patterns (Creature pass): anticipation -> release -> recovery. `anticipation` and `recovery` are seconds; the authority converts them to ticks and publishes the release tick with the telegraph, so the client-rendered warning is driven by the same clock that lands the damage.",
+  "_pattern_note": "Boss attack patterns (Creature pass): anticipation -> release -> recovery. `anticipation` and `recovery` are seconds; the authority converts them to ticks and publishes the release tick with the telegraph, so the client-rendered warning is driven by the same clock that lands the damage. A boss picks its next pattern by where its target stands, never the one it threw last when another fits: `use` [from, to] metres (none: within its reach; beyond reach it needs a clear line), `weight` (1), `min_phase`, `rest` (seconds before it is picked again). `id` names a pattern in its list; `then` names the combo's next blow, started `gap` seconds (0.2) after this one lands and aimed afresh; `chain_only` patterns are only follow-ups or phase openers. `lead` (seconds): aimed where the target will be at its pace (a runner going straight on does not leave the mark). Rider keys as for creature abilities (stun_s, push, lift, despair_s...).",
   "boss_patterns": {
     "spider": [
       {
@@ -146,32 +146,172 @@
     ],
     "troll": [
       {
+        "id": "swing",
         "kind": "directional",
         "clip": "Swing",
-        "anticipation": 1.15,
-        "recovery": 1.2,
+        "anticipation": 0.95,
+        "recovery": 1.1,
         "range": 7.0,
         "half_angle": 0.75,
-        "damage_multiplier": 1.3
+        "damage_multiplier": 1.3,
+        "use": [
+          0.0,
+          4.5
+        ],
+        "lead": 0.15,
+        "then": "backhand",
+        "gap": 0.15
       },
       {
+        "id": "backhand",
+        "kind": "directional",
+        "clip": "Swing",
+        "chain_only": true,
+        "anticipation": 0.75,
+        "recovery": 1.1,
+        "range": 6.5,
+        "half_angle": 1.0,
+        "damage_multiplier": 1.1,
+        "lead": 0.3
+      },
+      {
+        "id": "slam",
         "kind": "area",
         "clip": "Slam",
         "anticipation": 1.3,
-        "recovery": 1.6,
-        "radius": 7.5,
-        "damage_multiplier": 1.8
+        "recovery": 0.6,
+        "radius": 7.0,
+        "damage_multiplier": 2.2,
+        "stun_s": 1.0,
+        "use": [
+          0.0,
+          5.0
+        ],
+        "weight": 0.8,
+        "then": "quake",
+        "gap": 0.3
       },
       {
+        "id": "quake",
+        "kind": "area",
+        "clip": "Stomp",
+        "chain_only": true,
+        "anticipation": 0.55,
+        "recovery": 1.2,
+        "radius": 5.0,
+        "damage_multiplier": 1.0
+      },
+      {
+        "id": "sweep",
+        "kind": "area",
+        "clip": "Stomp",
+        "anticipation": 0.95,
+        "recovery": 0.9,
+        "radius": 4.5,
+        "damage_multiplier": 1.1,
+        "use": [
+          0.0,
+          3.5
+        ],
+        "weight": 0.6
+      },
+      {
+        "id": "lunge",
+        "kind": "directional",
+        "clip": "Swing",
+        "anticipation": 0.9,
+        "recovery": 1.0,
+        "range": 10.0,
+        "half_angle": 0.4,
+        "damage_multiplier": 1.4,
+        "lead": 0.3,
+        "use": [
+          4.5,
+          9.0
+        ],
+        "rest": 3.5
+      },
+      {
+        "id": "boulder",
         "kind": "area",
         "clip": "Swing",
         "at_target": true,
-        "anticipation": 1.3,
-        "recovery": 1.0,
-        "radius": 4.5,
-        "damage_multiplier": 1.5,
         "fx": "boulder",
-        "spell_id": "troll_boulder"
+        "spell_id": "troll_boulder",
+        "anticipation": 1.1,
+        "recovery": 0.9,
+        "radius": 4.0,
+        "damage_multiplier": 1.5,
+        "lead": 0.6,
+        "use": [
+          6.5,
+          26.0
+        ],
+        "rest": 4.5
+      },
+      {
+        "id": "volley",
+        "kind": "area",
+        "clip": "Swing",
+        "at_target": true,
+        "fx": "boulder",
+        "spell_id": "troll_boulder",
+        "min_phase": 2,
+        "use": [
+          6.0,
+          26.0
+        ],
+        "weight": 1.5,
+        "rest": 12.0,
+        "anticipation": 1.0,
+        "recovery": 0.2,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "lead": 0.6,
+        "then": "volley_2",
+        "gap": 0.15
+      },
+      {
+        "id": "volley_2",
+        "kind": "area",
+        "clip": "Swing",
+        "at_target": true,
+        "fx": "boulder",
+        "spell_id": "troll_boulder",
+        "chain_only": true,
+        "anticipation": 0.8,
+        "recovery": 0.2,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "lead": 0.6,
+        "then": "volley_3",
+        "gap": 0.15
+      },
+      {
+        "id": "volley_3",
+        "kind": "area",
+        "clip": "Swing",
+        "at_target": true,
+        "fx": "boulder",
+        "spell_id": "troll_boulder",
+        "chain_only": true,
+        "anticipation": 0.8,
+        "recovery": 1.0,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "lead": 0.6
+      },
+      {
+        "id": "roar",
+        "kind": "area",
+        "clip": "Roar",
+        "chain_only": true,
+        "anticipation": 1.6,
+        "recovery": 1.0,
+        "radius": 9.0,
+        "damage_multiplier": 0.6,
+        "push": 10.0,
+        "lift": 3.5
       }
     ],
     "wraith": [
@@ -24102,7 +24242,27 @@
       "name": "Grak, Mountain Troll Chieftain",
       "move_speed": 3.5,
       "walk_speed": 1.17,
-      "label_y": 6.0
+      "label_y": 6.0,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "roar"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "roar"
+        }
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 2.2,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "warden": {
       "hp": 12000,
@@ -24126,23 +24286,26 @@
       "move_speed": 5.2,
       "walk_speed": 0.898,
       "label_y": 5.6,
-      "abilities": [
+      "phases": [
         {
-          "id": "warden_boulder",
-          "kind": "area",
-          "clip": "Swing",
-          "at_target": true,
-          "anticipation": 1.1,
-          "recovery": 0.8,
-          "radius": 4.0,
-          "damage_multiplier": 1.3,
-          "fx": "boulder",
-          "spell_id": "troll_boulder",
-          "min_range": 7.0,
-          "max_range": 24.0,
-          "cooldown": 6.0
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "roar"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "roar"
         }
-      ]
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 1.8,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "cursed_commander": {
       "hp": 7200,
@@ -24530,5 +24693,5 @@
     "max_hp": 800
   },
   "_monolith_roam_note": "roam: a Dark Shard comes back on a free flat dry spot within this many metres of its site.",
-  "_boss_note": "A boss pack's first member is the boss: boss_overrides[boss_key] (or 'commander' for a commander pack, 'matriarch' otherwise) gives its name, health (x pack_tuning.hp_multiplier), attack power and range, speed and extra abilities; its template's attack_style picks the pattern cycle and arena_radius its leash. A commander enrages when a pack mate falls (attack x1.3, speed x1.25, attack cooldown x0.8)."
+  "_boss_note": "A boss pack's first member is the boss: boss_overrides[boss_key] (or 'commander' for a commander pack, 'matriarch' otherwise) gives its name, health (x pack_tuning.hp_multiplier), attack power and range, speed and extra abilities; its template's attack_style picks its patterns and arena_radius its leash. A commander enrages when a pack mate falls (attack x1.3, speed x1.25, attack cooldown x0.8). `phases`: from below `below` of its health on, its windups and attack cooldown run at `windup`/`cooldown` and it opens the phase with the pattern `opener` (a multi-part boss's phases come from its parts). `rush`: it sprints `speed` x its pace for `seconds` at a target further than `beyond` metres, then waits `cooldown`. A boss winding up a telegraphed blow (or between a combo's blows) takes no stun or freeze, and keeps the target it turned on for 5 s whoever else hits it."
 }

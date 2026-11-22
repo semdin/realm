@@ -215,11 +215,21 @@ pub struct Step {
     pub pools: Vec<Pool>,
 }
 
+/// A dungeon's own hazard over a rectangle of its floor while its stretch of
+/// the run is on: the breath (a warned push across the whole band) or a
+/// rockfall (`count` warned rings of `radius` on the floor, one more under
+/// each player in it, each taking `hp_share` of a player's health).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Hazard {
     pub id: String,
+    /// "breath" or "rockfall".
+    pub kind: String,
     pub x: (f32, f32),
     pub z: (f32, f32),
+    pub count: u32,
+    pub radius: f32,
+    pub hp_share: f32,
+    pub on_players: bool,
     pub push: [f32; 3],
     pub lift: f32,
     pub every_s: f32,
@@ -615,8 +625,13 @@ impl DungeonRules {
                         .flatten()
                         .map(|h| Hazard {
                             id: h["id"].as_str().unwrap_or("").to_owned(),
+                            kind: h["kind"].as_str().unwrap_or("breath").to_owned(),
                             x: (f(&h["x"][0], -1.0e6), f(&h["x"][1], 1.0e6)),
                             z: (f(&h["z"][0], -1.0e6), f(&h["z"][1], 1.0e6)),
+                            count: h["count"].as_u64().unwrap_or(0) as u32,
+                            radius: f(&h["radius"], 3.0),
+                            hp_share: f(&h["hp_share"], 0.0),
+                            on_players: h["on_players"].as_bool().unwrap_or(false),
                             push: point(&h["push"]),
                             lift: f(&h["lift"], 0.0),
                             every_s: f(&h["every_s"], 7.0),
@@ -647,6 +662,16 @@ impl DungeonRules {
                 for e in &s.spawn {
                     if !self.roles.contains_key(&e.role) {
                         return Err(format!("dungeon {} step {}: role {}", d.id, s.id, e.role));
+                    }
+                }
+            }
+            for h in &d.hazards {
+                if !matches!(h.kind.as_str(), "breath" | "rockfall") {
+                    return Err(format!("dungeon {} hazard {}: kind {}", d.id, h.id, h.kind));
+                }
+                for x in [&h.from_step, &h.until_step] {
+                    if !x.is_empty() && !ids.contains(&x.as_str()) {
+                        return Err(format!("dungeon {} hazard {}: no step {x}", d.id, h.id));
                     }
                 }
             }

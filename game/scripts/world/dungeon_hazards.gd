@@ -13,7 +13,9 @@ class_name DungeonHazards
 ##     then cool away;
 ##   * breath (Threehead's sleeping breath down the Sealed Wing's stair) is a
 ##     band (`half`: half extents x, z round `center`) that fills like a ring
-##     from `start_tick` and goes off (the push) on `release_tick`.
+##     from `start_tick` and goes off (the push) on `release_tick`;
+##   * rockfall (a boss's arena coming down) is a ring as burst is, with a
+##     stone dropping onto it over the last ROCK_DROP seconds.
 ## Any mark with a non-zero `half` is a band of that size, not a disc.
 ## Positions are world space (the copy's offset included). Presentation only:
 ## the server resolves every hazard on its own clock; this follows that clock
@@ -25,7 +27,16 @@ const TINTS := {
 	"sticky": Color(0.85, 0.85, 0.78),
 	"pool": Color(0.55, 0.95, 0.2),
 	"breath": Color(0.74, 0.76, 1.0),
+	"rockfall": Color(0.95, 0.66, 0.36),
 }
+## A rockfall's stone: the grounds' boulder, this big across, falling from
+## this high over the last ROCK_DROP seconds; the area spell's burst where it
+## lands.
+const ROCK_MODEL := "res://assets/models/vegetation/rock_boulder.glb"
+const ROCK_SIZE := 1.3
+const ROCK_DROP := 0.5
+const ROCK_HEIGHT := 12.0
+const ROCK_IMPACT := "shockwave"
 ## A web (a pool that takes no health) is pale, as sticky ground is.
 const WEB_TINT := Color(0.85, 0.85, 0.78)
 const FALLBACK_TINT := Color(1.0, 0.3, 0.1)
@@ -41,6 +52,7 @@ var _known: Dictionary = {}
 var drawn_kinds: Dictionary = {}
 var bursts := 0
 var expired := 0
+var _rock_scene: PackedScene
 
 func _init() -> void:
 	name = "DungeonHazards"
@@ -59,7 +71,7 @@ func sync(hazards: Array) -> void:
 			_add(h)
 
 static func is_ring(kind: String) -> bool:
-	return kind == "burst" or kind == "storm" or kind == "breath"
+	return kind == "burst" or kind == "storm" or kind == "breath" or kind == "rockfall"
 
 ## A band's half extents (x, z), zero for a disc.
 static func half_of(data: Dictionary) -> Vector2:
@@ -115,6 +127,48 @@ func _drive(entry: Dictionary, now: float) -> void:
 	var release := float(data.get("release_tick", 0))
 	var start := minf(float(data.get("start_tick", release - 1.0)), release - 1.0)
 	(warning as GroundWarning).set_progress((now - start) / maxf(1.0, release - start))
+	if String(data.get("kind", "")) != "rockfall":
+		return
+	var left := (release - now) / float(RealmInfo.sim_hz())
+	if left > ROCK_DROP:
+		return
+	if not is_instance_valid(entry.get("rock")):
+		entry["rock"] = _rock()
+	# falling: slow at the top, fastest as it lands
+	var t := clampf(left / ROCK_DROP, 0.0, 1.0)
+	var rock := entry["rock"] as Node3D
+	rock.global_position = _center(data) + Vector3.UP * (ROCK_HEIGHT * t * t + ROCK_SIZE * 0.4)
+	rock.rotation = Vector3((1.0 - t) * 2.5, 0.7, (1.0 - t) * 1.3)
+
+## The falling stone: the boulder model sized to ROCK_SIZE across, its centre
+## on the node.
+func _rock() -> Node3D:
+	if _rock_scene == null:
+		_rock_scene = load(ROCK_MODEL) as PackedScene
+	var holder := Node3D.new()
+	holder.name = "FallingRock"
+	add_child(holder)
+	if _rock_scene == null:
+		return holder
+	var model := _rock_scene.instantiate() as Node3D
+	holder.add_child(model)
+	var box := AABB()
+	var first := true
+	for child in model.find_children("*", "MeshInstance3D", true, false):
+		var mesh := child as MeshInstance3D
+		var xf := Transform3D.IDENTITY
+		var node: Node = mesh
+		while node != null and node != model:
+			if node is Node3D:
+				xf = (node as Node3D).transform * xf
+			node = node.get_parent()
+		var local: AABB = xf * mesh.get_aabb()
+		box = local if first else box.merge(local)
+		first = false
+	var extent := maxf(0.01, maxf(box.size.x, maxf(box.size.y, box.size.z)))
+	model.scale = Vector3.ONE * (ROCK_SIZE / extent)
+	model.position = -box.get_center() * model.scale
+	return holder
 
 func _process(_delta: float) -> void:
 	if live.is_empty():
@@ -130,6 +184,11 @@ func _process(_delta: float) -> void:
 				bursts += 1
 				if is_instance_valid(warning):
 					(warning as GroundWarning).release()
+				if is_instance_valid(entry.get("rock")):
+					(entry["rock"] as Node).queue_free()
+				if String(data.get("kind", "")) == "rockfall" and DisplayServer.get_name() != "headless":
+					var at := _center(data)
+					SkillFX.play_impact(self, at, ROCK_IMPACT, Vector3.DOWN, at.y, Vector3.UP)
 				continue
 		elif now >= float(data.get("until_tick", 0)):
 			live.erase(id)
@@ -142,7 +201,9 @@ func _process(_delta: float) -> void:
 ## Every mark goes (the run is left behind).
 func clear() -> void:
 	for id: int in live.keys():
-		var warning: Variant = (live[id] as Dictionary)["warning"]
-		if is_instance_valid(warning):
-			(warning as Node).queue_free()
+		var entry: Dictionary = live[id]
+		for key: String in ["warning", "rock"]:
+			var node: Variant = entry.get(key)
+			if is_instance_valid(node):
+				(node as Node).queue_free()
 	live.clear()

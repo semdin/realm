@@ -730,6 +730,28 @@
           }
         }
       ],
+      "hazards": [
+        {
+          "id": "rockfall",
+          "kind": "rockfall",
+          "x": [
+            -17.0,
+            17.0
+          ],
+          "z": [
+            -148.0,
+            -104.0
+          ],
+          "every_s": 6.0,
+          "warn_s": 1.5,
+          "count": 2,
+          "radius": 3.0,
+          "hp_share": 0.08,
+          "on_players": true,
+          "from_step": "boss_adds",
+          "until_step": "boss_down"
+        }
+      ],
       "key": "key_trial"
     },
     "sealed_wing": {

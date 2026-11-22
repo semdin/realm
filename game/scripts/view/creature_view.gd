@@ -74,6 +74,8 @@ const ANIM_SETS := {
 const MOVING_ON := 0.35
 const MOVING_OFF := 0.15
 const TURN_RATE := 10.0
+## Where in a one-clip move (no _Anticipation/_Attack pair) the blow lands.
+const SINGLE_STRIKE := 0.55
 ## A stun played on the hit clip (no stun clip of its own) holds the recoil
 ## this far into it, the body reeling, for as long as the stun lasts.
 const STUN_HOLD := 0.4
@@ -525,7 +527,22 @@ func _play_ability() -> bool:
 		return true
 	_ability["phase"] = phase
 	_attack_phase = phase
-	var clip := "%s_%s" % [_ability["clip"], "Anticipation" if phase == "anticipation" else "Attack"]
+	# A body with one clip for the move (the troll's Stomp, Roar): its first
+	# SINGLE_STRIKE over the windup, the rest over the recovery.
+	var base := String(_ability["clip"])
+	if not anim_player.has_animation(base + "_Anticipation") and anim_player.has_animation(base):
+		var length := anim_player.get_animation(base).length
+		if phase == "anticipation":
+			_anim_speed = clampf(length * SINGLE_STRIKE / maxf(0.05, release_at - now), 0.5, 3.0)
+			anim_player.play(base, 0.08)
+		else:
+			_anim_speed = clampf(length * (1.0 - SINGLE_STRIKE) / maxf(0.05, recovery_at - release_at), 1.0, 3.0)
+			if anim_player.current_animation != base:
+				anim_player.play(base, 0.06)
+				anim_player.seek(length * SINGLE_STRIKE, true)
+		_apply_speed()
+		return true
+	var clip := "%s_%s" % [base, "Anticipation" if phase == "anticipation" else "Attack"]
 	if not anim_player.has_animation(clip):
 		clip = _clip(phase)
 	var span := (release_at - now) if phase == "anticipation" else (recovery_at - release_at)

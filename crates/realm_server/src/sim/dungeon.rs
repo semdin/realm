@@ -1325,7 +1325,7 @@ impl Sim {
             elite,
             boss: boss_def.is_some(),
             enraged: false,
-            pattern_next: 0,
+            mind: Default::default(),
             exp_reward: 0,
             credit: Vec::new(),
             mode: MobMode::Idle,
@@ -1388,7 +1388,7 @@ impl Sim {
                     elite: false,
                     boss: false,
                     enraged: false,
-                    pattern_next: 0,
+                    mind: Default::default(),
                     exp_reward: 0,
                     credit: Vec::new(),
                     mode: MobMode::Idle,
@@ -1758,6 +1758,10 @@ impl Sim {
             if !on {
                 continue;
             }
+            if h.kind == "rockfall" {
+                self.rockfall_tick(i, k, h, copy, mult);
+                continue;
+            }
             let center = Vec3::new((h.x.0 + h.x.1) * 0.5, 0.0, (h.z.0 + h.z.1) * 0.5) + offset;
             let half = [(h.x.1 - h.x.0) * 0.5, (h.z.1 - h.z.0) * 0.5];
             // The band's floor is where the one standing in it stands (the
@@ -1801,6 +1805,64 @@ impl Sim {
             if !h.message.is_empty() {
                 self.say(i, &h.message);
             }
+        }
+    }
+
+    /// A rockfall over its rectangle (a boss's arena coming down): while
+    /// someone stands in it, every so often warned rings on its floor, one
+    /// under each player there and `count` more anywhere in it.
+    fn rockfall_tick(
+        &mut self,
+        i: usize,
+        k: usize,
+        h: &realm_rules::dungeons::Hazard,
+        copy: u8,
+        mult: f32,
+    ) {
+        let tick = self.tick;
+        let o = offset_of(copy);
+        let (x0, x1, z0, z1) = (h.x.0 + o.x, h.x.1 + o.x, h.z.0 + o.z, h.z.1 + o.z);
+        let inside = |p: Vec3| p.x >= x0 && p.x <= x1 && p.z >= z0 && p.z <= z1;
+        let players: Vec<Vec3> = self
+            .in_copy(copy)
+            .iter()
+            .filter_map(|(e, _)| {
+                let p = self.world.get::<Player>(*e)?;
+                (p.dead_until == 0 && inside(p.body.pos)).then_some(p.body.pos)
+            })
+            .collect();
+        let every = (h.every_s * mult * SIM_HZ as f32) as u32;
+        let next = self.runs[i].as_ref().map_or(0, |r| r.breath_next[k]);
+        if players.is_empty() || next == 0 {
+            // The first fall waits a whole beat after someone comes in.
+            if let Some(r) = self.runs[i].as_mut() {
+                r.breath_next[k] = tick + every;
+            }
+            return;
+        }
+        if tick < next {
+            return;
+        }
+        let floor = players[0].y;
+        let mut spots: Vec<Vec3> = if h.on_players {
+            players.clone()
+        } else {
+            Vec::new()
+        };
+        for _ in 0..h.count {
+            let x = x0 + unit(&mut self.dice_state) * (x1 - x0);
+            let z = z0 + unit(&mut self.dice_state) * (z1 - z0);
+            spots.push(self.settle(Vec3::new(x, floor, z)));
+        }
+        let warn = (h.warn_s * SIM_HZ as f32) as u32;
+        for at in spots {
+            self.add_hazard(i, "rockfall", at, h.radius, tick + warn, 0, h.hp_share);
+        }
+        if let Some(r) = self.runs[i].as_mut() {
+            r.breath_next[k] = tick + every;
+        }
+        if !h.message.is_empty() {
+            self.say(i, &h.message);
         }
     }
 
@@ -2280,7 +2342,7 @@ impl Sim {
                     continue;
                 }
                 let over = match kind.as_str() {
-                    "burst" | "storm" => {
+                    "burst" | "storm" | "rockfall" => {
                         if tick < release {
                             continue;
                         }

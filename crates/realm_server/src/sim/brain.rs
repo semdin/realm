@@ -19,13 +19,14 @@
 use crate::game::PackKind;
 use realm_proto::control::CombatEvent;
 use realm_rules::creatures::{
-    AGGRO_SCAN_MS, AbilityDef, BOLT_REACH, ENRAGE_ATTACK, ENRAGE_COOLDOWN, ENRAGE_SPEED,
-    HOME_RADIUS, LEASH_HOT_MS, LEASH_HOT_SCALE, MELEE_LUNGE, MELEE_SLACK, RETURN_REGEN_SHARE,
-    RING_PACE, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
+    AGGRO_SCAN_MS, AbilityDef, BOLT_REACH, BOSS_TARGET_LOCK_MS, ENRAGE_ATTACK, ENRAGE_COOLDOWN,
+    ENRAGE_SPEED, HOME_RADIUS, LEAD_REACH, LEASH_HOT_MS, LEASH_HOT_SCALE, MELEE_LUNGE, MELEE_SLACK,
+    RETURN_REGEN_SHARE, RING_PACE, Shape, Trigger, UNREACHABLE_MS, WINDUP_STEP,
 };
 use realm_sim::nav::{NavQuery, NavScratch, OBSTACLE_CLEARANCE};
 use realm_sim::world::World as Terrain;
 use realm_sim::{SIM_DT, SIM_HZ, Vec3};
+use std::collections::HashMap;
 use std::time::Instant;
 
 use super::{
@@ -103,6 +104,23 @@ pub(super) struct Attack {
     pub release: u32,
     pub done: u32,
     pub released: bool,
+    /// A combo's next blow, begun at `done`.
+    pub then: Option<u16>,
+}
+
+/// What a boss keeps in mind between its blows.
+#[derive(Clone, Copy, Default)]
+pub(super) struct Mind {
+    /// The pattern it threw last (it never throws one twice running when
+    /// another fits).
+    pub last: Option<u16>,
+    /// A new phase's opener, thrown before anything else.
+    pub opener: Option<u16>,
+    /// Sprinting until then; ready to sprint again from `rush_ready`.
+    pub rush_until: u32,
+    pub rush_ready: u32,
+    /// It keeps its target until then, whoever else hits it.
+    pub locked_until: u32,
 }
 
 /// A caster's bolt in flight: straight, flat damage.
@@ -363,6 +381,7 @@ impl Sim {
         let packs = &self.packs;
         let player_cells = &self.player_cells;
         let player_pos = &self.player_pos;
+        let player_vel = &self.player_vel;
         let awake_cells = &self.awake;
         let auras = &mut self.auras;
         let mut scratch = std::mem::take(&mut self.nav_scratch);
@@ -402,12 +421,24 @@ impl Sim {
             let rage = mob.enraged;
             let move_speed = mob.move_speed * if rage { ENRAGE_SPEED } else { 1.0 };
             let attack_range = mob.attack_range;
-            let cooldown =
-                f32::from(species.attack_cooldown_ticks) * if rage { ENRAGE_COOLDOWN } else { 1.0 };
             let boss = pack.boss_setup.as_ref().filter(|_| mob.boss);
-            let extras: &[u16] = boss
-                .and_then(|b| rules.mobs.bosses.get(&b.key))
-                .map_or(&[], |b| b.extras.as_slice());
+            let boss_def = boss.and_then(|b| rules.mobs.bosses.get(&b.key));
+            let extras: &[u16] = boss_def.map_or(&[], |b| b.extras.as_slice());
+            // A boss's patterns (its style's) and its phase's pace.
+            let style: &[u16] = boss
+                .and_then(|b| rules.mobs.patterns.get(&b.style))
+                .map_or(&[], Vec::as_slice);
+            let phase = boss_def.and_then(|d| {
+                usize::from(mob.phase)
+                    .checked_sub(2)
+                    .and_then(|k| d.phases.get(k))
+            });
+            let (phase_windup, phase_cooldown) =
+                phase.map_or((1.0, 1.0), |p| (p.windup, p.cooldown));
+            let cooldown = f32::from(species.attack_cooldown_ticks)
+                * if rage { ENRAGE_COOLDOWN } else { 1.0 }
+                * phase_cooldown;
+            let windup_scale = mob.windup_scale * phase_windup;
             let anchor = packs[mob.pack].anchor;
             let mates = views[mob.pack].as_slice();
             let pace = mob.status.speed(tick);
@@ -453,6 +484,11 @@ impl Sim {
                         mob.hp = mob.max_hp;
                         mob.mode = MobMode::Idle;
                         mob.path.clear();
+                        // Whole again, a boss starts its fight over.
+                        if boss_def.is_some_and(|d| !d.phases.is_empty()) {
+                            mob.phase = 1;
+                        }
+                        mob.mind = Mind::default();
                         walk.settle(&mut mob);
                     }
                 }
@@ -480,6 +516,7 @@ impl Sim {
                         });
                         if let Some((_, player, _)) = found {
                             mob.mode = MobMode::Chase(player);
+                            mob.mind.locked_until = tick + ticks(BOSS_TARGET_LOCK_MS);
                             deeds.push(Deed::Aggro(me, player));
                             continue;
                         }
@@ -564,6 +601,24 @@ impl Sim {
                         }
                     }
 
+                    // Its health crossing into a boss's next phase: the
+                    // phase's opener goes before anything else.
+                    if let Some(def) = boss_def
+                        && mob.parts.is_empty()
+                    {
+                        let share = mob.hp / mob.max_hp.max(1.0);
+                        while let Some(p) = def.phases.get(usize::from(mob.phase.max(1)) - 1)
+                            && share < p.below
+                        {
+                            mob.phase = mob.phase.max(1) + 1;
+                            mob.mind.opener = rules
+                                .mobs
+                                .named(style, &p.opener)
+                                .or_else(|| rules.mobs.named(extras, &p.opener));
+                        }
+                    }
+                    let tvel = player_vel.get(&target).copied().unwrap_or(Vec3::ZERO);
+
                     // An attack under way: wind up, land, recover.
                     if let Some(mut a) = mob.attack {
                         mob.state = STATE_ATTACKING;
@@ -590,6 +645,14 @@ impl Sim {
                         } else if tick >= a.done {
                             mob.attack = None;
                             mob.state = STATE_IDLE;
+                            // A combo goes on: its next blow, aimed at where
+                            // the target stands now (where it dodged to).
+                            if let Some(ab) = a.then.and_then(|i| rules.mobs.ability(i)) {
+                                let aim = lead_aim(terrain, tpos, tvel, ab.lead_ms);
+                                let a =
+                                    begin(&mut mob, ab, target, aim, tick, cooldown, windup_scale);
+                                deeds.push(telegraph(net_id.0, ab, &a));
+                            }
                         }
                         continue;
                     }
@@ -622,10 +685,62 @@ impl Sim {
                             if let Trigger::Thrown { cooldown_ms, .. } = ab.trigger {
                                 mob.set_thrown_ready(i, tick + ticks(cooldown_ms));
                             }
-                            let a = begin(&mut mob, ab, target, tpos, tick, cooldown);
+                            let aim = lead_aim(terrain, tpos, tvel, ab.lead_ms);
+                            let a = begin(&mut mob, ab, target, aim, tick, cooldown, windup_scale);
                             deeds.push(telegraph(net_id.0, ab, &a));
                             continue;
                         }
+                    }
+                    // A boss with a style picks its next pattern by where its
+                    // target stands; between blows it closes in, sprinting
+                    // at one that keeps away.
+                    if !style.is_empty() {
+                        if mob.attack_cd <= 0.0 {
+                            let pick = mob.mind.opener.take().or_else(|| {
+                                let sight = dist <= attack_range || clear(eye, chest);
+                                choose(&rules.mobs, style, &mut mob, dist, sight, tick)
+                            });
+                            if let Some(ab) = pick.and_then(|i| rules.mobs.ability(i)) {
+                                if ab.rest_ms > 0 {
+                                    mob.set_thrown_ready(ab.index, tick + ticks(ab.rest_ms));
+                                }
+                                mob.mind.last = Some(ab.index);
+                                mob.mind.rush_until = 0;
+                                mob.attacks_made += 1;
+                                let aim = lead_aim(terrain, tpos, tvel, ab.lead_ms);
+                                let a =
+                                    begin(&mut mob, ab, target, aim, tick, cooldown, windup_scale);
+                                deeds.push(telegraph(net_id.0, ab, &a));
+                                continue;
+                            }
+                        }
+                        let mut speed = move_speed * pace;
+                        if let Some(r) = boss_def.and_then(|d| d.rush) {
+                            if tick >= mob.mind.rush_until
+                                && tick >= mob.mind.rush_ready
+                                && dist > r.beyond
+                            {
+                                mob.mind.rush_until = tick + ticks(r.ms);
+                                mob.mind.rush_ready = mob.mind.rush_until + ticks(r.cooldown_ms);
+                            }
+                            if tick < mob.mind.rush_until {
+                                speed *= r.speed;
+                            }
+                        }
+                        let moved = dist > attack_range
+                            && walk.step(
+                                &mut mob,
+                                tpos,
+                                speed,
+                                attack_range * 0.8,
+                                tick,
+                                Vec3::ZERO,
+                            );
+                        if !moved {
+                            mob.yaw = yaw_of(flat_dir(mob.pos, tpos));
+                        }
+                        mob.state = if moved { STATE_MOVING } else { STATE_IDLE };
+                        continue;
                     }
                     let ranged = species.bolt.is_some() && !mob.boss;
                     let reach = if ranged { BOLT_REACH } else { attack_range };
@@ -652,36 +767,16 @@ impl Sim {
                     }
                     if can_act && in_reach && ring.is_none() && mob.attack_cd <= 0.0 {
                         mob.attacks_made += 1;
-                        // A boss cycles its style's patterns (those of its
-                        // first phase); everyone else mixes in every Nth.
-                        let cycle: Vec<u16> = boss
-                            .and_then(|b| rules.mobs.patterns.get(&b.style))
-                            .map(|list| {
-                                list.iter()
-                                    .copied()
-                                    .filter(|&i| {
-                                        rules
-                                            .mobs
-                                            .ability(i)
-                                            .is_some_and(|ab| ab.min_phase <= mob.phase.max(1))
-                                    })
-                                    .collect()
+                        // Every Nth attack is one of the species' abilities.
+                        let every = brain.abilities.iter().copied().find(|&i| {
+                            rules.mobs.ability(i).is_some_and(|ab| {
+                                matches!(ab.trigger, Trigger::Every(n) if mob.attacks_made.is_multiple_of(n))
                             })
-                            .unwrap_or_default();
-                        let every = if cycle.is_empty() {
-                            brain.abilities.iter().copied().find(|&i| {
-                                rules.mobs.ability(i).is_some_and(|ab| {
-                                    matches!(ab.trigger, Trigger::Every(n) if mob.attacks_made.is_multiple_of(n))
-                                })
-                            })
-                        } else {
-                            let i = cycle[mob.pattern_next as usize % cycle.len()];
-                            mob.pattern_next += 1;
-                            Some(i)
-                        };
+                        });
                         mob.yaw = yaw_of(flat_dir(mob.pos, tpos));
                         if let Some(ab) = every.and_then(|i| rules.mobs.ability(i)) {
-                            let a = begin(&mut mob, ab, target, tpos, tick, cooldown);
+                            let aim = lead_aim(terrain, tpos, tvel, ab.lead_ms);
+                            let a = begin(&mut mob, ab, target, aim, tick, cooldown, windup_scale);
                             deeds.push(telegraph(net_id.0, ab, &a));
                         } else if brain.windup_ms > 0 || brain.recovery_ms > 0 {
                             let release =
@@ -694,6 +789,7 @@ impl Sim {
                                 release,
                                 done: release + ticks(brain.recovery_ms),
                                 released: false,
+                                then: None,
                             });
                             mob.attack_cd = cooldown;
                         }
@@ -771,6 +867,7 @@ impl Sim {
             cell.clear();
         }
         self.player_pos.clear();
+        self.player_vel.clear();
         let tick = self.tick;
         let mut players = self.world.query::<(Entity, &Player)>();
         for (entity, player) in players.iter(&self.world) {
@@ -785,6 +882,7 @@ impl Sim {
                 continue;
             }
             self.player_pos.insert(entity, pos);
+            self.player_vel.insert(entity, player.body.vel);
             if let Some(cell) = cell_of(pos) {
                 self.player_cells[cell].push((entity, pos));
             }
@@ -911,8 +1009,12 @@ impl Sim {
             if m.mode == MobMode::Dead
                 || (m.mode == MobMode::Return && !home_ground)
                 || (m.pos - pos).length() > radius
+                || holds_target(&m, player, &self.player_pos, tick)
             {
                 continue;
+            }
+            if m.boss && m.mode != MobMode::Chase(player) {
+                m.mind.locked_until = tick + ticks(BOSS_TARGET_LOCK_MS);
             }
             m.mode = MobMode::Chase(player);
             m.next_think = tick;
@@ -930,6 +1032,14 @@ impl Sim {
             return;
         }
         m.hit_at = tick;
+        // A boss keeps the foe it turned on for a while: blows from the
+        // others do not drag it about the arena.
+        if holds_target(&m, attacker, &self.player_pos, tick) {
+            return;
+        }
+        if m.boss && m.mode != MobMode::Chase(attacker) {
+            m.mind.locked_until = tick + ticks(BOSS_TARGET_LOCK_MS);
+        }
         m.mode = MobMode::Chase(attacker);
         m.next_think = tick;
         self.assist(mob, attacker);
@@ -1258,7 +1368,7 @@ impl Sim {
             elite: false,
             boss: false,
             enraged: false,
-            pattern_next: 0,
+            mind: Mind::default(),
             exp_reward: self.game.rules.progress.creature_exp(species, level, false),
             credit: Vec::new(),
             mode: MobMode::Chase(target),
@@ -1558,7 +1668,7 @@ impl Sim {
                 m.elite = is_elite;
                 m.boss = is_boss;
                 m.enraged = false;
-                m.pattern_next = 0;
+                m.mind = Mind::default();
                 m.credit.clear();
                 m.mode = MobMode::Idle;
                 m.state = STATE_IDLE;
@@ -1783,45 +1893,154 @@ impl Sim {
     }
 }
 
+/// Whether a boss stays on the target it holds rather than turn on
+/// `other`: its hold has not run out and that target is still there to
+/// fight.
+fn holds_target(m: &Mob, other: Entity, alive: &HashMap<Entity, Vec3>, tick: u32) -> bool {
+    m.boss
+        && tick < m.mind.locked_until
+        && matches!(m.mode, MobMode::Chase(t) if t != other && alive.contains_key(&t))
+}
+
 /// A melee creature cannot reach a target this far above it.
 fn out_of_reach(mob: Vec3, target: Vec3, attack_range: f32) -> bool {
     let up = target.y - mob.y;
     up >= 12.0 || (up >= (attack_range + 1.5).max(4.0) && planar_distance(mob, target) < 9.0)
 }
 
-/// Starts a telegraphed ability: its shape is fixed now (a target that steps
-/// out dodges it).
+/// Starts a telegraphed ability aimed at `aim` (the target, or where it is
+/// going): its shape is fixed now (a target that steps out dodges it).
+/// `scale`: the difficulty's and the phase's share of its windup.
 fn begin(
     mob: &mut Mob,
     ab: &AbilityDef,
     target: Entity,
-    tpos: Vec3,
+    aim: Vec3,
     tick: u32,
     cooldown: f32,
+    scale: f32,
 ) -> Attack {
-    let dir = flat_dir(mob.pos, tpos);
+    let dir = flat_dir(mob.pos, aim);
     mob.yaw = yaw_of(dir);
     let center = match ab.shape {
         Shape::Area {
             at_target: true, ..
-        } => tpos,
+        } => aim,
         Shape::Area { offset, .. } => mob.pos + facing(mob.yaw) * offset,
         Shape::Cone { .. } => mob.pos,
     };
-    let release = tick + ticks((ab.windup_ms as f32 * mob.windup_scale) as u32);
+    let release = tick + ticks(windup_of(ab, scale));
+    // A combo's blow is followed by the next one, not by its recovery.
+    let after = if ab.then.is_some() {
+        ab.chain_ms
+    } else {
+        ab.recovery_ms
+    };
     let a = Attack {
         ability: Some(ab.index),
         target,
         center,
         dir,
         release,
-        done: release + ticks(ab.recovery_ms),
+        done: release + ticks(after),
         released: false,
+        then: ab.then,
     };
     mob.attack = Some(a);
     mob.attack_cd = cooldown;
     mob.state = STATE_ATTACKING;
     a
+}
+
+/// `ab`'s windup at `scale` (the difficulty's and the phase's): shortened,
+/// never below the time a player on foot needs to run out of it (one
+/// authored shorter keeps its own length).
+fn windup_of(ab: &AbilityDef, scale: f32) -> u32 {
+    let ms = ab.windup_ms;
+    let scaled = (ms as f32 * scale) as u32;
+    if scale < 1.0 {
+        scaled.max(ms.min(ab.fair_windup_ms(realm_sim::movement::WALK_SPEED)))
+    } else {
+        scaled
+    }
+}
+
+/// Where a mark aimed `lead_ms` ahead of a target at `tpos` going `vel`
+/// lands: on the ground ahead of it (at most LEAD_REACH), never through a
+/// wall; the target's own spot when it stands or there is no ground.
+fn lead_aim(terrain: &Terrain, tpos: Vec3, vel: Vec3, lead_ms: u32) -> Vec3 {
+    if lead_ms == 0 {
+        return tpos;
+    }
+    let mut ahead = Vec3::new(vel.x, 0.0, vel.z) * (lead_ms as f32 / 1000.0);
+    let len = ahead.length();
+    if len < 0.05 {
+        return tpos;
+    }
+    if len > LEAD_REACH {
+        ahead *= LEAD_REACH / len;
+    }
+    let spot = tpos + ahead;
+    let chest = Vec3::new(0.0, CHEST, 0.0);
+    if terrain.line_hit(tpos + chest, spot + chest).is_some() {
+        return tpos;
+    }
+    terrain
+        .ray_down(spot + Vec3::new(0.0, 2.0, 0.0), 5.0)
+        .map_or(tpos, |g| g.point)
+}
+
+/// A boss's next pattern from its style's `list`: one that fits where its
+/// target stands (its band, or within reach; one beyond reach needs a clear
+/// line), its phase and its own rest; never the one it threw last when
+/// another fits; by weight. None: nothing fits, it closes in.
+fn choose(
+    mobs: &realm_rules::creatures::CreatureRules,
+    list: &[u16],
+    mob: &mut Mob,
+    dist: f32,
+    sight: bool,
+    tick: u32,
+) -> Option<u16> {
+    let reach = mob.attack_range;
+    let phase = mob.phase.max(1);
+    let fits: Vec<(u16, f32)> = list
+        .iter()
+        .copied()
+        .filter_map(|i| {
+            let ab = mobs.ability(i)?;
+            let near = match ab.band {
+                Some((lo, hi)) => dist >= lo && dist <= hi,
+                None => dist <= reach,
+            };
+            (near
+                && !ab.chain_only
+                && ab.weight > 0.0
+                && ab.min_phase <= phase
+                && (dist <= reach || sight)
+                && mob.thrown_ready(i) <= tick)
+                .then_some((i, ab.weight))
+        })
+        .collect();
+    let fresh: Vec<(u16, f32)> = if fits.len() > 1 {
+        fits.into_iter()
+            .filter(|f| Some(f.0) != mob.mind.last)
+            .collect()
+    } else {
+        fits
+    };
+    let total: f32 = fresh.iter().map(|f| f.1).sum();
+    if total <= 0.0 {
+        return None;
+    }
+    let mut roll = unit(&mut mob.rng) * total;
+    for &(i, w) in &fresh {
+        if roll < w {
+            return Some(i);
+        }
+        roll -= w;
+    }
+    fresh.last().map(|f| f.0)
 }
 
 fn telegraph(caster: u32, ab: &AbilityDef, a: &Attack) -> Deed {

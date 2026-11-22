@@ -442,14 +442,18 @@ func server_tick() -> float:
 ## creature's clip, and for a throw the rock in its hand.
 func _telegraph(event: Dictionary) -> void:
 	var caster := int(event["caster"])
-	_end_telegraph(caster, false, true)
-	telegraphs_seen += 1
 	var release := int(event["release_tick"])
 	var recovery := int(event["recovery_tick"])
 	var now := server_tick()
 	# The countdown runs from the server's start tick; one that arrived late
 	# shows the fire already part way out.
 	var start := minf(float(event.get("start_tick", release - 1)), float(release) - 1.0)
+	# A combo's next blow: the one before it landed already, whatever this
+	# clock says (the server starts a creature's next blow only after its last
+	# went off, and says so when it calls one off).
+	var before: Dictionary = _telegraphs.get(caster, {})
+	_end_telegraph(caster, not before.is_empty() and float(before["release"]) < float(release), true)
+	telegraphs_seen += 1
 	var entry := {"start": start, "release": release, "recovery": recovery, "data": event}
 	var cone := String(event.get("shape", "area")) == "cone"
 	if DisplayServer.get_name() != "headless":

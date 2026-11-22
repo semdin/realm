@@ -33,6 +33,22 @@ pub const MELEE_SLACK: f32 = 0.4;
 /// up, and of one walking to its place on the ring.
 pub const WINDUP_STEP: f32 = 0.6;
 pub const RING_PACE: f32 = 0.7;
+/// A combo's next blow starts this long after the last one lands (ms) when
+/// its data names no `gap`.
+pub const CHAIN_GAP_MS: u32 = 200;
+/// A player sees a mark this long after it is laid (its reaction and the
+/// way to it, ms); a phase or a difficulty never shortens a windup below the
+/// time such a player needs to run out of it (one authored shorter keeps its
+/// own length: a combo's follow-up, aimed ahead of a player already moving).
+pub const REACTION_MS: u32 = 350;
+/// Where a fair windup assumes the player stands from the creature (m).
+const FAIR_STAND: f32 = 1.5;
+const FAIR_STAND_CONE: f32 = 3.0;
+/// A boss keeps the target it turned on this long before another
+/// attacker's blow turns it (ms).
+pub const BOSS_TARGET_LOCK_MS: u32 = 5000;
+/// A lead never reaches further ahead of the target than this (m).
+pub const LEAD_REACH: f32 = 5.0;
 /// Plain attack timings when the species names none.
 const MELEE_TIMING: (u32, u32) = (420, 350);
 const BOLT_TIMING: (u32, u32) = (550, 500);
@@ -110,6 +126,24 @@ pub struct AbilityDef {
     pub min_phase: u8,
     /// Multi-part bosses: one strike per standing part.
     pub per_part: bool,
+    /// Its name in its own list ("swing"; empty when the data names none).
+    pub id: String,
+    /// A combo: the ability that starts `chain_ms` after this one lands,
+    /// aimed afresh at where the target is then.
+    pub then: Option<u16>,
+    pub chain_ms: u32,
+    /// Only a combo's follow-up or a phase's opener, never picked alone.
+    pub chain_only: bool,
+    /// A boss picks it while its target stands this far away (m, from..to);
+    /// None: within its reach.
+    pub band: Option<(f32, f32)>,
+    /// A boss's odds of picking it among those that fit.
+    pub weight: f32,
+    /// Aimed where the target will be this long from now at its pace (ms):
+    /// running straight on does not leave the mark.
+    pub lead_ms: u32,
+    /// A boss pattern's own rest after it was picked (ms; 0: none).
+    pub rest_ms: u32,
 }
 
 /// A pallid's cold: players near a fighting one lose health and hope.
@@ -176,6 +210,31 @@ pub struct BossDef {
     pub part_hp: f32,
     /// It enrages after this long fighting (0: never on its own).
     pub enrage_s: f32,
+    /// Fight phases by health (the second, third...), highest first.
+    pub phases: Vec<Phase>,
+    /// It sprints at a target that keeps away.
+    pub rush: Option<Rush>,
+}
+
+/// A boss's fight phase: from below `below` of its health on, its windups
+/// and its cooldown run at these shares, and it opens the phase with the
+/// pattern `opener` (an id in its style's list).
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Phase {
+    pub below: f32,
+    pub windup: f32,
+    pub cooldown: f32,
+    pub opener: String,
+}
+
+/// A boss sprints `speed` x its pace for `ms` at a target further than
+/// `beyond`, then waits `cooldown_ms` before it sprints again.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Rush {
+    pub beyond: f32,
+    pub speed: f32,
+    pub ms: u32,
+    pub cooldown_ms: u32,
 }
 
 /// A boss made of parts (Threehead's heads, the Strangling Vine's vines):
@@ -351,7 +410,103 @@ fn ability(index: u16, key: String, a: &Value, pattern: bool) -> Result<AbilityD
         },
         min_phase: a["min_phase"].as_u64().unwrap_or(0) as u8,
         per_part: a["per_part"].as_bool().unwrap_or(false),
+        id: text(&a["id"]),
+        then: None,
+        chain_ms: if a["gap"].is_number() {
+            ms_of_seconds(&a["gap"])
+        } else {
+            CHAIN_GAP_MS
+        },
+        chain_only: a["chain_only"].as_bool().unwrap_or(false),
+        band: a["use"]
+            .as_array()
+            .filter(|b| b.len() == 2)
+            .map(|b| (f(&b[0], 0.0), f(&b[1], 0.0))),
+        weight: f(&a["weight"], 1.0).max(0.0),
+        lead_ms: ms_of_seconds(&a["lead"]),
+        rest_ms: ms_of_seconds(&a["rest"]),
     })
+}
+
+/// Joins a list's combos: each `then` names another ability of the same
+/// list by its `id`.
+fn link(
+    rules: &mut CreatureRules,
+    list: &[u16],
+    data: &[Value],
+    owner: &str,
+) -> Result<(), String> {
+    for (k, a) in data.iter().enumerate() {
+        let Some(next) = a["then"].as_str() else {
+            continue;
+        };
+        let Some(&to) = list
+            .iter()
+            .find(|&&i| rules.abilities[usize::from(i)].id == next)
+        else {
+            return Err(format!("{owner}: `then` names '{next}', not in its list"));
+        };
+        rules.abilities[usize::from(list[k])].then = Some(to);
+    }
+    // A combo that runs back into itself would never end.
+    for &start in list {
+        let mut seen = vec![start];
+        let mut at = rules.abilities[usize::from(start)].then;
+        while let Some(i) = at {
+            if seen.contains(&i) {
+                return Err(format!(
+                    "{owner}: the combo from '{}' runs in a circle",
+                    rules.abilities[usize::from(start)].id
+                ));
+            }
+            seen.push(i);
+            at = rules.abilities[usize::from(i)].then;
+        }
+    }
+    Ok(())
+}
+
+fn phases(o: &Value) -> Vec<Phase> {
+    let mut list: Vec<Phase> = o["phases"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .map(|p| Phase {
+            below: f(&p["below"], 0.5),
+            windup: f(&p["windup"], 1.0).clamp(0.3, 2.0),
+            cooldown: f(&p["cooldown"], 1.0).clamp(0.3, 2.0),
+            opener: text(&p["opener"]),
+        })
+        .collect();
+    list.sort_by(|a, b| b.below.total_cmp(&a.below));
+    list
+}
+
+impl AbilityDef {
+    /// The shortest fair windup at a run of `speed` (m/s): out of a disc
+    /// laid on the player (at the target or off the creature's front), out
+    /// of a ring round the creature from FAIR_STAND off it, out of a wedge
+    /// sideways or to its end from FAIR_STAND_CONE in front.
+    #[must_use]
+    pub fn fair_windup_ms(&self, speed: f32) -> u32 {
+        let way = match self.shape {
+            Shape::Area {
+                radius,
+                offset,
+                at_target,
+            } => {
+                if at_target || offset != 0.0 {
+                    radius
+                } else {
+                    (radius - FAIR_STAND).max(0.0)
+                }
+            }
+            Shape::Cone { range, half_angle } => (range - FAIR_STAND_CONE)
+                .max(0.0)
+                .min(FAIR_STAND_CONE * half_angle.clamp(0.0, 1.5).sin()),
+        };
+        REACTION_MS + (way / speed.max(0.1) * 1000.0) as u32
+    }
 }
 
 impl CreatureRules {
@@ -387,6 +542,8 @@ impl CreatureRules {
                 let key = format!("{id}/{}", a["id"].as_str().unwrap_or("?"));
                 abilities.push(push(&mut rules, key, a, false)?);
             }
+            let data: Vec<Value> = m["abilities"].as_array().cloned().unwrap_or_default();
+            link(&mut rules, &abilities, &data, id)?;
             let bolt = m["bolt"].as_str().map(str::to_owned);
             let base = &m["base"];
             let (windup_ms, recovery_ms) = if base["windup"].is_number() {
@@ -421,6 +578,8 @@ impl CreatureRules {
             for (n, a) in list.as_array().into_iter().flatten().enumerate() {
                 cycle.push(push(&mut rules, format!("pattern/{style}/{n}"), a, true)?);
             }
+            let data: Vec<Value> = list.as_array().cloned().unwrap_or_default();
+            link(&mut rules, &cycle, &data, &format!("boss_patterns.{style}"))?;
             rules.patterns.insert(style.clone(), cycle);
         }
         for (key, o) in spawns["boss_overrides"].as_object().into_iter().flatten() {
@@ -429,6 +588,8 @@ impl CreatureRules {
                 let akey = format!("boss/{key}/{}", a["id"].as_str().unwrap_or("?"));
                 extras.push(push(&mut rules, akey, a, false)?);
             }
+            let data: Vec<Value> = o["abilities"].as_array().cloned().unwrap_or_default();
+            link(&mut rules, &extras, &data, key)?;
             rules.boss_extras.insert(key.clone(), extras);
         }
         let e = &mobs["elite"];
@@ -453,6 +614,13 @@ impl CreatureRules {
                     stat_level: o["stat_level"].as_u64().unwrap_or(0) as u32,
                     part_hp: f(&o["part_hp"], 0.0),
                     enrage_s: f(&o["enrage_s"], 0.0),
+                    phases: phases(o),
+                    rush: o["rush"].is_object().then(|| Rush {
+                        beyond: f(&o["rush"]["beyond"], 10.0),
+                        speed: f(&o["rush"]["speed"], 1.8).max(1.0),
+                        ms: ms_of_seconds(&o["rush"]["seconds"]),
+                        cooldown_ms: ms_of_seconds(&o["rush"]["cooldown"]),
+                    }),
                 },
             );
         }
@@ -561,5 +729,16 @@ impl CreatureRules {
     #[must_use]
     pub fn ability(&self, index: u16) -> Option<&AbilityDef> {
         self.abilities.get(usize::from(index))
+    }
+
+    /// The ability named `id` among `list`.
+    #[must_use]
+    pub fn named(&self, list: &[u16], id: &str) -> Option<u16> {
+        if id.is_empty() {
+            return None;
+        }
+        list.iter()
+            .copied()
+            .find(|&i| self.ability(i).is_some_and(|a| a.id == id))
     }
 }

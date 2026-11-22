@@ -294,8 +294,9 @@ struct Mob {
     boss: bool,
     /// A commander whose mate fell.
     enraged: bool,
-    /// The boss pattern it throws next.
-    pattern_next: u32,
+    /// A boss's memory between blows (its last pattern, a phase's opener,
+    /// its sprint, its hold on a target).
+    mind: brain::Mind,
     /// The experience its kill gives.
     exp_reward: u32,
     /// Players who hit it lately (the kill's credit).
@@ -455,8 +456,10 @@ pub struct Sim {
     cells: Vec<Vec<u32>>,
     /// Player positions per cell (for creature targeting).
     player_cells: Vec<Vec<(Entity, Vec3)>>,
-    /// Every living player's position this tick.
+    /// Every living player's position this tick, and its velocity (a
+    /// boss's lead).
     player_pos: HashMap<Entity, Vec3>,
+    player_vel: HashMap<Entity, Vec3>,
     awake: Vec<bool>,
     nav: NavQuery,
     nav_scratch: NavScratch,
@@ -665,6 +668,7 @@ impl Sim {
             cells: vec![Vec::new(); GRID_DIM * GRID_DIM],
             player_cells: vec![Vec::new(); GRID_DIM * GRID_DIM],
             player_pos: HashMap::new(),
+            player_vel: HashMap::new(),
             awake: vec![false; GRID_DIM * GRID_DIM],
             nav,
             nav_scratch: NavScratch::default(),
@@ -803,7 +807,7 @@ impl Sim {
                     elite: false,
                     boss: false,
                     enraged: false,
-                    pattern_next: 0,
+                    mind: Default::default(),
                     exp_reward: 0,
                     credit: Vec::new(),
                     mode: MobMode::Idle,
