@@ -24,6 +24,7 @@ extends Terrain3D
 
 const Scatter := preload("res://maps/grounds/grounds_scatter.gd")
 const Impostors := preload("res://maps/grounds/grounds_impostors.gd")
+const Mats := preload("res://maps/grounds/grounds_mats.gd")
 
 ## The render layer (1-based) of the ground and its vegetation: the pitch's
 ## chalk decal paints this layer only.
@@ -94,6 +95,7 @@ func plant(preset: Dictionary) -> void:
 		# The mesh assets are set up before any instance is added: the
 		# instancer must not see a mesh asset change under live instances.
 		_set_assets(assets, plan)
+		_plain_leaves(assets)
 		_add_vegetation(density)
 	else:
 		# A preset switch. Only the thinned small stuff is cleared and added
@@ -347,6 +349,19 @@ static func _set_assets(list: Terrain3DAssets, wanted: Array) -> Array:
 		if _asset_state(asset) != before:
 			changed.append(i)
 	return changed
+
+
+## Every vegetation mesh's leaves on a plain alpha scissor instead of
+## alpha-to-coverage, before their first draw: the sun's shadow pass drew the
+## coverage from an undefined alpha and the tree shadows flickered as the
+## camera moved (GroundsMats.plain_alpha_scissor).
+static func _plain_leaves(list: Terrain3DAssets) -> void:
+	for i in list.get_mesh_count():
+		var asset := list.get_mesh_asset(i)
+		if asset == null:
+			continue
+		for lod in asset.get_lod_count():
+			Mats.plain_alpha_scissor(asset.get_mesh(lod))
 
 
 static func _asset_state(asset: Terrain3DMeshAsset) -> Array:

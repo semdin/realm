@@ -102,12 +102,43 @@ static func clear_cache() -> void:
 
 # ------------------------------------------------------------------ plants
 
-## The cooked variant meshes of one plant (assets/models/plants/cooked/<id>_<n>.res).
+## The cooked variant meshes of one plant (assets/models/plants/cooked/<id>_<n>.res),
+## their leaves on a plain alpha scissor (plain_alpha_scissor).
 static func plant_meshes(id: String) -> Array:
 	var out: Array = []
 	while ResourceLoader.exists("res://assets/models/plants/cooked/%s_%d.res" % [id, out.size()]):
-		out.append(load("res://assets/models/plants/cooked/%s_%d.res" % [id, out.size()]))
+		var mesh: Mesh = load("res://assets/models/plants/cooked/%s_%d.res" % [id, out.size()])
+		plain_alpha_scissor(mesh)
+		out.append(mesh)
 	return out
+
+
+## Turns alpha-to-coverage off on the leaves of `mesh` (the shared materials
+## themselves, before their first draw); they keep their plain alpha scissor.
+##
+## Why: Godot 4.8's Mobile renderer enables alpha-to-coverage in the pipeline
+## of every pass of such a material, the sun's shadow pass too, which writes
+## no colour, so the coverage of each leaf texel in the shadow map comes from
+## an undefined alpha (on the Intel iGPU it is not stable from one shadow
+## render to the next). Each time the shadow cascade snapped to its next texel
+## the leaf shadows re-rolled: every 14.5 cm the camera moved on the low
+## preset, nearly every frame at a walk, the tree and bush shadows that
+## flickered whenever the player moved (2026-11-23). On a plain scissor the
+## snaps are invisible again (the ground's change between frames with the
+## camera's motion taken out, a walk past broadleaves at noon on low: 0.72 %
+## of pixels -> 0.21 %, in the trees' shadow 6.7 % -> 1.4 %). No preset
+## renders with MSAA, so on screen the coverage only thinned the leaf edges a
+## little; they now cut at their 0.45 scissor, as the NVK path (RenderCompat)
+## already drew them, and the shadows under the trees come out fuller. The
+## coverage was also dear on the Intel iGPU: without it a 1080p frame's GPU
+## time is 8.6 -> 7.0 ms on low (medium 14.5 -> 12.0, high 17.1 -> 14.1).
+static func plain_alpha_scissor(mesh: Mesh) -> void:
+	if mesh == null:
+		return
+	for s in mesh.get_surface_count():
+		var material := mesh.surface_get_material(s) as BaseMaterial3D
+		if material != null and material.alpha_antialiasing_mode != BaseMaterial3D.ALPHA_ANTIALIASING_OFF:
+			material.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_OFF
 
 
 ## Scatter `meshes` at `spots` ([position, yaw, scale]): one MultiMesh per
