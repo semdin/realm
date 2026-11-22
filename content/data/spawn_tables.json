@@ -108,40 +108,250 @@
   "boss_patterns": {
     "spider": [
       {
+        "id": "spit",
         "kind": "directional",
         "clip": "Spit",
         "anticipation": 0.9,
-        "recovery": 1.3,
+        "recovery": 1.1,
         "range": 12.0,
-        "half_angle": 0.55,
-        "damage_multiplier": 1.15
+        "half_angle": 0.5,
+        "damage_multiplier": 1.15,
+        "lead": 0.2
       },
       {
+        "id": "slam",
         "kind": "area",
         "clip": "Slam",
         "anticipation": 1.2,
-        "recovery": 1.6,
+        "recovery": 0.5,
         "radius": 5.5,
-        "damage_multiplier": 1.7
+        "damage_multiplier": 1.8,
+        "use": [
+          0.0,
+          4.5
+        ],
+        "then": "bite",
+        "gap": 0.25
+      },
+      {
+        "id": "bite",
+        "kind": "directional",
+        "clip": "Spit",
+        "chain_only": true,
+        "anticipation": 0.75,
+        "recovery": 1.1,
+        "range": 6.0,
+        "half_angle": 0.8,
+        "damage_multiplier": 1.0,
+        "lead": 0.3
+      },
+      {
+        "id": "web",
+        "kind": "area",
+        "clip": "Spit",
+        "at_target": true,
+        "anticipation": 1.0,
+        "recovery": 0.2,
+        "radius": 3.5,
+        "damage_multiplier": 0.6,
+        "web_s": 2.5,
+        "lead": 0.55,
+        "use": [
+          6.0,
+          20.0
+        ],
+        "rest": 7.0,
+        "then": "web_spit",
+        "gap": 0.2
+      },
+      {
+        "id": "web_spit",
+        "kind": "directional",
+        "clip": "Spit",
+        "chain_only": true,
+        "anticipation": 0.7,
+        "recovery": 1.0,
+        "range": 20.0,
+        "half_angle": 0.3,
+        "damage_multiplier": 1.3,
+        "lead": 0.2
+      },
+      {
+        "id": "spit_volley",
+        "kind": "directional",
+        "clip": "Spit",
+        "min_phase": 2,
+        "anticipation": 0.9,
+        "recovery": 0.2,
+        "range": 14.0,
+        "half_angle": 0.45,
+        "damage_multiplier": 1.0,
+        "lead": 0.3,
+        "use": [
+          3.0,
+          14.0
+        ],
+        "rest": 10.0,
+        "weight": 1.5,
+        "then": "spit_volley_2",
+        "gap": 0.15
+      },
+      {
+        "id": "spit_volley_2",
+        "kind": "directional",
+        "clip": "Spit",
+        "chain_only": true,
+        "anticipation": 0.6,
+        "recovery": 0.2,
+        "range": 14.0,
+        "half_angle": 0.45,
+        "damage_multiplier": 1.0,
+        "lead": 0.35,
+        "then": "spit_volley_3",
+        "gap": 0.15
+      },
+      {
+        "id": "spit_volley_3",
+        "kind": "directional",
+        "clip": "Spit",
+        "chain_only": true,
+        "anticipation": 0.6,
+        "recovery": 1.1,
+        "range": 14.0,
+        "half_angle": 0.45,
+        "damage_multiplier": 1.0,
+        "lead": 0.35
+      },
+      {
+        "id": "venom_burst",
+        "kind": "area",
+        "clip": "Slam",
+        "chain_only": true,
+        "anticipation": 1.6,
+        "recovery": 1.0,
+        "radius": 9.0,
+        "damage_multiplier": 0.7,
+        "push": 8.0,
+        "lift": 2.5,
+        "poison": {
+          "ratio": 0.12,
+          "ticks": 6,
+          "interval_ms": 1000
+        }
       }
     ],
     "wizard": [
       {
+        "id": "bolt",
         "kind": "directional",
         "clip": "Cast_Directional",
         "anticipation": 0.9,
-        "recovery": 1.2,
+        "recovery": 1.1,
         "range": 14.0,
         "half_angle": 0.5,
-        "damage_multiplier": 1.15
+        "damage_multiplier": 1.15,
+        "lead": 0.2,
+        "then": "bolt_2",
+        "gap": 0.15
       },
       {
+        "id": "bolt_2",
+        "kind": "directional",
+        "clip": "Cast_Directional",
+        "chain_only": true,
+        "anticipation": 0.65,
+        "recovery": 1.1,
+        "range": 14.0,
+        "half_angle": 0.45,
+        "damage_multiplier": 0.9,
+        "lead": 0.35
+      },
+      {
+        "id": "nova",
         "kind": "area",
         "clip": "Cast_Area",
         "anticipation": 1.2,
-        "recovery": 1.7,
+        "recovery": 1.2,
         "radius": 6.0,
-        "damage_multiplier": 1.6
+        "damage_multiplier": 1.6,
+        "use": [
+          0.0,
+          4.5
+        ]
+      },
+      {
+        "id": "hex",
+        "kind": "area",
+        "clip": "Cast_Area",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.3,
+        "lead": 0.6,
+        "anticipation": 1.0,
+        "recovery": 1.0,
+        "use": [
+          6.0,
+          22.0
+        ],
+        "rest": 5.0
+      },
+      {
+        "id": "hex_rain",
+        "kind": "area",
+        "clip": "Cast_Area",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "lead": 0.6,
+        "min_phase": 2,
+        "anticipation": 1.0,
+        "use": [
+          4.0,
+          22.0
+        ],
+        "rest": 11.0,
+        "weight": 1.5,
+        "recovery": 0.2,
+        "then": "hex_rain_2",
+        "gap": 0.15
+      },
+      {
+        "id": "hex_rain_2",
+        "kind": "area",
+        "clip": "Cast_Area",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "lead": 0.6,
+        "anticipation": 0.8,
+        "chain_only": true,
+        "recovery": 0.2,
+        "then": "hex_rain_3",
+        "gap": 0.15
+      },
+      {
+        "id": "hex_rain_3",
+        "kind": "area",
+        "clip": "Cast_Area",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "lead": 0.6,
+        "anticipation": 0.8,
+        "chain_only": true,
+        "recovery": 1.0
+      },
+      {
+        "id": "blast",
+        "kind": "area",
+        "clip": "Cast_Area",
+        "chain_only": true,
+        "anticipation": 1.6,
+        "recovery": 1.0,
+        "radius": 9.0,
+        "damage_multiplier": 0.6,
+        "push": 9.0,
+        "lift": 3.0
       }
     ],
     "troll": [
@@ -167,7 +377,7 @@
         "kind": "directional",
         "clip": "Swing",
         "chain_only": true,
-        "anticipation": 0.75,
+        "anticipation": 0.8,
         "recovery": 1.1,
         "range": 6.5,
         "half_angle": 1.0,
@@ -196,7 +406,7 @@
         "kind": "area",
         "clip": "Stomp",
         "chain_only": true,
-        "anticipation": 0.55,
+        "anticipation": 0.7,
         "recovery": 1.2,
         "radius": 5.0,
         "damage_multiplier": 1.0
@@ -316,67 +526,250 @@
     ],
     "wraith": [
       {
+        "id": "reach",
         "kind": "directional",
         "clip": "Reach",
         "anticipation": 1.0,
         "recovery": 1.0,
         "range": 8.0,
         "half_angle": 0.5,
-        "damage_multiplier": 1.25
+        "damage_multiplier": 1.25,
+        "lead": 0.15,
+        "then": "reach_2",
+        "gap": 0.15
       },
       {
+        "id": "reach_2",
+        "kind": "directional",
+        "clip": "Reach",
+        "chain_only": true,
+        "anticipation": 0.7,
+        "recovery": 1.0,
+        "range": 8.0,
+        "half_angle": 0.7,
+        "damage_multiplier": 1.0,
+        "lead": 0.3
+      },
+      {
+        "id": "chill",
         "kind": "area",
         "clip": "Cast_Area",
         "anticipation": 1.5,
-        "recovery": 1.4,
+        "recovery": 1.2,
         "radius": 8.5,
-        "damage_multiplier": 1.6
+        "damage_multiplier": 1.6,
+        "despair_s": 4.0,
+        "use": [
+          0.0,
+          7.0
+        ]
       },
       {
+        "id": "drain",
         "kind": "area",
         "clip": "Reach",
         "at_target": true,
-        "anticipation": 1.4,
+        "anticipation": 1.2,
         "recovery": 1.3,
         "radius": 3.0,
         "damage_multiplier": 2.4,
         "despair_s": 8.0,
         "drain": 0.5,
         "impact_fx": "disarm",
-        "spell_id": "pallid_drain"
+        "spell_id": "pallid_drain",
+        "lead": 0.5,
+        "use": [
+          5.0,
+          22.0
+        ],
+        "rest": 6.0
+      },
+      {
+        "id": "grasp",
+        "kind": "area",
+        "clip": "Reach",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.3,
+        "lead": 0.6,
+        "despair_s": 3.0,
+        "min_phase": 2,
+        "anticipation": 1.0,
+        "use": [
+          3.0,
+          22.0
+        ],
+        "rest": 11.0,
+        "weight": 1.5,
+        "recovery": 0.2,
+        "then": "grasp_2",
+        "gap": 0.15
+      },
+      {
+        "id": "grasp_2",
+        "kind": "area",
+        "clip": "Reach",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.3,
+        "lead": 0.6,
+        "despair_s": 3.0,
+        "anticipation": 0.8,
+        "chain_only": true,
+        "recovery": 0.2,
+        "then": "grasp_3",
+        "gap": 0.15
+      },
+      {
+        "id": "grasp_3",
+        "kind": "area",
+        "clip": "Reach",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.3,
+        "lead": 0.6,
+        "despair_s": 3.0,
+        "anticipation": 0.8,
+        "chain_only": true,
+        "recovery": 1.0
+      },
+      {
+        "id": "wail",
+        "kind": "area",
+        "clip": "Cast_Area",
+        "chain_only": true,
+        "anticipation": 1.7,
+        "recovery": 1.0,
+        "radius": 10.0,
+        "damage_multiplier": 0.6,
+        "push": 9.0,
+        "lift": 3.0,
+        "despair_s": 5.0
       }
     ],
     "knight": [
       {
+        "id": "cleave",
         "kind": "directional",
         "clip": "Swing",
-        "anticipation": 1.2,
+        "anticipation": 1.0,
         "recovery": 1.0,
         "range": 6.0,
         "half_angle": 0.8,
-        "damage_multiplier": 1.3
+        "damage_multiplier": 1.3,
+        "lead": 0.15,
+        "use": [
+          0.0,
+          5.5
+        ],
+        "then": "bash",
+        "gap": 0.15
       },
       {
+        "id": "bash",
         "kind": "directional",
         "clip": "Stomp",
-        "anticipation": 0.9,
-        "recovery": 0.9,
+        "chain_only": true,
+        "anticipation": 0.65,
+        "recovery": 1.1,
         "range": 4.5,
-        "half_angle": 0.6,
-        "damage_multiplier": 1.1,
+        "half_angle": 0.7,
+        "damage_multiplier": 1.0,
+        "stun_s": 0.8,
+        "lead": 0.3,
         "spell_id": "shield_bash"
       },
       {
+        "id": "slam",
         "kind": "area",
         "clip": "Slam",
-        "anticipation": 1.6,
-        "recovery": 1.5,
+        "anticipation": 1.4,
+        "recovery": 1.3,
         "radius": 6.0,
-        "damage_multiplier": 1.7
+        "damage_multiplier": 1.8,
+        "stun_s": 0.8,
+        "use": [
+          0.0,
+          4.5
+        ],
+        "weight": 0.8
+      },
+      {
+        "id": "shield_throw",
+        "kind": "area",
+        "clip": "Swing",
+        "at_target": true,
+        "anticipation": 1.0,
+        "recovery": 1.0,
+        "radius": 3.0,
+        "damage_multiplier": 1.2,
+        "lead": 0.55,
+        "use": [
+          7.0,
+          22.0
+        ],
+        "rest": 6.0
+      },
+      {
+        "id": "onslaught",
+        "kind": "directional",
+        "clip": "Swing",
+        "min_phase": 2,
+        "anticipation": 0.9,
+        "recovery": 0.2,
+        "range": 6.0,
+        "half_angle": 0.8,
+        "damage_multiplier": 1.1,
+        "lead": 0.15,
+        "use": [
+          0.0,
+          5.5
+        ],
+        "rest": 9.0,
+        "weight": 1.5,
+        "then": "onslaught_2",
+        "gap": 0.15
+      },
+      {
+        "id": "onslaught_2",
+        "kind": "directional",
+        "clip": "Swing",
+        "chain_only": true,
+        "anticipation": 0.65,
+        "recovery": 0.2,
+        "range": 6.0,
+        "half_angle": 0.9,
+        "damage_multiplier": 1.1,
+        "lead": 0.3,
+        "then": "onslaught_3",
+        "gap": 0.2
+      },
+      {
+        "id": "onslaught_3",
+        "kind": "area",
+        "clip": "Slam",
+        "chain_only": true,
+        "anticipation": 0.7,
+        "recovery": 1.3,
+        "radius": 5.0,
+        "damage_multiplier": 1.4
+      },
+      {
+        "id": "war_cry",
+        "kind": "area",
+        "clip": "Roar",
+        "chain_only": true,
+        "anticipation": 1.6,
+        "recovery": 1.0,
+        "radius": 8.0,
+        "damage_multiplier": 0.5,
+        "push": 8.0,
+        "lift": 2.5
       }
     ],
     "snare": [
       {
+        "id": "lash",
         "kind": "directional",
         "clip": "Lash",
         "anticipation": 1.1,
@@ -385,20 +778,45 @@
         "half_angle": 1.0,
         "damage_multiplier": 1.2,
         "despair_s": 3.0,
-        "spell_id": "snare_lash"
+        "spell_id": "snare_lash",
+        "lead": 0.15,
+        "then": "lash_back",
+        "gap": 0.15
       },
       {
+        "id": "lash_back",
+        "kind": "directional",
+        "clip": "Lash",
+        "chain_only": true,
+        "anticipation": 0.7,
+        "recovery": 1.0,
+        "range": 11.0,
+        "half_angle": 0.8,
+        "damage_multiplier": 1.0,
+        "despair_s": 3.0,
+        "spell_id": "snare_lash",
+        "lead": 0.3
+      },
+      {
+        "id": "grip",
         "kind": "area",
         "clip": "Lash",
         "at_target": true,
-        "anticipation": 1.3,
-        "recovery": 1.0,
         "radius": 3.5,
         "damage_multiplier": 1.4,
         "spell_id": "snare_grip",
-        "despair_s": 4.0
+        "despair_s": 4.0,
+        "lead": 0.6,
+        "anticipation": 1.1,
+        "recovery": 1.0,
+        "use": [
+          4.0,
+          20.0
+        ],
+        "rest": 4.0
       },
       {
+        "id": "spores",
         "kind": "area",
         "clip": "Burst",
         "anticipation": 1.8,
@@ -407,22 +825,100 @@
         "damage_multiplier": 1.5,
         "despair_s": 5.0,
         "spell_id": "snare_spores",
-        "impact_fx": "flame_wave"
+        "impact_fx": "flame_wave",
+        "use": [
+          0.0,
+          6.5
+        ]
+      },
+      {
+        "id": "grip_volley",
+        "kind": "area",
+        "clip": "Lash",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "spell_id": "snare_grip",
+        "despair_s": 3.0,
+        "lead": 0.6,
+        "min_phase": 2,
+        "anticipation": 1.0,
+        "use": [
+          3.0,
+          20.0
+        ],
+        "rest": 10.0,
+        "weight": 1.5,
+        "recovery": 0.2,
+        "then": "grip_volley_2",
+        "gap": 0.15
+      },
+      {
+        "id": "grip_volley_2",
+        "kind": "area",
+        "clip": "Lash",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "spell_id": "snare_grip",
+        "despair_s": 3.0,
+        "lead": 0.6,
+        "anticipation": 0.8,
+        "chain_only": true,
+        "recovery": 0.2,
+        "then": "grip_volley_3",
+        "gap": 0.15
+      },
+      {
+        "id": "grip_volley_3",
+        "kind": "area",
+        "clip": "Lash",
+        "at_target": true,
+        "radius": 3.5,
+        "damage_multiplier": 1.2,
+        "spell_id": "snare_grip",
+        "despair_s": 3.0,
+        "lead": 0.6,
+        "anticipation": 0.8,
+        "chain_only": true,
+        "recovery": 1.0
       }
     ],
     "hound": [
       {
+        "id": "bite",
         "kind": "directional",
         "clip": "Bite",
         "anticipation": 1.1,
-        "recovery": 1.0,
+        "recovery": 0.2,
         "range": 10.0,
         "half_angle": 0.55,
         "damage_multiplier": 0.9,
         "per_part": true,
-        "spell_id": "threehead_bite"
+        "spell_id": "threehead_bite",
+        "lead": 0.15,
+        "use": [
+          0.0,
+          10.0
+        ],
+        "then": "bite_2",
+        "gap": 0.15
       },
       {
+        "id": "bite_2",
+        "kind": "directional",
+        "clip": "Bite",
+        "chain_only": true,
+        "anticipation": 0.7,
+        "recovery": 1.0,
+        "range": 10.0,
+        "half_angle": 0.6,
+        "damage_multiplier": 0.9,
+        "spell_id": "threehead_bite",
+        "lead": 0.3
+      },
+      {
+        "id": "paw",
         "kind": "area",
         "clip": "Paw",
         "offset": 6.5,
@@ -430,19 +926,26 @@
         "recovery": 1.3,
         "radius": 5.5,
         "damage_multiplier": 1.7,
-        "spell_id": "threehead_paw"
+        "spell_id": "threehead_paw",
+        "use": [
+          0.0,
+          10.0
+        ]
       },
       {
+        "id": "tail",
         "kind": "area",
         "clip": "Tail",
         "offset": -9.0,
-        "anticipation": 1.2,
+        "anticipation": 1.3,
         "recovery": 1.0,
         "radius": 6.0,
         "damage_multiplier": 1.3,
-        "spell_id": "threehead_tail"
+        "spell_id": "threehead_tail",
+        "weight": 0.35
       },
       {
+        "id": "roar",
         "kind": "area",
         "clip": "Roar",
         "min_phase": 2,
@@ -451,18 +954,31 @@
         "radius": 22.0,
         "damage_multiplier": 0.8,
         "despair_s": 4.0,
-        "spell_id": "threehead_roar"
+        "spell_id": "threehead_roar",
+        "use": [
+          0.0,
+          22.0
+        ],
+        "rest": 15.0,
+        "weight": 0.6
       },
       {
+        "id": "pounce",
         "kind": "area",
         "clip": "Paw",
         "at_target": true,
         "min_phase": 2,
-        "anticipation": 1.5,
+        "anticipation": 1.4,
         "recovery": 1.2,
         "radius": 4.5,
         "damage_multiplier": 1.6,
-        "spell_id": "threehead_pounce"
+        "spell_id": "threehead_pounce",
+        "lead": 0.5,
+        "use": [
+          6.0,
+          26.0
+        ],
+        "rest": 5.0
       }
     ]
   },
@@ -24221,7 +24737,27 @@
       "scale": 1.0,
       "name": "Black Widow",
       "move_speed": 3.0,
-      "walk_speed": 0.82
+      "walk_speed": 0.82,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "venom_burst"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "venom_burst"
+        }
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 2.2,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "commander": {
       "hp": 2400,
@@ -24231,7 +24767,27 @@
       "scale": 1.0,
       "name": "Bandit Chief",
       "move_speed": 3.6,
-      "walk_speed": 1.5
+      "walk_speed": 1.5,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "blast"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "blast"
+        }
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 2.0,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "grak": {
       "hp": 9000,
@@ -24273,7 +24829,27 @@
       "name": "The Morhal Warden",
       "move_speed": 4.5,
       "walk_speed": 0.0,
-      "label_y": 4.0
+      "label_y": 4.0,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "wail"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "wail"
+        }
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 2.0,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "trial_warden": {
       "hp": 4200,
@@ -24317,7 +24893,27 @@
       "name": "The Cursed Armour Commander",
       "move_speed": 2.8,
       "walk_speed": 0.706,
-      "label_y": 3.7
+      "label_y": 3.7,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "war_cry"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "war_cry"
+        }
+      ],
+      "rush": {
+        "beyond": 9.0,
+        "speed": 2.2,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "snare_root": {
       "hp": 6000,
@@ -24344,7 +24940,13 @@
       "walk_speed": 0.0,
       "label_y": 8.4,
       "part_hp": 6500,
-      "enrage_s": 480.0
+      "enrage_s": 480.0,
+      "rush": {
+        "beyond": 12.0,
+        "speed": 1.8,
+        "seconds": 1.8,
+        "cooldown": 8.0
+      }
     },
     "brood_guardian": {
       "hp": 6200,
@@ -24356,7 +24958,27 @@
       "name": "Brood Guardian",
       "move_speed": 3.6,
       "walk_speed": 0.9,
-      "label_y": 3.6
+      "label_y": 3.6,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "venom_burst"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "venom_burst"
+        }
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 2.2,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     },
     "web_queen": {
       "hp": 13500,
@@ -24368,7 +24990,27 @@
       "name": "Web Mother",
       "move_speed": 3.2,
       "walk_speed": 0.82,
-      "label_y": 5.2
+      "label_y": 5.2,
+      "phases": [
+        {
+          "below": 0.6,
+          "windup": 0.85,
+          "cooldown": 0.85,
+          "opener": "venom_burst"
+        },
+        {
+          "below": 0.25,
+          "windup": 0.75,
+          "cooldown": 0.7,
+          "opener": "venom_burst"
+        }
+      ],
+      "rush": {
+        "beyond": 10.0,
+        "speed": 2.2,
+        "seconds": 1.8,
+        "cooldown": 7.0
+      }
     }
   },
   "monoliths": [
