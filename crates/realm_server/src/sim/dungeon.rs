@@ -1884,6 +1884,9 @@ impl Sim {
             p.body.vel.y = lift;
             p.body.on_floor = false;
         }
+        // The server moved the body: its owner replays from the server's
+        // body even when the hold is unchanged (a body already held).
+        p.life = p.life.wrapping_add(1);
         let lock =
             (realm_rules::creatures::shove_lock_ms(push.length(), lift) * SIM_HZ).div_ceil(1000);
         p.afflictions.knock_until = p.afflictions.knock_until.max(tick + lock);

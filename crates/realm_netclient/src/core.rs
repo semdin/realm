@@ -477,8 +477,8 @@ impl ClientCore {
                 let dt = local_ticks - at;
                 let ahead = r + dt;
                 let gap = target - ahead;
-                let step = (gap * CATCH_UP_GAIN * dt)
-                    .clamp((MIN_RATE - 1.0) * dt, (MAX_RATE - 1.0) * dt);
+                let step =
+                    (gap * CATCH_UP_GAIN * dt).clamp((MIN_RATE - 1.0) * dt, (MAX_RATE - 1.0) * dt);
                 ahead + if step.abs() > gap.abs() { gap } else { step }
             }
             _ => target,

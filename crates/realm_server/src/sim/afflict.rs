@@ -156,6 +156,11 @@ impl Sim {
                     p.body.vel.y = riders.lift;
                     p.body.on_floor = false;
                 }
+                // The server moved the body: its owner replays from the
+                // server's body whether or not the hold changed (a shove on
+                // a body already held, as in a cocoon, left the lock as it
+                // was and read as a prediction error).
+                p.life = p.life.wrapping_add(1);
             }
             let lock = ticks(shove_lock_ms(riders.push, riders.lift));
             p.afflictions.knock_until = p.afflictions.knock_until.max(tick + lock);

@@ -659,6 +659,11 @@ impl Sim {
                 p.body.shove = away * launch.push;
                 p.body.vel.y = launch.lift;
                 p.body.on_floor = false;
+                // The server moved the body: its owner replays from the
+                // server's body whether or not the hold changed (a shove on
+                // a body already held, as in a cocoon, left the lock as it
+                // was and read as a prediction error).
+                p.life = p.life.wrapping_add(1);
             }
             let t = ticks(realm_rules::creatures::shove_lock_ms(launch.push, launch.lift) as f32);
             p.afflictions.knock_until = p.afflictions.knock_until.max(tick + t);
