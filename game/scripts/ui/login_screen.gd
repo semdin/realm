@@ -436,6 +436,7 @@ func _build_card() -> Control:
 		_dress_check(box)
 
 	submit_btn = _build_enter()
+	submit_btn.pressed.connect(_on_submit)
 	v.add_child(submit_btn)
 
 	status_label = Label.new()
@@ -657,6 +658,9 @@ func _build_enter() -> Button:
 	_enter_mat = ShaderMaterial.new()
 	_enter_mat.shader = BUTTON_SHADER
 	_enter_mat.set_shader_parameter("pad", BUTTON_PAD)
+	# set, not left to the shader's defaults: the hover ease reads them back
+	for param in ["hover", "press", "disabled"]:
+		_enter_mat.set_shader_parameter(param, 0.0)
 	face.material = _enter_mat
 	b.add_child(face)
 	b.resized.connect(func(): _enter_mat.set_shader_parameter("size", b.size + Vector2.ONE * BUTTON_PAD * 2.0))
