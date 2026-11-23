@@ -24733,8 +24733,8 @@
   },
   "boss_overrides": {
     "matriarch": {
-      "hp": 3500,
-      "attack_power": 65,
+      "hp": 4600,
+      "attack_power": 104,
       "attack_range": 4.5,
       "exp_reward": 600,
       "scale": 1.0,
@@ -24745,13 +24745,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "venom_burst"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "venom_burst"
         }
       ],
@@ -24763,8 +24763,8 @@
       }
     },
     "commander": {
-      "hp": 2400,
-      "attack_power": 55,
+      "hp": 3100,
+      "attack_power": 88,
       "attack_range": 4.5,
       "exp_reward": 600,
       "scale": 1.0,
@@ -24775,13 +24775,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "blast"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "blast"
         }
       ],
@@ -24793,8 +24793,8 @@
       }
     },
     "grak": {
-      "hp": 9000,
-      "attack_power": 140,
+      "hp": 11700,
+      "attack_power": 224,
       "attack_range": 5.0,
       "exp_reward": 2500,
       "scale": 1.0,
@@ -24806,13 +24806,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "roar"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "roar"
         }
       ],
@@ -24824,8 +24824,8 @@
       }
     },
     "warden": {
-      "hp": 12000,
-      "attack_power": 160,
+      "hp": 15600,
+      "attack_power": 256,
       "attack_range": 4.5,
       "exp_reward": 4000,
       "scale": 1.0,
@@ -24837,13 +24837,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "wail"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "wail"
         }
       ],
@@ -24855,9 +24855,9 @@
       }
     },
     "trial_warden": {
-      "hp": 4200,
+      "hp": 5500,
       "stat_level": 12,
-      "attack_power": 80,
+      "attack_power": 128,
       "attack_range": 4.5,
       "exp_reward": 800,
       "scale": 1.0,
@@ -24869,13 +24869,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "roar"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "roar"
         }
       ],
@@ -24887,9 +24887,9 @@
       }
     },
     "cursed_commander": {
-      "hp": 7200,
+      "hp": 9400,
       "stat_level": 32,
-      "attack_power": 110,
+      "attack_power": 176,
       "attack_range": 4.0,
       "exp_reward": 3000,
       "scale": 1.0,
@@ -24901,13 +24901,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "war_cry"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "war_cry"
         }
       ],
@@ -24919,9 +24919,9 @@
       }
     },
     "snare_root": {
-      "hp": 6000,
+      "hp": 7800,
       "stat_level": 33,
-      "attack_power": 100,
+      "attack_power": 160,
       "attack_range": 9.0,
       "exp_reward": 3500,
       "scale": 1.0,
@@ -24929,12 +24929,12 @@
       "move_speed": 0.0,
       "walk_speed": 0.0,
       "label_y": 5.2,
-      "part_hp": 1800
+      "part_hp": 2300
     },
     "threehead": {
-      "hp": 20000,
+      "hp": 26000,
       "stat_level": 34,
-      "attack_power": 140,
+      "attack_power": 224,
       "attack_range": 7.5,
       "exp_reward": 9000,
       "scale": 1.0,
@@ -24942,7 +24942,7 @@
       "move_speed": 2.99,
       "walk_speed": 0.0,
       "label_y": 8.4,
-      "part_hp": 6500,
+      "part_hp": 8400,
       "enrage_s": 480.0,
       "rush": {
         "beyond": 8.0,
@@ -24952,9 +24952,9 @@
       }
     },
     "brood_guardian": {
-      "hp": 6200,
+      "hp": 8100,
       "stat_level": 28,
-      "attack_power": 95,
+      "attack_power": 152,
       "attack_range": 4.5,
       "exp_reward": 2000,
       "scale": 1.35,
@@ -24966,13 +24966,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "venom_burst"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "venom_burst"
         }
       ],
@@ -24984,9 +24984,9 @@
       }
     },
     "web_queen": {
-      "hp": 13500,
+      "hp": 17600,
       "stat_level": 30,
-      "attack_power": 120,
+      "attack_power": 192,
       "attack_range": 5.0,
       "exp_reward": 6000,
       "scale": 1.6,
@@ -24998,13 +24998,13 @@
         {
           "below": 0.6,
           "windup": 0.85,
-          "cooldown": 0.85,
+          "cooldown": 0.8,
           "opener": "venom_burst"
         },
         {
           "below": 0.25,
           "windup": 0.75,
-          "cooldown": 0.7,
+          "cooldown": 0.62,
           "opener": "venom_burst"
         }
       ],

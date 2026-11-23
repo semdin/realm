@@ -36,6 +36,14 @@ fn seed(dir: &Path, character: u64) -> AnyResult<()> {
     }
     std::thread::sleep(Duration::from_millis(500));
     let mut sheet: CharacterSheet = serde_json::from_str(&std::fs::read_to_string(&path)?)?;
+    // A level 30 character's own health and mana (realm_rules::progress:
+    // +45 health, +25 mana a level): a level alone left it with a new
+    // character's pool, one blow from a boss away from death.
+    let gained = 30 - u32::from(sheet.level.max(1));
+    sheet.base_max_hp += 45 * gained;
+    sheet.base_max_mana += 25 * gained;
+    sheet.hp = sheet.base_max_hp;
+    sheet.mana = sheet.base_max_mana;
     sheet.level = 30;
     sheet.exp = 0;
     sheet.place = Some(realm_rules::Place {
