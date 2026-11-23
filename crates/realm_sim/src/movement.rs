@@ -253,8 +253,10 @@ impl Body {
         self.pos + Vec3::new(0.0, CAPSULE_HEIGHT * 0.5, 0.0)
     }
 
-    /// Snaps every continuous value to the wire grid.
-    fn snap(&mut self) {
+    /// Snaps every continuous value to the wire grid. A server that sets a
+    /// body's shove or velocity itself (a creature's throw) snaps it, so
+    /// the body it steps on from equals the one its owner receives.
+    pub fn snap(&mut self) {
         self.pos = snap_vec(self.pos);
         self.vel = snap_vec(self.vel);
         self.shove = snap_vec(self.shove);

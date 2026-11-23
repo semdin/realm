@@ -156,6 +156,9 @@ impl Sim {
                     p.body.vel.y = riders.lift;
                     p.body.on_floor = false;
                 }
+                // On the wire grid, as its owner receives it (off it, the
+                // next steps drifted a 256th apart: a correction).
+                p.body.snap();
                 // The server moved the body: its owner replays from the
                 // server's body whether or not the hold changed (a shove on
                 // a body already held, as in a cocoon, left the lock as it

@@ -659,6 +659,7 @@ impl Sim {
                 p.body.shove = away * launch.push;
                 p.body.vel.y = launch.lift;
                 p.body.on_floor = false;
+                p.body.snap();
                 // The server moved the body: its owner replays from the
                 // server's body whether or not the hold changed (a shove on
                 // a body already held, as in a cocoon, left the lock as it

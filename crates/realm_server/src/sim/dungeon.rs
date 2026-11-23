@@ -1884,6 +1884,8 @@ impl Sim {
             p.body.vel.y = lift;
             p.body.on_floor = false;
         }
+        // On the wire grid, as its owner receives it.
+        p.body.snap();
         // The server moved the body: its owner replays from the server's
         // body even when the hold is unchanged (a body already held).
         p.life = p.life.wrapping_add(1);
