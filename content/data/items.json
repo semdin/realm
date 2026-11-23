@@ -186,6 +186,7 @@
     "stat_tier": 4,
     "armor": 78,
     "move_speed": -5,
+    "cloak_texture": "res://assets/models/cloaks/cloak_warden.png",
     "icon": "robe",
     "slots": [
       "chest"
