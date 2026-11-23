@@ -1351,6 +1351,21 @@ msgstr "Hazırlık kontrolü"
 msgid "Return to the dungeon"
 msgstr "Zindana geri dön"
 
+msgid "Enter the dungeon"
+msgstr "Zindana gir"
+
+msgid "Enter a new run"
+msgstr "Yeni zindana gir"
+
+msgid "A fresh run of this dungeon. Everyone at the gate is asked to confirm first; when all are ready, the party goes in together."
+msgstr "Bu zindanın yepyeni bir koşusu. Önce kapıdaki herkese hazır olup olmadığı sorulur; hepsi hazır olunca grup birlikte girer."
+
+msgid "A fresh run of this dungeon."
+msgstr "Bu zindanın yepyeni bir koşusu."
+
+msgid "Back into the run you are still in, where you left it. It closes when the time shown runs out."
+msgstr "Hâlâ içinde olduğun koşuya, kaldığın yere geri döner. Gösterilen süre dolunca kapanır."
+
 msgid "Start a new dungeon"
 msgstr "Yeni zindan başlat"
 

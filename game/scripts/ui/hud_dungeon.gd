@@ -9,9 +9,11 @@ class_name HudDungeon
 ## chest, the key or the best time) and this week's curses on it (red tags,
 ## each curse's description on hover); the party at the gate with a status tag
 ## each (empty places up to the party cap); then the verdict and the button:
-## "Ready check" for a party, "Enter" alone. A run of the player's that is
-## still open offers its way back in ("Return to the dungeon (m:ss)", through
-## the same door: the server lets a roster member back in).
+## "Enter the dungeon" for a party (it runs the ready check first; its tooltip
+## says so), "Enter" alone, and "Enter a new run" while a run of the
+## player's is still open - that one offers its way back in beside it
+## ("Return to the dungeon (m:ss)", through the same door: the server lets a
+## roster member back in), so the two never read alike.
 ##
 ## The server decides everything (RealmSession.dungeon_info / dungeon_start);
 ## the checks here only explain early what it would refuse. While open the
@@ -146,7 +148,7 @@ func _ready() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	view.add_child(row)
-	start_button = HudKit.gold_button(tr("Ready check"))
+	start_button = HudKit.gold_button(tr("Enter the dungeon"))
 	start_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	start_button.pressed.connect(_on_start)
 	row.add_child(start_button)
@@ -154,6 +156,7 @@ func _ready() -> void:
 	rejoin_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	rejoin_button.custom_minimum_size = Vector2(0, UIKit.H_MAIN)
 	rejoin_button.pressed.connect(_on_rejoin)
+	rejoin_button.tooltip_text = tr("Back into the run you are still in, where you left it. It closes when the time shown runs out.")
 	row.add_child(rejoin_button)
 	if sheet != null:
 		sheet.equipment_answer.connect(_bought)
@@ -817,9 +820,15 @@ func _judge(members: Array, levels: Array, rules: Dictionary, need: int) -> void
 	var blocked := problem != ""
 	verdict.text = problem if blocked else (tr("Everyone is ready at the gate.") if members.size() > 1 else tr("The gate is open to you."))
 	verdict.add_theme_color_override("font_color", HudKit.GOLD_LT if not check.is_empty() else (BAD if blocked else GOOD))
-	start_button.text = I18n.upper(tr("Ready check") if members.size() > 1 else tr("Enter"))
-	start_button.disabled = blocked
 	rejoin_button.visible = not active().is_empty() and active_left_s() != 0.0
+	var party := members.size() > 1
+	var label := tr("Enter the dungeon") if party else tr("Enter")
+	if rejoin_button.visible:
+		label = tr("Enter a new run")
+	start_button.text = I18n.upper(label)
+	start_button.tooltip_text = (tr("A fresh run of this dungeon. Everyone at the gate is asked to confirm first; when all are ready, the party goes in together.")
+		if party else tr("A fresh run of this dungeon."))
+	start_button.disabled = blocked
 
 static func _spread(levels: Array) -> int:
 	if levels.is_empty():
