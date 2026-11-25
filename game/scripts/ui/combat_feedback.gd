@@ -10,14 +10,25 @@ class_name CombatFeedback
 ## RealmSession.server_tick); the buttons only ask (RealmSession.respawn) and
 ## the body rises when the server says so (the snapshot's health comes back).
 
-const TOASTS_MAX := 6
+const TOASTS_MAX := 4
 ## A body that just rose is untouchable and casts nothing this long (the
 ## server's RISE_PROTECT_MS); the hero fades in over it (HeroView.fade_in).
 const RISE_PROTECT := 3.0
-## Height of the notification card, in canvas pixels, pinned above the
-## control deck rather than to a fixed y.
-const TOAST_H := 120.0
+## The notifications: one strip each, no card round them. A strip slides in
+## from the right and fades up, the newest at the bottom over the control
+## deck; it stays TOAST_SECONDS (a level TOAST_BIG_SECONDS) and slides out.
+## The same gain again while its strip shows ("+120 EXP", "+40 Oril", house
+## reputation) joins it: the amount summed, a count beside it.
 const TOAST_SECONDS := 4.0
+const TOAST_BIG_SECONDS := 5.5
+const TOAST_H := 34.0
+const TOAST_BIG_H := 42.0
+const TOAST_IN := 0.22
+const TOAST_OUT := 0.35
+const TOAST_SLIDE := 28.0
+## The feed's column over the control deck (how tall it may grow).
+const FEED_H := 240.0
+const TOAST_INK := Color(0.925, 0.902, 0.855)
 ## House reputation's colour (the toast and the words over the hero).
 const REP_COLOUR := Color(1.0, 0.78, 0.35)
 
@@ -28,8 +39,9 @@ var hud: Control
 var player: Node3D
 
 var _toast_box: VBoxContainer
-var _toast_panel: Panel
 var _toasts: Array = []
+static var _wash_box: StyleBoxTexture = null
+static var _glow_tex: GradientTexture2D = null
 const DeathScreenScript := preload("res://scripts/ui/death_screen.gd")
 var _death_panel: Control
 var _revive_here: Button
@@ -90,25 +102,20 @@ static func _place_centred(control: Control, extent: Vector2, offset := Vector2.
 func _build() -> void:
 	# Loot / XP / level toasts: the lowest card in the right rail, pinned above
 	# the control deck so it clears it at every canvas height.
-	_toast_panel = Panel.new()
-	_toast_panel.name = "ToastPanel"
-	_toast_panel.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	var at := Vector2(-(UITheme.RIGHT_COL_W + UITheme.EDGE), -(UITheme.DECK_BOTTOM + UITheme.DECK_H + 8 + TOAST_H))
-	_toast_panel.offset_left = at.x
-	_toast_panel.offset_top = at.y
-	_toast_panel.offset_right = at.x + UITheme.RIGHT_COL_W
-	_toast_panel.offset_bottom = at.y + TOAST_H
-	_toast_panel.custom_minimum_size = Vector2(UITheme.RIGHT_COL_W, TOAST_H)
-	_toast_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_toast_panel.theme_type_variation = UITheme.V_CARD
 	_toast_box = VBoxContainer.new()
 	_toast_box.name = "Toasts"
-	_toast_box.position = Vector2(9, 6)
-	_toast_box.custom_minimum_size = Vector2(UITheme.RIGHT_COL_W - 18, TOAST_H - 12)
-	_toast_box.add_theme_constant_override("separation", 2)
-	_toast_panel.add_child(_toast_box)
-	_toast_panel.hide()
-	add_child(_toast_panel)
+	_toast_box.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
+	_toast_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	_toast_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	var bottom := -(UITheme.DECK_BOTTOM + UITheme.DECK_H + 8)
+	_toast_box.offset_right = -UITheme.EDGE
+	_toast_box.offset_bottom = bottom
+	_toast_box.offset_left = -UITheme.EDGE - UITheme.RIGHT_COL_W - 100.0
+	_toast_box.offset_top = bottom - FEED_H
+	_toast_box.alignment = BoxContainer.ALIGNMENT_END
+	_toast_box.add_theme_constant_override("separation", 4)
+	_toast_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_toast_box)
 
 	# Death / rise state: the death screen (death_screen.gd), on its own
 	# layer above every window (a window left open must not hide the choice).
@@ -304,40 +311,177 @@ func _follow_level(level: int) -> void:
 func toast(text: String, color: Color, icon_id: String = "ui_pickup") -> void:
 	toasts_shown += 1
 	last_toast = text
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 5)
+	var amount := _amount_of(text)
+	var rest := text.substr(text.find(" ")) if amount > 0 else ""
+	if amount > 0 and not _toasts.is_empty():
+		var newest: Dictionary = _toasts.back()
+		if not bool(newest["leaving"]) and int(newest["amount"]) > 0 and String(newest["icon"]) == icon_id \
+				and String(newest["rest"]) == rest:
+			newest["amount"] = int(newest["amount"]) + amount
+			newest["count"] = int(newest["count"]) + 1
+			newest["until"] = _now() + TOAST_SECONDS
+			(newest["lead"] as Label).text = "+" + I18n.whole(int(newest["amount"]))
+			var times := newest["times"] as Label
+			times.text = "×%d" % int(newest["count"])
+			times.visible = true
+			_fit.call_deferred(newest)
+			times.pivot_offset = times.size * 0.5
+			var bump := times.create_tween()
+			bump.tween_property(times, "scale", Vector2(1.45, 1.45), 0.1).from(Vector2.ONE)
+			bump.tween_property(times, "scale", Vector2.ONE, 0.18)
+			return
+	var big := icon_id == "stat_level"
+	var height := TOAST_BIG_H if big else TOAST_H
+	# The row holds the strip's place in the column; the strip slides inside it.
+	var row := Control.new()
 	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	var icon := UITheme.icon_rect(icon_id, 16.0)
-	icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	row.add_child(icon)
-	var label := _make_label(text, UITheme.FS_SMALL, color)
-	label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	row.add_child(label)
+	row.size_flags_horizontal = Control.SIZE_SHRINK_END
+	var slide := Control.new()
+	slide.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(slide)
+	var strip := PanelContainer.new()
+	strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_theme_stylebox_override("panel", _strip_wash())
+	slide.add_child(strip)
+	var line := HBoxContainer.new()
+	line.add_theme_constant_override("separation", 10)
+	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	strip.add_child(line)
+	var icon_px := 30.0 if big else 24.0
+	var holder := Control.new()
+	holder.custom_minimum_size = Vector2(icon_px, icon_px)
+	holder.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.add_child(holder)
+	var glow := TextureRect.new()
+	glow.texture = _glow()
+	glow.modulate = Color(color, 0.55)
+	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	glow.position = Vector2(-icon_px * 0.4, -icon_px * 0.4)
+	glow.size = Vector2(icon_px * 1.8, icon_px * 1.8)
+	holder.add_child(glow)
+	var icon := UITheme.icon_rect(icon_id, icon_px)
+	icon.size = Vector2(icon_px, icon_px)
+	holder.add_child(icon)
+	var font_px := 17 if big else UITheme.FS_SMALL + 1
+	var lead: Label = null
+	var words: Label
+	if amount > 0:
+		lead = _make_label("+" + I18n.whole(amount), font_px, color)
+		line.add_child(lead)
+		words = _make_label(rest.strip_edges(), font_px, TOAST_INK)
+		words.add_theme_font_override("font", UITheme.font_body())
+	else:
+		words = _make_label(text, font_px, color)
+	words.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	line.add_child(words)
+	var times := _make_label("", UITheme.FS_SMALL - 1, color)
+	times.visible = false
+	line.add_child(times)
+	for label: Label in [lead, words, times]:
+		if label != null:
+			label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	# The accent on the screen-side edge, with its glow.
+	var accent := ColorRect.new()
+	accent.color = color
+	accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slide.add_child(accent)
+	var halo := TextureRect.new()
+	halo.texture = _glow()
+	halo.modulate = Color(color, 0.45)
+	halo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	halo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	slide.add_child(halo)
+	slide.move_child(halo, 0)
 	_toast_box.add_child(row)
-	_toast_panel.show()
-	_toasts.append({"label": label, "row": row, "until": _now() + TOAST_SECONDS})
+	var entry := {"row": row, "slide": slide, "strip": strip, "accent": accent, "halo": halo, "height": height,
+		"lead": lead, "times": times, "icon": icon_id, "rest": rest, "amount": amount, "count": 1, "leaving": false,
+		"until": _now() + (TOAST_BIG_SECONDS if big else TOAST_SECONDS)}
+	_fit(entry)
+	slide.position.x = TOAST_SLIDE
+	slide.modulate.a = 0.0
+	var enter := slide.create_tween().set_parallel()
+	enter.tween_property(slide, "position:x", 0.0, TOAST_IN).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	enter.tween_property(slide, "modulate:a", 1.0, TOAST_IN)
+	_toasts.append(entry)
 	var canvas := get_viewport().get_visible_rect().size
-	var capacity := 2 if canvas.x < 1000 or canvas.y < 560 else TOASTS_MAX
-	# As many as the card holds: the newest at the bottom must not hang out
-	# of it (six rows of this font are taller than the card).
-	while _toasts.size() > capacity or (_toasts.size() > 1 and _rows_height() > TOAST_H - 12.0):
-		var oldest: Dictionary = _toasts.pop_front()
-		if is_instance_valid(oldest["row"]):
-			_toast_box.remove_child(oldest["row"])
-			(oldest["row"] as Node).queue_free()
+	var capacity := 3 if canvas.x < 1000 or canvas.y < 560 else TOASTS_MAX
+	var showing := _toasts.filter(func(t: Dictionary) -> bool: return not bool(t["leaving"]))
+	while showing.size() > capacity:
+		_leave(showing.pop_front())
 
-## The toast rows' height together, as the box lays them out.
-func _rows_height() -> float:
-	var total := 0.0
-	var rows := 0
-	for entry: Dictionary in _toasts:
-		if is_instance_valid(entry["row"]):
-			total += (entry["row"] as Control).get_combined_minimum_size().y
-			rows += 1
-	return total + 2.0 * maxf(0.0, float(rows - 1))
+## A strip as wide as what it says now (a joined gain grows it), its row
+## holding that place, the accent on its right edge.
+func _fit(entry: Dictionary) -> void:
+	var strip := entry["strip"] as PanelContainer
+	var height := float(entry["height"])
+	var width := strip.get_combined_minimum_size().x
+	(entry["row"] as Control).custom_minimum_size = Vector2(width, height)
+	strip.size = Vector2(width, height)
+	(entry["accent"] as Control).position = Vector2(width - 2.0, 4.0)
+	(entry["accent"] as Control).size = Vector2(2.0, height - 8.0)
+	(entry["halo"] as Control).position = Vector2(width - 12.0, -4.0)
+	(entry["halo"] as Control).size = Vector2(22.0, height + 8.0)
+
+## The amount a gain opens with ("+1.250 EXP" -> 1250), 0 when it opens
+## with none (an item's "+name x2", a level, a rise).
+static func _amount_of(text: String) -> int:
+	if not text.begins_with("+"):
+		return 0
+	var head := text.substr(1, text.find(" ") - 1) if text.find(" ") > 1 else text.substr(1)
+	var digits := head.replace(".", "").replace(",", "")
+	return int(digits) if digits.is_valid_int() else 0
+
+## A strip slides out and fades; it leaves the column once gone.
+func _leave(entry: Dictionary) -> void:
+	if bool(entry["leaving"]):
+		return
+	entry["leaving"] = true
+	var slide := entry["slide"] as Control
+	var row := entry["row"] as Control
+	if not is_instance_valid(slide):
+		return
+	var out := slide.create_tween().set_parallel()
+	out.tween_property(slide, "position:x", TOAST_SLIDE * 0.8, TOAST_OUT).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	out.tween_property(slide, "modulate:a", 0.0, TOAST_OUT)
+	out.chain().tween_callback(func() -> void:
+		_toasts.erase(entry)
+		if is_instance_valid(row):
+			_toast_box.remove_child(row)
+			row.queue_free())
+
+## The strip's glass: clear at its left end, deepening to the right.
+static func _strip_wash() -> StyleBoxTexture:
+	if _wash_box == null:
+		var gradient := Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 0.3, 1.0])
+		gradient.colors = PackedColorArray([Color(0.031, 0.043, 0.067, 0.0), Color(0.031, 0.043, 0.067, 0.70),
+			Color(0.031, 0.043, 0.067, 0.82)])
+		var texture := GradientTexture2D.new()
+		texture.gradient = gradient
+		texture.width = 128
+		texture.height = 4
+		_wash_box = StyleBoxTexture.new()
+		_wash_box.texture = texture
+		_wash_box.content_margin_left = 34
+		_wash_box.content_margin_right = 14
+	return _wash_box
+
+## A soft round glow (white; the caller tints it).
+static func _glow() -> GradientTexture2D:
+	if _glow_tex == null:
+		var gradient := Gradient.new()
+		gradient.offsets = PackedFloat32Array([0.0, 1.0])
+		gradient.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
+		_glow_tex = GradientTexture2D.new()
+		_glow_tex.gradient = gradient
+		_glow_tex.fill = GradientTexture2D.FILL_RADIAL
+		_glow_tex.fill_from = Vector2(0.5, 0.5)
+		_glow_tex.fill_to = Vector2(0.5, 0.0)
+		_glow_tex.width = 64
+		_glow_tex.height = 64
+	return _glow_tex
 
 ## ------------------------------------------------------------------ process
 
@@ -345,17 +489,11 @@ func _process(_delta: float) -> void:
 	if session == null:
 		return
 	var now := _now()
-	for entry in _toasts.duplicate():
-		if not is_instance_valid(entry["label"]):
+	for entry: Dictionary in _toasts.duplicate():
+		if not is_instance_valid(entry["row"]):
 			_toasts.erase(entry)
 		elif now > float(entry["until"]):
-			# out of the box now: freed at the frame's end, the rows under it
-			# moved up a frame late (the toasts jumped)
-			_toast_box.remove_child(entry["row"])
-			(entry["row"] as Node).queue_free()
-			_toasts.erase(entry)
-	if _toasts.is_empty() and _toast_panel.visible:
-		_toast_panel.hide()
+			_leave(entry)
 	if is_dead():
 		var hp: int = (session.vitals() as PackedInt32Array)[0]
 		if hp <= 0:
