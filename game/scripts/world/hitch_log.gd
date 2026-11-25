@@ -23,7 +23,10 @@ extends Node
 ## Without `--hitch-log` it runs quiet, in every game: vsync and the render
 ## timing are left alone, and only a frame over QUIET_MS once the map is built
 ## is written to the log (at most QUIET_LINES a session), with what compiled in
-## it and where. A player's log then says what a freeze was (a Mac reported
+## it, where, the connection's round trip then and how many creatures came
+## into view that frame. A round trip that jumps (over RTT_SPIKE_MS and
+## RTT_SPIKE_SHARE times its usual) is written too ("[net]"), so a player's
+## "the ping shot up and it froze" says which of the two it was. A player's log then says what a freeze was (a Mac reported
 ## "a stutter the first time I mounted, cast, attacked" with nothing to show).
 ##
 ## `--hitch-cycle=low,medium,high`: the presets in turn, CYCLE_SECONDS each,
@@ -34,12 +37,21 @@ const HITCH_MS := 33.0
 const SUMMARY_SECONDS := 5.0
 const SOURCES := ["canvas", "mesh", "surface", "draw", "spec"]
 const CYCLE_SECONDS := 10.0
-const QUIET_MS := 250.0
-const QUIET_LINES := 40
+const QUIET_MS := 150.0
+const QUIET_LINES := 60
+## The round trip is looked at this often; its usual value follows slowly.
+const RTT_LOOK := 0.5
+const RTT_SPIKE_MS := 220
+const RTT_SPIKE_SHARE := 2.5
 
 ## Set before it enters the tree: the player's quiet log.
 var quiet := false
 var _quiet_left := QUIET_LINES
+var _rtt := 0
+var _rtt_usual := 0.0
+var _rtt_at := 0.0
+var _rtt_spiking := false
+var _beasts_seen := 0
 
 var _infos: Array = []
 var _last: Array = []
@@ -105,10 +117,20 @@ func _process(_delta: float) -> void:
 		_skip -= 1
 		return
 	if quiet:
-		if ms > QUIET_MS and _quiet_left > 0 and bool(get_parent().get("built")) \
-				and get_parent().get_node_or_null("ShaderWarmup") == null and not _loading():
+		var live := bool(get_parent().get("built")) and get_parent().get_node_or_null("ShaderWarmup") == null \
+			and not _loading()
+		var beasts: Variant = get_parent().get("beasts")
+		var count := (beasts as Dictionary).size() if beasts is Dictionary else 0
+		var came := maxi(0, count - _beasts_seen)
+		_beasts_seen = count
+		if ms > QUIET_MS and _quiet_left > 0 and live:
 			_quiet_left -= 1
-			print("[hitch] %d ms, compiled %s, %s" % [int(ms), _named(delta_counts), _where()])
+			print("[hitch] %d ms, compiled %s, %s, rtt %d ms, %d creatures came into view" % [int(ms),
+				_named(delta_counts), _where(), _rtt, came])
+		_rtt_at -= ms / 1000.0
+		if _rtt_at <= 0.0 and live:
+			_rtt_at = RTT_LOOK
+			_look_at_rtt()
 		return
 	var gpu := RenderingServer.viewport_get_measured_render_time_gpu(get_viewport().get_viewport_rid())
 	_frames.append(ms)
@@ -132,6 +154,29 @@ func _process(_delta: float) -> void:
 		_cycle_at -= ms / 1000.0
 		if _cycle_at <= 0.0:
 			_next_preset()
+
+## The connection's round trip now; a jump far over its usual is written
+## once (and its settling back).
+func _look_at_rtt() -> void:
+	var session: Variant = get_parent().get("session")
+	if session == null or not (session as Object).has_method("stats"):
+		return
+	var stats: Dictionary = (session as Object).call("stats")
+	_rtt = int(stats.get("rtt_ms", 0))
+	if _rtt <= 0:
+		return
+	if _rtt_usual <= 0.0:
+		_rtt_usual = _rtt
+	var spike := _rtt > RTT_SPIKE_MS and _rtt > _rtt_usual * RTT_SPIKE_SHARE
+	if spike and not _rtt_spiking and _quiet_left > 0:
+		_quiet_left -= 1
+		print("[net] round trip %d ms (usually %d ms), %s" % [_rtt, int(_rtt_usual), _where()])
+	elif not spike and _rtt_spiking and _quiet_left > 0:
+		_quiet_left -= 1
+		print("[net] round trip back to %d ms" % _rtt)
+	_rtt_spiking = spike
+	if not spike:
+		_rtt_usual = lerpf(_rtt_usual, _rtt, 0.1)
 
 ## The next preset of --hitch-cycle, applied live for this session.
 func _next_preset() -> void:
