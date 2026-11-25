@@ -2462,7 +2462,13 @@ impl Sim {
     }
 
     /// A boss still standing with nobody past its line: its closed gates
-    /// open again until someone crosses it.
+    /// open again until someone crosses it, so a party that wiped can come
+    /// back. Only once the fight is over, though: a fallen player lying past
+    /// the line still counts (it may rise there), and while the boss still
+    /// fights (chases anyone) the gates stay shut. They used to swing open at
+    /// every death and every blow that threw a lone player back over the
+    /// line, and shut again at the rise or the next step in - twelve times in
+    /// one live commander fight, with the boss free to walk out.
     fn wipe_lock(&mut self, i: usize, def: &realm_rules::dungeons::DungeonDef) {
         for (s, step) in def.steps.iter().enumerate() {
             let Trigger::Area(z) = step.on else { continue };
@@ -2482,17 +2488,27 @@ impl Sim {
             if !boss_alive {
                 continue;
             }
+            let fighting = self.runs[i].as_ref().is_some_and(|r| {
+                r.mobs
+                    .iter()
+                    .filter(|m| m.step == s && m.boss_name.is_some())
+                    .any(|m| {
+                        self.world
+                            .get::<Mob>(m.entity)
+                            .is_some_and(|x| matches!(x.mode, MobMode::Chase(_)))
+                    })
+            });
             let copy = self.runs[i].as_ref().map_or(0, |r| r.copy);
             let offset = offset_of(copy);
             let past = self.in_copy(copy).iter().any(|(e, _)| {
                 self.world
                     .get::<Player>(*e)
-                    .is_some_and(|p| p.dead_until == 0 && p.body.pos.z - offset.z < z)
+                    .is_some_and(|p| p.body.pos.z - offset.z < z)
             });
             let unlocked = self.runs[i]
                 .as_ref()
                 .is_some_and(|r| r.unlocked.contains(&s));
-            if !past && !unlocked {
+            if !past && !unlocked && !fighting {
                 for g in &step.close {
                     self.set_gate(i, g, true);
                 }
