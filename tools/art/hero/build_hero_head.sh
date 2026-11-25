@@ -24,6 +24,7 @@ else
     "$B" -b "$SRC" --python "$HERE/build_head.py" -- "$FACE" "$WORK" > "$WORK/build_head.log" 2>&1
     grep -E "^\[head\] (skin pack|head keys|exported|done)|Error|Traceback" "$WORK/build_head.log" | cut -c1-200
     python "$HERE/strand_atlas.py" "$HAIR/hair_atlas.png"
+    python "$HERE/clump_atlas.py" "$HAIR/hair_clumps.png"
     STYLES=($(cd "$HERE" && python -c "import hair_styles; print(' '.join(hair_styles.STYLES))"))
 fi
 for style in "${STYLES[@]}"; do

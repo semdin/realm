@@ -42,6 +42,29 @@ uniform float fringe_far = 14.0;
 // per strand the highlights slide along it by up to this (the strand id):
 // one shift for a whole card read as a flat plastic sheen
 uniform float shift_jitter = 0.06;
+// how much a lock's edges, the inner layers and the deep strands of a card
+// darken (the clump atlas sets them softer than the first atlas: its clumps
+// are narrow, and strong edge shading read as wood grain). strand_depth_ao
+// reads the atlas's B (a strand's depth in its card; 1 = on top).
+uniform float crown_shade = 0.8;
+uniform float layer_shade = 0.85;
+uniform float layer_ao = 0.45;
+uniform float strand_depth_ao = 0.0;
+// which atlas channel gives each strand its own fade threshold: the first
+// atlas's R is per strand; the clump atlas's R is per clump (a whole clump
+// appearing at one row drew a straight cut), its B is per strand
+uniform bool fade_by_depth = false;
+// how far apart the clumps' (R) and the cards' (COLOR.r) brightness lie
+uniform float clump_spread = 1.0;
+// light scattered through many fibres lifts a dense head of hair above one
+// strand's colour (dark brown read black): albedo ^ albedo_gamma
+uniform float albedo_gamma = 1.0;
+// how far the glints of single strands spread (1 = some catch nothing, a few
+// very much; on the clump atlas lower: sub-pixel strands sparkled as noise)
+uniform float glint_spread = 1.0;
+// a card seen edge-on is a hard bar (the front of a quiff, the silhouette):
+// it thins out, strand by strand, as it turns edge-on (0 = off)
+uniform float edge_on_fade = 0.0;
 
 varying vec3 strand_dir;
 varying float strand_ao;
@@ -64,6 +87,17 @@ void vertex() {
 	}
 }
 
+// the card's own (geometric) facing: its bent normal points out of the
+// head, not out of the card
+float edge_on_factor(vec3 vertex, vec3 view) {
+	if (edge_on_fade <= 0.0) {
+		return 1.0;
+	}
+	vec3 ng = normalize(cross(dFdx(vertex), dFdy(vertex)));
+	float facing = abs(dot(ng, view));
+	return mix(1.0 - edge_on_fade, 1.0, smoothstep(0.08, 0.4, facing));
+}
+
 float coverage_at(vec2 uv, float a) {
 	float lod = textureQueryLod(atlas_tex, uv).x;
 	return a * (1.0 + max(lod, 0.0) * mip_coverage);
@@ -78,7 +112,7 @@ void hair_surface(vec2 uv, vec2 uv2, vec4 col, out vec3 albedo, out float covera
 		// hairline and in from its root (hair_cards.py). Strand by strand:
 		// each strand (its id, R) has its own threshold, so the edge thins
 		// out into single hairs instead of a card's straight cut
-		float th = a.r * 0.8;
+		float th = (fade_by_depth ? a.b : a.r) * 0.8;
 		coverage *= smoothstep(th, th + 0.2, col.a);
 	}
 	vec3 base = hair_color;
@@ -89,16 +123,18 @@ void hair_surface(vec2 uv, vec2 uv2, vec4 col, out vec3 albedo, out float covera
 		// each lock shaded round (its crown light, its edges in its own
 		// shadow), a soft root-to-tip gradient, strands only faintly apart
 		float shade = mix(root_dark, 1.0, smoothstep(0.0, 0.4, t));
-		shade *= mix(0.8, 1.0, lock_crown) * mix(0.9, 1.06, id) * mix(0.92, 1.0, col.r);
+		shade *= mix(crown_shade, 1.0, lock_crown) * (1.0 + (mix(0.9, 1.06, id) - 1.0) * clump_spread)
+			* (1.0 + (mix(0.92, 1.0, col.r) - 1.0) * clump_spread);
 		// the outer layers a little lighter: sun-faded tops over a darker body
-		shade *= mix(0.85, 1.08, uv2.y);
+		shade *= mix(layer_shade, 1.08, uv2.y);
 		albedo = base * shade * darkness;
 		// depth: the inner layers sit in the hair's own shadow
-		ao = mix(0.45, 1.0, uv2.y * uv2.y) * col.b * mix(0.85, 1.0, lock_crown);
+		ao = mix(layer_ao, 1.0, uv2.y * uv2.y) * col.b * mix(0.85, 1.0, lock_crown);
+		ao *= mix(1.0 - strand_depth_ao, 1.0, a.b);
 		// highlights break into strands: some catch the light, most less
 		// (a whole lock lit evenly read as a grey blob on dark hair)
 		float g = fract(id * 7.31 + col.r * 3.7);
-		glint = mix(0.12, 1.3, g * g) * mix(0.7, 1.0, lock_crown);
+		glint = mix(mix(0.6, 0.12, glint_spread), mix(1.0, 1.3, glint_spread), g * g) * mix(0.7, 1.0, lock_crown);
 		// per strand only: one shift per card broke the band into patches
 		jitter = (id - 0.5) * shift_jitter;
 	} else {
@@ -109,7 +145,7 @@ void hair_surface(vec2 uv, vec2 uv2, vec4 col, out vec3 albedo, out float covera
 		glint = 0.6;
 		jitter = 0.0;
 	}
-	albedo = min(albedo, vec3(0.8));
+	albedo = min(pow(albedo, vec3(albedo_gamma)), vec3(0.8));
 }
 
 void hair_light(vec3 t, float ao, float glint, float jitter, vec3 normal, vec3 view, vec3 light, vec3 light_color,

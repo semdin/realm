@@ -37,6 +37,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import hair_styles  # noqa: E402
 import strand_atlas  # noqa: E402
+import clump_atlas  # noqa: E402
 from bake_util import save_img, blur, raster  # noqa: E402
 
 args = sys.argv[sys.argv.index('--') + 1:]
@@ -46,7 +47,9 @@ WORK = os.path.abspath(args[2])
 os.makedirs(OUT, exist_ok=True)
 spec = hair_styles.STYLES[STYLE]
 rng = np.random.default_rng(sum(ord(c) for c in STYLE) * 7919)
-N_COLUMNS = len(strand_atlas.COLUMNS)
+# the style's atlas: the clump atlas (groomed styles, `env_layers`) or the
+# first strand atlas
+N_COLUMNS = len(clump_atlas.COLUMNS if spec.get('atlas') == 'clumps' else strand_atlas.COLUMNS)
 # the light / wispy columns (strand_atlas.COLUMNS) for cards on the hairline
 EDGE_COLUMNS = [4, 5]
 # the shortest card worth drawing (m)
@@ -395,6 +398,203 @@ for li, layer in enumerate(spec['layers']):
         made += 1
     card_count += made
     log('layer %s: %d cards' % (layer['name'], made))
+
+
+# ------------------------------------------------------------------ groomed cards (the envelope)
+# The way hair cards are laid by hand (PixelicaCG, HairTool): the haircut is a
+# smooth VOLUME over the scalp - its thickness T(q) is the style's
+# `thickness` - and cards are laid in layers through it like roof shingles:
+# each card's root sits on the skin under the hair upstream of it, it rises
+# to its layer's height (a share `f` of T) over the first `rise` of its
+# length and then lies in that layer along the comb's flow to its tip. All
+# three vertices across a card sit at that height over the skin below them,
+# so a card bends round the head with the volume: no card stands off it, no
+# edge sticks out of the silhouette, neighbours shade alike. Where nothing
+# lies upstream (the hairline, the part) the roots fade in.
+def edge_distance():
+    """Per head vertex: how far (m) inside the style's hairline it lies
+    (0 outside)."""
+    from mathutils.kdtree import KDTree
+    hv = np.array([spec['hairline'](q_of(p)) for p in REST]) * REGION
+    inside = hv >= 0.5
+    out_idx = np.where(~inside)[0]
+    kd = KDTree(len(out_idx))
+    for k, vi in enumerate(out_idx):
+        kd.insert(REST[vi], k)
+    kd.balance()
+    ed = np.zeros(len(REST))
+    for vi in np.where(inside)[0]:
+        ed[vi] = kd.find(REST[vi])[2]
+    return ed
+
+
+def bary_of(loc, ti):
+    a, b, c = REST[tris[ti]]
+    v0, v1, v2 = b - a, c - a, np.asarray(loc) - a
+    d00, d01, d11, d20, d21 = v0 @ v0, v0 @ v1, v1 @ v1, v2 @ v0, v2 @ v1
+    den = d00 * d11 - d01 * d01
+    w1 = (d11 * d20 - d01 * d21) / den if den else 0.0
+    w2 = (d00 * d21 - d01 * d20) / den if den else 0.0
+    return np.array([1 - w1 - w2, w1, w2])
+
+
+def env_cards():
+    ed_v = edge_distance()
+
+    def edge_at(loc, ti):
+        return float(bary_of(loc, ti) @ ed_v[tris[ti]])
+
+    def off_dir(surf, n):
+        """The direction the volume rises in: the skin's normal eased toward
+        the skull's radial one (the head's small dents do not show)."""
+        r = (surf - C) / np.linalg.norm(surf - C)
+        v = 0.6 * n + 0.4 * r
+        return v / np.linalg.norm(v)
+
+    thick = spec['thickness']
+    part = spec.get('part_dist')
+    low_z = spec.get('low_z', 0.2)
+    n_env = len(spec['env_layers'])
+    made_all = 0
+    seg_len = spec.get('seg_len', 0.0085)
+    for li, layer in enumerate(spec['env_layers']):
+        depth = layer.get('depth', min(1.0, layer['f']))
+        # roots: a Poisson disk over the scalp, kept to the layer's band of
+        # distance from the hairline
+        spacing = layer['spacing']
+        cell = spacing / math.sqrt(3)
+        grid, roots = {}, []
+        min_e, max_e = layer.get('min_edge', 0.0), layer.get('max_edge', 1.0)
+        for i in rng.permutation(cand_n):
+            p = cand[i]
+            loc, nrm, ti, _d = bvh.find_nearest(Vector(p))
+            e = edge_at(np.array(loc), ti)
+            if not (min_e <= e <= max_e) or e <= 0.0:
+                continue
+            q = q_of(np.array(loc))
+            if layer.get('near') is not None:
+                # a layer kept round one point (q) within a radius (m)
+                if np.linalg.norm(np.array(loc) - (C + R * np.asarray(layer['near'][0]) / np.linalg.norm(layer['near'][0]))) > layer['near'][1]:
+                    continue
+            if layer.get('min_z') is not None and q[2] < layer['min_z']:
+                continue
+            if layer.get('max_z') is not None and q[2] > layer['max_z']:
+                continue
+            key = tuple((p // cell).astype(int))
+            ok = True
+            for dx in (-2, -1, 0, 1, 2):
+                for dy in (-2, -1, 0, 1, 2):
+                    for dz in (-2, -1, 0, 1, 2):
+                        for j in grid.get((key[0] + dx, key[1] + dy, key[2] + dz), ()):
+                            if np.sum((roots[j][0] - p) ** 2) < spacing * spacing:
+                                ok = False
+                                break
+                        if not ok:
+                            break
+                    if not ok:
+                        break
+                if not ok:
+                    break
+            if ok:
+                grid.setdefault(key, []).append(len(roots))
+                roots.append((p, e))
+        made = 0
+        for root, e_root in roots:
+            surf, n, _ti = nearest(root)
+            q = q_of(surf)
+            L = spec['length'](q) * layer['length'] * rng.uniform(0.85, 1.1)
+            d = tangent(spec['flow'](q), n)
+            d = rotate(d, n, rng.normal(0, layer.get('noise', spec.get('card_noise', 0.035))))
+            # a little height jitter only: cards of one layer that cross each
+            # other draw a hard cut line where they intersect
+            f = layer['f'] * rng.uniform(0.96, 1.04)
+            rise = layer.get('rise', 0.2) * rng.uniform(0.8, 1.2)
+            tuck = layer.get('tuck', 0.0)
+            overhang = spec['overhang'](q)
+            # rows: short ones over the rise (the card climbs out of
+            # the layers below smoothly, not in one steep step), then even ones
+            # the climb out of the skin has a length of its own (m), not a
+            # share of the card: a long top card took 2-3 cm and its faded
+            # root half thinned the front into a receding hairline
+            rise_len = min(max(rise * L, 0.004), layer.get('rise_max', spec.get('rise_max', 0.013)))
+            n_rest = int(min(14, max(2, round((L - rise_len) / seg_len))))
+            n_rise = spec.get('rise_rows', 2)
+            steps = [rise_len / n_rise] * n_rise + [(L - rise_len) / n_rest] * n_rest
+            # walk the centre line over the skin (re-projected every step)
+            path, runs = [(surf, n, d)], [0.0]
+            outside, run = 0.0, 0.0
+            for step in steps:
+                target = surf + d * step + DOWN * spec['gravity'] * step * (run / L)
+                s2, n2, ti2 = nearest(target)
+                if overhang is not None and grow_w[ti2] < 0.3:
+                    outside += step
+                    if outside > overhang:
+                        break
+                run += step
+                surf, n = s2, n2
+                nd = tangent(spec['flow'](q_of(surf)), n)
+                # neighbours follow the comb alike: a card's own heading
+                # turned its highlight band away from its neighbours' (patches)
+                d = tangent(0.5 * d + 0.5 * nd, n)
+                path.append((surf, n, d))
+                runs.append(run)
+            if len(path) < 5 or run < MIN_CARD_STYLE:
+                continue
+            L = run
+            rise = min(rise * (rise_len / max(rise_len, 1e-9)), rise_len / L)
+            width = layer['width'] * rng.uniform(0.85, 1.15)
+            rows = []
+            ramp = spec.get('edge_ramp', 0.0)
+            for k, (s, nn, dd) in enumerate(path):
+                t = runs[k] / L
+                h_env = thick(q_of(s))
+                if ramp > 0.0:
+                    # the volume rounds off toward the hairline (a quiff's
+                    # front, the temples): no cliff of stacked card roots
+                    _l, _n, _ti, _dd = bvh.find_nearest(Vector(s))
+                    floor_ = spec.get('edge_ramp_floor', 0.3)
+                    h_env *= floor_ + (1.0 - floor_) * smooth(0.0, ramp, edge_at(np.array(_l), _ti))
+                h = 0.0006 + max(0.0, f * h_env - 0.0006) * smooth(0.0, rise, t) * (1.0 - tuck * smooth(0.7, 1.0, t))
+                side = np.cross(nn, dd)
+                side /= max(np.linalg.norm(side), 1e-9)
+                w = width * (1.0 - layer.get('taper', 0.2) * t)
+                pts = []
+                for kk in (-1, 0, 1):
+                    sk, nk, _tk = nearest(s + side * kk * w / 2)
+                    ok_ = off_dir(sk, nk)
+                    hk = h + (layer.get('arc', 0.08) * w if kk == 0 else 0.0)
+                    pts.append(keep_out(sk + ok_ * hk, 0.0006, 0.004))
+                rows.append((pts, t, pts[1]))
+            q_root = q_of(path[0][0])
+            low = q_root[2] < low_z
+            cols_ = layer.get('low_columns', layer['columns']) if low else layer['columns']
+            col = int(rng.choice(cols_))
+            u0, u1 = col / N_COLUMNS, (col + 1) / N_COLUMNS
+            if rng.random() < 0.5:
+                u0, u1 = u1, u0
+            # every card fades in strand by strand while it rises out of the
+            # layers below (where it crossed them it drew a hard cut line);
+            # roots with nothing upstream (the hairline, the part) fade longer
+            rf = max(layer.get('root_fade', 0.0), min(0.6, rise * layer.get('rise_fade', spec.get('rise_fade', 1.1))))
+            near_edge = 1.0 - smooth(0.006, 0.016, e_root)
+            if not layer.get('cover'):
+                rf = max(rf, min(0.5, spec.get('edge_root_fade', 0.012) / L) * near_edge)
+                if part is not None:
+                    # along the part only a short fade: the hair leaves the
+                    # scalp right there (a long one opened a dark hollow)
+                    near_part = 1.0 - smooth(0.004, 0.012, part(q_root))
+                    rf = max(rf, min(0.5, 0.006 / L) * near_part)
+            cards.append({'layer': layer['name'], 'rows': rows, 'u': (u0, u1), 'depth': depth,
+                          'rnd': float(rng.random()), 'flex': float(min(1.5, max(0.2, L / 0.07))),
+                          'root_fade': rf})
+            made += 1
+        made_all += made
+        log('envelope layer %s: %d cards (f %.2f, spacing %.1f mm)' % (layer['name'], made, layer['f'], 1000 * spacing))
+    return made_all
+
+
+if spec.get('env_layers'):
+    card_count += env_cards()
 # far LOD: the inner layers only, every other row (hair_far, past
 # HeroAppearance.HAIR_NEAR metres; no fringe pass there)
 FAR_LAYERS = tuple(spec.get('far_layers', ('sides', 'base', 'main')))
@@ -425,7 +625,11 @@ def build_object(name, use_cards, row_step):
                 nrms.append(nv / max(np.linalg.norm(nv), 1e-9))
                 uv_a.append((u0 + (u1 - u0) * k / 2, 1.0 - t))
                 uv_b.append((t, 1.0 - card['depth']))
-                ao = (0.8 + 0.2 * card['depth']) * (0.75 + 0.25 * smooth(0.0, 0.6, t))
+                # each card a little darker toward its root (groomed cards:
+                # hardly - their roots are under the hair upstream, and a dark
+                # root on every card drew fish scales over the surface)
+                root_ao = spec.get('card_root_ao', 0.75)
+                ao = (0.8 + 0.2 * card['depth']) * (root_ao + (1.0 - root_ao) * smooth(0.0, 0.6, t))
                 # where the card lies over the skin near and past the hairline
                 # it fades out (the shader thins it strand by strand): no card
                 # edge draws the hairline as steps - also cards standing a

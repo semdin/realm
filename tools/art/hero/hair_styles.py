@@ -46,8 +46,10 @@ def parted_flow(q):
         across = norm([0.7, 0.45, -0.35])
     d_top = norm(norm([0.0, 1.0, 0.05]) * (1 - away) + across * away)
     # behind the crown there is no part: the hair falls away from the crown,
-    # turning round it (a whorl) so the crown point is covered
-    crown = smooth(0.2, 0.55, y)
+    # turning round it (a whorl) so the crown point is covered. Only behind
+    # it: in front of the crown a whorl's hair runs forward, head-on into the
+    # combed-back top (a seam of card ends across the crown)
+    crown = smooth(0.42, 0.75, y)
     d_top = norm(d_top * (1 - crown) + whorl(q) * crown)
     # the sides: down and back over the ears
     side_sign = 1.0 if x > 0 else -1.0
@@ -77,6 +79,35 @@ def parted_lift(q):
     top = smooth(0.3, 0.7, z)
     front = smooth(0.0, -0.7, y)
     return 0.001 + 0.012 * top + 0.006 * top * front
+
+
+def parted_thickness(q):
+    """How thick (m) the hair lies over the scalp: the volume the groomed
+    cards fill (hair_cards.py env_cards). Fullest over the big side's front,
+    where the sweep lifts off the forehead; thin along the part; the sides
+    and back lie close and taper to nothing at the nape."""
+    x, y, z = q
+    top = smooth(0.1, 0.62, z)
+    front = smooth(0.15, -0.65, y)
+    big = smooth(PART_X + 0.04, PART_X - 0.35, x)
+    t_top = 0.0105 + 0.0025 * big + 0.0035 * front * big
+    # along the part the hair leaves the scalp both ways: a shallow valley
+    on_part = (1.0 - smooth(0.02, 0.2, abs(x - PART_X))) * (1.0 - smooth(0.05, 0.4, y))
+    t_top *= 1.0 - 0.7 * on_part
+    # the crown's whorl lies flat (the hair leaves it every way)
+    t_top *= 0.5 + 0.5 * smooth(0.06, 0.4, float(np.linalg.norm(np.asarray(q) - CROWN)))
+    side = 0.0055 + 0.0015 * smooth(-0.1, 0.5, y)
+    nape = smooth(-0.3, -0.85, z)
+    low = side * (1.0 - 0.7 * nape)
+    return low + (t_top - low) * top
+
+
+def parted_part_dist(q):
+    """How far (m) a point lies from the part line (front to the crown)."""
+    x, y, z = q
+    if y > 0.3 or z < 0.35:
+        return 1.0
+    return abs(x - PART_X) * 0.095
 
 
 def parted_hairline(q):
@@ -359,24 +390,45 @@ STYLES = {
         "lift": parted_lift,
         "hairline": parted_hairline,
         "overhang": overhang_short,
-        "gravity": 0.15,
-        # card layers, inside out. spacing / width in metres; atlas columns
-        # (strand_atlas.COLUMNS) picked at random per card; offset = height
-        # over the scalp at the root; length = fraction of the local length
-        "layers": [
-            # the short sides and back: narrow dense cards lying flat on the
-            # head, long enough to overlap (no card edge stands out)
-            {"name": "sides", "spacing": 0.0068, "width": 0.012, "columns": [0, 1, 2], "offset": 0.0014,
-             "length": 1.0, "lift": 0.0, "noise": 0.05, "twist": 0.0, "arc": 0.05, "max_z": 0.35},
-            {"name": "base", "spacing": 0.010, "width": 0.024, "columns": [0, 1], "offset": 0.0025,
-             "length": 0.85, "lift": 0.5, "noise": 0.05, "twist": 0.05, "arc": 0.12, "min_z": 0.2},
-            {"name": "main", "spacing": 0.0125, "width": 0.022, "columns": [2, 3], "offset": 0.0055,
-             "length": 1.0, "lift": 1.0, "noise": 0.06, "twist": 0.08, "arc": 0.16},
-            {"name": "top", "spacing": 0.016, "width": 0.018, "columns": [2, 3, 6], "offset": 0.0085,
-             "length": 1.0, "lift": 1.2, "noise": 0.08, "twist": 0.12, "arc": 0.18, "min_z": 0.0},
-            {"name": "wisps", "spacing": 0.04, "width": 0.009, "columns": [6, 7], "offset": 0.01,
-             "length": 0.9, "lift": 1.3, "noise": 0.15, "twist": 0.2, "arc": 0.08},
+        "gravity": 0.12,
+        # groomed: cards laid through the volume (hair_cards.py env_cards) on
+        # the clump atlas (clump_atlas.py: 0-1 mass, 2-3 clumps, 4 lock,
+        # 5 fine, 6 short, 7 strays). Per layer: f = height as a share of the
+        # thickness, rise = the share of its length a card takes to get
+        # there from the skin (at most rise_max m), min/max_edge = how far inside the hairline
+        # (m) its roots may lie, low_columns = the atlas columns of cards
+        # rooted on the sides and back (q.z < low_z)
+        "atlas": "clumps",
+        "thickness": parted_thickness,
+        "part_dist": parted_part_dist,
+        # cards over the skin thin out strand by strand toward the hairline
+        # (scalp weight 0.25 -> 0.7): the hair cap draws the very edge
+        "edge_fade": (0.25, 0.7),
+        "edge_ramp": 0.035,
+        "edge_ramp_floor": 0.15,
+        "card_root_ao": 0.95,
+        "seg_len": 0.0095,
+        "layers": [],
+        "env_layers": [
+            {"name": "under", "f": 0.3, "spacing": 0.0095, "width": 0.02, "columns": [0, 1], "low_columns": [6, 0],
+             "length": 0.95, "rise": 0.15, "min_edge": 0.007, "arc": 0.05},
+            {"name": "body", "f": 0.68, "spacing": 0.0105, "width": 0.021, "columns": [0, 1, 2], "low_columns": [6, 1],
+             "length": 1.0, "rise": 0.22, "min_edge": 0.01, "arc": 0.08},
+            {"name": "surface", "f": 1.0, "spacing": 0.0125, "width": 0.019, "columns": [2, 3, 4], "low_columns": [6, 2],
+             "length": 1.0, "rise": 0.28, "min_edge": 0.013, "arc": 0.1},
+            # the hairline: fine short cards on the outside of the edge (lit
+            # like the surface: nothing lies over them)
+            {"name": "edge", "f": 0.25, "depth": 0.85, "spacing": 0.005, "width": 0.009, "columns": [5, 6], "low_columns": [5, 6, 5],
+             "length": 0.6, "rise": 0.35, "max_edge": 0.015, "root_fade": 0.15, "taper": 0.1},
+            {"name": "strays", "f": 1.05, "spacing": 0.03, "width": 0.009, "columns": [7], "length": 1.0,
+             "rise": 0.3, "min_edge": 0.015, "noise": 0.1},
+            # the crown's whorl: low cards lying flat over the point the hair
+            # leaves (every other root fades in; nothing else covers it)
+            {"name": "crown", "f": 0.6, "spacing": 0.0055, "width": 0.014, "columns": [0, 1], "length": 0.55,
+             "rise": 0.06, "rise_fade": 0.5, "cover": True, "near": (CROWN, 0.022), "depth": 0.5},
         ],
+        # past HAIR_NEAR the body and the surface do (the cap fills between)
+        "far_layers": ("body", "surface"),
     },
     "Tousled": {
         "flow": tousled_flow,

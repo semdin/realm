@@ -14,6 +14,7 @@ void fragment() {
 	float jitter;
 	vec3 n = FRONT_FACING ? NORMAL : -NORMAL;
 	hair_surface(UV, UV2, COLOR, albedo, coverage, ao, glint, jitter);
+	coverage *= edge_on_factor(VERTEX, VIEW);
 	strand_dir = normalize(strand_along_u ? TANGENT : BINORMAL);
 	strand_ao = ao;
 	sparkle = glint;

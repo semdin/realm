@@ -27,6 +27,9 @@ bash tools/art/hero/build_hero_head.sh                    # head + atlas + every
 bash tools/art/hero/build_hero_head.sh --hair SimpleParted # one style (head built before)
 ```
 
+The clump atlas (groomed styles) is its own step:
+`python tools/art/hero/clump_atlas.py game/assets/models/characters/hair/hair_clumps.png`.
+
 Then let Godot import the new files (headless `godot --import`). New PNGs
 get default import settings: set `compress/mode=2` (VRAM) and
 `process/size_limit=0` on the face and hair textures, `compress/normal_map=1`
@@ -199,6 +202,73 @@ the character screen offers none. What was tried, for a later attempt:
   take the skin tone the face's way (`face_tone`, `ARM_TONE_MATCH`).
 - The hairline, part and nape come from the hair cap texture, not from
   cards: card ends on the edge read as torn paper without TAA.
+
+### Groomed cards: the envelope (`env_layers`; SimpleParted since 2026-11-25)
+
+The way an artist lays hair cards by hand (PixelicaCG's and BGEN's Blender
+hair-card guides), as a script. The layer path above lays every card on its
+own (a Poisson root, a walk along the flow, its own lift, twist and noise);
+seen close on light hair that was straw: cards standing off the head, loops
+in the air, square and V-shaped ends, every card its own shade. A style with
+`env_layers` is built by `env_cards()` instead:
+
+- The haircut is a VOLUME: `thickness(q)` (m) over the scalp, smooth (fuller
+  where the sweep lifts, a shallow valley along the part, flat at the crown,
+  nothing at the nape). Toward the hairline it rounds off over `edge_ramp`
+  (to `edge_ramp_floor` of itself at the edge): no cliff of stacked roots.
+- Cards are laid through it in layers like roof shingles: a card's root is on
+  the skin under the hair upstream of it, it climbs to its layer's height
+  (`f` x the thickness) over its first `rise` (at most `rise_max`, 13 mm,
+  on short rows) and lies in that layer to its tip. All three vertices
+  across a card sit at that height over the skin below them, so cards bend
+  round the head with the volume. Layers are kept apart (height jitter only
+  ±4 %): cards of one layer crossing each other drew a hard cut line.
+- Every card fades in strand by strand while it climbs out of the layers
+  below (`rise_fade` x rise): where it crossed them it drew a hard line. Roots
+  with nothing upstream fade too: within 1.6 cm of the hairline over 12 mm
+  (`edge_root_fade`), along the part over 6 mm (a longer fade opened a dark
+  hollow, and a fade as a SHARE of a long top card thinned the front into a
+  receding hairline).
+- Layers (SimpleParted): `under` (mass, hides the scalp), `body`, `surface`
+  (clumps and locks), `edge` (fine short hairs within 15 mm of the hairline,
+  lit like the outside), `strays`, `crown` (`near` the whorl, `cover`: no
+  root fade). `min_edge`/`max_edge` keep a layer's roots to a band inside the
+  hairline (the dense layers stay 7-13 mm inside it: they ran to the edge as
+  a hard dark contour), `low_columns` are the atlas columns of cards rooted
+  on the sides and back.
+- Neighbours follow the comb alike (card noise 0.035 rad, each step half its
+  own heading, half the flow): a card's own heading turned its highlight band
+  away from its neighbours' (patches). No per-card root darkening
+  (`card_root_ao` 0.95): it drew fish scales.
+- The flow must not run head-on anywhere: SimpleParted's whorl only acts
+  behind the crown (in front of it a whorl runs forward into the combed-back
+  top: a seam of card ends).
+
+The atlas is `clump_atlas.py` (`hair_clumps.png`; `atlas: "clumps"` in the
+style, `HeroAppearance.CLUMP_STYLES` in the game): columns of narrow
+overlapping CLUMPS of 1-1.5 px strands, each clump tapering toward its own
+end at its own length (a card ends in many small ragged points, never a cut
+or one V), strands crowding each clump's middle (its sides thin out), R the
+clump's id, G across the clump, B a strand's depth (per strand: the shader's
+strand-by-strand fades read it, `fade_by_depth`; R per clump made whole clumps
+appear at one row). Columns: 0-1 mass, 2-3 clumps, 4 lock, 5 fine, 6 short,
+7 strays. Imported as VRAM BC7 (`high_quality`) with mipmaps that keep the
+alpha-test coverage.
+
+The game sets the clump atlas's shading (`HeroAppearance.CLUMP_SHADING`):
+softer lock edges, layers and roots (`crown_shade`, `layer_shade`, `layer_ao`,
+`root_dark`), per-strand self-shadow from B (`strand_depth_ao`), less spread
+between clumps (`clump_spread`), `albedo_gamma` 0.85 (light scattered
+through many fibres: dark brown read black), calmer glints (`glint_spread`,
+sub-pixel strands sparkled as noise) and `edge_on_fade` (a card turning
+edge-on thins out strand by strand: no hard bars at the front of the sweep
+or along the silhouette). Every knob defaults to the first atlas's look, so
+the layer styles, brows and lashes are unchanged.
+
+Cost (Intel iGPU, 16 heroes all within `HAIR_NEAR`, GPU median): 7.2-7.3 ms
+vs 6.6-6.9 ms with the old SimpleParted (+0.4 ms, the worst case); past
+`HAIR_NEAR` the same (4.1-4.5 ms both). Near 30k triangles (old 21k), far 8k
+(old 9.8k).
 
 ### Shading (`hero_hair_card.gdshaderinc`)
 

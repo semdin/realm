@@ -380,9 +380,17 @@ const CARD_STYLES := ["SimpleParted", "Buzzed", "Long", "Wavy", "Tousled", "Neat
 ## A look's style that has no cards yet shows the nearest built one (none
 ## today; a style added to looks.json before its cards are built).
 const STAND_INS := {}
+## Groomed styles (hair_cards.py env_cards) are drawn on the clump atlas
+## (tools/art/hero/clump_atlas.py), the rest on the first strand atlas.
+const CLUMP_STYLES := ["SimpleParted"]
+## The clump atlas's shading (hero_hair_card.gdshaderinc): its clumps are
+## narrow, so their edges and the inner layers darken less.
+const CLUMP_SHADING := {"crown_shade": 0.9, "layer_shade": 0.97, "layer_ao": 0.8, "strand_depth_ao": 0.3,
+	"fade_by_depth": true, "clump_spread": 0.35, "albedo_gamma": 0.85,
+	"glint_spread": 0.45, "edge_on_fade": 0.55, "root_dark": 0.92}
 const HairSwayScript = preload("res://scripts/entities/hair_sway.gd")
 static var _hair_scenes := {}
-static var _hair_material: ShaderMaterial = null
+static var _hair_materials := {}
 
 
 ## The style a look's `style` is drawn with ("none" stays bald).
@@ -392,23 +400,29 @@ static func drawn_style(style: String) -> String:
 	return String(STAND_INS.get(style, CARD_STYLES[0]))
 
 
-static func _hair_card_material() -> ShaderMaterial:
-	if _hair_material == null:
-		_hair_material = _card_material(load(HAIR_DIR + "hair_atlas.png"), true, 0.5)
-	return _hair_material
+static func _hair_card_material(style: String) -> ShaderMaterial:
+	var atlas := "hair_clumps.png" if style in CLUMP_STYLES else "hair_atlas.png"
+	if not _hair_materials.has(atlas):
+		var mat := _card_material(load(HAIR_DIR + atlas), true, 0.5)
+		if style in CLUMP_STYLES:
+			_set_both(mat, CLUMP_SHADING)
+		_hair_materials[atlas] = mat
+	return _hair_materials[atlas]
 
 
 ## Past this distance the far LOD of the hair is drawn (the base and main
 ## layers, every other row, no fringe pass): about a fifth of the triangles.
 const HAIR_NEAR := 7.0
-static var _hair_far_material: ShaderMaterial = null
+static var _hair_far_materials := {}
 
 
-static func _hair_far_card_material() -> ShaderMaterial:
-	if _hair_far_material == null:
-		_hair_far_material = (_hair_card_material().duplicate() as ShaderMaterial)
-		_hair_far_material.next_pass = null
-	return _hair_far_material
+static func _hair_far_card_material(style: String) -> ShaderMaterial:
+	var near := _hair_card_material(style)
+	if not _hair_far_materials.has(near):
+		var far := near.duplicate() as ShaderMaterial
+		far.next_pass = null
+		_hair_far_materials[near] = far
+	return _hair_far_materials[near]
 
 
 ## Put `style`'s cards on the skeleton (or none) as `node` (the near mesh)
@@ -460,11 +474,11 @@ static func _wear_cards(skeleton: Skeleton3D, style: String, node: String, sway:
 		elif far:
 			mi.visibility_range_begin = HAIR_NEAR
 			mi.visibility_range_begin_margin = 0.5
-			mi.set_surface_override_material(0, _hair_far_card_material())
+			mi.set_surface_override_material(0, _hair_far_card_material(style))
 		else:
 			mi.visibility_range_end = HAIR_NEAR
 			mi.visibility_range_end_margin = 0.5
-			mi.set_surface_override_material(0, _hair_card_material())
+			mi.set_surface_override_material(0, _hair_card_material(style))
 			if sway:
 				var spring := HairSwayScript.new()
 				spring.name = "HairSway"
