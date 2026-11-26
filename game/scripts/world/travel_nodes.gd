@@ -226,14 +226,27 @@ func _passage_mark(root: Node3D) -> void:
 	RisingMotes.set_rate(motes, 0.5)
 	root.add_child(motes)
 
-## The cabinet's door seam breathes a faint violet light.
+## The cabinet's door seam breathes a violet light, a cool light from above
+## picks its carving out of a dark room or cave (the wood is near black), and
+## violet motes drift up before its doors: it reads as a cabinet, and a
+## magical one, from across the room.
 func _seam_glow(root: Node3D) -> void:
 	var light := OmniLight3D.new()
 	light.light_color = Color(0.6, 0.3, 1.0)
-	light.light_energy = 0.9
-	light.omni_range = 3.5
-	light.position = Vector3(0, 1.3, 0.7)
+	light.light_energy = 1.6
+	light.omni_range = 4.5
+	light.position = Vector3(0, 1.3, 0.8)
 	root.add_child(light)
+	var reveal := OmniLight3D.new()
+	reveal.light_color = Color(0.78, 0.74, 0.92)
+	reveal.light_energy = 0.8
+	reveal.omni_range = 5.5
+	reveal.position = Vector3(0, 3.0, 1.7)
+	root.add_child(reveal)
+	var motes := RisingMotes.make(0.7, 4.0, Color(0.7, 0.45, 1.0), 8, 2.6, Vector2(0.12, 0.4), Vector2(0.008, 0.016))
+	RisingMotes.set_rate(motes, 0.5)
+	motes.position = Vector3(0, 0.05, 0.75)
+	root.add_child(motes)
 
 ## A low fire in the hearth: three looping flame flipbooks staggered in depth
 ## and a warm light.

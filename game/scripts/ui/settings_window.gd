@@ -557,6 +557,12 @@ func refresh() -> void:
 	_show_toggle(invert_button, settings.invert_mouse_y)
 	_show_toggle(vsync_button, settings.vsync)
 	fps_cap_picker.select(maxi(0, GameSettings.FPS_CHOICES.find(settings.fps_cap)))
+	# under VSync the cap snaps to the screen's refresh rate: say what it runs at
+	fps_cap_picker.tooltip_text = tr("A limit keeps a laptop cooler and quieter") + "
+" 		+ tr("With VSync the limit fits the screen's refresh rate, so every frame stays on screen equally long (60 on a 100 Hz screen runs at 50).")
+	if settings.effective_fps_cap() != settings.fps_cap:
+		fps_cap_picker.tooltip_text += "
+" + tr("On this screen: %d FPS") % settings.effective_fps_cap()
 	render_picker.select(maxi(0, GameSettings.RENDER_SCALE_CHOICES.find(settings.render_scale)))
 	if quality_picker != null:
 		quality_picker.select(maxi(0, GameSettings.GRAPHICS_CHOICES.find(settings.graphics_quality)))

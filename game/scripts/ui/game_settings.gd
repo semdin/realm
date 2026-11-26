@@ -193,6 +193,9 @@ var _by_key: Dictionary = {}
 var load_error := ""
 var _window_fitted := false
 var _resize_serial := 0
+## The screen the frame cap was fitted to and its refresh rate (Hz).
+var _paced_screen := -1
+var _paced_hz := 0.0
 
 static func instance() -> GameSettings:
 	if _instance == null:
@@ -567,9 +570,40 @@ func apply_window_mode() -> void:
 
 ## VSync and the frame cap.
 func apply_frame_pacing() -> void:
-	Engine.max_fps = fps_cap
+	_paced_screen = -1 if DisplayServer.get_name() == "headless" else DisplayServer.window_get_current_screen()
+	_paced_hz = _screen_hz(_paced_screen)
+	Engine.max_fps = effective_fps_cap()
 	if DisplayServer.get_name() != "headless":
 		DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_ENABLED if vsync else DisplayServer.VSYNC_DISABLED)
+
+## The cap in use. Under VSync a frame stays on screen for whole refreshes, so
+## a cap that does not divide the screen's rate judders: 60 on a 100 Hz screen
+## shows one frame for one refresh and the next for two (10 ms, 20 ms, ...),
+## worst in a fast turn or a broom climb, while the frame counter reads a
+## steady 60. The cap snaps down to the rate over the fewest refreshes that
+## stay at or under it (100 Hz: 60 -> 50; 144 Hz: 60 -> 48; 60 Hz: 60),
+## every frame on screen equally long. No VSync or no cap: the cap as chosen.
+func effective_fps_cap() -> int:
+	if fps_cap <= 0 or not vsync or _paced_hz <= 0.0:
+		return fps_cap
+	var refreshes := maxi(1, ceili(_paced_hz / float(fps_cap) - 0.02))
+	return maxi(1, roundi(_paced_hz / float(refreshes)))
+
+## The refresh rate of `screen` (0 when it cannot be read).
+static func _screen_hz(screen: int) -> float:
+	if screen < 0 or DisplayServer.get_name() == "headless":
+		return 0.0
+	return maxf(0.0, DisplayServer.screen_get_refresh_rate(screen))
+
+## Once a second: the window moved to another screen (or the screen's rate
+## changed), so the cap follows it. Moving a window does not always resize it.
+func _watch_screen() -> void:
+	var tree := Engine.get_main_loop() as SceneTree
+	while tree != null and DisplayServer.get_name() != "headless":
+		await tree.create_timer(1.0, true, false, true).timeout
+		var screen := DisplayServer.window_get_current_screen()
+		if screen != _paced_screen or not is_equal_approx(_screen_hz(screen), _paced_hz):
+			apply_frame_pacing()
 
 ## The render scale the player chose (0: the preset decides).
 func chosen_render_scale() -> float:
@@ -582,6 +616,7 @@ func _watch_window() -> void:
 	if tree == null or tree.root == null or tree.root.size_changed.is_connected(_on_window_resized):
 		return
 	tree.root.size_changed.connect(_on_window_resized)
+	_watch_screen()
 
 func _on_window_resized() -> void:
 	apply_ui_scale()

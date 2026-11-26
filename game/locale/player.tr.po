@@ -181,6 +181,12 @@ msgstr "%d FPS"
 msgid "A limit keeps a laptop cooler and quieter"
 msgstr "Sınır koymak dizüstü bilgisayarı daha serin ve sessiz tutar"
 
+msgid "With VSync the limit fits the screen's refresh rate, so every frame stays on screen equally long (60 on a 100 Hz screen runs at 50)."
+msgstr "VSync açıkken sınır ekranın yenileme hızına oturur; böylece her kare ekranda eşit süre kalır (100 Hz ekranda 60, 50 olarak çalışır)."
+
+msgid "On this screen: %d FPS"
+msgstr "Bu ekranda: %d FPS"
+
 msgid "Replay the introduction"
 msgstr "Tanıtımı yeniden oynat"
 
